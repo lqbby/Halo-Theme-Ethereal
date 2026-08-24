@@ -158,7 +158,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
-  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''}${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''}"
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''}"
   data-overlayscrollbars-initialize
 >
   <head>
