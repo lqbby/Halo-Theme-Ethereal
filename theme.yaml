@@ -1,0 +1,35 @@
+apiVersion: theme.halo.run/v1alpha1
+kind: Theme
+metadata:
+  name: Ethereal
+spec:
+  displayName: Ethereal
+  author:
+    name: 楠南NanNan
+    website: https://www.nannax.top
+  description: 一款基于 Fuwari 二次开发，为 Halo 打造的 Fuwari 风格增强型主题。
+  logo: /themes/Ethereal/assets/images/favicon-light-192.png
+  homepage: https://github.com/AloneNanNan/halo-theme-ethereal#readme
+  repo: https://github.com/AloneNanNan/halo-theme-ethereal
+  issues: https://github.com/AloneNanNan/halo-theme-ethereal/issues
+  customTemplates:
+    page:
+      - name: "朋友圈"
+        description: "朋友圈动态页面"
+        file: "friends.html"
+      - name: "心愿便签"
+        description: "心愿墙 + 树洞便签墙页面（需安装心愿便签插件）"
+        file: "wishes.html"
+      - name: "时间轴"
+        description: "个人成长历程时间轴页面（在主题设置的「时间轴」Tab 中配置数据）"
+        file: "timeline.html"
+      - name: "技能"
+        description: "个人技能展示页面（在主题设置的「技能」Tab 中配置数据）"
+        file: "skills.html"
+  settingName: "Ethereal-setting"
+  configMapName: "Ethereal-configMap"
+  version: "1.2.1"
+  requires: ">=2.25.0"
+  license:
+    - name: "MIT"
+      url: "https://github.com/AloneNanNan/halo-theme-ethereal/blob/main/LICENSE"

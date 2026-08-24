@@ -1,0 +1,652 @@
+---
+import ConfigCarrier from "../components/ConfigCarrier.astro";
+import WelcomePopup from "../components/control/WelcomePopup.astro";
+import WaveEffect from "../components/WaveEffect.astro";
+import {
+  speedCustomStyleThWith,
+  speedCustomStyleThExpr,
+} from "../utils/speed-style";
+import { bannerModeThWith } from "../utils/image-suffix";
+import {
+  AUTO_MODE,
+  BANNER_EXTEND_ROUNDING,
+  BANNER_HEIGHT,
+  BANNER_HEIGHT_HOME,
+  BANNER_HEIGHT_HOME_FULLSCREEN,
+  DARK_MODE,
+  DEFAULT_THEME,
+  LIGHT_MODE,
+  PAGE_WIDTH,
+} from "../constants/constants";
+
+interface Props {
+  title?: string;
+  description?: string;
+  setOGTypeArticle?: boolean;
+  isHomePage?: boolean;
+}
+
+const {
+  title = "${site.title}",
+  description = "",
+  setOGTypeArticle = false,
+  isHomePage = false,
+} = Astro.props;
+
+// 构建期由 astro.config.mjs 从 theme.yaml 注入（vite.define），供版本横幅使用
+const bannerVersion = ASSET_VERSION;
+
+const i18nInlineScript = `<script th:inline="javascript">
+  window.i18nResources = {
+    "search.loading": \`[(#{search.loading})]\`,
+    "search.noResults": \`[(#{search.noResults})]\`,
+    "search.panel": \`[(#{search.panel})]\`,
+    "search.placeholder": \`[(#{search.placeholder})]\`,
+    "theme.color": \`[(#{theme.color})]\`,
+    "theme.dark": \`[(#{theme.dark})]\`,
+    "theme.light": \`[(#{theme.light})]\`,
+    "theme.resetDefault": \`[(#{theme.resetDefault})]\`,
+    "theme.system": \`[(#{theme.system})]\`,
+    "display.layout": \`[(#{display.layout})]\`,
+    "display.tabAppearance": \`[(#{display.tabAppearance})]\`,
+    "display.tabWallpaper": \`[(#{display.tabWallpaper})]\`,
+    "display.layoutList": \`[(#{display.layoutList})]\`,
+    "display.layoutGrid": \`[(#{display.layoutGrid})]\`,
+    "display.cardStyle": \`[(#{display.cardStyle})]\`,
+    "display.cardHoverLift": \`[(#{display.cardHoverLift})]\`,
+    "display.navbarBlur": \`[(#{display.navbarBlur})]\`,
+    "display.masonry": \`[(#{display.masonry})]\`,
+    "display.wallpaper": \`[(#{display.wallpaper})]\`,
+    "display.wallpaperOpacity": \`[(#{display.wallpaperOpacity})]\`,
+    "display.wallpaperBlur": \`[(#{display.wallpaperBlur})]\`,
+    "display.wallpaperCardAlpha": \`[(#{display.wallpaperCardAlpha})]\`,
+    "display.wallpaperMode": \`[(#{display.wallpaperMode})]\`,
+    "display.wallpaperModeDisabled": \`[(#{display.wallpaperModeDisabled})]\`,
+    "display.wallpaperModeBanner": \`[(#{display.wallpaperModeBanner})]\`,
+    "display.wallpaperModeFullscreen": \`[(#{display.wallpaperModeFullscreen})]\`,
+    "display.wallpaperModeTransparent": \`[(#{display.wallpaperModeTransparent})]\`,
+    "display.wallpaperSettings": \`[(#{display.wallpaperSettings})]\`,
+    "display.bannerTitle": \`[(#{display.bannerTitle})]\`,
+    "display.wave": \`[(#{display.wave})]\`,
+    "nav.language": \`[(#{nav.language})]\`,
+    "nav.lightDark": \`[(#{nav.lightDark})]\`,
+    "widget.music.noPlaying": \`[(#{widget.music.noPlaying})]\`,
+    "widget.music.lyrics": \`[(#{widget.music.lyrics})]\`,
+    "widget.music.volume": \`[(#{widget.music.volume})]\`,
+    "widget.music.playMode": \`[(#{widget.music.playMode})]\`,
+    "widget.music.prev": \`[(#{widget.music.prev})]\`,
+    "widget.music.next": \`[(#{widget.music.next})]\`,
+    "widget.music.playlist": \`[(#{widget.music.playlist})]\`,
+    "widget.music.noLyrics": \`[(#{widget.music.noLyrics})]\`,
+    "widget.music.loadingLyrics": \`[(#{widget.music.loadingLyrics})]\`,
+    "widget.music.failedLyrics": \`[(#{widget.music.failedLyrics})]\`,
+    "widget.music.noSongs": \`[(#{widget.music.noSongs})]\`,
+    "widget.music.error": \`[(#{widget.music.error})]\`,
+    "widget.music.play": \`[(#{widget.music.play})]\`,
+    "widget.music.pause": \`[(#{widget.music.pause})]\`,
+    "widget.music.progress": \`[(#{widget.music.progress})]\`,
+    "widget.music.noCover": \`[(#{widget.music.noCover})]\`,
+    "widget.music.cover": \`[(#{widget.music.cover})]\`,
+    "widget.weather.loading": \`[(#{widget.weather.loading})]\`,
+    "widget.weather.error": \`[(#{widget.weather.error})]\`,
+    "widget.weather.noKey": \`[(#{widget.weather.noKey})]\`,
+    "widget.weather.updated": \`[(#{widget.weather.updated})]\`,
+    "widget.weather.humidity": \`[(#{widget.weather.humidity})]\`,
+    "widget.weather.busy": \`[(#{widget.weather.busy})]\`,
+    "widget.popularPosts.loading": \`[(#{widget.popularPosts.loading})]\`,
+    "widget.popularPosts.empty": \`[(#{widget.popularPosts.empty})]\`,
+    "widget.popularPosts.noTitle": \`[(#{widget.popularPosts.noTitle})]\`,
+    "widget.popularPosts.tenThousand": \`[(#{widget.popularPosts.tenThousand})]\`,
+    "widget.siteStats.tenThousand": \`[(#{widget.siteStats.tenThousand})]\`,
+    "widget.siteStats.today": \`[(#{widget.siteStats.today})]\`,
+    "widget.siteStats.yesterday": \`[(#{widget.siteStats.yesterday})]\`,
+    "widget.siteStats.daysAgo": \`[(#{widget.siteStats.daysAgo})]\`,
+    "widget.siteStats.monthsAgo": \`[(#{widget.siteStats.monthsAgo})]\`,
+    "widget.siteStats.yearsAgo": \`[(#{widget.siteStats.yearsAgo})]\`,
+    "welcome.close": \`[(#{welcome.close})]\`,
+    "common.close": \`[(#{common.close})]\`,
+    "fragment.layout.toToc": \`[(#{fragment.layout.toToc})]\`,
+    "post.sharePoster": \`[(#{post.sharePoster})]\`,
+    "post.previewAlt": \`[(#{post.previewAlt})]\`,
+    "post.copyLink": \`[(#{post.copyLink})]\`,
+    "post.saveImage": \`[(#{post.saveImage})]\`,
+    "post.copied": \`[(#{post.copied})]\`,
+    "post.scanCode": \`[(#{post.scanCode})]\`,
+    "post.rewardSupport": \`[(#{post.rewardSupport})]\`,
+    "post.wechat": \`[(#{post.wechat})]\`,
+    "post.alipay": \`[(#{post.alipay})]\`,
+    "post.noQrConfigured": \`[(#{post.noQrConfigured})]\`,
+    "profile.switchStatus": \`[(#{profile.switchStatus})]\`,
+    "profile.customTextPlaceholder": \`[(#{profile.customTextPlaceholder})]\`,
+    "profile.confirmSwitch": \`[(#{profile.confirmSwitch})]\`,
+    "profile.gotIt": \`[(#{profile.gotIt})]\`,
+    "profile.noPermission": \`[(#{profile.noPermission})]\`,
+    "profile.networkError": \`[(#{profile.networkError})]\`,
+    "external_link.title": \`[(#{external_link.title})]\`,
+    "external_link.back": \`[(#{external_link.back})]\`,
+    "external_link.continue": \`[(#{external_link.continue})]\`,
+    "external_link.copy_link": \`[(#{external_link.copy_link})]\`,
+    "external_link.auto_redirect": \`[(#{external_link.auto_redirect})]\`,
+    "external_link.copied": \`[(#{external_link.copied})]\`,
+  };
+</script>`;
+
+// （暂缓）：曾尝试在输出前用 #strings.replace 将 "</" 替换为 "<\/" 堵 script 闭合，
+// 但表达式字面量中的 "</" 会使 attoparser 在模板解析阶段抛错（全站 500），
+// 且 #strings.replace 参数为 Map 也会类型不匹配。维持审计建议原状。
+const themeSettingScript = `<script type="application/json" id="theme-config" th:inline="javascript">
+       /*[[\${theme.config}]]*/
+    </script>`;
+---
+
+<!doctype html>
+<html
+  th:lang="${#locale.toLanguageTag}"
+  th:data-hue="${theme.config?.style?.themeColor?.hue}"
+  th:data-hue-fixed="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable == false or theme.config?.layout?.mobileMenu?.visitorStyle?.hue == false}"
+  th:data-navbar-fixed="${theme.config?.layout?.mobileMenu?.navbarFixed}"
+  th:data-theme-anim-style="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == false ? 'none' : theme.config?.style?.colorScheme?.colorSchemeAnimation?.style}"
+  th:data-theme-anim-easing="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.easing}"
+  th:data-theme-anim-angle="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.angle}"
+  th:data-speed="${theme.config?.style?.animationSpeed?.speedTier}"
+  th:data-banner-display="${bannerMode}"
+  th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
+  th:style={speedCustomStyleThExpr()}
+  class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
+  data-overlayscrollbars-initialize
+>
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Guard against duplicate Custom Element registration during Swup page transitions -->
+    <script>
+      (function () {
+        var _define = customElements.define.bind(customElements);
+        customElements.define = function (name, constructor, options) {
+          if (customElements.get(name)) return;
+          return _define(name, constructor, options);
+        };
+      })();
+    </script>
+
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <!-- 必须含 initial-scale=1：缺失时 iOS Safari 会按视口宽度自动缩放页面 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="author" th:content="${theme.config?.sidebar?.profile?.name}" />
+    <meta name="description" th:content={description} />
+    <!-- 注意：不在此输出 og:url / canonical。Halo 模板上下文不暴露请求对象
+         （#httpServletRequest 恒为 null，会导致空属性），canonical 由 Halo 核心自动注入 -->
+    <meta property="og:site_name" th:content="${site.title}" />
+    <meta property="og:title" th:content={title} />
+    <meta
+      property="og:type"
+      content={setOGTypeArticle ? "article" : "website"}
+    />
+    <!-- 全站唯一 <title>：页面组件不再自行定义，避免重复输出 -->
+    <title th:text={title}></title>
+    <link rel="icon" th:href="${site.favicon}" />
+
+    <Fragment set:html={themeSettingScript} />
+    <Fragment set:html={i18nInlineScript} />
+    <script is:inline>
+      // 全局 i18n 助手（单一来源）：供各页面内联脚本与 Svelte 组件共用，
+      // 避免多处重复实现（历史各脚本自带的 t() 已陆续收敛到此）。
+      (function () {
+        var read = function (key, fallback) {
+          var res = window.i18nResources || {};
+          var value = res[key];
+          return value && value.indexOf("#{") === -1 ? value : fallback;
+        };
+        window.__etherealI18n = read;
+        // 语言标签归一化：zh-tw/zh-hant → zh-TW，zh* → zh-CN，其余 → en
+        window.__etherealLangTag = function (lang) {
+          var l = String(lang || "").toLowerCase();
+          if (l.indexOf("zh-tw") !== -1 || l.indexOf("zh-hant") !== -1) {
+            return "zh-TW";
+          }
+          if (l.indexOf("zh") === 0) return "zh-CN";
+          return "en";
+        };
+        // 写入 language cookie（前台切换 / 默认语言引导共用同一格式）
+        window.__etherealSetLanguage = function (lang) {
+          document.cookie =
+            "language=" + lang + "; path=/; max-age=31536000; samesite=Lax";
+        };
+        // 大数格式化：中文站以「万」为单位（÷10000），英文站以 k 为单位（÷1000）
+        window.__etherealBigNum = function (num, unitKey, unitFallback) {
+          var unit = read(unitKey, unitFallback || "k");
+          var divisor = unit === "k" ? 1000 : 10000;
+          return (num / divisor).toFixed(1).replace(/\.0$/, "") + unit;
+        };
+      })();
+    </script>
+    <script th:inline="javascript">
+      // Thymeleaf 运行时注入后台配色配置（Elvis 操作符同时覆盖两种可能的路径）
+      var __ecs =
+        /*[[${theme.config?.style?.colorScheme?.color_scheme}]]*/ "auto";
+      var __eecs = /*[[${theme.config?.layout?.mobileMenu?.enable_change_color_scheme ?: theme.config?.style?.colorScheme?.enable_change_color_scheme}]]*/ true;
+    </script>
+    <script th:inline="javascript">
+      // 默认语言引导：后台「样式设置 → 主题语言 → 默认语言」非跟随系统时，
+      // 首次访问（访客未手动切换过语言）且服务端渲染语言与默认不一致时写入 cookie 并刷新一次，
+      // 由 Thymeleaf 服务端用默认语言重渲染；当前语言已匹配时无需刷新。
+      // 访客在前台手动切换后以访客选择为准（切换逻辑会写 ethereal_lang_chosen 标记）。
+      // sessionStorage 防 cookie 被禁用时无限刷新死循环。
+      (function () {
+        var defaultLang =
+          /*[[${theme.config?.style?.language?.defaultLanguage}]]*/ "auto";
+        if (!defaultLang || defaultLang === "auto") return;
+        if (document.cookie.match(/(?:^|;\s*)ethereal_lang_chosen=([^;]*)/)) {
+          return;
+        }
+        var cur = window.__etherealLangTag(document.documentElement.lang);
+        if (cur === defaultLang) return;
+        if (sessionStorage.getItem("__ethereal_lang_bootstrapped")) return;
+        sessionStorage.setItem("__ethereal_lang_bootstrapped", "1");
+        window.__etherealSetLanguage(defaultLang);
+        window.location.replace(window.location.href);
+      })();
+    </script>
+    <script
+      is:inline
+      define:vars={{
+        DEFAULT_THEME,
+        LIGHT_MODE,
+        DARK_MODE,
+        AUTO_MODE,
+        BANNER_HEIGHT,
+        BANNER_HEIGHT_HOME,
+        BANNER_HEIGHT_HOME_FULLSCREEN,
+        BANNER_EXTEND_ROUNDING,
+        PAGE_WIDTH,
+        bannerVersion,
+      }}
+    >
+      (() => {
+        const configHue = document.documentElement.dataset.hue || "250";
+        const fixedHue = document.documentElement.dataset.hueFixed === "true";
+
+        // 读取并校验 Thymeleaf 注入的后台配置（null 表示路径不存在，用 DEFAULT_THEME 兜底）
+        var defaultScheme = DEFAULT_THEME;
+        if (
+          typeof __ecs !== "undefined" &&
+          __ecs !== null &&
+          (__ecs === LIGHT_MODE || __ecs === DARK_MODE || __ecs === AUTO_MODE)
+        ) {
+          defaultScheme = __ecs;
+        }
+        var enableChange =
+          typeof __eecs !== "undefined" && __eecs !== null ? __eecs : true;
+        // 允许切换时：仅当用户手动选择过才读 localStorage，否则始终用后台默认
+        var storedTheme;
+        if (enableChange && localStorage.getItem("__user_chose_theme")) {
+          storedTheme = localStorage.getItem("theme") || defaultScheme;
+        } else {
+          storedTheme = defaultScheme;
+        }
+
+        const preferredDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+
+        if (
+          storedTheme === DARK_MODE ||
+          (storedTheme === AUTO_MODE && preferredDark)
+        ) {
+          document.documentElement.classList.add("dark");
+        } else {
+          document.documentElement.classList.remove("dark");
+        }
+
+        const hue = fixedHue
+          ? configHue
+          : localStorage.getItem("hue") || configHue;
+        document.documentElement.style.setProperty("--hue", hue);
+        document.documentElement.style.setProperty(
+          "--page-width",
+          `${PAGE_WIDTH}rem`,
+        );
+
+        // 与 constants.ts 的 calcBannerHeightExtend 保持同式；延伸量 =
+        // 首页高度(全屏 100vh / 横幅 65vh) − 基础 35vh。数值来自注入的
+        // 常量（勿硬编码），确保与 constants.ts / variables.css 不脱节
+        const __homeVh =
+          document.documentElement.dataset.bannerDisplay === "fullscreen"
+            ? BANNER_HEIGHT_HOME_FULLSCREEN
+            : BANNER_HEIGHT_HOME;
+        let offset = Math.floor(
+          window.innerHeight * ((__homeVh - BANNER_HEIGHT) / 100),
+        );
+        offset = offset - (offset % BANNER_EXTEND_ROUNDING);
+        document.documentElement.style.setProperty(
+          "--banner-height-extend",
+          `${offset}px`,
+        );
+
+        window.__etherealOriginalHistory ??= {
+          pushState: window.history.pushState,
+          replaceState: window.history.replaceState,
+        };
+
+        // 版本横幅：仅首次加载输出一次（Swup 切换页面会重复执行本脚本）
+        if (!window.__etherealBannerLogged) {
+          window.__etherealBannerLogged = true;
+          console.log(
+            "%c🌙 Ethereal %cv" + bannerVersion,
+            "color:#8b5cf6;font-weight:bold;",
+            "color:#888;",
+          );
+        }
+      })();
+    </script>
+    <!-- 外部字体：CSS-link 模式用静态 <link> + 非阻塞加载；字体文件模式维持 JS 注入 -->
+    <script
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile)}"
+      th:inline="javascript"
+    >
+      (function () {
+        var url = /*[[${theme.config.style.externalFont.fontFile}]]*/ "";
+        var family = /*[[${theme.config.style.externalFont.family}]]*/ "";
+        if (!url) return;
+        // CSS 链接模式：.css 结尾或包含 fonts.googleapis.com
+        if (
+          /\.css(\?|$)/.test(url) ||
+          url.indexOf("fonts.googleapis.com") !== -1
+        ) {
+          var link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = url;
+          link.media = "print";
+          link.onload = function () {
+            this.media = "all";
+          };
+          document.head.appendChild(link);
+          // noscript fallback
+          var noscript = document.createElement("noscript");
+          var fallbackLink = document.createElement("link");
+          fallbackLink.rel = "stylesheet";
+          fallbackLink.href = url;
+          noscript.appendChild(fallbackLink);
+          document.head.appendChild(noscript);
+          if (family) {
+            var fs = document.createElement("style");
+            fs.textContent = "body{font-family:" + family + "}";
+            document.head.appendChild(fs);
+          }
+        } else if (family) {
+          // 字体文件模式：直接注入 @font-face
+          var ext = (url.split(".").pop().split("?")[0] || "").toLowerCase();
+          var fmtMap = {
+            woff2: "woff2",
+            woff: "woff",
+            ttf: "truetype",
+            otf: "opentype",
+            eot: "embedded-opentype",
+            svg: "svg",
+          };
+          var fmt = fmtMap[ext] || "woff2";
+          var s = document.createElement("style");
+          s.textContent =
+            '@font-face{font-family:"EtherealCustomFont";src:url(' +
+            url +
+            ') format("' +
+            fmt +
+            '");font-weight:400;font-style:normal;font-display:swap}body{font-family:"EtherealCustomFont",' +
+            family +
+            "}";
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
+    <!-- 仅当启用外部字体时才预连接常用字体 CDN -->
+    <link
+      rel="preconnect"
+      href="https://cdn.bootcdn.net"
+      th:if="${theme.config?.style?.externalFont?.enable}"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.googleapis.com"
+      th:if="${theme.config?.style?.externalFont?.enable}"
+    />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+      th:if="${theme.config?.style?.externalFont?.enable}"
+    />
+    <slot name="head" />
+  </head>
+  <!-- is-home 服务端初值仅作首帧兜底（避免 JS 运行前无 FOUC 感知）；运行期以
+       客户端 isHomePath（utils/banner-sync.ts）为权威，换页时由 syncHomeClass 纠正 -->
+  <body
+    class:list={["relative min-h-screen transition", { "is-home": isHomePage }]}
+    th:classappend="${(bannerHasMedia ? ' enable-banner' : '') + (theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
+    th:style="|--bannerOffset: ${theme.config?.style?.bannerStyle?.position == 'top' ? '30vh' : (theme.config?.style?.bannerStyle?.position == 'bottom' ? '0' : '15vh')}; --transparent-wallpaper-opacity: ${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}; --transparent-wallpaper-blur: ${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}px; --transparent-card-alpha: ${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6};|"
+    data-overlayscrollbars-initialize
+  >
+    <ConfigCarrier />
+    <!-- 访客样式覆盖启动脚本：紧跟 ConfigCarrier（body 首元素），在可见内容
+         解析前应用 body class 与壁纸变量，无 FOUC。body 不被 Swup 替换，
+         仅需首载执行一次；文章布局覆盖见 visitor-post-layout.js。
+         开关关闭时忽略并清理对应 localStorage（与 __eecs 语义一致）。 -->
+    <script is:inline>
+      (function () {
+        var carrier = document.getElementById("config-carrier");
+        if (!carrier) return;
+        var d = carrier.dataset;
+        var on = function (value) {
+          return value !== "false";
+        };
+        var enable = on(d.visitorEnable);
+        var body = document.body;
+
+        // 卡片样式：悬浮效果 / 高级材质
+        if (enable && on(d.visitorCardStyle)) {
+          var lift = localStorage.getItem("cardHoverLift");
+          if (lift != null) {
+            body.classList.toggle("card-hover-lift-enabled", lift === "true");
+          }
+          var blur = localStorage.getItem("navbarBlur");
+          if (blur != null) {
+            body.classList.toggle("navbar-blur-enabled", blur === "true");
+          }
+        } else {
+          localStorage.removeItem("cardHoverLift");
+          localStorage.removeItem("navbarBlur");
+        }
+
+        // 透明设置（全屏透明模式）：覆盖 body 内联变量
+        if (enable && on(d.visitorTransparent)) {
+          var num = function (key) {
+            var n = parseFloat(localStorage.getItem(key) || "");
+            return isNaN(n) ? null : n;
+          };
+          var opacity = num("wallpaperOpacity");
+          var wBlur = num("wallpaperBlur");
+          var alpha = num("wallpaperCardAlpha");
+          if (opacity != null) {
+            body.style.setProperty(
+              "--transparent-wallpaper-opacity",
+              String(opacity),
+            );
+          }
+          if (wBlur != null) {
+            body.style.setProperty(
+              "--transparent-wallpaper-blur",
+              wBlur + "px",
+            );
+          }
+          if (alpha != null) {
+            body.style.setProperty("--transparent-card-alpha", String(alpha));
+          }
+        } else {
+          localStorage.removeItem("wallpaperOpacity");
+          localStorage.removeItem("wallpaperBlur");
+          localStorage.removeItem("wallpaperCardAlpha");
+        }
+
+        // 壁纸模式访客覆盖：写 html[data-banner-display] + 切 body.enable-banner，
+        // 并重算延伸像素（与 constants.ts 的 calcBannerHeightExtend 同式：
+        // extendVh 对应 bannerExtendVh，全屏 65 / 横幅 30；%4 对齐对应
+        // BANNER_EXTEND_ROUNDING，勿硬编码到别处）。内容解析前生效无 FOUC
+        if (enable && on(d.visitorWallpaperMode)) {
+          var bannerModes = ["disabled", "banner", "fullscreen", "transparent"];
+          var mode = localStorage.getItem("bannerDisplay");
+          if (bannerModes.indexOf(mode) === -1) {
+            mode = d.bannerDisplayDefault || "banner";
+          }
+          var extendVh = mode === "fullscreen" ? 65 : 30;
+          var offset = Math.floor(window.innerHeight * (extendVh / 100));
+          offset = offset - (offset % 4);
+          document.documentElement.setAttribute("data-banner-display", mode);
+          document.documentElement.style.setProperty(
+            "--banner-height-extend",
+            offset + "px",
+          );
+          body.classList.toggle(
+            "enable-banner",
+            mode === "banner" || mode === "fullscreen",
+          );
+        } else {
+          localStorage.removeItem("bannerDisplay");
+        }
+
+        // 壁纸设置访客覆盖（波浪 + 首页壁纸标题）：关闭时给 body 加对应
+        // 隐藏类（CSS 门控）；开启/缺省时由后台默认决定
+        if (enable && on(d.visitorWallpaperSettings)) {
+          var waveDefault = d.waveDefault !== "false";
+          var waveStored = localStorage.getItem("bannerWave");
+          var waveOn = waveStored == null ? waveDefault : waveStored === "true";
+          if (!waveOn) body.classList.add("wave-disabled");
+
+          var bannerTitleDefault = d.bannerTitleDefault !== "false";
+          var bannerTitleStored = localStorage.getItem("bannerTitle");
+          var bannerTitleOn =
+            bannerTitleStored == null
+              ? bannerTitleDefault
+              : bannerTitleStored === "true";
+          if (!bannerTitleOn) body.classList.add("banner-title-disabled");
+        } else {
+          localStorage.removeItem("bannerWave");
+          localStorage.removeItem("bannerTitle");
+        }
+      })();
+    </script>
+    <slot />
+    <WaveEffect />
+    <!-- 欢迎弹窗：置于 Swup 容器之外，换页不被替换销毁，弹窗逻辑仅首载执行一次 -->
+    <WelcomePopup />
+    <div id="page-height-extend" class="hidden h-[300vh]"></div>
+    <style is:global>
+      /* 移动/平板端（<1024px / lg）强制导航栏始终可见且固定 */
+      @media (max-width: 1023px) {
+        #navbar-wrapper {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          z-index: 50 !important;
+        }
+        #navbar-wrapper.navbar-hidden {
+          translate: none !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        /* 防止内容被固定导航栏遮挡 */
+        #top-row {
+          height: var(--navbar-height) !important;
+        }
+      }
+
+      /* 固定导航栏宽度跟随内容区：fixed 脱离文档流后若不显式收窄，
+         会占满整屏（视口 <75rem 时卡片 max-w 撑满屏幕；宽屏时缺少
+         #top-row 的 md:px-4 内边距、与内容边缘齐平）。按 #top-row
+         同款几何收窄并居中，保证与未固定时完全一致。
+         注意：宽度规则同时出现在本块（平板恒 fixed，选择器用
+         #navbar-wrapper）与下方 1024+ 块（桌面按开关 fixed，选择器带
+         html[data-navbar-fixed="true"]），两者无法合并（1024+ 非 fixed
+         时不能收窄）。改动时务必与 #top-row 的 md:px-4 / xl:w-[92vw] 同步 */
+      @media (min-width: 768px) and (max-width: 1023px) {
+        #navbar-wrapper {
+          margin-left: auto !important;
+          margin-right: auto !important;
+          width: calc(100% - 2rem) !important;
+          max-width: calc(var(--page-width) - 2rem) !important;
+        }
+      }
+
+      /* 桌面端固定导航栏：与移动端方案一致，使用 fixed 定位强制始终可见 */
+      @media (min-width: 1024px) {
+        html[data-navbar-fixed="true"] #navbar-wrapper {
+          position: fixed !important;
+          top: 0 !important;
+          left: 0 !important;
+          right: 0 !important;
+          margin-left: auto !important;
+          margin-right: auto !important;
+          width: calc(100% - 2rem) !important;
+          max-width: calc(var(--page-width) - 2rem) !important;
+          z-index: 50 !important;
+        }
+        /* xl 起 #top-row 由 w-full 换为 xl:w-[92vw]，宽度同步跟随 */
+        @media (min-width: 80rem) {
+          html[data-navbar-fixed="true"] #navbar-wrapper {
+            width: calc(92vw - 2rem) !important;
+          }
+        }
+        html[data-navbar-fixed="true"] #navbar-wrapper.navbar-hidden {
+          translate: none !important;
+          opacity: 1 !important;
+          visibility: visible !important;
+        }
+        /* 防止内容被固定导航栏遮挡 */
+        html[data-navbar-fixed="true"] #top-row {
+          height: var(--navbar-height) !important;
+        }
+        /* 非首页侧边栏吸顶位置下移 */
+        html[data-navbar-fixed="true"] body:not(.is-home) #sidebar-sticky,
+        html[data-navbar-fixed="true"]
+          body:not(.is-home)
+          #right-sidebar-sticky {
+          top: calc(var(--navbar-height) + 1rem) !important;
+        }
+        /* 首页侧边栏吸顶位置下移（首页有banner） */
+        html[data-navbar-fixed="true"]
+          body.is-home.enable-banner
+          #sidebar-sticky,
+        html[data-navbar-fixed="true"]
+          body.is-home.enable-banner
+          #right-sidebar-sticky {
+          top: calc(
+            1rem - var(--banner-height-extend) + var(--navbar-height)
+          ) !important;
+        }
+        /* 首页无 banner（关闭/纯色、全屏透明）：侧边栏吸顶到固定导航栏下方 */
+        html[data-navbar-fixed="true"]
+          body.is-home:not(.enable-banner)
+          #sidebar-sticky,
+        html[data-navbar-fixed="true"]
+          body.is-home:not(.enable-banner)
+          #right-sidebar-sticky {
+          top: calc(var(--navbar-height) + 1rem) !important;
+        }
+        /* 右侧栏吸顶（含文章目录）高度：吸顶位置下移了导航栏高度，
+           max-height 必须同步扣除，否则目录底部会溢出屏幕下方约一个导航栏高度 */
+        html[data-navbar-fixed="true"]
+          #right-sidebar-sticky:has(#toc-inner-wrapper-right) {
+          max-height: calc(100vh - var(--navbar-height) - 2rem) !important;
+        }
+      }
+    </style>
+    <!-- 右侧边栏入场动画类静态写在 RightSideBar 组件上（首帧即带动画）；
+         换页防重播由 transition.css 的 html.swup-visited 门控承担（app.ts
+         在 visit:start 加标记），首播后的清理由 app.ts 的 animationend 委托承担。
+         原 swup:contentReplaced 清理脚本已删除：那是 Swup v3 事件名，
+         v4 分发动态拼名事件 swup:{hook}（如 swup:content:replace），该监听从未触发。 -->
+    <!-- 客户端入口脚本：必须位于 </body> 内。若写在 </html> 之外，Astro 会把打包后的
+         module 脚本排到文档末尾之后，产出非法 HTML（线上曾复现） -->
+    <script>
+      import "../scripts/app";
+    </script>
+  </body>
+</html>

@@ -1,0 +1,129 @@
+---
+import Announcement from "./Announcement.astro";
+import Categories from "./Categories.astro";
+import Hitokoto from "./Hitokoto.astro";
+import Profile from "./Profile.astro";
+import Schedule from "./Schedule.astro";
+import SiteStats from "./SiteStats.astro";
+import Tags from "./Tags.astro";
+import Weather from "./Weather.astro";
+import TOC from "./TOC.astro";
+
+interface Props {
+  class?: string;
+  showToc?: boolean;
+  "th:classappend"?: string;
+}
+
+const className = Astro.props.class;
+const showToc = Astro.props.showToc || false;
+const thClassappend = Astro.props["th:classappend"] || "";
+---
+
+<aside
+  id="right-sidebar"
+  class:list={[className, "w-full", "onload-animation"]}
+  th:classappend={thClassappend}
+>
+  {
+    /*
+    ⚠️ 同步约束：本组件三处渲染条件（Profile 上+公告+小组件）与
+    MainGridLayout.astro 的 rightSidebarHasContentExpr 逐项同源，新增/移除
+    组件或调整渲染条件时，必须同步更新 MainGridLayout.astro 中对应的表达式。
+    漏同步会导致三栏右栏空态判定错误（Thymeleaf 构建期不报错，只在 Halo
+    渲染期暴露）。
+  */
+  }
+  {/* Profile：不吸顶，随页面滚动（两种布局模式一致） */}
+  <div
+    th:if="${theme.config?.sidebar?.profile?.enable_profile != false and theme.config?.layout?.pageLayout?.layoutMode != 'two-column' and theme.config?.sidebar?.profile?.display_position == 'right'}"
+    class="hidden xl:flex w-full flex-col gap-4"
+  >
+    <Profile />
+  </div>
+  {/* 公告：非吸顶，Profile 之后、小组件之前 */}
+  <div
+    th:if="${theme.config?.sidebar?.announcement?.enable != false and theme.config?.sidebar?.announcement?.position == 'right'}"
+    class="hidden xl:flex w-full flex-col gap-4"
+  >
+    <Announcement />
+  </div>
+  {
+    /* 功能性小组件：吸顶显示；文章页（showToc）限制高度并折叠为前 2 个，为目录腾出剩余空间 */
+  }
+  <div
+    id="right-sidebar-sticky"
+    class:list={[
+      "sticky top-4 flex w-full flex-col gap-4",
+      showToc && "max-h-[calc(100vh-2rem)] overflow-hidden",
+    ]}
+  >
+    <div
+      class="contents"
+      th:each="widget, widgetStat : ${theme.config?.sidebar?.widgetsConfig?.rightWidgets}"
+      th:if={showToc ? "${widgetStat.index < 2}" : "true"}
+    >
+      <div class="contents" th:switch="${widget.value}">
+        <div class="contents" th:case="'categories'">
+          <Categories />
+        </div>
+        <div class="contents" th:case="'tag'">
+          <Tags />
+        </div>
+        <div class="contents" th:case="'hitokoto'">
+          <Hitokoto />
+        </div>
+        <div class="contents" th:case="'site-stats'">
+          <SiteStats />
+        </div>
+        <div class="contents" th:case="'weather'">
+          <Weather />
+        </div>
+        <div class="contents" th:case="'schedule'">
+          <Schedule />
+        </div>
+        <div th:case="'html'" class="card-base p-4" th:utext="${widget.html}">
+        </div>
+      </div>
+    </div>
+    {/* 默认右侧小组件（新安装主题未保存设置时显示） */}
+    <div
+      th:if="${theme.config?.sidebar?.widgetsConfig?.rightWidgets == null}"
+      class="contents"
+    >
+      <div class="contents">
+        <Hitokoto />
+      </div>
+      <div class="contents">
+        <SiteStats />
+      </div>
+    </div>
+    {/* 目录：仅文章页（showToc）且主题开启目录时显示，自适应剩余空间 */}
+    <div
+      th:remove="tag"
+      th:if={showToc
+        ? "${theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc}"
+        : "false"}
+    >
+      <div
+        class="card-base hidden md:flex min-h-0 flex-1 flex-col overflow-hidden pb-0"
+      >
+        <div
+          class="relative mb-2 ml-8 mt-4 shrink-0 text-lg font-bold text-neutral-900 transition before:absolute before:left-[-16px] before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-md before:bg-(--primary) dark:text-neutral-100"
+          th:text="#{widget.toc.title}"
+        >
+          目录
+        </div>
+        <div
+          id="toc-inner-wrapper-right"
+          data-toc-scroll
+          class="hide-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-4"
+        >
+          <div class="toc-right w-full">
+            <TOC />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</aside>

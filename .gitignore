@@ -1,0 +1,43 @@
+# build output
+dist/
+# 根目录构建产物（zip 由 CI artifact / GitHub Release 提供）
+/*.zip
+# 生成产物：由 scripts/convert-readme.mjs 从 README.md 转换（Halo 应用市场用），勿手改
+/README-Halo.md
+# generated types
+.astro/
+
+# 经典脚本编译产物（源码在 src/scripts/assets/ 与 src/scripts/vendor/，
+# 构建时由 build-assets integration 生成，见 AGENTS.md「经典脚本资产管线」）
+public/assets/*.js
+
+# dependencies
+node_modules/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# environment variables
+.env
+.env.production
+
+# macOS-specific files
+.DS_Store
+
+# jetbrains setting folder
+.idea/
+
+# codebuddy
+.codebuddy/
+
+templates/
+
+# opencode 工具配置
+.opencode/
+
+# 文档
+docs/

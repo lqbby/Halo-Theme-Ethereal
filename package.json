@@ -1,0 +1,76 @@
+{
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "nodemon --config nodemon.json --exec 'astro build'",
+    "build": "astro build && pnpm package",
+    "build:pkg": "pnpm build",
+    "build:only": "astro build",
+    "readme:halo": "node scripts/convert-readme.mjs",
+    "strip:comments": "node scripts/strip-html-comments.mjs",
+    "package": "node scripts/package-theme.mjs",
+    "astro": "astro",
+    "check": "astro check",
+    "format": "prettier --write . && pnpm readme:halo",
+    "prepare": "husky"
+  },
+  "prettier": {
+    "plugins": [
+      "prettier-plugin-astro"
+    ],
+    "overrides": [
+      {
+        "files": "*.astro",
+        "options": {
+          "parser": "astro"
+        }
+      }
+    ]
+  },
+  "dependencies": {
+    "@astrojs/svelte": "^9.0.1",
+    "@halo-dev/api-client": "^2.26.0",
+    "@swup/astro": "^1.8.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.2.3",
+    "astro-icon": "^1.2.0",
+    "axios": "^1.19.0",
+    "overlayscrollbars": "^2.16.0",
+    "photoswipe": "^5.4.4",
+    "sharp": "^0.35.3",
+    "stylus": "^0.64.0",
+    "svelte": "^5.56.9",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "@halo-dev/theme-package-cli": "^1.1.1",
+    "esbuild": "^0.28.2",
+    "@iconify-json/fa6-brands": "^1.2.6",
+    "@iconify-json/fa6-regular": "^1.2.4",
+    "@iconify-json/fa6-solid": "^1.2.4",
+    "@iconify-json/material-symbols": "^1.2.89",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify-json/mingcute": "^1.2.8",
+    "@iconify-json/tabler": "^1.2.38",
+    "@iconify/tailwind4": "^1.2.3",
+    "@tailwindcss/typography": "^0.5.20",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
+    "nodemon": "^3.1.14",
+    "prettier": "3.9.6",
+    "prettier-plugin-astro": "0.14.1",
+    "unplugin-icons": "^23.0.1"
+  },
+  "lint-staged": {
+    "*.{astro,css,js,mjs,cjs,ts,svelte,json,yaml,yml,md}": "prettier --write --ignore-unknown",
+    "README.md": [
+      "prettier --write --ignore-unknown",
+      "node scripts/convert-readme.mjs"
+    ]
+  }
+}

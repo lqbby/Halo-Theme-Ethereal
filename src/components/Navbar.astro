@@ -1,0 +1,230 @@
+---
+import LightDarkSwitch from "./LightDarkSwitch.svelte";
+import Search from "./Search.svelte";
+import SiteLogo from "./SiteLogo.astro";
+import DisplaySettings from "./widget/DisplaySettings.svelte";
+import LanguageSwitch from "./widget/LanguageSwitch.svelte";
+import NavMenuPanel from "./widget/NavMenuPanel.astro";
+
+const className = Astro.props.class;
+---
+
+<div id="navbar" class="z-50">
+  <!-- 顶部延伸层（开高级材质时模糊，关闭时纯色卡片背景）：
+       navbar-blur 类恒挂载，由 body.navbar-blur-enabled 单一控制（访客/后台同源），
+       模糊与纯色样式见 components.css -->
+  <div class="navbar-blur absolute left-0 right-0 -top-8 h-8 transition"></div>
+
+  <!-- 分离的模糊背景层：承载 backdrop-filter，避免 Backdrop Root 阻断子元素 -->
+  <div
+    class="navbar-blur absolute left-0 right-0 top-0 h-[4.5rem] rounded-(--radius-large) !rounded-t-none transition"
+    style="max-width: var(--page-width); margin: 0 auto;"
+  >
+  </div>
+
+  <!-- 内容层：无 backdrop-filter，z-index 高于模糊层，背景透明（露下层模糊/纯色）；
+       id="navbar-card" 供欢迎弹窗等按导航栏卡片实际边缘（max-w 居中后）对齐 -->
+  <div
+    id="navbar-card"
+    class:list={[
+      className,
+      "relative z-10 mx-auto flex h-[4.5rem] max-w-(--page-width) items-center justify-between px-4 rounded-(--radius-large) !rounded-t-none",
+    ]}
+  >
+    <!-- 首页链接：可见文本即站点标题，作为天然可访问名；
+         不设 aria-label，避免与可见文本不一致触发 WCAG 2.5.3 Label in Name 违规 -->
+    <a
+      th:href="@{/}"
+      class="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold active:scale-95"
+    >
+      <div
+        class="site-title flex flex-row items-center text-md text-(--primary)"
+      >
+        <SiteLogo />
+      </div>
+    </a>
+
+    <div
+      class="invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible"
+      th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
+    >
+      <div class="contents" th:if="${menu != null}">
+        <div
+          th:each="menuItem, itemStat : ${menu.menuItems}"
+          th:with="hasChildren = ${menuItem.children != null && !menuItem.children.isEmpty()}, menuIcon = ${#annotations.get(menuItem, 'icon')}"
+          class="relative group"
+        >
+          <a
+            th:href="@{${menuItem.status.href}}"
+            th:target="${menuItem.spec.target?.value}"
+            class="btn-plain scale-animation h-11 rounded-lg px-5 font-bold active:scale-95 flex items-center gap-1"
+          >
+            <div class="flex items-center">
+              <span
+                th:if="${not #strings.isEmpty(menuIcon)}"
+                class="nav-menu-icon navbar-icon mr-1.5"
+              >
+                <img
+                  th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
+                  th:src="${menuIcon}"
+                  alt=""
+                />
+                <span
+                  th:if="${#strings.startsWith(menuIcon, '<svg')}"
+                  th:utext="${menuIcon}"></span>
+              </span>
+              <span th:text="${menuItem.status.displayName}">Menu</span>
+              <span
+                th:if="${hasChildren}"
+                class="icon-[material-symbols--expand-more-rounded] text-sm transition-transform duration-200 group-hover:rotate-180"
+              ></span>
+              <span
+                th:if="${menuItem.spec.target?.value == '_blank' && !hasChildren}"
+                class="icon-[tabler--external-link] ml-1 -translate-y-px text-[1.3rem] text-black/20 transition dark:text-white/20"
+              ></span>
+            </div>
+          </a>
+          <!-- PC 端子菜单下拉 -->
+          <div
+            th:if="${hasChildren}"
+            class="submenu-panel absolute left-0 top-full mt-5 w-44 rounded-(--radius-large) p-2 opacity-0 pointer-events-none -translate-y-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 z-50"
+            th:id="'pc-submenu-' + ${itemStat.index}"
+          >
+            <!-- 父页面概览链接（仅触控设备显示） -->
+            <a
+              th:href="@{${menuItem.status.href}}"
+              th:target="${menuItem.spec.target?.value}"
+              class="touch-only group flex items-center justify-between gap-3 rounded-lg py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
+            >
+              <span
+                th:if="${not #strings.isEmpty(menuIcon)}"
+                class="nav-menu-icon navbar-icon mr-2"
+              >
+                <img
+                  th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
+                  th:src="${menuIcon}"
+                  alt=""
+                />
+                <span
+                  th:if="${#strings.startsWith(menuIcon, '<svg')}"
+                  th:utext="${menuIcon}"></span>
+              </span>
+              <span
+                class="font-medium text-(--primary) truncate"
+                th:text="${menuItem.status.displayName}">概览</span
+              >
+              <span
+                class="text-xs text-black/40 dark:text-white/40 flex-shrink-0"
+                >概览</span
+              >
+            </a>
+            <div
+              class="touch-only my-1 border-t border-black/10 dark:border-white/10"
+            >
+            </div>
+            <a
+              th:each="childItem : ${menuItem.children}"
+              th:with="childIcon = ${#annotations.get(childItem, 'icon')}"
+              th:href="@{${childItem.status.href}}"
+              th:target="${childItem.spec.target?.value}"
+              class="group flex items-center justify-between gap-3 rounded-lg py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
+            >
+              <span class="flex min-w-0 items-center gap-2">
+                <span
+                  th:if="${not #strings.isEmpty(childIcon)}"
+                  class="nav-menu-icon nav-menu-icon-lg navbar-icon shrink-0"
+                >
+                  <img
+                    th:if="${#strings.startsWith(childIcon, 'data:') or #strings.startsWith(childIcon, 'http')}"
+                    th:src="${childIcon}"
+                    alt=""
+                  />
+                  <span
+                    th:if="${#strings.startsWith(childIcon, '<svg')}"
+                    th:utext="${childIcon}"></span>
+                </span>
+                <span
+                  class="font-medium text-black/75 dark:text-white/75 truncate"
+                  th:text="${childItem.status.displayName}">子菜单</span
+                >
+              </span>
+              <span
+                th:if="${childItem.spec.target?.value == '_blank'}"
+                class="icon-[tabler--external-link] text-[0.9rem] text-black/50 dark:text-white/50 flex-shrink-0"
+              ></span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center">
+      <Search client:only="svelte" />
+      <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
+           后台「样式开关 enable_random_post」可关；对齐用户魔改 -->
+      <button
+        th:if="${theme.config?.style?.styleSwitches?.enable_random_post == null || theme.config?.style?.styleSwitches?.enable_random_post}"
+        type="button"
+        id="random-post-btn"
+        title="随机钓鱼"
+        aria-label="随机钓鱼"
+        class="random-fish-btn btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
+      >
+        <span class="random-fish-icon icon-[material-symbols--phishing-outline-rounded] text-[1.25rem]"></span>
+      </button>
+      <!-- 语言切换按钮：位于显示设置按钮左边。后台开关：布局设置 → 菜单栏设置 → 语言切换；
+           面板仅列三种手动语言，默认语言由「样式设置 → 主题语言」配置 -->
+      <span
+        th:if="${theme.config?.layout?.mobileMenu?.enable_change_language == null || theme.config?.layout?.mobileMenu?.enable_change_language}"
+        th:remove="tag"
+      >
+        <LanguageSwitch client:only="svelte" />
+      </span>
+      <!-- 面板切换不再使用内联 onclick（CSP 友好），由 public/assets/navbar.js 的 document 级事件委托统一处理。
+           入口可见性：总开关开启且任一分区可用（主题色相/文章布局/卡片样式/壁纸模式/壁纸设置/透明设置）；总开关关闭则入口隐藏 -->
+      <button
+        th:if="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}"
+        th:aria-label="#{nav.displaySettings}"
+        aria-label="Display Settings"
+        class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
+        id="display-settings-switch"
+        type="button"
+      >
+        <span class="icon-[material-symbols--palette-outline] text-[1.25rem]"
+        ></span>
+      </button>
+      <span
+        th:if="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == null || theme.config?.layout?.mobileMenu?.enable_change_color_scheme}"
+        th:remove="tag"
+      >
+        <LightDarkSwitch client:only="svelte" />
+      </span>
+      <button
+        th:aria-label="#{nav.menu}"
+        th:name="#{nav.navMenu}"
+        aria-label="Menu"
+        name="Nav Menu"
+        class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90 lg:!hidden"
+        id="nav-menu-switch"
+        type="button"
+      >
+        <span class="icon-[material-symbols--menu-rounded] text-[1.25rem]"
+        ></span>
+      </button>
+    </div>
+
+    <NavMenuPanel />
+    <!-- 显示设置面板（I27）：与入口按钮同条件门控——总开关关闭或全部分区关闭时，
+         面板及其 client:only chunk 不随页面传输（th:if 包住组件输出，含 module script 标签） -->
+    <span
+      th:if="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}"
+      th:remove="tag"
+    >
+      <DisplaySettings client:only="svelte" />
+    </span>
+  </div>
+</div>
+
+<script
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/navbar.js?v=${ASSET_VERSION}`}
+  defer></script>

@@ -1,0 +1,109 @@
+---
+import Announcement from "./Announcement.astro";
+import Categories from "./Categories.astro";
+import Hitokoto from "./Hitokoto.astro";
+import MusicPlayer from "./MusicPlayer.astro";
+import PopularPosts from "./PopularPosts.astro";
+import Profile from "./Profile.astro";
+import Schedule from "./Schedule.astro";
+import SiteStats from "./SiteStats.astro";
+import Tags from "./Tags.astro";
+import Weather from "./Weather.astro";
+
+interface Props {
+  class?: string;
+  "th:classappend"?: string;
+}
+
+const className = Astro.props.class;
+const thClassappend = Astro.props["th:classappend"] || "";
+---
+
+<aside
+  id="sidebar"
+  class:list={[className, "w-full"]}
+  th:classappend={thClassappend}
+>
+  <div
+    th:if="${theme.config?.sidebar?.profile?.enable_profile != false and theme.config?.sidebar?.profile?.display_position != 'right'}"
+    class="mb-4 flex w-full flex-col gap-4"
+  >
+    <Profile />
+  </div>
+  <div
+    th:if="${theme.config?.sidebar?.profile?.enable_profile != false and theme.config?.sidebar?.profile?.display_position == 'right'}"
+    class="mb-4 flex w-full flex-col gap-4"
+    th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:!hidden'}"
+  >
+    <Profile />
+  </div>
+  <!-- 公告：非吸顶，Profile 之后、小组件之前；两栏布局时即使设置为右侧也显示在左侧 -->
+  <div
+    th:if="${theme.config?.sidebar?.announcement?.enable != false and (theme.config?.sidebar?.announcement?.position != 'right' or theme.config?.layout?.pageLayout?.layoutMode == 'two-column')}"
+    class="mb-4 flex w-full flex-col gap-4"
+  >
+    <Announcement class="onload-animation" />
+  </div>
+  <!-- 公告（position=right，三栏布局）：移动端在左侧栏兜底显示（桌面隐藏，由右侧栏渲染），
+       保证移动端公告始终显示在 Profile 之后、小组件之前 -->
+  <div
+    th:if="${theme.config?.sidebar?.announcement?.enable != false and theme.config?.sidebar?.announcement?.position == 'right' and theme.config?.layout?.pageLayout?.layoutMode != 'two-column'}"
+    class="mb-4 flex w-full flex-col gap-4"
+    th:classappend="${'xl:!hidden'}"
+  >
+    <Announcement class="onload-animation" />
+  </div>
+  <div id="sidebar-sticky" class="sticky top-4 flex w-full flex-col gap-4">
+    <div
+      class="contents"
+      th:each="widget, widgetStat : ${theme.config?.sidebar?.widgetsConfig?.widgets}"
+    >
+      <div class="contents" th:switch="${widget.value}">
+        <div class="contents" th:case="'categories'">
+          <Categories class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'tag'">
+          <Tags class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'music'">
+          <MusicPlayer
+            class="onload-animation"
+            th:style="|animation-delay: min(calc(var(--content-delay) + ${widgetStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+          />
+        </div>
+        <div class="contents" th:case="'hitokoto'">
+          <Hitokoto class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'site-stats'">
+          <SiteStats class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'weather'">
+          <Weather
+            class="onload-animation"
+            th:style="|animation-delay: min(calc(var(--content-delay) + ${widgetStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+          />
+        </div>
+        <div class="contents" th:case="'popular-posts'">
+          <PopularPosts class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'schedule'">
+          <Schedule class="onload-animation" />
+        </div>
+        <div
+          th:case="'html'"
+          class="card-base onload-animation p-4"
+          th:utext="${widget.html}"
+        >
+        </div>
+      </div>
+    </div>
+    <!-- 默认小组件（新安装主题未保存设置时显示） -->
+    <div
+      th:if="${theme.config?.sidebar?.widgetsConfig?.widgets == null}"
+      class="contents"
+    >
+      <div class="contents"><Categories class="onload-animation" /></div>
+      <div class="contents"><Tags class="onload-animation" /></div>
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,290 @@
+---
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import FilterTabs from "../components/control/FilterTabs.astro";
+import PageHeader from "../components/control/PageHeader.astro";
+---
+
+<MainGridLayout
+  title="${(projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')) + ' - ' + site.title}"
+  description="#{page.portfolio.description(${site.title})}"
+>
+  <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
+  <div
+    th:remove="tag"
+    th:with="platformLabels=${projectFinder.platformLabels()},
+             typeLabels=${projectFinder.typeLabels()},
+             platform=${#strings.isEmpty(param.platform) ? '' : param.platform},
+             type=${#strings.isEmpty(param.type) ? '' : param.type},
+             projects=${projectFinder.listBy('', platform, type, '', 1, 999)}"
+  >
+    <section class="card-base mb-4 px-6 py-6 md:px-9 onload-animation">
+      <!-- 标题区域 -->
+      <PageHeader
+        containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        titleExpr="${projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')}"
+        title="作品集"
+        iconClass="icon-[material-symbols--inventory-2-rounded]"
+        labelExpr="#{page.portfolio.subtitle}"
+        label="我的项目"
+        subExpr="#{page.portfolio.subtitleCount(${projects.total})}"
+        subShowIfExpr="${projects != null}"
+        sub="0 个项目"
+        filteredExpr="${not #strings.isEmpty(platform) or not #strings.isEmpty(type)}"
+      />
+
+      <!-- 平台筛选 -->
+      <FilterTabs
+        showIfExpr="${platformLabels != null and not platformLabels.isEmpty()}"
+        class="mb-4 flex flex-wrap gap-2"
+        allHrefExpr="@{/portfolio(type=${type})}"
+        allActiveExpr="#strings.isEmpty(platform)"
+        allLabelExpr="#{page.portfolio.allPlatforms}"
+        allLabel="全部平台"
+        eachExpr="entry : ${platformLabels.entrySet()}"
+        tabTemplate={{
+          hrefExpr: "@{/portfolio(platform=${entry.key}, type=${type})}",
+          activeExpr: "#strings.equals(platform, entry.key)",
+          labelExpr: "${entry.value}",
+          countExpr: "${platformCount.total}",
+          withExpr:
+            "platformCount=${projectFinder.listByPlatform(entry.key, 1, 1)}",
+        }}
+      />
+
+      <!-- 类型筛选 -->
+      <FilterTabs
+        showIfExpr="${typeLabels != null and not typeLabels.isEmpty()}"
+        class="mb-6 flex flex-wrap gap-2"
+        allHrefExpr="@{/portfolio(platform=${platform})}"
+        allActiveExpr="#strings.isEmpty(type)"
+        allLabelExpr="#{page.portfolio.allTypes}"
+        allLabel="全部类型"
+        eachExpr="entry : ${typeLabels.entrySet()}"
+        tabTemplate={{
+          hrefExpr: "@{/portfolio(platform=${platform}, type=${entry.key})}",
+          activeExpr: "#strings.equals(type, entry.key)",
+          labelExpr: "${entry.value}",
+          countExpr: "${typeCount.total}",
+          withExpr: "typeCount=${projectFinder.listByType(entry.key, 1, 1)}",
+        }}
+      />
+
+      <!-- 推荐项目（仅首页无筛选时展示） -->
+      <div
+        th:remove="tag"
+        th:if="${#strings.isEmpty(platform) and #strings.isEmpty(type)}"
+      >
+        <div th:remove="tag" th:with="featured=${projectFinder.featured(1, 6)}">
+          <div
+            th:if="${featured != null and not featured.items.isEmpty()}"
+            class="mb-8"
+          >
+            <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
+              <span
+                class="icon-[material-symbols--star-rounded] text-(--primary)"
+              ></span>
+              <span th:text="#{page.portfolio.featuredProjects}">推荐项目</span>
+            </h2>
+            <div
+              class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))]"
+            >
+              <div
+                th:each="project, stat : ${featured.items}"
+                th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+                class="card-base btn-card-outline group overflow-hidden rounded-xl onload-animation hover:bg-(--btn-card-bg-hover) active:bg-(--btn-card-bg-active) active:scale-95 card-hover-lift"
+              >
+                <!-- 封面 -->
+                <a
+                  th:if="${not #strings.isEmpty(project.cover)}"
+                  th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+                  class="block overflow-hidden"
+                >
+                  <img
+                    th:src="${project.cover}"
+                    th:alt="${project.title}"
+                    loading="lazy"
+                    class="h-44 w-full object-cover transition group-hover:scale-105"
+                  />
+                </a>
+                <div class="flex flex-col p-5">
+                  <!-- 推荐标记 + 平台/类型标签 -->
+                  <div class="mb-2 flex flex-wrap items-center gap-1.5">
+                    <span
+                      class="inline-flex items-center gap-0.5 rounded-md bg-(--primary)/10 px-2 py-0.5 text-xs font-medium text-(--primary)"
+                    >
+                      <span
+                        class="icon-[material-symbols--star-rounded] text-xs"
+                      ></span>
+                      <span th:text="#{page.portfolio.featured}">推荐</span>
+                    </span>
+                    <span
+                      th:if="${not #strings.isEmpty(project.platform)}"
+                      class="inline-flex items-center rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                      th:text="${platformLabels[project.platform] ?: project.platform}"
+                      >Platform</span
+                    >
+                    <span
+                      th:if="${not #strings.isEmpty(project.type)}"
+                      class="inline-flex items-center rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                      th:text="${typeLabels[project.type] ?: project.type}"
+                      >Type</span
+                    >
+                  </div>
+                  <!-- 标题 -->
+                  <a
+                    th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+                    class="block text-lg font-bold text-90 transition hover:text-(--primary)"
+                  >
+                    <span class="line-clamp-2" th:text="${project.title}"
+                      >Project Title</span
+                    >
+                  </a>
+                  <!-- 摘要 -->
+                  <p
+                    th:if="${not #strings.isEmpty(project.summary)}"
+                    class="mt-2 line-clamp-2 text-sm leading-6 text-50"
+                    th:text="${project.summary}"
+                  >
+                    Summary
+                  </p>
+                  <!-- 技术栈 -->
+                  <div
+                    th:if="${not #lists.isEmpty(project.techStacks)}"
+                    class="mt-3 flex flex-wrap gap-1"
+                  >
+                    <span
+                      th:each="tech : ${project.techStacks}"
+                      class="rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                      th:text="${tech}">Tech</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 项目卡片网格 -->
+      <div
+        th:if="${projects != null and not projects.items.isEmpty()}"
+        class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))]"
+      >
+        <div
+          th:each="project, stat : ${projects.items}"
+          th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+          class="card-base btn-card-outline group overflow-hidden rounded-xl onload-animation hover:bg-(--btn-card-bg-hover) active:bg-(--btn-card-bg-active) active:scale-95 card-hover-lift"
+        >
+          <!-- 封面 -->
+          <a
+            th:if="${not #strings.isEmpty(project.cover)}"
+            th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+            class="block overflow-hidden"
+          >
+            <img
+              th:src="${project.cover}"
+              th:alt="${project.title}"
+              loading="lazy"
+              class="h-44 w-full object-cover transition group-hover:scale-105"
+            />
+          </a>
+          <div
+            th:classappend="${#strings.isEmpty(project.cover) ? 'pt-5' : ''}"
+            class="flex flex-col p-5"
+          >
+            <!-- 平台/类型标签 -->
+            <div class="mb-2 flex flex-wrap gap-1.5">
+              <span
+                th:if="${not #strings.isEmpty(project.platform)}"
+                class="inline-flex items-center rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                th:text="${platformLabels[project.platform] ?: project.platform}"
+                >Platform</span
+              >
+              <span
+                th:if="${not #strings.isEmpty(project.type)}"
+                class="inline-flex items-center rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                th:text="${typeLabels[project.type] ?: project.type}">Type</span
+              >
+            </div>
+            <!-- 标题 -->
+            <a
+              th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+              class="block text-lg font-bold text-90 transition hover:text-(--primary)"
+            >
+              <span class="line-clamp-2" th:text="${project.title}"
+                >Project Title</span
+              >
+            </a>
+            <!-- 摘要 -->
+            <p
+              th:if="${not #strings.isEmpty(project.summary)}"
+              class="mt-2 line-clamp-2 text-sm leading-6 text-50"
+              th:text="${project.summary}"
+            >
+              Summary
+            </p>
+            <!-- 技术栈 -->
+            <div
+              th:if="${not #lists.isEmpty(project.techStacks)}"
+              class="mt-3 flex flex-wrap gap-1"
+            >
+              <span
+                th:each="tech : ${project.techStacks}"
+                class="rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-medium text-(--btn-content)"
+                th:text="${tech}">Tech</span
+              >
+            </div>
+            <!-- 外链快捷入口 -->
+            <div
+              th:if="${not #strings.isEmpty(project.repoUrl) or not #strings.isEmpty(project.demoUrl)}"
+              class="mt-3 flex items-center gap-3 text-xs text-30"
+            >
+              <a
+                th:if="${not #strings.isEmpty(project.repoUrl)}"
+                th:href="${project.repoUrl}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-1 transition hover:text-(--primary)"
+              >
+                <span class="icon-[material-symbols--code-rounded] text-sm"
+                ></span>
+                <span th:text="#{page.portfolio.repo}">仓库</span>
+              </a>
+              <a
+                th:if="${not #strings.isEmpty(project.demoUrl)}"
+                th:href="${project.demoUrl}"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex items-center gap-1 transition hover:text-(--primary)"
+              >
+                <span
+                  class="icon-[material-symbols--play-circle-rounded] text-sm"
+                ></span>
+                <span th:text="#{page.portfolio.demo}">演示</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div
+        th:if="${projects == null or projects.items.isEmpty()}"
+        class="py-16 text-center text-50"
+      >
+        <span
+          class="icon-[material-symbols--folder-open-rounded] text-5xl text-30"
+        ></span>
+        <p class="mt-4 text-sm" th:text="#{page.portfolio.empty}">暂无项目</p>
+        <p class="mt-1 text-xs text-30">
+          <span th:text="#{page.portfolio.go}">去</span>
+          <a
+            th:href="@{/portfolio}"
+            class="text-(--primary) hover:underline"
+            th:text="#{page.portfolio.viewAll}">查看全部</a
+          >
+        </p>
+      </div>
+    </section>
+  </div>
+</MainGridLayout>

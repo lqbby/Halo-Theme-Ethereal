@@ -1,0 +1,149 @@
+---
+const currentYear = new Date().getFullYear();
+---
+
+<!-- ============ 页脚装饰分隔带（经典/卡片两种底栏通用） ============ -->
+<!-- 居中「星芒」徽标 + 贯穿渐隐细线，填补页脚与正文之间的空白间隔；
+     星芒用 absolute 强制水平+垂直居中，底色圆遮罩断开细线，避免线穿过星星；
+     细圆环嵌四芒星，主色随 --primary/--hue 自适应，契合 Ethereal 轻盈空灵主题 -->
+<div
+  class="relative mx-8 my-6 flex items-center justify-center md:mx-32"
+>
+  <!-- 贯穿渐隐线：中部最浓、两端透明；星芒位于正中覆盖断口 -->
+  <span
+    class="pointer-events-none absolute left-0 right-0 top-1/2 h-px -translate-y-1/2 bg-gradient-to-r from-transparent via-(--primary)/25 to-transparent"
+  ></span>
+  <!-- 居中星芒徽标（底色圆遮罩，避免细线穿过星星） -->
+  <span
+    class="relative z-10 inline-flex size-7 items-center justify-center rounded-full bg-(--page-bg) text-(--primary)"
+  >
+    <span class="absolute inset-0 rounded-full border border-(--primary)/30 transition"></span>
+    <svg viewBox="0 0 24 24" class="size-3.5 drop-shadow-sm" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 0c.7 5.3 6.7 10.7 12 12-5.3 1.3-11.3 6.7-12 12-.7-5.3-6.7-10.7-12-12C5.3 10.7 11.3 5.3 12 0z"
+      ></path>
+    </svg>
+  </span>
+</div>
+<footer
+  class="mb-12 flex flex-col items-center justify-center rounded-2xl px-6 text-center text-sm text-50 transition"
+>
+  <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+    <span
+      >&copy; <span id="copyright-year">{currentYear}</span>
+      <span th:text="${site.title}">Ethereal</span>.
+      <span th:text="#{footer.rights}">All Rights Reserved.</span></span
+    >
+    <span class="whitespace-nowrap">
+      <span
+        th:if="${theme.config?.footer?.displayLinks?.enable_privacy != null ? theme.config?.footer?.displayLinks?.enable_privacy : false}"
+        th:remove="tag"
+        >/&nbsp;<a
+          class="link font-medium text-(--primary)"
+          th:href="@{${theme.config?.footer?.displayLinks?.privacy_url != null ? theme.config?.footer?.displayLinks?.privacy_url : '/privacy'}}"
+          th:text="#{common.privacyPolicy}">隐私政策</a
+        ></span
+      >
+      <span
+        th:if="${pluginFinder.available('PluginFeed') && (theme.config?.footer?.displayLinks?.enable_rss == null || theme.config?.footer?.displayLinks?.enable_rss)}"
+        th:remove="tag"
+        >&nbsp;/&nbsp;<a
+          class="link font-medium text-(--primary)"
+          target="_blank"
+          th:href="@{/rss.xml}">RSS</a
+        ></span
+      >
+      <span
+        th:if="${pluginFinder.available('PluginSitemap') && (theme.config?.footer?.displayLinks?.enable_sitemap == null || theme.config?.footer?.displayLinks?.enable_sitemap)}"
+        th:remove="tag"
+        >&nbsp;/&nbsp;<a
+          class="link font-medium text-(--primary)"
+          target="_blank"
+          th:href="@{/sitemap.xml}">Sitemap</a
+        ></span
+      >
+    </span>
+  </div>
+  <!-- 自定义页脚链接 -->
+  <div
+    th:if="${theme.config?.footer?.customLinks != null && not #lists.isEmpty(theme.config?.footer?.customLinks?.items)}"
+    class="mt-1.5 flex flex-wrap items-center justify-center gap-x-2 gap-y-1"
+  >
+    <span
+      th:each="link, stat : ${theme.config?.footer?.customLinks?.items}"
+      th:remove="tag"
+    >
+      <span
+        th:if="${not #strings.isEmpty(link.html)}"
+        th:remove="tag"
+        th:utext="${link.html}"></span>
+      <span th:unless="${not #strings.isEmpty(link.html)}" th:remove="tag">
+        <span th:if="${not stat.first}"> / </span>
+        <a
+          th:if="${not #strings.isEmpty(link.url)}"
+          class="link font-medium text-(--primary)"
+          target="_blank"
+          th:href="${link.url}"
+          th:text="${link.name}">Link</a
+        >
+        <span
+          th:unless="${not #strings.isEmpty(link.url)}"
+          class="link font-medium text-(--primary)"
+          th:text="${link.name}">Link</span
+        >
+      </span>
+    </span>
+  </div>
+  <div
+    class="mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-2"
+    th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.icp_text) or not #strings.isEmpty(theme.config?.footer?.beian?.gongan_text)}"
+  >
+    <a
+      th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.icp_text)}"
+      class="inline-flex items-center gap-1 link font-medium text-(--primary)"
+      th:href="${theme.config?.footer?.beian?.icp_link}"
+      target="_blank"
+    >
+      <span class="icon-[material-symbols--verified-outline-rounded] h-4 w-4"
+      ></span>
+      <span class="text-sm" th:text="${theme.config?.footer?.beian?.icp_text}"
+      ></span>
+    </a>
+    <a
+      th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.gongan_text)}"
+      class="inline-flex items-center gap-1 link font-medium text-(--primary)"
+      th:href="${theme.config?.footer?.beian?.gongan_link}"
+      target="_blank"
+    >
+      <img
+        src={`/themes/Ethereal/assets/images/ghs.png?v=${ASSET_VERSION}`}
+        alt="公安备案图标"
+        loading="lazy"
+        decoding="async"
+        width="16"
+        height="16"
+        class="inline-block h-4 w-4"
+      />
+      <span
+        class="text-sm"
+        th:text="${theme.config?.footer?.beian?.gongan_text}"></span>
+    </a>
+  </div>
+  <div
+    th:if="${theme.config?.footer?.displayLinks?.enable_theme_credit == null || theme.config?.footer?.displayLinks?.enable_theme_credit}"
+    class="mt-2"
+  >
+    <span th:text="#{footer.poweredBy}">Powered by</span>{" "}
+    <a
+      class="link font-medium text-(--primary)"
+      target="_blank"
+      href="https://www.halo.run">Halo</a
+    >{" "}&{" "}
+    <a
+      class="link font-medium text-(--primary)"
+      target="_blank"
+      href="https://github.com/AloneNanNan/halo-theme-ethereal">Ethereal</a
+    >
+  </div>
+</footer>

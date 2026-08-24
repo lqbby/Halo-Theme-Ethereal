@@ -1,0 +1,378 @@
+name: CI (Build & Release)
+
+on:
+  # 自动触发：push 到 main 且 theme.yaml 版本较上一提交增大合规时，构建并自动发布
+  push:
+    branches: [main]
+  # 手动触发：发布 tag 按 theme.yaml 版本 + 版本后缀自动推导（后缀支持 -rc1 等
+  # 预发布段）；tag 留空用推导结果，填写时须与推导结果一致；两者均留空且关闭发布时仅构建
+  workflow_dispatch:
+    inputs:
+      publish-github:
+        description: "是否发布到 GitHub Release（默认 true；false 时仅构建，不发布）"
+        required: false
+        type: boolean
+        default: true
+      tag:
+        description: "发布到该 GitHub Release tag（可留空：按 theme.yaml 版本+版本后缀自动推导；填写时必须与推导结果一致）"
+        required: false
+        type: string
+      release-type:
+        description: "GitHub Release 类型"
+        required: false
+        type: choice
+        options:
+          - latest
+          - pre-release
+        default: latest
+      version-suffix:
+        description: "预发布版本后缀（如 -rc1；release-type=pre-release 时必填）"
+        required: false
+        type: string
+        default: ""
+      sync-halo:
+        description: "是否同步到 Halo 应用市场（默认 true；false 时注入跳过标记，cd.yaml 检测后跳过同步）"
+        required: false
+        type: boolean
+        default: true
+
+# 同一分支上重复触发时排队执行，避免并发构建竞争 Release 资产（上传以最后一次为准）
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # 总是运行（不再按事件跳过，避免静默跳过无法排障）：
+  # push 事件检测版本是否增大；手动触发直接放行并输出说明
+  version-check:
+    name: 检测 theme.yaml 版本号
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      trigger: ${{ steps.check.outputs.trigger }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # 需要 git 历史读取上一提交的版本号
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: 版本检测 / 触发说明
+        id: check
+        run: |
+          echo "触发事件: ${{ github.event_name }}"
+          if [[ "${{ github.event_name }}" != "push" ]]; then
+            echo "::notice::手动触发（workflow_dispatch）：无需版本增大检测，直接构建"
+            echo "trigger=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if node scripts/check-version-bump.mjs; then
+            echo "::notice::push 触发：版本较上一提交增大且合规，构建并自动发布"
+            echo "trigger=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::push 触发：版本未增大或 semver 不合规，跳过构建（详见脚本输出）"
+            echo "trigger=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: Build & Release Theme
+    needs: [version-check]
+    # 手动触发时 trigger 恒为 true；push 时取决于版本检测结果
+    if: needs.version-check.outputs.trigger == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write # 创建 tag 与 Release 需要
+    steps:
+      - uses: actions/checkout@v7
+
+      # 排障日志：触发事件、手动触发参数、本次各发布步骤的执行决策
+      - name: 运行参数与决策日志
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUBLISH_GITHUB: ${{ github.event.inputs.publish-github }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RELEASE_TYPE: ${{ github.event.inputs.release-type }}
+          VERSION_SUFFIX: ${{ github.event.inputs.version-suffix }}
+          SYNC_HALO: ${{ github.event.inputs.sync-halo }}
+        run: |
+          echo "触发事件: $EVENT_NAME"
+          if [[ "$EVENT_NAME" == "push" ]]; then
+            echo "发布决策: 自动发布（tag 自动创建，版本检测已通过）"
+            echo "步骤计划: 构建 → 质量门 → 自动创建 tag → 上传 Release（Halo 默认同步）"
+          else
+            echo "publish-github: $PUBLISH_GITHUB"
+            echo "tag: $INPUT_TAG"
+            echo "release-type: $RELEASE_TYPE"
+            echo "version-suffix: $VERSION_SUFFIX"
+            echo "sync-halo: $SYNC_HALO"
+            if [[ "$PUBLISH_GITHUB" == "false" ]]; then
+              echo "发布决策: 已显式关闭 GitHub 发布 → 仅构建，不发布"
+              echo "步骤计划: 构建 → 质量门 → artifact（无发布步骤）"
+            else
+              echo "发布决策: 发布到 GitHub Release"
+              echo "步骤计划: 构建 → 质量门 → 推导并校验 tag（版本+后缀）→ 上传 Release（sync-halo=false 时注入跳过标记，Halo 不同步）"
+            fi
+          fi
+
+      # 手动发布时使用输入版本构建，避免为了发布新版本先修改 theme.yaml 并触发 push 发布
+      - name: 应用手动发布版本
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.publish-github != 'false'
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RELEASE_TYPE: ${{ github.event.inputs.release-type }}
+          VERSION_SUFFIX: ${{ github.event.inputs.version-suffix }}
+        run: |
+          if [[ -z "$RELEASE_TYPE" ]]; then
+            RELEASE_TYPE="latest"
+          fi
+          if [[ "$RELEASE_TYPE" != "latest" && "$RELEASE_TYPE" != "pre-release" ]]; then
+            echo "::error::Release 类型不合法：$RELEASE_TYPE（可选 latest 或 pre-release）"
+            exit 1
+          fi
+          SUFFIX=$(printf '%s' "$VERSION_SUFFIX" | tr -d '[:space:]')
+          if [[ -n "$SUFFIX" && "$SUFFIX" != -* ]]; then
+            SUFFIX="-$SUFFIX"
+          fi
+          if [[ "$RELEASE_TYPE" == "pre-release" && -z "$SUFFIX" ]]; then
+            echo "::error::pre-release 类型必须填写版本后缀（如 -rc1、-beta.2）"
+            exit 1
+          fi
+          if [[ "$RELEASE_TYPE" == "latest" && -n "$SUFFIX" ]]; then
+            echo "::error::latest 类型不能填写版本后缀；带后缀的版本请选择 pre-release"
+            exit 1
+          fi
+          TAG=$(printf '%s' "$INPUT_TAG" | tr -d '[:space:]')
+          [ -n "$TAG" ] || { echo "::error::发布时必须填写 tag"; exit 1; }
+          [[ "$TAG" == v* ]] || TAG="v$TAG"
+          BASE_VERSION="${TAG#v}"
+          if [[ -n "$SUFFIX" && "$BASE_VERSION" != *"$SUFFIX" ]]; then
+            BASE_VERSION="$BASE_VERSION$SUFFIX"
+            TAG="v$BASE_VERSION"
+          fi
+          [[ "$BASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z][0-9A-Za-z.-]*)?$ ]] || {
+            echo "::error::输入的版本不是合法 semver：$BASE_VERSION"
+            exit 1
+          }
+          printf -v VERSION_LINE '  version: "%s"' "$BASE_VERSION"
+          sed -i "0,/^[[:space:]]*version:/s#^[[:space:]]*version:.*#${VERSION_LINE}#" theme.yaml
+          echo "MANUAL_RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "MANUAL_THEME_VERSION=$BASE_VERSION" >> "$GITHUB_ENV"
+          echo "已使用手动输入版本构建：theme.yaml=$BASE_VERSION，Release tag=$TAG"
+
+      # 不指定 version，自动按 package.json 的 packageManager 字段安装 pnpm@10.33.0
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm check
+
+      - name: Build & Package
+        run: pnpm build
+
+      # 质量门：独立可复用的 composite action（.github/actions/quality-gate）
+      - name: 质量门校验
+        uses: ./.github/actions/quality-gate
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ethereal-theme
+          path: dist/*.zip
+          if-no-files-found: error
+
+      # 自动触发（push）：按 theme.yaml 的 version 自动创建 tag（远程已存在则跳过，幂等）
+      - name: 自动创建 tag（push 触发）
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          VERSION=$(grep -m1 '^[[:space:]]*version:' theme.yaml | sed -E 's/^[[:space:]]*version:[[:space:]]*["'\'']?([^"'\''[:space:]]+).*/\1/')
+          [ -n "$VERSION" ] || { echo "::error::无法从 theme.yaml 解析 version 字段"; exit 1; }
+          TAG="v$VERSION"
+          echo "tag=$TAG" >> "$GITHUB_ENV"
+          # 统一发布 tag 变量：下游上传/通知步骤不再区分事件来源
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/$TAG^{}" | awk 'NR == 1 {print $1}')
+          if [ -z "$REMOTE_TAG_SHA" ]; then
+            REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/$TAG" | awk 'NR == 1 {print $1}')
+          fi
+          if [ -n "$REMOTE_TAG_SHA" ]; then
+            if [ "$REMOTE_TAG_SHA" != "$EXPECTED_SHA" ]; then
+              echo "::error::远程 tag $TAG 已指向 $REMOTE_TAG_SHA，而不是当前提交 $EXPECTED_SHA"
+              exit 1
+            fi
+            echo "远程已存在指向当前提交的 tag $TAG，跳过创建"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "已创建并推送 tag $TAG"
+          fi
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      # 手动触发：发布行为由显式开关决定；发布版本已在构建前由输入参数写入 theme.yaml
+      - name: 校验发布配置（手动触发）
+        id: release-config
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PUBLISH_GITHUB: ${{ github.event.inputs.publish-github }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          RELEASE_TYPE: ${{ github.event.inputs.release-type }}
+          VERSION_SUFFIX: ${{ github.event.inputs.version-suffix }}
+          SYNC_HALO: ${{ github.event.inputs.sync-halo }}
+        run: |
+          if [[ "$PUBLISH_GITHUB" == "false" ]]; then
+            echo "已显式关闭 GitHub 发布（publish-github=false），仅构建不发布"
+            if [[ "$SYNC_HALO" != "false" ]]; then
+              echo "::warning::Halo 同步依赖 GitHub Release，publish-github=false 时一并忽略（如需同步请开启 GitHub 发布）"
+            fi
+            echo "publish=false" >> "$GITHUB_ENV"
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -n "$MANUAL_RELEASE_TAG" ]]; then
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "RELEASE_TAG=$MANUAL_RELEASE_TAG" >> "$GITHUB_ENV"
+            echo "RELEASE_TYPE=$RELEASE_TYPE" >> "$GITHUB_ENV"
+            echo "release_tag=$MANUAL_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "手动发布版本校验通过：theme.yaml=$MANUAL_THEME_VERSION，Release tag=$MANUAL_RELEASE_TAG"
+            exit 0
+          fi
+          if [[ -z "$RELEASE_TYPE" ]]; then
+            RELEASE_TYPE="latest"
+          fi
+          if [[ "$RELEASE_TYPE" != "latest" && "$RELEASE_TYPE" != "pre-release" ]]; then
+            echo "::error::Release 类型不合法：$RELEASE_TYPE（可选 latest 或 pre-release）"
+            exit 1
+          fi
+          # 规范化版本后缀：去首尾空白；未带连字符时自动补 "-"
+          SUFFIX=$(printf '%s' "$VERSION_SUFFIX" | tr -d '[:space:]')
+          if [[ -n "$SUFFIX" && "$SUFFIX" != -* ]]; then
+            SUFFIX="-$SUFFIX"
+            echo "::notice::版本后缀未带连字符，已自动补全为 $SUFFIX"
+          fi
+          if [[ -n "$SUFFIX" && ! "$SUFFIX" =~ ^-[0-9A-Za-z][0-9A-Za-z.-]*$ ]]; then
+            echo "::error::版本后缀格式不合法：$SUFFIX（需为 - 开头的 semver 预发布段，如 -rc1、-beta.2）"
+            exit 1
+          fi
+          if [[ "$RELEASE_TYPE" == "pre-release" && -z "$SUFFIX" ]]; then
+            echo "::error::pre-release 类型必须填写版本后缀（如 -rc1、-beta.2）"
+            exit 1
+          fi
+          if [[ "$RELEASE_TYPE" == "latest" && -n "$SUFFIX" ]]; then
+            echo "::error::latest 类型不能填写版本后缀；带后缀的版本请选择 pre-release"
+            exit 1
+          fi
+          # 解析 theme.yaml 版本，推导发布 tag = v<version><suffix>
+          VERSION=$(grep -m1 '^[[:space:]]*version:' theme.yaml | sed -E 's/^[[:space:]]*version:[[:space:]]*["'\'']?([^"'\''[:space:]]+).*/\1/')
+          [ -n "$VERSION" ] || { echo "::error::无法从 theme.yaml 解析 version 字段"; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || {
+            echo "::error::theme.yaml 中的 version 不是合法 semver：$VERSION"
+            exit 1
+          }
+          EXPECTED_TAG="v$VERSION$SUFFIX"
+          TAG=$(printf '%s' "$INPUT_TAG" | tr -d '[:space:]')
+          if [[ -z "$TAG" ]]; then
+            TAG="$EXPECTED_TAG"
+            echo "::notice::未填写 tag，按 theme.yaml 版本${SUFFIX:+及后缀 $SUFFIX}推导为 $TAG"
+          else
+            if [[ "$TAG" != v* ]]; then
+              TAG="v$TAG"
+              echo "::notice::tag 未带 v 前缀，已自动补全为 $TAG"
+            fi
+            if [[ -n "$SUFFIX" && "$TAG" == "v$VERSION" ]]; then
+              TAG="$TAG$SUFFIX"
+              echo "::notice::已将版本后缀追加到 tag，最终 Release tag 为 $TAG"
+            fi
+            if [[ "$TAG" != "$EXPECTED_TAG" ]]; then
+              echo "::error::Release tag（$TAG）与当前 theme.yaml 版本（$VERSION）及后缀（$SUFFIX）的期望值（$EXPECTED_TAG）不一致"
+              echo "::error::如需发布 $TAG，请先将 theme.yaml 的 version 更新为对应版本；预发布后缀请填写如 -rc1"
+              exit 1
+            fi
+          fi
+          if [[ -n "$SUFFIX" ]]; then
+            echo "::notice::预发布后缀生效：包内 theme.yaml 版本仍为 $VERSION（zip 文件名不变），仅 Release tag 带后缀"
+          fi
+          echo "publish=true" >> "$GITHUB_ENV"
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_TYPE=$RELEASE_TYPE" >> "$GITHUB_ENV"
+          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "校验通过：发布 tag $TAG"
+
+      # 上传 zip 到 Release；不存在时自动创建（说明取 release.md），已存在时更新资产。
+      # sync-halo=false 时在说明中注入隐藏标记 <!-- skip-halo-sync -->（页面不可见），
+      # cd.yaml 检测到该标记即跳过 Halo 应用市场同步
+      - name: 上传到 GitHub Release
+        if: github.event_name == 'push' || steps.release-config.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TYPE: ${{ github.event.inputs.release-type || 'latest' }}
+          SYNC_HALO: ${{ github.event.inputs.sync-halo }}
+        run: |
+          TAG="$RELEASE_TAG"
+          # 组装 Release 说明：release.md 内容；sync-halo=false 时追加跳过标记
+          WRITE_NOTES=0
+          if [[ "$SYNC_HALO" == "false" ]]; then
+            WRITE_NOTES=1
+            printf '%s\n\n<!-- skip-halo-sync -->' "$(cat release.md 2>/dev/null)" > /tmp/release-notes.md
+          elif [ -f release.md ]; then
+            WRITE_NOTES=1
+            cp release.md /tmp/release-notes.md
+          fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/*.zip --clobber
+            if [ "$WRITE_NOTES" = "1" ]; then
+              gh release edit "$TAG" --notes-file /tmp/release-notes.md
+            fi
+            if [[ "$RELEASE_TYPE" == "pre-release" ]]; then
+              gh release edit "$TAG" --prerelease --draft=false
+            else
+              gh release edit "$TAG" --prerelease=false --draft=false
+            fi
+            echo "已更新 Release $TAG 的资产"
+          else
+            if [ "$WRITE_NOTES" = "1" ]; then
+              if [[ "$RELEASE_TYPE" == "pre-release" ]]; then
+                gh release create "$TAG" dist/*.zip --prerelease --notes-file /tmp/release-notes.md
+              else
+                gh release create "$TAG" dist/*.zip --notes-file /tmp/release-notes.md
+              fi
+            else
+              if [[ "$RELEASE_TYPE" == "pre-release" ]]; then
+                gh release create "$TAG" dist/*.zip --prerelease
+              else
+                gh release create "$TAG" dist/*.zip
+              fi
+            fi
+            echo "已创建 Release $TAG 并上传资产"
+          fi
+
+      # 通知 CD 同步 Halo 应用市场：GITHUB_TOKEN 创建的 Release 不会触发
+      # release:published 事件（GitHub 防递归机制），需显式发送 repository_dispatch
+      - name: 通知 CD 同步 Halo（repository_dispatch）
+        if: github.event_name == 'push' || steps.release-config.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="$RELEASE_TAG"
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/dispatches" \
+            -d "{\"event_type\":\"theme-release\",\"client_payload\":{\"tag\":\"$TAG\"}}"
+          echo "已发送 repository_dispatch（tag=$TAG）通知 cd.yaml 同步 Halo"

@@ -1,0 +1,164 @@
+:root {
+  --hue: 250;
+  --radius-large: 1rem;
+  --content-delay: 150ms;
+  /* TOC 目录高亮/悬浮过渡时长（TOC.astro 的 duration-() 与 components.css 共用） */
+  --toc-transition-duration: 150ms;
+  --page-width: 75rem;
+  --banner-height: 35vh;
+  --banner-height-home: 65vh;
+  --banner-height-extend: 30vh;
+  /* 全屏首页内容区顶部间距（原 #main-grid padding-top，现折进 panel top） */
+  --banner-home-content-gap: 1.5rem;
+  /* 波浪底边相对 banner 底边的覆盖量：banner 底边 = 35vh + 30vh(CSS)，而
+     --banner-height-extend 是 4px 向下取整的像素值（余量 0~4px 会吃掉部分
+     覆盖）。覆盖量必须 > 取整步长(4px) + 安全边距，故设 8px：
+     实际覆盖 = 8 − 取整余量 ∈ [4, 8)px，任意 DPR 下波浪底边都能干净地低于
+     banner 底边（≥4px CSS = ≥6 设备像素 @DPR1.5），避免过渡动画中波浪底边
+     与 banner/页面背景边界亚像素错位露 1px 缝隙（Edge DPR 1.5 复现） */
+  --wave-cover-offset: 8px;
+  /* 主内容面板与 banner 的交叠量：panel top = var(--banner-height) − 此值。
+     与 constants.ts MAIN_PANEL_OVERLAPS_BANNER_HEIGHT(3.5) 同值，勿单独改 */
+  --panel-overlap: 3.5rem;
+  /* banner 禁用时主内容面板的顶部位置：固定导航栏 4.5rem + 1rem 间距 */
+  --no-banner-panel-top: 5.5rem;
+  /* 导航栏高度（桌面/移动固定模式同值）；scroll-manager.ts NAVBAR_HEIGHT_PX 与之对应 */
+  --navbar-height: 4.5rem;
+  /* banner 图片定位平移量：position=top→30vh / bottom→0 / center→15vh，
+     由 Layout.astro 按后台设置注入覆盖，此为默认兜底 */
+  --bannerOffset: 15vh;
+  --post-card-cover-width: 28%;
+
+  --primary: oklch(0.7 0.14 var(--hue));
+  --page-bg: oklch(0.95 0.01 var(--hue));
+  --card-bg: white;
+  /* 卡片装饰纹理（v1.1.32 引入 PNG 预渲染，解决 SVG 平铺滚动卡顿）：亮色用浅色纹理图 */
+  --box-pattern: url(/themes/Ethereal/assets/images/pattern-light.png);
+  --btn-content: oklch(0.55 0.12 var(--hue));
+  --btn-regular-bg: oklch(0.95 0.025 var(--hue));
+  --btn-regular-bg-hover: oklch(0.9 0.05 var(--hue));
+  --btn-regular-bg-active: oklch(0.85 0.08 var(--hue));
+  --btn-plain-bg-hover: oklch(0.95 0.025 var(--hue));
+  --btn-plain-bg-active: oklch(0.98 0.01 var(--hue));
+  --btn-card-bg-hover: oklch(0.98 0.005 var(--hue));
+  --btn-card-bg-active: oklch(0.9 0.03 var(--hue));
+  --enter-btn-bg: var(--btn-regular-bg);
+  --enter-btn-bg-hover: var(--btn-regular-bg-hover);
+  --enter-btn-bg-active: var(--btn-regular-bg-active);
+  --deep-text: oklch(0.25 0.02 var(--hue));
+  --title-active: oklch(0.6 0.1 var(--hue));
+  --line-divider: rgba(0, 0, 0, 0.08);
+  --line-color: rgba(0, 0, 0, 0.1);
+  --meta-divider: rgba(0, 0, 0, 0.2);
+  --inline-code-bg: var(--btn-regular-bg);
+  --inline-code-color: var(--btn-content);
+  --selection-bg: oklch(0.9 0.05 var(--hue));
+  --codeblock-bg: oklch(0.17 0.015 var(--hue));
+  --codeblock-topbar-bg: oklch(0.3 0.02 var(--hue));
+  --license-block-bg: rgba(0, 0, 0, 0.03);
+  --link-underline: oklch(0.93 0.04 var(--hue));
+  --link-hover: oklch(0.95 0.025 var(--hue));
+  --link-active: oklch(0.9 0.05 var(--hue));
+  --float-panel-bg: white;
+  --scrollbar-bg-light: rgba(0, 0, 0, 0.4);
+  --scrollbar-bg-hover-light: rgba(0, 0, 0, 0.5);
+  --scrollbar-bg-active-light: rgba(0, 0, 0, 0.6);
+  --scrollbar-bg-dark: rgba(255, 255, 255, 0.4);
+  --scrollbar-bg-hover-dark: rgba(255, 255, 255, 0.5);
+  --scrollbar-bg-active-dark: rgba(255, 255, 255, 0.6);
+  --scrollbar-bg: var(--scrollbar-bg-light);
+  --scrollbar-bg-hover: var(--scrollbar-bg-hover-light);
+  --scrollbar-bg-active: var(--scrollbar-bg-active-light);
+  --color-selection-bar: linear-gradient(
+    to right,
+    oklch(0.8 0.1 0),
+    oklch(0.8 0.1 30),
+    oklch(0.8 0.1 60),
+    oklch(0.8 0.1 90),
+    oklch(0.8 0.1 120),
+    oklch(0.8 0.1 150),
+    oklch(0.8 0.1 180),
+    oklch(0.8 0.1 210),
+    oklch(0.8 0.1 240),
+    oklch(0.8 0.1 270),
+    oklch(0.8 0.1 300),
+    oklch(0.8 0.1 330),
+    oklch(0.8 0.1 360)
+  );
+  --toc-badge-bg: oklch(0.89 0.05 var(--hue));
+  --toc-btn-hover: oklch(0.926 0.015 var(--hue));
+  --toc-btn-active: oklch(0.9 0.015 var(--hue));
+  --toc-width: calc((100vw - var(--page-width)) / 2 - 1rem);
+
+  --admonitions-color-tip: oklch(0.7 0.14 180);
+  --admonitions-color-note: oklch(0.7 0.14 250);
+  --admonitions-color-important: oklch(0.7 0.14 310);
+  --admonitions-color-warning: oklch(0.7 0.14 60);
+  --admonitions-color-caution: oklch(0.6 0.2 25);
+
+  /* 点赞失败提示色（upvote-failed 闪烁），约 Tailwind red-400，与文章页点赞红心一致 */
+  --upvote-error: oklch(0.7 0.19 22);
+}
+
+:root.dark {
+  --primary: oklch(0.75 0.14 var(--hue));
+  --page-bg: oklch(0.16 0.014 var(--hue));
+  --card-bg: oklch(0.23 0.015 var(--hue));
+  /* 卡片装饰纹理：暗色用深色纹理图 */
+  --box-pattern: url(/themes/Ethereal/assets/images/pattern-dark.png);
+  --btn-content: oklch(0.75 0.1 var(--hue));
+  --btn-regular-bg: oklch(0.33 0.035 var(--hue));
+  --btn-regular-bg-hover: oklch(0.38 0.04 var(--hue));
+  --btn-regular-bg-active: oklch(0.43 0.045 var(--hue));
+  --btn-plain-bg-hover: oklch(0.3 0.035 var(--hue));
+  --btn-plain-bg-active: oklch(0.27 0.025 var(--hue));
+  --btn-card-bg-hover: oklch(0.3 0.03 var(--hue));
+  --btn-card-bg-active: oklch(0.35 0.035 var(--hue));
+  --deep-text: oklch(0.85 0.02 var(--hue));
+  --line-divider: rgba(255, 255, 255, 0.08);
+  --line-color: rgba(255, 255, 255, 0.1);
+  --meta-divider: rgba(255, 255, 255, 0.2);
+  --selection-bg: oklch(0.4 0.08 var(--hue));
+  --license-block-bg: var(--codeblock-bg);
+  --link-underline: oklch(0.4 0.08 var(--hue));
+  --link-hover: oklch(0.4 0.08 var(--hue));
+  --link-active: oklch(0.35 0.07 var(--hue));
+  --float-panel-bg: oklch(0.19 0.015 var(--hue));
+  --scrollbar-bg: var(--scrollbar-bg-dark);
+  --scrollbar-bg-hover: var(--scrollbar-bg-hover-dark);
+  --scrollbar-bg-active: var(--scrollbar-bg-active-dark);
+  --color-selection-bar: linear-gradient(
+    to right,
+    oklch(0.7 0.1 0),
+    oklch(0.7 0.1 30),
+    oklch(0.7 0.1 60),
+    oklch(0.7 0.1 90),
+    oklch(0.7 0.1 120),
+    oklch(0.7 0.1 150),
+    oklch(0.7 0.1 180),
+    oklch(0.7 0.1 210),
+    oklch(0.7 0.1 240),
+    oklch(0.7 0.1 270),
+    oklch(0.7 0.1 300),
+    oklch(0.7 0.1 330),
+    oklch(0.7 0.1 360)
+  );
+  --toc-badge-bg: var(--btn-regular-bg);
+  --toc-btn-hover: oklch(0.22 0.02 var(--hue));
+  --toc-btn-active: oklch(0.25 0.02 var(--hue));
+
+  --admonitions-color-tip: oklch(0.75 0.14 180);
+  --admonitions-color-note: oklch(0.75 0.14 250);
+  --admonitions-color-important: oklch(0.75 0.14 310);
+  --admonitions-color-warning: oklch(0.75 0.14 60);
+  --admonitions-color-caution: oklch(0.65 0.2 25);
+}
+
+/* 全屏模式：首页 banner 占满整屏（100vh），其余机制（延伸/平移）随
+   --banner-height-home 自动推导。数值与 src/constants/constants.ts 的
+   BANNER_HEIGHT_HOME_FULLSCREEN / BANNER_HEIGHT_EXTEND_FULLSCREEN 对应
+   （这里仅作 JS 接管前的首帧兜底，运行期由 JS 以像素值覆盖） */
+html[data-banner-display="fullscreen"] {
+  --banner-height-home: 100vh;
+  --banner-height-extend: 65vh;
+}
