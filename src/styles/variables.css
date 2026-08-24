@@ -169,8 +169,8 @@ html[data-banner-display="fullscreen"] {
 :root.mods-page-wide {
   --page-width: 112rem !important;
 }
-/* 三栏布局下特异性同 (0,1,0) 且 components.css 后声明会压过上面的 :root 规则，
-   故此处用 (0,2,0) 的复合选择器稳赢，让三栏也跟随宽屏 112rem（方案 A） */
+/* 三栏布局双保险：components.css 已不再写死 93.5rem，此处复合选择器
+   确保开启宽屏时三栏也跟随 112rem（即使将来有人重新加回三栏默认值也能赢） */
 :root.mods-page-wide .layout-three-column {
   --page-width: 112rem !important;
 }
