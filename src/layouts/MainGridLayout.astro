@@ -345,16 +345,20 @@ const rightSidebarHasContentExpr = [
         th:classappend="${layoutTwoColumnOrEmpty ? 'layout-two-column' : 'layout-three-column'}"
       >
         <!-- 首页瞬间条（魔改；受总开关 mods.enable + 逐项开关 showHomeMoments 控制）。
+             仅首页渲染（isHomePage 构建期门控）：首页之外不挂载，避免瞬间条
+             漂浮在文章页/其他页顶部造成布局错位。
              置于 #main-grid 之上、#swup-container 之外，全站持久存在、横跨整页。
              总开关门控用 th:if（Thymeleaf 运行期变量 theme 可用）；逐项开关在
              HomeMoments.astro 内部 th:if 控制，二者叠加即 总开关 AND 逐项开关。 -->
-        <div
-          id="home-moments-wrap"
-          class="pointer-events-auto px-0 md:px-4 moment-marquee-anchor transition duration-[var(--dur-banner,700ms)]"
-          th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable)}"
-        >
-          <HomeMoments />
-        </div>
+        {isHomePage && (
+          <div
+            id="home-moments-wrap"
+            class="pointer-events-auto px-0 md:px-4 moment-marquee-anchor transition duration-[var(--dur-banner,700ms)]"
+            th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable)}"
+          >
+            <HomeMoments />
+          </div>
+        )}
 
         <div
           id="main-grid"
