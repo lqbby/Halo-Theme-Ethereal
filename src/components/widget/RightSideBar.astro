@@ -3,6 +3,7 @@ import Announcement from "./Announcement.astro";
 import Categories from "./Categories.astro";
 import Hitokoto from "./Hitokoto.astro";
 import Profile from "./Profile.astro";
+import RecentComments from "./RecentComments.astro";
 import Schedule from "./Schedule.astro";
 import SiteStats from "./SiteStats.astro";
 import Tags from "./Tags.astro";
@@ -81,6 +82,9 @@ const thClassappend = Astro.props["th:classappend"] || "";
         </div>
         <div class="contents" th:case="'schedule'">
           <Schedule />
+        </div>
+        <div class="contents" th:case="'recent-comments'">
+          <RecentComments />
         </div>
         <div th:case="'html'" class="card-base p-4" th:utext="${widget.html}">
         </div>

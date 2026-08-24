@@ -1,0 +1,312 @@
+---
+import WidgetLayout from "./WidgetLayout.astro";
+
+interface Props {
+  class?: string;
+  style?: string;
+}
+
+const className = Astro.props.class;
+const style = Astro.props.style;
+const COLLAPSED_HEIGHT = "7.5rem";
+---
+
+<div class="contents">
+  <WidgetLayout
+    id="recent-comments"
+    nameKey="widget.recentComments.title"
+    class={className}
+    style={style}
+  >
+    <div id="recent-comments-list" class="flex flex-col gap-1">
+      <div
+        class="px-2 py-3 text-center text-xs text-neutral-400"
+        th:text="#{widget.recentComments.loading}">加载中...</div>
+    </div>
+  </WidgetLayout>
+</div>
+
+<script is:inline th:inline="none">
+  (function () {
+    var LIMIT = 5;
+    // 新版 Halo(2.20+) 的 comments 列表接口已废弃「无差别列出全部评论」，
+    // 必须按 subject(kind+name) 查。这里改为：拉最近文章 → 只查有评论计数的
+    // → 并发取每篇评论 → 合并按时间排序取前 LIMIT。
+    var POSTS_API =
+      "/apis/api.content.halo.run/v1alpha1/posts?size=20&sort=metadata.creationTimestamp,desc";
+    var listEl = document.getElementById("recent-comments-list");
+    if (!listEl) return;
+
+    function safeFetch(url, opts, timeout) {
+      var SF = window.__themeSafeFetch;
+      if (SF && SF.safeFetch) return SF.safeFetch(url, opts || {}, timeout || 8000);
+      return fetch(url, opts);
+    }
+
+    function fmtRelative(dateStr) {
+      if (!dateStr) return "";
+      var d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      var diff = Date.now() - d.getTime();
+      var mins = Math.floor(diff / 60000);
+      if (mins < 1) return "刚刚";
+      if (mins < 60) return mins + " 分钟前";
+      var hours = Math.floor(mins / 60);
+      if (hours < 24) return hours + " 小时前";
+      var days = Math.floor(hours / 24);
+      if (days < 30) return days + " 天前";
+      if (days < 365) return Math.floor(days / 30) + " 个月前";
+      return Math.floor(days / 365) + " 年前";
+    }
+
+    // 去掉 Markdown 语法符号，保留纯文本摘要
+    function toPlain(text) {
+      if (!text) return "";
+      return text
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`[^`]*`/g, "")
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/^#+\s*/gm, "")
+        .replace(/[*_~>`|]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    // 无头像/头像加载失败时，用首字母色块兜底（列表项总显示头像）
+    function makeInitialAvatar(initial, color) {
+      var d = document.createElement("div");
+      d.className =
+        "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border border-black/5 text-sm font-semibold text-white dark:border-white/10";
+      d.style.backgroundColor = color;
+      d.textContent = initial;
+      return d;
+    }
+
+    // 解析头像，与 CommentNext 评论区一致：
+    // 1) 登录用户直接用 owner.avatar；
+    // 2) 邮箱型访客(owner.kind==="Email")无 avatar 字段，CommentNext 用
+    //    spec.owner.annotations["email-hash"] 现算 weavatar 头像
+    //    （https://weavatar.com/avatar/{hash}?d=mp&f=webp&s=96），这里复刻同一算法；
+    // 3) 都没有返回 ""，交由下方首字母色块兜底（img.onerror 也会回退到色块）。
+    function resolveAvatar(owner, spec) {
+      if (owner && owner.avatar) return owner.avatar;
+      var anno =
+        (owner && owner.annotations) ||
+        (spec && spec.owner && spec.owner.annotations) ||
+        {};
+      var hash = anno["email-hash"];
+      if (hash) {
+        return (
+          "https://weavatar.com/avatar/" +
+          encodeURIComponent(hash) +
+          "?d=mp&f=webp&s=96"
+        );
+      }
+      return "";
+    }
+
+    function renderComments(comments) {
+      listEl.innerHTML = "";
+      comments.forEach(function (c) {
+        var owner = c.owner || {};
+        var spec = c.spec || {};
+        var avatar = resolveAvatar(owner, spec);
+        var name = owner.displayName || "匿名";
+        var raw = toPlain(spec.raw || spec.content || "");
+        if (raw.length > 48) raw = raw.slice(0, 48) + "…";
+        var time = fmtRelative(
+          spec.creationTime || (c.metadata && c.metadata.creationTimestamp),
+        );
+
+        var a = document.createElement("a");
+        a.className =
+          "group flex gap-2.5 rounded-lg px-2 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-3 active:bg-(--btn-plain-bg-active)";
+        a.href = "#";
+        a.title = name + " 的评论";
+        // 走 Swup 整站页面过渡（淡入淡出），让「跳转到评论区」本身带过渡动画；
+        // 文章页有 #comment hash 处理脚本，评论渲染后滚动到评论区并高亮。
+        // permalink 解析完成前（href 仍为 #）放行默认行为（不跳转）。
+        a.addEventListener("click", function (e) {
+          var href = a.getAttribute("href");
+          if (!href || href === "#") return;
+          e.preventDefault();
+          if (window.swup) window.swup.navigate(href);
+          else window.location.href = href;
+        });
+
+        // 头像：有图用 img，无图或加载失败回退首字母色块（总显示头像）
+        var avatarEl;
+        var initial = (name || "?").trim().charAt(0).toUpperCase();
+        var colorSeed = 0;
+        for (var ci = 0; ci < (name || "").length; ci++) colorSeed += name.charCodeAt(ci);
+        var palette = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316"];
+        var avatarColor = palette[colorSeed % palette.length];
+        if (avatar) {
+          var img = document.createElement("img");
+          img.className = "h-8 w-8 shrink-0 rounded-full border border-black/5 object-cover dark:border-white/10";
+          img.loading = "lazy";
+          img.alt = name;
+          img.src = avatar;
+          img.onerror = function () {
+            if (img.parentNode) img.parentNode.replaceChild(makeInitialAvatar(initial, avatarColor), img);
+          };
+          avatarEl = img;
+        } else {
+          avatarEl = makeInitialAvatar(initial, avatarColor);
+        }
+
+        var body = document.createElement("div");
+        body.className = "min-w-0 flex-1";
+
+        var meta = document.createElement("div");
+        meta.className = "flex items-center justify-between gap-1.5";
+        var nm = document.createElement("span");
+        nm.className =
+          "truncate text-sm font-medium text-neutral-800 dark:text-neutral-200";
+        nm.textContent = name;
+        var tm = document.createElement("span");
+        tm.className = "shrink-0 text-xs text-neutral-400";
+        tm.textContent = time;
+        meta.appendChild(nm);
+        meta.appendChild(tm);
+
+        var content = document.createElement("p");
+        content.className =
+          "mt-0.5 line-clamp-2 break-words text-xs leading-relaxed text-neutral-500 dark:text-neutral-400";
+        content.textContent = raw || "（无内容）";
+
+        body.appendChild(meta);
+        body.appendChild(content);
+        a.appendChild(avatarEl);
+        a.appendChild(body);
+        listEl.appendChild(a);
+
+        // 尽力解析评论所属文章链接（best-effort，失败则保持 #）
+        resolvePermalink(a, spec.subjectRef, c.metadata && c.metadata.name);
+      });
+    }
+
+    function resolvePermalink(a, subjectRef, commentName) {
+      if (!subjectRef || !subjectRef.kind || !subjectRef.name) return;
+      var typeMap = {
+        Post: "posts",
+        SinglePage: "singlepages",
+        Journal: "journals",
+        Sheet: "singlepages",
+      };
+      var type = typeMap[subjectRef.kind];
+      if (!type) return;
+      var url =
+        "/apis/api.content.halo.run/v1alpha1/" +
+        type +
+        "/" +
+        encodeURIComponent(subjectRef.name);
+      safeFetch(url, {}, 6000)
+        .then(function (r) {
+          return r.ok ? r.json() : null;
+        })
+        .then(function (d) {
+          if (!d) return;
+          var permalink =
+            (d.status && d.status.permalink) ||
+            (d.spec && d.spec.slug ? "/" + d.spec.slug : null);
+          if (permalink) {
+            // 指向稳定 SSR 容器 #comment（评论区），不指向异步渲染的具体评论
+            // #comment-{name}，避免首屏不存在而定位失败/滚动冲突。
+            a.href = permalink + "#comment";
+          }
+        })
+        .catch(function () {});
+    }
+
+    function showEmpty() {
+      listEl.innerHTML =
+        '<div class="px-2 py-3 text-center text-xs text-neutral-400">暂无评论</div>';
+    }
+
+    function showError() {
+      var SF = window.__themeSafeFetch;
+      var box = document.getElementById("recent-comments");
+      if (SF && SF.renderWidgetError && box) {
+        SF.renderWidgetError(box, "评论加载失败");
+        return;
+      }
+      listEl.innerHTML =
+        '<div class="px-2 py-3 text-center text-xs text-neutral-400">评论加载失败</div>';
+    }
+
+    function load() {
+      safeFetch(POSTS_API, {}, 8000)
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          var posts = (data && data.items) || [];
+          // 只查有评论计数的文章，避免无谓请求（stats.comment 在匿名 posts 列表里可见）
+          var withComments = posts.filter(function (p) {
+            return (p.stats && p.stats.comment) > 0;
+          });
+          if (!withComments.length) {
+            showEmpty();
+            return;
+          }
+          return Promise.all(
+            withComments.map(function (p) {
+              var nm = p.metadata && p.metadata.name;
+              // 注意：subjectRef 是 {group, kind, name} 三元组，必须带 group，
+              // 否则 Halo 评论接口匹配不到任何评论（返回 total:0）。文章页
+              // <halo:comment group="content.halo.run"> 也是这个 group。
+              var url =
+                "/apis/api.halo.run/v1alpha1/comments?group=content.halo.run&kind=Post&name=" +
+                encodeURIComponent(nm) +
+                "&size=10";
+              return safeFetch(url, {}, 6000)
+                .then(function (r) {
+                  return r.ok ? r.json() : { items: [] };
+                })
+                .then(function (d) {
+                  return (d.items || []).filter(function (c) {
+                    var s = c.spec || {};
+                    return s.approved !== false && s.hidden !== true;
+                  });
+                })
+                .catch(function () {
+                  return [];
+                });
+            })
+          );
+        })
+        .then(function (lists) {
+          if (!lists) return;
+          var all = lists.reduce(function (a, b) {
+            return a.concat(b);
+          }, []);
+          if (!all.length) {
+            showEmpty();
+            return;
+          }
+          // 按评论创建时间倒序，取最新的 LIMIT 条
+          all.sort(function (a, b) {
+            var ta = new Date((a.spec && a.spec.creationTime) || 0).getTime();
+            var tb = new Date((b.spec && b.spec.creationTime) || 0).getTime();
+            return tb - ta;
+          });
+          renderComments(all.slice(0, LIMIT));
+        })
+        .catch(function (e) {
+          console.warn("[RecentComments] load failed:", e);
+          showError();
+        });
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", load);
+    } else {
+      load();
+    }
+    // swup 页面切换后重执行（与 SiteStats 一致）
+    load();
+  })();
+</script>

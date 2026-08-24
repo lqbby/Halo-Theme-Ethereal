@@ -22,7 +22,7 @@
   id="home-moments"
   class="card-base onload-animation relative mb-4 overflow-hidden px-4 py-4"
   th:if="${theme.config?.layout?.postList?.showHomeMoments == null or theme.config?.layout?.postList?.showHomeMoments}"
-  th:with="homeMoments = ${momentFinder?.list({size: theme.config?.layout?.postList?.homeMomentsCount ?: 10})}"
+  th:with="homeMomentsCount = ${theme.config?.layout?.postList?.homeMomentsCount ?: 10}"
 >
   <!-- 整条可点击覆盖层：空白区域点击跳 /moments（z-1，内容在 z-10 之上） -->
   <a
@@ -48,7 +48,9 @@
       >
     </a>
 
-    <!-- 滚动区 -->
+    <!-- 滚动区：SSR 仅渲染空壳 + 加载态；
+         瞬间数据改由前端异步拉取（标准 content API），
+         失败仅显示空态，绝不崩页。 -->
     <div
       id="home-moments-marquee"
       class="home-moments-marquee relative min-w-0 flex-1 overflow-hidden rounded-lg bg-(--btn-regular-bg) py-1.5"
@@ -56,50 +58,15 @@
       <div
         id="home-moments-track"
         class="home-moments-track flex w-max items-center"
-        th:if="${homeMoments != null and not #lists.isEmpty(homeMoments.items)}"
       >
         <div class="home-moments-group flex items-center">
-          <a
-            th:each="moment : ${homeMoments.items}"
-            th:if="${moment.spec.content != null and not #strings.isEmpty(moment.spec.content.raw)}"
-            th:href="@{/moments/{name}(name=${moment.metadata.name})}"
-            class="home-moment-link group flex items-center whitespace-nowrap"
-          >
-            <span
-              class="home-moment-owner text-sm font-bold text-(--primary)"
-              th:if="${moment.owner != null and not #strings.isEmpty(moment.owner.displayName)}"
-              th:text="${moment.owner.displayName}"
-              >作者</span
-            >
-            <span
-              class="text-sm text-(--primary)"
-              th:if="${moment.owner != null and not #strings.isEmpty(moment.owner.displayName)}"
-              >：</span
-            >
-            <!-- 原始内容（可能是富文本 HTML）：先以文本承载，JS 解析为纯文本后回填 -->
-            <span
-              class="home-moment-text text-sm text-50"
-              th:text="${moment.spec.content.raw}"
-              >内容</span
-            >
-            <span
-              class="home-moment-dot mx-3 inline-block h-1 w-1 shrink-0 rounded-full bg-(--primary)/40"
-              aria-hidden="true"
-            ></span>
-            <!-- 标签隐藏数据：供 JS 提取 -->
-            <span
-              class="home-moment-tag-data"
-              style="display:none"
-              th:each="tagName : ${moment.spec.tags}"
-              th:text="${tagName}"
-              ></span>
-          </a>
+          <!-- 瞬时条目由前端 JS 渲染 -->
         </div>
       </div>
 
-      <!-- 空状态 -->
+      <!-- 加载态 / 空状态（JS 拉取后替换） -->
       <div
-        th:if="${homeMoments == null or #lists.isEmpty(homeMoments.items)}"
+        id="home-moments-status"
         class="px-3 text-sm text-30"
         th:text="#{page.moments.empty}"
         >暂无瞬间</div
@@ -123,6 +90,23 @@
     id="home-moments-tags"
     class="relative z-10 mt-3 flex flex-wrap items-center gap-2"
   ></div>
+
+  <!-- 将后台配置的瞬间条数量注入前端（SSR 阶段由 Thymeleaf 求值，安全无运行期风险） -->
+  <script th:inline="javascript" type="application/json" id="home-moments-config">
+    /*[[${homeMomentsCount}]]*/
+  </script>
+  <script is:inline>
+    (function () {
+      var cfg = document.getElementById("home-moments-config");
+      if (cfg) {
+        try {
+          window.__homeMomentsCount = JSON.parse(cfg.textContent.trim());
+        } catch (e) {
+          window.__homeMomentsCount = 10;
+        }
+      }
+    })();
+  </script>
 </section>
 
 <style is:global>
@@ -258,11 +242,69 @@
       return (div.textContent || div.innerText || "").trim();
     }
 
+    var MOMENTS_API =
+      "/apis/api.content.halo.run/v1alpha1/moments?size=" +
+      (window.__homeMomentsCount || 10) +
+      "&sort=spec.releaseTime,desc";
+
+    function renderInto(group, statusEl, moments) {
+      var valid = (moments || []).filter(function (m) {
+        return (
+          m &&
+          m.spec &&
+          m.spec.content != null &&
+          m.spec.content.raw != null &&
+          m.spec.content.raw.trim() !== ""
+        );
+      });
+      if (!valid.length) {
+        if (statusEl) statusEl.style.display = "";
+        return;
+      }
+      if (statusEl) statusEl.style.display = "none";
+
+      var html = "";
+      valid.forEach(function (m) {
+        var name = m.metadata ? m.metadata.name : "";
+        var owner = m.owner && m.owner.displayName ? m.owner.displayName : "";
+        var raw = m.spec.content.raw;
+        // 标签：隐藏 span 供下方 JS 提取（与旧版 SSR 结构一致）
+        var tags = (m.spec.tags || [])
+          .map(function (t) {
+            return '<span class="home-moment-tag-data" style="display:none">' +
+              t +
+              "</span>";
+          })
+          .join("");
+        var ownerHtml = owner
+          ? '<span class="home-moment-owner text-sm font-bold text-(--primary)">' +
+            owner +
+            '</span><span class="text-sm text-(--primary)">：</span>'
+          : "";
+        html +=
+          '<a href="/moments/' +
+          encodeURIComponent(name) +
+          '" class="home-moment-link group flex items-center whitespace-nowrap">' +
+          ownerHtml +
+          '<span class="home-moment-text text-sm text-50">' +
+          raw.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;") +
+          "</span>" +
+          '<span class="home-moment-dot mx-3 inline-block h-1 w-1 shrink-0 rounded-full bg-(--primary)/40" aria-hidden="true"></span>' +
+          tags +
+          "</a>";
+      });
+      group.innerHTML = html;
+    }
+
     function initHomeMoments() {
       var marquee = document.getElementById("home-moments-marquee");
       var track = document.getElementById("home-moments-track");
       var tagsBox = document.getElementById("home-moments-tags");
+      var statusEl = document.getElementById("home-moments-status");
       if (!marquee || !track) return;
+
+      var group = track.querySelector(".home-moments-group");
+      if (!group) return;
 
       // ===== 1. 富文本 → 纯文本回填，过滤空文本条目 =====
       var textEls = track.querySelectorAll(".home-moment-text");
@@ -275,9 +317,6 @@
           if (link) link.style.display = "none";
         }
       });
-
-      var group = track.querySelector(".home-moments-group");
-      if (!group) return;
 
       // ===== 2. 无缝滚动：克隆一份内容，超出一屏时才启用动画 =====
       // 延迟到字体加载 + 布局稳定后再测量宽度：否则字体未就绪时 scrollWidth
@@ -346,10 +385,30 @@
       }
     }
 
+    function loadMoments() {
+      var track = document.getElementById("home-moments-track");
+      var group = track && track.querySelector(".home-moments-group");
+      var statusEl = document.getElementById("home-moments-status");
+      if (!group) return;
+      fetch(MOMENTS_API, { headers: { Accept: "application/json" } })
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          renderInto(group, statusEl, (data && data.items) || []);
+          initHomeMoments();
+        })
+        .catch(function () {
+          // 拉取失败：保持空态，不崩页
+          if (statusEl) statusEl.style.display = "";
+        });
+    }
+
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initHomeMoments);
+      document.addEventListener("DOMContentLoaded", loadMoments);
     } else {
-      initHomeMoments();
+      loadMoments();
     }
     // 瞬间条位于 #swup-container 之外，Swup 换页不替换该 DOM、也不重执行本脚本，
     // 因此全站仅首屏初始化一次；data-cloned/data-rendered 标记保证幂等，
