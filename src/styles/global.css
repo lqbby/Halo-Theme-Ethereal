@@ -17,6 +17,14 @@
     @apply translate-y-(--banner-height-extend);
   }
 
+  /* 首页瞬间栏：与 #main-grid 同条件随 banner 下推，
+     否则瞬间条与文章卡片之间会出现整段空白（横幅/全屏模式）。
+     移植自上游 global.css（原 moment-marquee-anchor 规则，
+     1.2.0-mod 初版漏带，导致全屏壁纸模式下瞬间条位置错乱） */
+  &.enable-banner .moment-marquee-anchor {
+    @apply translate-y-(--banner-height-extend);
+  }
+
   &.enable-banner #sidebar-sticky {
     @apply top-[calc(1rem-var(--banner-height-extend))];
   }
