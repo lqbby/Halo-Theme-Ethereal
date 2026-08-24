@@ -2,11 +2,19 @@
 const currentYear = new Date().getFullYear();
 ---
 
-<!-- ============ 页脚装饰分隔带（经典/卡片两种底栏通用） ============ -->
-<!-- 居中「星芒」徽标 + 贯穿渐隐细线，填补页脚与正文之间的空白间隔；
-     星芒用 absolute 强制水平+垂直居中，底色圆遮罩断开细线，避免线穿过星星；
-     细圆环嵌四芒星，主色随 --primary/--hue 自适应，契合 Ethereal 轻盈空灵主题 -->
+<!-- 魔改开关通过 th:with 注入 Thymeleaf 变量（theme 为 Halo 运行期变量，
+     不能用 Astro 前端 JS 直接读 theme，否则本地 astro build 预渲染会
+     ReferenceError）。总开关 mods.enable 默认开（魔改生效），关 → 原版；
+     footerStar 受 总开关 AND 逐项开关 控制，默认开。 -->
 <div
+  th:with="modsEnable=${(theme.config?.mods?.enable == null) ? true : theme.config?.mods?.enable}, footerStar=${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.footerStar == null ? true : theme.config?.mods?.footerStar)}"
+  th:remove="tag"
+>
+
+<!-- ============ 页脚装饰分隔带（魔改星芒 / 原版虚线 二选一） ============ -->
+<!-- footerStar 关 → 上游原版虚线分隔；开 → 星芒装饰带（居中徽标 + 渐隐细线） -->
+<div
+  th:if="${footerStar}"
   class="relative mx-8 my-6 flex items-center justify-center md:mx-32"
 >
   <!-- 贯穿渐隐线：中部最浓、两端透明；星芒位于正中覆盖断口 -->
@@ -26,7 +34,13 @@ const currentYear = new Date().getFullYear();
     </svg>
   </span>
 </div>
+<div
+  th:unless="${footerStar}"
+  class="mx-8 my-10 border-t border-dashed border-(--primary)/15 transition dark:border-(--primary)/20 md:mx-32"
+>
+</div>
 <footer
+  th:if="${(modsEnable) ? (theme.config?.footer?.style != 'card') : true}"
   class="mb-12 flex flex-col items-center justify-center rounded-2xl px-6 text-center text-sm text-50 transition"
 >
   <div class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
@@ -147,3 +161,184 @@ const currentYear = new Date().getFullYear();
     >
   </div>
 </footer>
+
+<!-- ============ 新版（卡片）底栏（魔改；受总开关 + footer.style 控制） ============ -->
+<!-- 总开关关 → 一律经典款（上游原版）；开且 footer.style=='card' → 卡片底栏 -->
+<footer
+  th:if="${modsEnable && theme.config?.footer?.style == 'card'}"
+  class="card-base mb-12"
+>
+  <!-- 顶部：站点身份 + 社交图标 -->
+  <div
+    class="flex flex-col gap-5 px-6 pb-6 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+  >
+    <div class="min-w-0">
+      <div
+        class="relative mb-1.5 pl-5 text-xl font-bold text-neutral-900 transition before:absolute before:left-0 before:top-1/2 before:h-5 before:w-1 before:-translate-y-1/2 before:rounded-md before:bg-(--primary) dark:text-neutral-100"
+      >
+        <span th:text="${site.title}">Ethereal</span>
+      </div>
+      <div
+        th:if="${not #strings.isEmpty(site.subtitle)}"
+        class="max-w-md pl-5 text-sm leading-relaxed text-50"
+      >
+        <span th:text="${site.subtitle}">站点副标题</span>
+      </div>
+    </div>
+    <div
+      th:if="${theme.config?.sidebar?.profile?.social_media != null and not #lists.isEmpty(theme.config?.sidebar?.profile?.social_media)}"
+      class="flex flex-wrap items-center gap-2.5"
+    >
+      <a
+        th:each="social : ${theme.config?.sidebar?.profile?.social_media}"
+        th:if="${social.social_icon != null and not #strings.isEmpty(social.social_icon.value)}"
+        th:href="${social.url}"
+        th:title="${social.name}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn-regular size-9 rounded-lg transition-transform duration-200 hover:-translate-y-0.5 hover:scale-105 active:scale-90"
+        th:utext="${social.social_icon.value}"
+      >
+      </a>
+    </div>
+  </div>
+
+  <!-- 分隔线 -->
+  <div
+    class="mx-6 border-t border-dashed border-(--primary)/15 transition dark:border-(--primary)/20 sm:mx-8"
+  ></div>
+
+  <!-- 底部：版权/链接（左） + 备案/署名（右） -->
+  <div
+    class="flex flex-col gap-3 px-6 py-5 text-sm text-50 sm:flex-row sm:items-center sm:justify-between sm:px-8"
+  >
+    <!-- 左：版权 + 链接 + 自定义链接 -->
+    <div class="flex min-w-0 flex-col gap-1.5">
+    <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+      <span
+        >&copy; <span id="copyright-year-card">{currentYear}</span>
+        <span th:text="${site.title}">Ethereal</span>.
+        <span th:text="#{footer.rights}">All Rights Reserved.</span></span
+      >
+      <span class="whitespace-nowrap">
+        <span
+          th:if="${theme.config?.footer?.displayLinks?.enable_privacy != null ? theme.config?.footer?.displayLinks?.enable_privacy : false}"
+          th:remove="tag"
+          >/&nbsp;<a
+            class="link font-medium text-(--primary)"
+            th:href="@{${theme.config?.footer?.displayLinks?.privacy_url != null ? theme.config?.footer?.displayLinks?.privacy_url : '/privacy'}}"
+            >隐私政策</a
+          ></span
+        >
+        <span
+          th:if="${pluginFinder.available('PluginFeed') && (theme.config?.footer?.displayLinks?.enable_rss == null || theme.config?.footer?.displayLinks?.enable_rss)}"
+          th:remove="tag"
+          >&nbsp;/&nbsp;<a
+            class="link font-medium text-(--primary)"
+            target="_blank"
+            th:href="@{/rss.xml}">RSS</a
+          ></span
+        >
+        <span
+          th:if="${pluginFinder.available('PluginSitemap') && (theme.config?.footer?.displayLinks?.enable_sitemap == null || theme.config?.footer?.displayLinks?.enable_sitemap)}"
+          th:remove="tag"
+          >&nbsp;/&nbsp;<a
+            class="link font-medium text-(--primary)"
+            target="_blank"
+            th:href="@{/sitemap.xml}">Sitemap</a
+          ></span
+        >
+      </span>
+    </div>
+
+    <!-- 自定义页脚链接 -->
+    <div
+      th:if="${theme.config?.footer?.customLinks != null && not #lists.isEmpty(theme.config?.footer?.customLinks?.items)}"
+      class="flex flex-wrap items-center gap-x-2 gap-y-1"
+    >
+      <span
+        th:each="link, stat : ${theme.config?.footer?.customLinks?.items}"
+        th:remove="tag"
+      >
+        <span
+          th:if="${not #strings.isEmpty(link.html)}"
+          th:remove="tag"
+          th:utext="${link.html}"></span>
+        <span th:unless="${not #strings.isEmpty(link.html)}" th:remove="tag">
+          <span th:if="${not stat.first}"> / </span>
+          <a
+            th:if="${not #strings.isEmpty(link.url)}"
+            class="link font-medium text-(--primary)"
+            target="_blank"
+            th:href="${link.url}"
+            th:text="${link.name}">Link</a
+          >
+          <span
+            th:unless="${not #strings.isEmpty(link.url)}"
+            class="link font-medium text-(--primary)"
+            th:text="${link.name}">Link</span
+          >
+        </span>
+      </span>
+    </div>
+    </div>
+
+    <!-- 右：备案 + 署名 -->
+    <div class="flex shrink-0 flex-col items-start gap-1.5 sm:items-end">
+    <!-- 备案 -->
+    <div
+      class="flex flex-wrap items-center justify-start gap-x-4 gap-y-1 sm:justify-end"
+      th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.icp_text) or not #strings.isEmpty(theme.config?.footer?.beian?.gongan_text)}"
+    >
+      <a
+        th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.icp_text)}"
+        class="inline-flex items-center gap-1 link font-medium text-(--primary)"
+        th:href="${theme.config?.footer?.beian?.icp_link}"
+        target="_blank"
+      >
+        <span class="icon-[material-symbols--verified-outline-rounded] h-4 w-4"
+        ></span>
+        <span class="text-sm" th:text="${theme.config?.footer?.beian?.icp_text}"
+        ></span>
+      </a>
+      <a
+        th:if="${not #strings.isEmpty(theme.config?.footer?.beian?.gongan_text)}"
+        class="inline-flex items-center gap-1 link font-medium text-(--primary)"
+        th:href="${theme.config?.footer?.beian?.gongan_link}"
+        target="_blank"
+      >
+        <img
+          src={`/themes/Ethereal/assets/images/ghs.png?v=${ASSET_VERSION}`}
+          alt="公安备案图标"
+          loading="lazy"
+          decoding="async"
+          width="16"
+          height="16"
+          class="inline-block h-4 w-4"
+        />
+        <span
+          class="text-sm"
+          th:text="${theme.config?.footer?.beian?.gongan_text}"></span>
+      </a>
+    </div>
+
+    <!-- 主题署名 -->
+    <div
+      th:if="${theme.config?.footer?.displayLinks?.enable_theme_credit == null || theme.config?.footer?.displayLinks?.enable_theme_credit}"
+    >
+      <span th:text="#{footer.poweredBy}">Powered by</span>{" "}
+      <a
+        class="link font-medium text-(--primary)"
+        target="_blank"
+        href="https://www.halo.run">Halo</a
+      >{" "}&{" "}
+      <a
+        class="link font-medium text-(--primary)"
+        target="_blank"
+        href="https://github.com/AloneNanNan/halo-theme-ethereal">Ethereal</a
+      >
+    </div>
+    </div>
+  </div>
+</footer>
+</div>

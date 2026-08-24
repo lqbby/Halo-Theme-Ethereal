@@ -162,3 +162,9 @@ html[data-banner-display="fullscreen"] {
   --banner-height-home: 100vh;
   --banner-height-extend: 65vh;
 }
+
+/* 魔改宽屏布局：总开关 + layout.pageWidth 开启时，<html> 挂 mods-page-wide 类，
+   把内容容器放宽到 112rem（旧 fork 同款宽屏）；关闭则回到上游 75rem 原版 */
+:root.mods-page-wide {
+  --page-width: 112rem;
+}

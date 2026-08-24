@@ -4,6 +4,44 @@ metadata:
   name: Ethereal-setting
 spec:
   forms:
+    - group: mods
+      label: 魔改开关
+      formSchema:
+        - $formkit: switch
+          name: enable
+          id: mods_enable
+          key: mods_enable
+          label: 启用魔改
+          value: true
+          help: "总开关。开启 → 启用下方全部魔改（卡片纹理、宽屏、评论跳转、页脚星芒、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 1.2.0 行为"
+        - $formkit: switch
+          name: cardPattern
+          id: mods_cardPattern
+          key: mods_cardPattern
+          label: 卡片纹理
+          value: true
+          help: "卡片 / 浮窗叠加细纹理背景（魔改）。关闭则回到上游纯色卡片"
+        - $formkit: switch
+          name: pageWidth
+          id: mods_pageWidth
+          key: mods_pageWidth
+          label: 宽屏布局（112rem）
+          value: true
+          help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
+        - $formkit: switch
+          name: commentJump
+          id: mods_commentJump
+          key: mods_commentJump
+          label: 评论区快捷跳转
+          value: true
+          help: "文章页提供一键跳转到评论区的按钮（魔改）。关闭则隐藏"
+        - $formkit: switch
+          name: footerStar
+          id: mods_footerStar
+          key: mods_footerStar
+          label: 页脚星芒装饰
+          value: true
+          help: "页脚顶部用居中星芒徽标 + 渐隐细线替代上游虚线分隔（魔改）。关闭则回到上游虚线"
     - group: layout
       label: 布局设置
       formSchema:
@@ -96,6 +134,8 @@ spec:
             defaultMode: list
             coverPosition: right
             descriptionLines: 2
+            showHomeMoments: true
+            homeMomentsCount: 10
             grid:
               masonry: false
               coverFullWidth: false
@@ -163,6 +203,24 @@ spec:
                   label: 封面高度自适应
                   value: true
                   help: "开启后封面自动拉伸填满卡片剩余高度，等高网格下同排卡片封面等高、摘要下方不留白；关闭后封面固定 2:1 高度，摘要下方留白（仅等高网格生效，瀑布流下自动隐藏）"
+            # ===== 魔改：首页瞬间预览条（受总开关 mods.enable 控制，此处仅控制本项是否展示） =====
+            - $formkit: switch
+              name: showHomeMoments
+              id: postList_showHomeMoments
+              key: postList_showHomeMoments
+              label: 首页显示瞬间预览条
+              value: true
+              help: "开启后首页文章列表顶部显示「瞬间」横向滚动预览（魔改功能）。关闭则隐藏。需总开关「启用魔改」开启才生效"
+            - $formkit: number
+              name: homeMomentsCount
+              id: postList_homeMomentsCount
+              key: postList_homeMomentsCount
+              label: 瞬间预览条数量
+              value: 10
+              min: 1
+              max: 50
+              step: 1
+              help: "首页瞬间预览条最多展示的瞬间条数"
         - $formkit: group
           name: mobileMenu
           label: 菜单栏设置
@@ -1759,6 +1817,18 @@ spec:
     - group: footer
       label: 页脚
       formSchema:
+        - $formkit: select
+          name: style
+          id: footer_style
+          key: footer_style
+          label: 页脚样式
+          value: classic
+          help: "经典：上游原版细线页脚；卡片：魔改卡片式页脚（站点身份 + 社交图标 + 备案）。需总开关「启用魔改」开启才显示为卡片款"
+          options:
+            - label: 经典（原版）
+              value: classic
+            - label: 卡片（魔改）
+              value: card
         - $formkit: group
           name: beian
           label: 备案信息

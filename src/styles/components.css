@@ -3,13 +3,8 @@
 @layer components {
   .card-base {
     @apply overflow-hidden rounded-(--radius-large) bg-(--card-bg) transition;
-    /* 装饰性背景纹理：由 --box-pattern 变量控制（亮/暗模式分别指向 PNG 平铺图）。
-       提升为独立合成层：PNG 纹理在滚动时由 GPU 合成（位图平移），
-       不再回主线程重绘，长列表/归档页滚动更顺（与 .float-panel 一致） */
-    background-image: var(--box-pattern);
-    background-position: 50%;
-    background-repeat: repeat;
-    background-size: 400px;
+    /* 背景纹理改为由 :root.mods-card-pattern 作用域控制（见下方 .float-panel 后规则）；
+       关闭魔改时回到上游无纹理原版 */
     will-change: transform;
   }
 
@@ -28,6 +23,12 @@
   .float-panel {
     @apply top-[4.875rem] overflow-hidden rounded-(--radius-large) bg-(--card-bg) shadow-xl transition;
     will-change: transform, opacity;
+  }
+
+  /* 魔改：卡片背景 PNG 纹理（仅 <html class="mods-card-pattern"> 时生效；
+     关闭魔改 → 无纹理，回到上游原版）。亮/暗模式各指向 --box-pattern */
+  :root.mods-card-pattern .card-base,
+  :root.mods-card-pattern .float-panel {
     background-image: var(--box-pattern);
     background-position: 50%;
     background-repeat: repeat;
