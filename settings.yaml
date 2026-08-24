@@ -1105,6 +1105,7 @@ spec:
               value:
                 - value: hitokoto
                 - value: site-stats
+                - value: recent-comments
               children:
                 - $formkit: select
                   name: value
@@ -1123,6 +1124,8 @@ spec:
                       value: weather
                     - label: 最近日程
                       value: schedule
+                    - label: 最近评论
+                      value: recent-comments
                     - label: 自定义HTML
                       value: html
                 - $formkit: text
