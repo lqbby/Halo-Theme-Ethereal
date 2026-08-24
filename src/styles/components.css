@@ -201,6 +201,9 @@
 
   /* 三栏布局页面宽度：中间内容宽度 = 双栏右页面宽度 (75 - 17.5 - 1 = 56.5) */
   /* 总宽 = 17.5 + 1 + 56.5 + 1 + 17.5 = 93.5 */
+  /* 注意：开启魔改宽屏（mods-page-wide）时，variables.css 的
+     :root.mods-page-wide .layout-three-column 以 (0,2,0) 优先级覆盖此 93.5rem；
+     此处保留默认值，确保未开宽屏时三栏仍是上游 93.5rem 的"刚好三栏"宽度 */
   .layout-three-column {
     --page-width: 93.5rem !important;
   }
