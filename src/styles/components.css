@@ -3,6 +3,14 @@
 @layer components {
   .card-base {
     @apply overflow-hidden rounded-(--radius-large) bg-(--card-bg) transition;
+    /* 装饰性背景纹理：由 --box-pattern 变量控制（亮/暗模式分别指向 PNG 平铺图）。
+       提升为独立合成层：PNG 纹理在滚动时由 GPU 合成（位图平移），
+       不再回主线程重绘，长列表/归档页滚动更顺（与 .float-panel 一致） */
+    background-image: var(--box-pattern);
+    background-position: 50%;
+    background-repeat: repeat;
+    background-size: 400px;
+    will-change: transform;
   }
 
   .expand-animation {
@@ -20,10 +28,23 @@
   .float-panel {
     @apply top-[4.875rem] overflow-hidden rounded-(--radius-large) bg-(--card-bg) shadow-xl transition;
     will-change: transform, opacity;
+    background-image: var(--box-pattern);
+    background-position: 50%;
+    background-repeat: repeat;
+    background-size: 400px;
   }
 
   :root.dark .float-panel {
     @apply shadow-none;
+  }
+
+  /* 移动端只保留纯色卡片背景：PNG 纹理在低端机长列表滚动掉帧，关闭 */
+  @media (max-width: 767px) {
+    .card-base,
+    .float-panel,
+    .submenu-panel {
+      background-image: none !important;
+    }
   }
 
   /* navbar_blur 开启：显式 transition 不含 background-color，消除模糊延迟 */
@@ -1201,4 +1222,94 @@
 /* 同博主文章条目（分组后追加的） */
 .friends-article-item .friends-article-time {
   margin-bottom: 0.125rem;
+}
+
+/* 随机钓鱼（鱼钩）按钮：点击后鱼钩图标左右摇摆，模拟鱼咬钩晃动。
+   全局定义，供导航栏与朋友圈页共用（对齐参考版 1.1.36） */
+.random-fish-btn.spinning .random-fish-icon {
+  animation: random-fish-swing var(--swing-duration, 0.5s) ease-in-out
+    infinite alternate;
+  /* 顶部为轴心，像挂在鱼线上，钩尖（下方）晃动 */
+  transform-origin: top;
+}
+@keyframes random-fish-swing {
+  from {
+    transform: rotate(-20deg);
+  }
+  to {
+    transform: rotate(20deg);
+  }
+}
+
+/* 随机钓鱼跳转遮罩：「正在前往神秘区域」
+   毛玻璃柔光卡片 + 主色星芒，契合 Ethereal 空灵主题；SPA 导航期间显示 */
+.random-fish-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in oklab, var(--page-bg) 72%, transparent);
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.random-fish-overlay.show {
+  opacity: 1;
+}
+.random-fish-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.6rem 2.2rem;
+  border-radius: var(--radius-large);
+  background: color-mix(in oklab, var(--card-bg) 92%, transparent);
+  border: 1px solid color-mix(in oklab, var(--primary) 18%, transparent);
+  box-shadow: 0 12px 44px -12px rgba(0, 0, 0, 0.28);
+  animation: fish-overlay-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.random-fish-overlay-icon {
+  color: var(--primary);
+}
+.random-fish-overlay-text {
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  color: var(--primary);
+}
+@keyframes fish-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 最近评论小组件跳转落位：评论区高亮脉冲（过渡动画，明确标示落点）。
+   用 outline 环 + 背景淡色脉冲，不破坏 .card-base 原有 box-shadow。 */
+#comment {
+  scroll-margin-top: calc(var(--navbar-height, 4rem) + 1rem);
+}
+#comment.comment-locate-flash {
+  outline-offset: 2px;
+  animation: comment-locate-flash 0.9s ease-out;
+}
+@keyframes comment-locate-flash {
+  0% {
+    outline: 0 solid transparent;
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  }
+  14% {
+    outline: 3px solid color-mix(in oklab, var(--primary) 55%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  }
+  100% {
+    outline: 0 solid transparent;
+    background-color: transparent;
+  }
 }

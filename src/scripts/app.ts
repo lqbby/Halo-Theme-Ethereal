@@ -281,9 +281,6 @@ function setupSwup() {
     scrollFunction();
     initLegacyAdmonitions();
     initExternalLinkRedirect();
-    if (document.querySelector(".firefly-music-player")) {
-      import("../styles/music-player.css");
-    }
   });
   // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"，合成器驱动不占
   // 主线程，无 scrl 引擎的每帧 JS 测量卡顿）。同页锚点（目录点击）平滑由
@@ -429,9 +426,6 @@ function init() {
   showBanner();
   initLegacyAdmonitions();
   updateTocBtnVisibility();
-  if (document.querySelector(".firefly-music-player")) {
-    import("../styles/music-player.css");
-  }
 }
 
 setClickOutsideToClose("display-setting", [

@@ -32,6 +32,8 @@
   --primary: oklch(0.7 0.14 var(--hue));
   --page-bg: oklch(0.95 0.01 var(--hue));
   --card-bg: white;
+  /* 卡片装饰纹理（v1.1.32 引入 PNG 预渲染，解决 SVG 平铺滚动卡顿）：亮色用浅色纹理图 */
+  --box-pattern: url(/themes/Ethereal/assets/images/pattern-light.png);
   --btn-content: oklch(0.55 0.12 var(--hue));
   --btn-regular-bg: oklch(0.95 0.025 var(--hue));
   --btn-regular-bg-hover: oklch(0.9 0.05 var(--hue));
@@ -102,6 +104,8 @@
   --primary: oklch(0.75 0.14 var(--hue));
   --page-bg: oklch(0.16 0.014 var(--hue));
   --card-bg: oklch(0.23 0.015 var(--hue));
+  /* 卡片装饰纹理：暗色用深色纹理图 */
+  --box-pattern: url(/themes/Ethereal/assets/images/pattern-dark.png);
   --btn-content: oklch(0.75 0.1 var(--hue));
   --btn-regular-bg: oklch(0.33 0.035 var(--hue));
   --btn-regular-bg-hover: oklch(0.38 0.04 var(--hue));
