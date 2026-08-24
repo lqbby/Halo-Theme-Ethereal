@@ -199,15 +199,16 @@
     /* 使用默认 --page-width，无需覆盖 */
   }
 
-  /* 三栏布局页面宽度：不再此处写死 93.5rem。
+  /* 三栏布局页面宽度：条件式恢复上游 93.5rem。
      原因：原 .layout-three-column{--page-width:93.5rem!important} 与
      :root.mods-page-wide 同特异性(0,1,0)且打包后同文件后声明，会压制宽屏 112rem，
-     导致“宽屏开关开了但三栏宽度不变”（实测线上 93.5rem 压过 112rem）。
-     现改为：三栏统一跟随 :root 的 --page-width（默认 75rem / 宽屏 112rem），
-     由 variables.css 的 :root.mods-page-wide 统一控制。
-     代价：关闭宽屏时三栏从上游 93.5rem 回落到 75rem（仍可正常三栏，仅略窄）。 */
-  .layout-three-column {
-    /* 不覆盖 --page-width，沿用 :root 默认值 */
+     导致“宽屏开关开了但三栏宽度不变”。直接删掉又会让关闭宽屏时三栏回落到 75rem
+     （比上游 93.5rem 窄，三栏内容列过挤、显示错误）。
+     现用 :not(.mods-page-wide) 限定：仅【未开启宽屏】时三栏回到上游 93.5rem；
+     开启宽屏时此规则不命中，由 variables.css 的 :root.mods-page-wide .layout-three-column
+     (0,3,0) 接管为 112rem。两态均正确。 */
+  :root:not(.mods-page-wide) .layout-three-column {
+    --page-width: 93.5rem !important;
   }
 
   .hide-scrollbar {
