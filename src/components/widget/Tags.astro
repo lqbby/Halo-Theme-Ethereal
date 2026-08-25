@@ -25,13 +25,13 @@ const COLLAPSE_THRESHOLD = 20;
     class={className}
     style={style}
   >
-    <div class="flex flex-wrap gap-2 pl-3">
+    <div class="flex flex-wrap gap-2 pl-3 pr-1 pt-2 pb-1">
       <a
         th:each="tag : ${tags}"
         th:href="@{${tag.status.permalink}}"
         th:title="${tag.spec.displayName}"
         th:style="|color: ${tag.spec.color ?: 'var(--primary)'}; border-color: color-mix(in srgb, ${tag.spec.color ?: 'var(--primary)'} 35%, transparent); background: color-mix(in srgb, ${tag.spec.color ?: 'var(--primary)'} 12%, transparent)|"
-        class="tag-chip inline-flex h-8 items-center rounded-lg border px-3 text-sm font-medium transition hover:-translate-y-0.5"
+        class="tag-chip inline-flex h-8 items-center rounded-lg border px-3 text-sm font-medium transition"
         th:text="${tag.spec.displayName}"
       >
         Tag
