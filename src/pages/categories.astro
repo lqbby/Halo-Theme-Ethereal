@@ -6,23 +6,22 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   title="|#{page.categories.title} - ${site.title}|"
   description="#{page.categories.description(${site.title})}"
 >
-  <!-- ===== 分类页（UI 重设计：Ethereal 风格分类画廊） =====
-       视觉：毛玻璃 Hero + 分类色相渐变卡片网格（Apple 大圆角）
-       交互：鼠标跟随光效 / 上浮+主题色光晕 / 图标微旋转 / 名称下划线生长 /
-             文章数数字滚动（IntersectionObserver）/ 错峰入场 / 点击缩放
-       深浅色：全部走现有设计 token（--primary / --page-bg / text-50 等） -->
+  <!-- ===== 分类页（UI 重设计 v2：Firefly 风格分类胶囊墙） =====
+       参考 firefly.cuteleaf.cn/categories 的胶囊导航语言：
+       - 主体 = 分类胶囊（pill）墙，flex-wrap 自动换行
+       - 默认 outline 态 → hover 填充分类色相渐变 + 上浮 + 光晕
+       - 保留 Ethereal 动效：色相 hash / 鼠标光效 / 数字滚动 / 错峰入场 -->
 
-  <!-- ── Hero：标题 + 统计 + 装饰光晕 ── -->
+  <!-- ── Hero：简洁标题 + 统计 + 装饰光晕 ── -->
   <section
-    class="cat-hero card-base onload-animation relative mb-4 overflow-hidden px-6 py-8 md:px-9"
+    class="cat-hero card-base onload-animation relative mb-5 overflow-hidden px-6 py-7 md:px-9"
   >
-    <!-- 装饰光晕（两团主题色渐变模糊，呼应 Ethereal 空灵氛围；aria 隐藏） -->
     <span class="cat-hero-glow cat-hero-glow-a" aria-hidden="true"></span>
     <span class="cat-hero-glow cat-hero-glow-b" aria-hidden="true"></span>
     <div class="relative flex items-center gap-4">
       <div class="cat-hero-icon">
         <span
-          class="icon-[material-symbols--folder-open-rounded] text-[1.75rem]"
+          class="icon-[material-symbols--folder-open-rounded] text-[1.625rem]"
         ></span>
       </div>
       <div class="min-w-0">
@@ -43,80 +42,58 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     </div>
   </section>
 
-  <!-- ── 分类卡片网格 ── -->
-  <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+  <!-- ── 分类胶囊墙 ── -->
+  <section
+    class="card-base onload-animation flex flex-wrap gap-3 px-6 py-6 md:px-9"
+  >
     <a
       th:each="category, stat : ${categories}"
       th:href="@{${category.status.permalink}}"
       th:attr="data-name=${category.spec.displayName},data-count=${category.postCount ?: 0}"
       th:aria-label="|${category.spec.displayName} - ${category.postCount ?: 0}|"
       th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-      class="cat-card card-base onload-animation group relative flex flex-col overflow-hidden rounded-(--radius-large) p-5 transition duration-300 active:scale-95"
+      class="cat-pill group relative overflow-hidden rounded-full px-4 py-2.5 text-sm font-bold transition duration-300 active:scale-95"
     >
-      <!-- 鼠标跟随光效（radial-gradient 光斑） -->
-      <span class="cat-card-spot" aria-hidden="true"></span>
-      <!-- 图标胶囊（分类色相渐变） -->
-      <span class="cat-card-icon">
-        <span class="icon-[material-symbols--folder-rounded] text-[1.375rem]"></span>
-      </span>
+      <!-- 鼠标跟随光效 -->
+      <span class="cat-pill-spot" aria-hidden="true"></span>
+      <!-- 分类色相小圆点 -->
+      <span class="cat-pill-dot" aria-hidden="true"></span>
+      <!-- 名称 -->
+      <span class="cat-pill-name" th:text="${category.spec.displayName}">分类</span>
       <!-- 文章数徽章（JS 数字滚动） -->
       <span
-        class="cat-card-count"
+        class="cat-pill-count"
         th:attr="data-count=${category.postCount ?: 0}"
         th:text="${category.postCount ?: 0}"
         >0</span
       >
-      <!-- 名称（hover 下划线生长 + 主题色） -->
-      <span
-        class="cat-card-name relative mt-4 w-fit text-lg font-bold text-90 transition group-hover:text-(--primary)"
-        th:text="${category.spec.displayName}"
-        >分类</span
-      >
-      <!-- 描述 / 无描述时回退文章数副标题 -->
-      <span
-        th:if="${not #strings.isEmpty(category.spec.description)}"
-        class="cat-card-desc mt-1 line-clamp-2 text-sm text-50"
-        th:text="${category.spec.description}"
-      >
-      </span>
-      <span
-        th:unless="${not #strings.isEmpty(category.spec.description)}"
-        class="cat-card-desc mt-1 line-clamp-2 text-sm text-50"
-        th:text="|#{page.categories.subtitle} · ${category.postCount ?: 0}|"
-        >文章分类</span
-      >
-      <!-- 底部：进入箭头（hover 滑入） -->
-      <span class="cat-card-arrow" aria-hidden="true">
-        <span class="icon-[material-symbols--arrow-forward-rounded] text-[1.125rem]"></span>
-      </span>
     </a>
   </section>
 
-  <!-- ── 互动脚本：光效跟随 / 分类色相 / 数字滚动 / Hero 统计 ── -->
+  <!-- ── 互动脚本：色相 / 光效 / 数字滚动 / Hero 统计 ── -->
   <script is:inline>
-    // 分类页互动（is:inline 普通脚本，Swup 换页重执行无副作用）
     (function () {
-      var cards = document.querySelectorAll(".cat-card");
+      var pills = document.querySelectorAll(".cat-pill");
 
-      // 1) 分类色相（名称 hash → 0-360）+ 鼠标跟随光效
-      cards.forEach(function (card) {
-        var name = card.getAttribute("data-name") || "";
+      // 1) 分类色相（名称 hash）+ 鼠标跟随光效
+      pills.forEach(function (pill) {
+        var name = pill.getAttribute("data-name") || "";
         var hue = 7;
         for (var i = 0; i < name.length; i++) {
           hue = (hue * 31 + name.charCodeAt(i)) % 360;
         }
-        card.style.setProperty("--cat-hue", hue);
-        card.addEventListener("mousemove", function (e) {
-          var r = card.getBoundingClientRect();
-          card.style.setProperty("--mx", e.clientX - r.left + "px");
-          card.style.setProperty("--my", e.clientY - r.top + "px");
+        pill.style.setProperty("--cat-hue", hue);
+        pill.addEventListener("mousemove", function (e) {
+          var r = pill.getBoundingClientRect();
+          pill.style.setProperty("--mx", e.clientX - r.left + "px");
+          pill.style.setProperty("--my", e.clientY - r.top + "px");
         });
       });
 
-      // 2) 文章数数字滚动（进入视口触发，easeOutCubic）
-      var counts = document.querySelectorAll(".cat-card-count[data-count]");
+      // 2) 文章数数字滚动（进入视口，easeOutCubic）
+      var counts = document.querySelectorAll(".cat-pill-count[data-count]");
       function animate(el, target) {
-        var dur = 650;
+        var dur = 550;
         var start = null;
         function tick(now) {
           if (start == null) start = now;
@@ -148,7 +125,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         });
       }
 
-      // 3) Hero 统计：分类数 + 文章总数（数据在渲染后汇总，避免服务端聚合表达式）
+      // 3) Hero 统计：分类数 + 文章总数
       var stats = document.getElementById("cat-hero-stats");
       if (stats) {
         var n = counts.length;
@@ -159,9 +136,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         if (n > 0) {
           var i18n = window.i18nResources || {};
           var tpl = i18n["page.categories.subtitleCount"];
-          var catTxt = tpl && tpl.indexOf("#{") === -1
-            ? tpl.replace("{0}", n)
-            : "共 " + n + " 个分类";
+          var catTxt =
+            tpl && tpl.indexOf("#{") === -1
+              ? tpl.replace("{0}", n)
+              : "共 " + n + " 个分类";
           stats.textContent = catTxt + " · " + sum + " 篇文章";
         } else {
           stats.textContent = "";
@@ -172,9 +150,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 
   <style is:global>
     /* ── Hero ── */
-    .cat-hero {
-      /* 装饰光晕 */
-    }
     .cat-hero-glow {
       position: absolute;
       border-radius: 9999px;
@@ -184,18 +159,18 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       transition: opacity 0.4s ease;
     }
     .cat-hero-glow-a {
-      width: 14rem;
-      height: 14rem;
+      width: 13rem;
+      height: 13rem;
       right: -3rem;
       top: -4rem;
       background: color-mix(in srgb, var(--primary) 45%, transparent);
       animation: cat-glow-float 9s ease-in-out infinite alternate;
     }
     .cat-hero-glow-b {
-      width: 9rem;
-      height: 9rem;
+      width: 8rem;
+      height: 8rem;
       right: 7rem;
-      bottom: -4.5rem;
+      bottom: -4rem;
       background: color-mix(in srgb, var(--primary) 26%, transparent);
       animation: cat-glow-float 12s ease-in-out infinite alternate-reverse;
     }
@@ -213,10 +188,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     .cat-hero-icon {
       display: grid;
       place-items: center;
-      width: 3.5rem;
-      height: 3.5rem;
+      width: 3.25rem;
+      height: 3.25rem;
       flex-shrink: 0;
-      border-radius: 1.1rem;
+      border-radius: 1rem;
       color: white;
       background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 62%, black));
       box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--primary) 55%, transparent);
@@ -227,121 +202,89 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       transform: rotate(0deg) scale(1.05);
     }
 
-    /* ── 分类卡片 ── */
-    .cat-card {
+    /* ── 分类胶囊 ── */
+    .cat-pill {
       --cat-hue: 250;
       --mx: 50%;
       --my: 50%;
-      border: 1px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: var(--btn-regular-bg);
+      color: var(--btn-content);
+      border: 1px solid color-mix(in srgb, currentColor 8%, transparent);
       transition:
-        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-        box-shadow 0.3s ease,
-        border-color 0.3s ease;
+        transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 0.25s ease,
+        color 0.25s ease,
+        border-color 0.25s ease;
     }
-    .cat-card:hover {
-      transform: translateY(-6px);
-      border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+    .cat-pill:hover {
+      transform: translateY(-3px);
+      color: #fff;
+      border-color: transparent;
+      background: linear-gradient(
+        135deg,
+        hsl(var(--cat-hue) 78% 60%),
+        hsl(var(--cat-hue) 72% 44%)
+      );
       box-shadow:
-        0 14px 34px -10px color-mix(in srgb, var(--primary) 32%, transparent),
-        0 4px 12px -4px rgb(0 0 0 / 0.12);
+        0 10px 24px -8px hsl(var(--cat-hue) 72% 50% / 0.55),
+        0 3px 8px -3px rgb(0 0 0 / 0.14);
     }
-    /* 鼠标跟随光斑：悬停时淡入 */
-    .cat-card-spot {
+    /* 鼠标跟随光斑 */
+    .cat-pill-spot {
       position: absolute;
       inset: 0;
       pointer-events: none;
       opacity: 0;
-      transition: opacity 0.35s ease;
+      transition: opacity 0.3s ease;
       background: radial-gradient(
-        200px circle at var(--mx) var(--my),
-        hsl(var(--cat-hue) 85% 60% / 0.14),
-        transparent 68%
+        150px circle at var(--mx) var(--my),
+        rgb(255 255 255 / 0.35),
+        transparent 70%
       );
     }
-    .cat-card:hover .cat-card-spot {
+    .cat-pill:hover .cat-pill-spot {
       opacity: 1;
     }
-    /* 图标胶囊：分类色相渐变 + hover 微旋转放大 */
-    .cat-card-icon {
-      display: grid;
-      place-items: center;
-      width: 2.9rem;
-      height: 2.9rem;
-      border-radius: 0.9rem;
-      color: white;
-      background: linear-gradient(
-        135deg,
-        hsl(var(--cat-hue) 78% 62%),
-        hsl(var(--cat-hue) 72% 46%)
-      );
-      box-shadow: 0 6px 16px -5px hsl(var(--cat-hue) 72% 50% / 0.55);
-      transition:
-        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
-        box-shadow 0.3s ease;
-    }
-    .cat-card:hover .cat-card-icon {
-      transform: rotate(-7deg) scale(1.08);
-      box-shadow: 0 10px 22px -6px hsl(var(--cat-hue) 72% 50% / 0.6);
-    }
-    /* 文章数徽章：主题色渐变底 + 白色数字（JS 滚动） */
-    .cat-card-count {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      min-width: 2.1rem;
-      padding: 0.2rem 0.55rem;
+    /* 分类色相小圆点 */
+    .cat-pill-dot {
+      width: 0.5rem;
+      height: 0.5rem;
       border-radius: 9999px;
-      text-align: center;
-      font-size: 0.8125rem;
+      flex-shrink: 0;
+      background: hsl(var(--cat-hue) 78% 58%);
+      box-shadow: 0 0 0 3px hsl(var(--cat-hue) 78% 58% / 0.18);
+      transition: box-shadow 0.25s ease;
+    }
+    .cat-pill:hover .cat-pill-dot {
+      box-shadow: 0 0 0 3px rgb(255 255 255 / 0.3);
+    }
+    /* 名称 */
+    .cat-pill-name {
+      line-height: 1.2;
+    }
+    /* 文章数徽章：默认主题色淡底 → hover 白底反色 */
+    .cat-pill-count {
+      font-size: 0.75rem;
       font-weight: 700;
-      font-variant-numeric: tabular-nums;
-      color: white;
-      background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 68%, black));
-      box-shadow: 0 4px 10px -3px color-mix(in srgb, var(--primary) 50%, transparent);
-      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    .cat-card:hover .cat-card-count {
-      transform: scale(1.08);
-    }
-    /* 名称下划线生长（hover 时展开） */
-    .cat-card-name::after {
-      content: "";
-      position: absolute;
-      left: 0;
-      bottom: -3px;
-      width: 0;
-      height: 2px;
-      border-radius: 2px;
-      background: var(--primary);
-      transition: width 0.3s cubic-bezier(0.22, 1, 0.36, 1);
-    }
-    .cat-card:hover .cat-card-name::after {
-      width: 100%;
-    }
-    /* 进入箭头：hover 滑入 */
-    .cat-card-arrow {
-      position: absolute;
-      right: 1.1rem;
-      bottom: 1.05rem;
-      display: grid;
-      place-items: center;
-      width: 2.1rem;
-      height: 2.1rem;
+      line-height: 1;
+      padding: 0.25rem 0.5rem;
       border-radius: 9999px;
+      font-variant-numeric: tabular-nums;
+      background: color-mix(in srgb, var(--primary) 13%, transparent);
       color: var(--primary);
-      background: var(--btn-regular-bg);
-      opacity: 0;
-      transform: translateX(-8px);
       transition:
-        opacity 0.3s ease,
-        transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        background 0.25s ease,
+        color 0.25s ease;
     }
-    .cat-card:hover .cat-card-arrow {
-      opacity: 1;
-      transform: translateX(0);
+    .cat-pill:hover .cat-pill-count {
+      background: rgb(255 255 255 / 0.22);
+      color: #fff;
     }
-    /* 可访问性：键盘焦点可见 */
-    .cat-card:focus-visible {
+    /* 可访问性 */
+    .cat-pill:focus-visible {
       outline: 2px solid var(--primary);
       outline-offset: 2px;
     }
