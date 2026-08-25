@@ -26,13 +26,16 @@
   }
 
   /* 魔改：卡片背景 PNG 纹理（仅 <html class="mods-card-pattern"> 时生效；
-     关闭魔改 → 无纹理，回到上游原版）。亮/暗模式各指向 --box-pattern */
+     关闭魔改 → 无纹理，回到上游原版）。亮/暗模式各指向 --box-pattern。
+     background-blend-mode: soft-light 让纹理与卡片底色融合（不再生硬叠加），
+     纹理整体更淡更细腻，深浅色主题均协调 */
   :root.mods-card-pattern .card-base,
   :root.mods-card-pattern .float-panel {
     background-image: var(--box-pattern);
     background-position: 50%;
     background-repeat: repeat;
     background-size: 400px;
+    background-blend-mode: soft-light;
   }
 
   :root.dark .float-panel {
