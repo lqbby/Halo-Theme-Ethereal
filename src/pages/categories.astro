@@ -10,7 +10,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
        参考 firefly.cuteleaf.cn/categories 的胶囊导航语言：
        - 主体 = 分类胶囊（pill）墙，flex-wrap 自动换行
        - 默认 outline 态 → hover 填充统一主题色渐变 + 上浮 + 光晕（对齐 Firefly，不多彩）
-       - 保留 Ethereal 动效：鼠标光效 / 数字滚动 / 错峰入场 -->
+       - 保留 Ethereal 动效：数字滚动 / 错峰入场 -->
 
   <!-- ── Hero：简洁标题 + 统计 + 装饰光晕 ── -->
   <section
@@ -54,8 +54,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
       class="cat-pill group relative overflow-hidden rounded-full px-4 py-2.5 text-sm font-bold transition duration-300 active:scale-95"
     >
-      <!-- 鼠标跟随光效 -->
-      <span class="cat-pill-spot" aria-hidden="true"></span>
       <!-- 主题色小圆点 -->
       <span class="cat-pill-dot" aria-hidden="true"></span>
       <!-- 名称 -->
@@ -70,21 +68,12 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     </a>
   </section>
 
-  <!-- ── 互动脚本：光效 / 数字滚动 / Hero 统计 ── -->
+  <!-- ── 互动脚本：数字滚动 / Hero 统计 ── -->
   <script is:inline>
     (function () {
       var pills = document.querySelectorAll(".cat-pill");
 
-      // 1) 鼠标跟随光效（统一主题色风格，无色相 hash）
-      pills.forEach(function (pill) {
-        pill.addEventListener("mousemove", function (e) {
-          var r = pill.getBoundingClientRect();
-          pill.style.setProperty("--mx", e.clientX - r.left + "px");
-          pill.style.setProperty("--my", e.clientY - r.top + "px");
-        });
-      });
-
-      // 2) 文章数数字滚动（进入视口，easeOutCubic）
+      // 1) 文章数数字滚动（进入视口，easeOutCubic）
       var counts = document.querySelectorAll(".cat-pill-count[data-count]");
       function animate(el, target) {
         var dur = 550;
@@ -119,7 +108,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         });
       }
 
-      // 3) Hero 统计：分类数 + 文章总数
+      // 2) Hero 统计：分类数 + 文章总数
       var stats = document.getElementById("cat-hero-stats");
       if (stats) {
         var n = counts.length;
@@ -198,8 +187,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 
     /* ── 分类胶囊（统一主题色，对齐 Firefly 风格） ── */
     .cat-pill {
-      --mx: 50%;
-      --my: 50%;
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
@@ -224,22 +211,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       box-shadow:
         0 10px 24px -8px color-mix(in srgb, var(--primary) 55%, transparent),
         0 3px 8px -3px rgb(0 0 0 / 0.14);
-    }
-    /* 鼠标跟随光斑 */
-    .cat-pill-spot {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-      background: radial-gradient(
-        150px circle at var(--mx) var(--my),
-        rgb(255 255 255 / 0.35),
-        transparent 70%
-      );
-    }
-    .cat-pill:hover .cat-pill-spot {
-      opacity: 1;
     }
     /* 主题色小圆点 */
     .cat-pill-dot {
