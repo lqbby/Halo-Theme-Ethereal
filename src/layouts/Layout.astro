@@ -182,9 +182,17 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     <meta name="author" th:content="${theme.config?.sidebar?.profile?.name}" />
     <meta name="description" th:content={description} />
     <!-- 注意：不在此输出 og:url / canonical。Halo 模板上下文不暴露请求对象
-         （#httpServletRequest 恒为 null，会导致空属性），canonical 由 Halo 核心自动注入 -->
+         （#httpServletRequest 恒为 null，会导致空属性）；文章页 canonical 由
+         post.astro 用 post.status.permalink 输出（绝对 URL） -->
     <meta property="og:site_name" th:content="${site.title}" />
     <meta property="og:title" th:content={title} />
+    <!-- SEO：og:image 兜底——非文章页（post == null）用侧边栏头像，保证首页等
+         分享有预览图；文章页由 post.astro 输出封面，避免重复 -->
+    <meta
+      property="og:image"
+      th:if="${post == null and not #strings.isEmpty(theme.config?.sidebar?.profile?.avatar)}"
+      th:content="${theme.config?.sidebar?.profile?.avatar}"
+    />
     <meta
       property="og:type"
       content={setOGTypeArticle ? "article" : "website"}
