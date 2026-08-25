@@ -21,6 +21,13 @@ spec:
           label: 卡片纹理
           value: true
           help: "卡片 / 浮窗叠加细纹理背景（魔改）。关闭则回到上游纯色卡片"
+        - $formkit: switch
+          name: pageWidth
+          id: mods_pageWidth
+          key: mods_pageWidth
+          label: 宽屏布局（112rem）
+          value: true
+          help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
     - group: layout
       label: 布局设置
       formSchema:
@@ -762,7 +769,6 @@ spec:
             banner_wave: enabled
             navbar_blur: true
             card_hover_lift: true
-            page_wide: true
           children:
             # 三选开关（写法与 color_scheme 一致）：关闭 / 开启 / 移动端关闭
             - $formkit: select
@@ -787,11 +793,6 @@ spec:
               label: 卡片悬浮效果
               value: true
               help: "卡片悬停时轻微上移并显示主题色阴影"
-            - $formkit: switch
-              name: page_wide
-              label: 宽屏布局（112rem）
-              value: true
-              help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
         - $formkit: group
           name: animationSpeed
           label: 动画速度

@@ -13,6 +13,10 @@
     getStoredNavbarBlur,
     setCardHoverLift,
     setNavbarBlur,
+    getDefaultPageWide,
+    getStoredPageWide,
+    setPageWide,
+    resetPageWide,
     getDefaultPostListMasonry,
     getStoredPostListMasonry,
     setPostListMasonry,
@@ -116,6 +120,7 @@
   let layout = $state<PostListLayoutMode>(currentLayout());
   let cardHoverLift = $state(getStoredCardHoverLift());
   let navbarBlur = $state(getStoredNavbarBlur());
+  let pageWide = $state(getStoredPageWide());
   let postListMasonry = $state(getStoredPostListMasonry());
   // 面板里透明度类参数以百分比展示（存储为 0–1）
   const storedWallpaper = getStoredWallpaperParams();
@@ -127,12 +132,14 @@
   const defaultLayout = serverLayout();
   const defaultCardHoverLift = getDefaultCardHoverLift();
   const defaultNavbarBlur = getDefaultNavbarBlur();
+  const defaultPageWide = getDefaultPageWide();
   const defaultPostListMasonry = getDefaultPostListMasonry();
   const defaultWallpaper = getDefaultWallpaperParams();
   const dirtyLayout = $derived(layout !== defaultLayout);
   const dirtyCard = $derived(
     cardHoverLift !== defaultCardHoverLift ||
       navbarBlur !== defaultNavbarBlur ||
+      pageWide !== defaultPageWide ||
       postListMasonry !== defaultPostListMasonry,
   );
   const showMasonry = $derived(showCardStyle && layout === "grid");
@@ -221,6 +228,11 @@
     setNavbarBlur(navbarBlur);
   }
 
+  function togglePageWide() {
+    pageWide = !pageWide;
+    setPageWide(pageWide);
+  }
+
   function toggleMasonry() {
     postListMasonry = !postListMasonry;
     setPostListMasonry(postListMasonry);
@@ -230,6 +242,8 @@
     resetCardStyle();
     cardHoverLift = getDefaultCardHoverLift();
     navbarBlur = getDefaultNavbarBlur();
+    resetPageWide();
+    pageWide = getDefaultPageWide();
     postListMasonry = getDefaultPostListMasonry();
   }
 
@@ -342,6 +356,11 @@
           <span class="icon-[material-symbols--blur-on-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.navbarBlur", "高级材质")}</span>
           <span class="toggle" class:toggle-on={navbarBlur}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={pageWide} role="switch" aria-checked={pageWide} on:click={togglePageWide} title={t("display.pageWideDesc", "将页面主容器宽度放宽为 112rem")}>
+          <span class="icon-[material-symbols--width-wide-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.pageWide", "宽屏布局")}</span>
+          <span class="toggle" class:toggle-on={pageWide}><span class="toggle-knob"></span></span>
         </button>
         {#if showMasonry}
           <button type="button" class="toggle-row" class:toggle-on={postListMasonry} role="switch" aria-checked={postListMasonry} on:click={toggleMasonry}>
