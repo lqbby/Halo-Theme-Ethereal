@@ -91,8 +91,7 @@ const className = Astro.props.class;
         >
         <a
           th:href="@{${tag.status.permalink}}"
-          th:style="|color: ${tag.spec.color ?: 'var(--primary)'}|"
-          class="tag-chip link-lg whitespace-nowrap text-sm font-medium transition"
+          class="link-lg whitespace-nowrap text-sm font-medium text-50 transition hover:text-(--primary) dark:hover:text-(--primary)"
           th:text="${tag.spec.displayName}">Tag</a
         >
       </span>
