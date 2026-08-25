@@ -148,14 +148,17 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       transform: rotate(0deg) scale(1.05);
     }
 
-    /* ── 分类胶囊（统一主题色，对齐 Firefly 风格） ── */
+    /* ── 分类胶囊（半透明毛玻璃 + 统一主题色，对齐 Firefly 风格） ── */
     .cat-pill {
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background: var(--btn-regular-bg);
+      /* 半透明毛玻璃：主题色淡底 + backdrop 模糊，深浅色均通透精致 */
+      background: color-mix(in srgb, var(--primary) 7%, transparent);
+      -webkit-backdrop-filter: blur(12px) saturate(140%);
+      backdrop-filter: blur(12px) saturate(140%);
       color: var(--btn-content);
-      border: 1px solid color-mix(in srgb, currentColor 8%, transparent);
+      border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
       transition:
         transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
         box-shadow 0.25s ease,
