@@ -2,10 +2,7 @@
 
 @layer components {
   .card-base {
-    @apply overflow-hidden rounded-(--radius-large) transition;
-    /* 卡片背景半透明（魔改）：88% 不透明度透出页面背景，更通透；
-       纹理由下方 :root.mods-card-pattern 规则叠加，透明度不影响纹理 */
-    background-color: color-mix(in srgb, var(--card-bg) 88%, transparent);
+    @apply overflow-hidden rounded-(--radius-large) bg-(--card-bg) transition;
     /* 背景纹理改为由 :root.mods-card-pattern 作用域控制（见下方 .float-panel 后规则）；
        关闭魔改时回到上游无纹理原版 */
     will-change: transform;
