@@ -39,8 +39,7 @@ const bannerVersion = ASSET_VERSION;
 // 魔改作用域类（mods-card-pattern / mods-page-wide）通过下方 <html> 的
 // th:classappend 用 Thymeleaf 表达式直接计算（theme 为 Halo 运行期变量，
 // 不能在前端 JS 直接读，否则本地 astro build 预渲染会 ReferenceError）。
-// 总开关 mods.enable 默认开；cardPattern 在魔改开关下，page_wide 在
-// 样式设置 → 样式开关 下（style.styleSwitches.page_wide），默认开，受总开关门控。
+// 总开关 mods.enable 默认开；逐项开关 cardPattern/pageWidth 默认开，且受总开关门控。
 
 const i18nInlineScript = `<script th:inline="javascript">
   window.i18nResources = {
@@ -61,6 +60,8 @@ const i18nInlineScript = `<script th:inline="javascript">
     "display.cardStyle": \`[(#{display.cardStyle})]\`,
     "display.cardHoverLift": \`[(#{display.cardHoverLift})]\`,
     "display.navbarBlur": \`[(#{display.navbarBlur})]\`,
+    "display.pageWide": \`[(#{display.pageWide})]\`,
+    "display.pageWideDesc": \`[(#{display.pageWideDesc})]\`,
     "display.masonry": \`[(#{display.masonry})]\`,
     "display.wallpaper": \`[(#{display.wallpaper})]\`,
     "display.wallpaperOpacity": \`[(#{display.wallpaperOpacity})]\`,
@@ -159,7 +160,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
-  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.style?.styleSwitches?.page_wide == null ? true : theme.config?.style?.styleSwitches?.page_wide) ? ' mods-page-wide' : ''}"
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''}"
   data-overlayscrollbars-initialize
 >
   <head>
@@ -460,6 +461,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         } else {
           localStorage.removeItem("cardHoverLift");
           localStorage.removeItem("navbarBlur");
+        }
+
+        // 宽屏布局：访客偏好覆盖服务端 th:classappend（与卡片样式区解耦，
+        // 后台 visitorStyle.cardStyle 关闭时 UI 不显示但已存偏好仍生效）。
+        // 不读 visitorCardStyle 门控：pageWide 独立于卡片样式。
+        var pw = localStorage.getItem("pageWide");
+        if (pw != null) {
+          document.documentElement.classList.toggle("mods-page-wide", pw === "true");
         }
 
         // 透明设置（全屏透明模式）：覆盖 body 内联变量

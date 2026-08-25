@@ -305,6 +305,31 @@ export function setNavbarBlur(enabled: boolean): void {
   document.body.classList.toggle("navbar-blur-enabled", enabled);
 }
 
+/* ── 宽屏布局（魔改：访客可覆盖后台 mods.pageWidth） ── */
+
+// 后台默认值受总开关与 pageWidth 逐项门控（与 Layout.astro 服务端类挂载同源）
+export function getDefaultPageWide(): boolean {
+  return carrierBool("pageWide", true);
+}
+
+// 独立存储：UI 放在「卡片样式」区显示，但存储与生命周期不与 card_hover_lift/navbar_blur
+// 联动（cardStyle 后台关闭仅隐藏开关，pageWide 已存偏好仍生效）
+export function getStoredPageWide(): boolean {
+  const stored = localStorage.getItem("pageWide");
+  return stored == null ? getDefaultPageWide() : stored === "true";
+}
+
+export function setPageWide(enabled: boolean): void {
+  localStorage.setItem("pageWide", String(enabled));
+  // 与服务端 th:classappend 同类名 mods-page-wide（挂在 <html>）
+  document.documentElement.classList.toggle("mods-page-wide", enabled);
+}
+
+export function resetPageWide(): void {
+  localStorage.removeItem("pageWide");
+  setPageWide(getDefaultPageWide());
+}
+
 /* ── 瀑布流（仅网格布局下生效） ── */
 
 export function getDefaultPostListMasonry(): boolean {
