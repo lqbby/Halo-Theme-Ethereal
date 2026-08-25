@@ -39,7 +39,8 @@ const bannerVersion = ASSET_VERSION;
 // 魔改作用域类（mods-card-pattern / mods-page-wide）通过下方 <html> 的
 // th:classappend 用 Thymeleaf 表达式直接计算（theme 为 Halo 运行期变量，
 // 不能在前端 JS 直接读，否则本地 astro build 预渲染会 ReferenceError）。
-// 总开关 mods.enable 默认开；逐项开关 cardPattern/pageWidth 默认开，且受总开关门控。
+// 总开关 mods.enable 默认开；cardPattern 在魔改开关下，page_wide 在
+// 样式设置 → 样式开关 下（style.styleSwitches.page_wide），默认开，受总开关门控。
 
 const i18nInlineScript = `<script th:inline="javascript">
   window.i18nResources = {
@@ -158,7 +159,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
-  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''}"
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.style?.styleSwitches?.page_wide == null ? true : theme.config?.style?.styleSwitches?.page_wide) ? ' mods-page-wide' : ''}"
   data-overlayscrollbars-initialize
 >
   <head>
