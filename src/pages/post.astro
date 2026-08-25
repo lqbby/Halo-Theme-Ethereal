@@ -25,7 +25,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     />
     <meta
       property="article:modified_time"
-      th:content="${post.updateTimestamp != null ? post.updateTimestamp : post.spec.publishTime}"
+      th:content="${post.spec.publishTime}"
     />
     <meta
       property="article:author"
@@ -46,7 +46,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         "description": /*[[${post.status.excerpt}]]*/ "",
         "image": /*[[${post.spec.cover}]]*/ "",
         "datePublished": /*[[${post.spec.publishTime}]]*/ "",
-        "dateModified": /*[[${post.updateTimestamp != null ? post.updateTimestamp : post.spec.publishTime}]]*/ "",
+        "dateModified": /*[[${post.spec.publishTime}]]*/ "",
         "author": {
           "@type": "Person",
           "name": /*[[${theme.config?.sidebar?.profile?.name ?: site.title}]]*/ ""
