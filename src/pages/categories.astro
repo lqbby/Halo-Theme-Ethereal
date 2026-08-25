@@ -9,8 +9,8 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   <!-- ===== 分类页（UI 重设计 v2：Firefly 风格分类胶囊墙） =====
        参考 firefly.cuteleaf.cn/categories 的胶囊导航语言：
        - 主体 = 分类胶囊（pill）墙，flex-wrap 自动换行
-       - 默认 outline 态 → hover 填充分类色相渐变 + 上浮 + 光晕
-       - 保留 Ethereal 动效：色相 hash / 鼠标光效 / 数字滚动 / 错峰入场 -->
+       - 默认 outline 态 → hover 填充统一主题色渐变 + 上浮 + 光晕（对齐 Firefly，不多彩）
+       - 保留 Ethereal 动效：鼠标光效 / 数字滚动 / 错峰入场 -->
 
   <!-- ── Hero：简洁标题 + 统计 + 装饰光晕 ── -->
   <section
@@ -56,7 +56,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     >
       <!-- 鼠标跟随光效 -->
       <span class="cat-pill-spot" aria-hidden="true"></span>
-      <!-- 分类色相小圆点 -->
+      <!-- 主题色小圆点 -->
       <span class="cat-pill-dot" aria-hidden="true"></span>
       <!-- 名称 -->
       <span class="cat-pill-name" th:text="${category.spec.displayName}">分类</span>
@@ -70,19 +70,13 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     </a>
   </section>
 
-  <!-- ── 互动脚本：色相 / 光效 / 数字滚动 / Hero 统计 ── -->
+  <!-- ── 互动脚本：光效 / 数字滚动 / Hero 统计 ── -->
   <script is:inline>
     (function () {
       var pills = document.querySelectorAll(".cat-pill");
 
-      // 1) 分类色相（名称 hash）+ 鼠标跟随光效
+      // 1) 鼠标跟随光效（统一主题色风格，无色相 hash）
       pills.forEach(function (pill) {
-        var name = pill.getAttribute("data-name") || "";
-        var hue = 7;
-        for (var i = 0; i < name.length; i++) {
-          hue = (hue * 31 + name.charCodeAt(i)) % 360;
-        }
-        pill.style.setProperty("--cat-hue", hue);
         pill.addEventListener("mousemove", function (e) {
           var r = pill.getBoundingClientRect();
           pill.style.setProperty("--mx", e.clientX - r.left + "px");
@@ -202,9 +196,8 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       transform: rotate(0deg) scale(1.05);
     }
 
-    /* ── 分类胶囊 ── */
+    /* ── 分类胶囊（统一主题色，对齐 Firefly 风格） ── */
     .cat-pill {
-      --cat-hue: 250;
       --mx: 50%;
       --my: 50%;
       display: inline-flex;
@@ -225,11 +218,11 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       border-color: transparent;
       background: linear-gradient(
         135deg,
-        hsl(var(--cat-hue) 78% 60%),
-        hsl(var(--cat-hue) 72% 44%)
+        var(--primary),
+        color-mix(in srgb, var(--primary) 72%, black)
       );
       box-shadow:
-        0 10px 24px -8px hsl(var(--cat-hue) 72% 50% / 0.55),
+        0 10px 24px -8px color-mix(in srgb, var(--primary) 55%, transparent),
         0 3px 8px -3px rgb(0 0 0 / 0.14);
     }
     /* 鼠标跟随光斑 */
@@ -248,14 +241,14 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     .cat-pill:hover .cat-pill-spot {
       opacity: 1;
     }
-    /* 分类色相小圆点 */
+    /* 主题色小圆点 */
     .cat-pill-dot {
       width: 0.5rem;
       height: 0.5rem;
       border-radius: 9999px;
       flex-shrink: 0;
-      background: hsl(var(--cat-hue) 78% 58%);
-      box-shadow: 0 0 0 3px hsl(var(--cat-hue) 78% 58% / 0.18);
+      background: var(--primary);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
       transition: box-shadow 0.25s ease;
     }
     .cat-pill:hover .cat-pill-dot {
