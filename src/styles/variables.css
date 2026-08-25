@@ -163,7 +163,7 @@ html[data-banner-display="fullscreen"] {
   --banner-height-extend: 65vh;
 }
 
-/* 魔改宽屏布局：总开关 + layout.pageWidth 开启时，<html> 挂 mods-page-wide 类，
+/* 魔改宽屏布局：总开关 + styleSwitches.page_wide 开启时，<html> 挂 mods-page-wide 类，
    把内容容器放宽到 112rem（旧 fork 同款宽屏）；关闭则回到上游 75rem 原版
    注意：用 !important 覆盖 @layer properties 内的默认 --page-width 声明优先级 */
 :root.mods-page-wide {
