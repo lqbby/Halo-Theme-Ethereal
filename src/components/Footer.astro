@@ -5,9 +5,9 @@ const currentYear = new Date().getFullYear();
 <!-- 魔改开关通过 th:with 注入 Thymeleaf 变量（theme 为 Halo 运行期变量，
      不能用 Astro 前端 JS 直接读 theme，否则本地 astro build 预渲染会
      ReferenceError）。总开关 mods.enable 默认开（魔改生效），关 → 原版；
-     footerStar 受 总开关 AND 逐项开关 控制，默认开。 -->
+     footerStar 已去掉后台独立开关，默认开启，仅受总开关控制。 -->
 <div
-  th:with="modsEnable=${(theme.config?.mods?.enable == null) ? true : theme.config?.mods?.enable}, footerStar=${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.footerStar == null ? true : theme.config?.mods?.footerStar)}"
+  th:with="modsEnable=${(theme.config?.mods?.enable == null) ? true : theme.config?.mods?.enable}, footerStar=${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable)}"
   th:remove="tag"
 >
 

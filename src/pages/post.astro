@@ -600,10 +600,11 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
   </script>
 
   <!-- 最近评论小组件跳转定位：整页加载后滚动到评论区（兼容评论组件异步渲染）。
-       受总开关 + mods.commentJump 控制；关闭 → 上游原版无高亮落位 -->
+       已取消后台开关并默认关闭（功能停用）；如需启用，将下方 th:if 改为
+       总开关表达式（mods.enable）即可 -->
   <script
     is:inline
-    th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && (theme.config?.mods?.commentJump == null ? true : theme.config?.mods?.commentJump)}"
+    th:if="false"
   >
     (function () {
       // 仅当从列表/侧边栏带着 #comment 锚点整页跳入时才定位
