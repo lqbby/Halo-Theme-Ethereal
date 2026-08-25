@@ -39,22 +39,4 @@ const COLLAPSE_THRESHOLD = 20;
     </div>
   </WidgetLayout>
 </div>
-
-<style is:global>
-  /* 侧边栏标签胶囊：颜色跟随标签配置（tag.spec.color），hover 上浮 + 同色光晕 */
-  .tag-chip {
-    transition:
-      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
-      box-shadow 0.2s ease,
-      filter 0.2s ease;
-  }
-  .tag-chip:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 5px 12px -4px color-mix(in srgb, currentColor 45%, transparent);
-    filter: saturate(1.15);
-  }
-  .tag-chip:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-  }
-</style>
+<!-- 标签胶囊配色与 hover 动效统一走全局 .tag-chip（src/styles/components.css） -->
