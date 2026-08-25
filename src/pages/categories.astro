@@ -12,12 +12,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
        - 默认 outline 态 → hover 填充统一主题色渐变 + 上浮 + 光晕（对齐 Firefly，不多彩）
        - 保留 Ethereal 动效：数字滚动 / 错峰入场 -->
 
-  <!-- ── Hero：简洁标题 + 统计 + 装饰光晕 ── -->
+  <!-- ── Hero：简洁标题 + 统计 ── -->
   <section
     class="cat-hero card-base onload-animation relative mb-5 overflow-hidden px-6 py-7 md:px-9"
   >
-    <span class="cat-hero-glow cat-hero-glow-a" aria-hidden="true"></span>
-    <span class="cat-hero-glow cat-hero-glow-b" aria-hidden="true"></span>
     <div class="relative flex items-center gap-4">
       <div class="cat-hero-icon">
         <span
@@ -133,41 +131,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 
   <style is:global>
     /* ── Hero ── */
-    .cat-hero-glow {
-      position: absolute;
-      border-radius: 9999px;
-      filter: blur(56px);
-      opacity: 0.5;
-      pointer-events: none;
-      transition: opacity 0.4s ease;
-    }
-    .cat-hero-glow-a {
-      width: 13rem;
-      height: 13rem;
-      right: -3rem;
-      top: -4rem;
-      background: color-mix(in srgb, var(--primary) 45%, transparent);
-      animation: cat-glow-float 9s ease-in-out infinite alternate;
-    }
-    .cat-hero-glow-b {
-      width: 8rem;
-      height: 8rem;
-      right: 7rem;
-      bottom: -4rem;
-      background: color-mix(in srgb, var(--primary) 26%, transparent);
-      animation: cat-glow-float 12s ease-in-out infinite alternate-reverse;
-    }
-    .cat-hero:hover .cat-hero-glow {
-      opacity: 0.72;
-    }
-    @keyframes cat-glow-float {
-      from {
-        transform: translate3d(0, 0, 0) scale(1);
-      }
-      to {
-        transform: translate3d(-1.5rem, 1rem, 0) scale(1.12);
-      }
-    }
     .cat-hero-icon {
       display: grid;
       place-items: center;
