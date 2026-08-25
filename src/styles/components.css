@@ -49,7 +49,9 @@
   }
 
   /* 标签胶囊（全站统一）：颜色跟随标签配置 tag.spec.color（由 th:style 注入
-     color/background/border），hover 上浮 + 同色光晕；无颜色时回退主题色 */
+     color/background/border），hover 缩放放大 + 同色光晕；无颜色时回退主题色。
+     注意：不用 translateY 上浮——小组件/卡片顶部第一排会被 card-base 的
+     overflow-hidden 裁剪，scale 向内放大不受影响 */
   .tag-chip {
     transition:
       transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
@@ -57,7 +59,7 @@
       filter 0.2s ease;
   }
   .tag-chip:hover {
-    transform: translateY(-2px);
+    transform: scale(1.06);
     box-shadow: 0 5px 12px -4px color-mix(in srgb, currentColor 45%, transparent);
     filter: saturate(1.15);
   }
