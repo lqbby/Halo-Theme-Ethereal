@@ -13,7 +13,7 @@ spec:
           key: mods_enable
           label: 启用魔改
           value: true
-          help: "总开关。开启 → 启用下方全部魔改（卡片纹理、宽屏、评论跳转、页脚星芒、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 1.2.0 行为"
+          help: "总开关。开启 → 启用下方全部魔改（卡片纹理、宽屏、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 1.2.0 行为"
         - $formkit: switch
           name: cardPattern
           id: mods_cardPattern
@@ -28,20 +28,6 @@ spec:
           label: 宽屏布局（112rem）
           value: true
           help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
-        - $formkit: switch
-          name: commentJump
-          id: mods_commentJump
-          key: mods_commentJump
-          label: 评论区快捷跳转
-          value: true
-          help: "文章页提供一键跳转到评论区的按钮（魔改）。关闭则隐藏"
-        - $formkit: switch
-          name: footerStar
-          id: mods_footerStar
-          key: mods_footerStar
-          label: 页脚星芒装饰
-          value: true
-          help: "页脚顶部用居中星芒徽标 + 渐隐细线替代上游虚线分隔（魔改）。关闭则回到上游虚线"
     - group: layout
       label: 布局设置
       formSchema:
