@@ -2,6 +2,12 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [Unreleased]
+
+### 修复
+
+- **分类导航栏滑块高亮溢出 (#52)**：`.category-scroll` 增加 `position: relative`，修正 `scrollPillIntoView` 的 `offsetLeft` 基准（此前相对整个 track，窄屏下过度滚动）；`moveLiquid` 与滚动区可见窗口求交集：半露只铺可见段、完全滚出时隐藏，防止液态滑块（滚动区兄弟节点、不受 `overflow`/`mask` 约束）底色溢出到相邻 pill / 分隔线
+
 ## [v1.2.0] - 2026-08-23
 
 > 呀呼！欢迎使用 **Ethereal 主题 v1.2.0** 版本
@@ -290,7 +296,7 @@
 
 ---
 
-[Unreleased]: https://github.com/AloneNanNan/halo-theme-ethereal/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/AloneNanNan/halo-theme-ethereal/compare/v1.2.0...HEAD
 [v1.1.2]: https://github.com/AloneNanNan/halo-theme-ethereal/compare/v1.1.1...v1.1.2
 [v1.1.1]: https://github.com/AloneNanNan/halo-theme-ethereal/compare/v1.1.0...v1.1.1
 [v1.1.0]: https://github.com/AloneNanNan/halo-theme-ethereal/compare/ae09a21...35707ae
