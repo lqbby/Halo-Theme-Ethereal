@@ -16,7 +16,7 @@ const { class: className } = Astro.props;
   <div class="px-3">
     <div
       class="mb-3 leading-relaxed text-neutral-600 dark:text-neutral-300"
-      th:text="${theme.config?.sidebar?.announcement?.content ?: '欢迎来到我的博客！这是一则示例公告。'}"
+      th:utext="${theme.config?.sidebar?.announcement?.content ?: '欢迎来到我的博客！这是一则示例公告。'}"
     >
       欢迎来到我的博客！这是一则示例公告。
     </div>
