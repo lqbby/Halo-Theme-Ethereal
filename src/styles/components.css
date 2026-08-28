@@ -62,7 +62,8 @@
   }
   .tag-chip:hover {
     transform: translateY(-2px);
-    box-shadow: 0 5px 12px -4px color-mix(in srgb, currentColor 45%, transparent);
+    box-shadow: 0 5px 12px -4px
+      color-mix(in srgb, currentColor 45%, transparent);
     filter: saturate(1.15);
   }
   .tag-chip:focus-visible {
@@ -120,7 +121,7 @@
   }
 
   .scale-animation {
-    @apply relative z-0 before:absolute before:inset-0 before:-z-10 before:scale-[0.85] before:rounded-[inherit] before:transition before:ease-out hover:before:scale-100 hover:before:bg-(--btn-plain-bg-hover) active:bg-transparent active:before:bg-(--btn-plain-bg-active);
+    @apply relative z-0 before:absolute before:inset-0 before:-z-10 before:scale-[0.85] before:rounded-xl before:transition before:ease-out hover:before:scale-100 hover:before:bg-(--btn-plain-bg-hover) active:bg-transparent active:before:bg-(--btn-plain-bg-active);
   }
 
   .btn-plain.scale-animation.current-theme-btn {
@@ -1272,8 +1273,8 @@
 /* 随机钓鱼（鱼钩）按钮：点击后鱼钩图标左右摇摆，模拟鱼咬钩晃动。
    全局定义，供导航栏与朋友圈页共用（对齐参考版 1.1.36） */
 .random-fish-btn.spinning .random-fish-icon {
-  animation: random-fish-swing var(--swing-duration, 0.5s) ease-in-out
-    infinite alternate;
+  animation: random-fish-swing var(--swing-duration, 0.5s) ease-in-out infinite
+    alternate;
   /* 顶部为轴心，像挂在鱼线上，钩尖（下方）晃动 */
   transform-origin: top;
 }
