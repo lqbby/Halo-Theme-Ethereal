@@ -307,9 +307,12 @@ export function setNavbarBlur(enabled: boolean): void {
 
 /* ── 宽屏布局（魔改：访客可覆盖后台 mods.pageWidth） ── */
 
-// 后台默认值受总开关与 pageWidth 逐项门控（与 Layout.astro 服务端类挂载同源）
+// 后台默认值受总开关与 pageWidth 逐项门控（与 Layout.astro 服务端类挂载同源）。
+// 注意：ConfigCarrier 暴露的属性是 data-page-wide-default（dataset.pageWideDefault），
+// 此前误写成 carrierBool("pageWide") 永远命中 fallback=true，导致前端「宽屏布局」
+// 开关不随后台 mods.pageWidth 联动（后台关掉、前端仍默认开）。
 export function getDefaultPageWide(): boolean {
-  return carrierBool("pageWide", true);
+  return carrierBool("pageWideDefault", true);
 }
 
 // 独立存储：UI 放在「卡片样式」区显示，但存储与生命周期不与 card_hover_lift/navbar_blur
