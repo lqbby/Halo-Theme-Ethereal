@@ -50,6 +50,8 @@ const buildAssets = {
   name: "build-assets",
   hooks: {
     "astro:build:start": async () => {
+      // 编译 src/scripts/assets/*.ts → public/assets/（IIFE 经典脚本，先于 public/ 拷贝）
+      // 并采集 public/assets 全部 *.js 文件名作为 build:done 压缩白名单
       await compileAssets();
       await copyVendorAssets();
       const names = await fs.promises.readdir(
@@ -58,6 +60,7 @@ const buildAssets = {
       publicAssetJs = names.filter((f) => f.endsWith(".js"));
     },
     "astro:build:done": async ({ dir }) => {
+      // 压缩白名单内的经典脚本（public/ 拷贝产物）
       await compressAssetsInDir(
         join(fileURLToPath(dir), "assets"),
         publicAssetJs,
