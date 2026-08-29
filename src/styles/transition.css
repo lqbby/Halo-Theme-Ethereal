@@ -27,6 +27,18 @@ html.swup-visited #right-sidebar {
   translate: none !important;
 }
 
+/* 追番页筛选（Swup 同页换入）：番剧网格/卡片/分页的 onload-animation 仅首刷播放，
+   Swup 换页（点筛选 tab）不重播——避免每次切换都重放错峰进场动画（"过度动画"）。
+   复用 #right-sidebar 同源机制：html.swup-visited 自首次换页起永久挂在 <html>，
+   此处据此永久抑制追番页容器内入场动画、强制终态可见（覆盖 .onload-animation
+   的 opacity:0），与主题其他 Swup 过渡保持一致观感。 */
+html.swup-visited .bangumi-page .onload-animation {
+  animation: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  translate: none !important;
+}
+
 @keyframes fade-in-up {
   0% {
     translate: 0 2rem;
