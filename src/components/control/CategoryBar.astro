@@ -401,8 +401,6 @@
       var isArchives = path.startsWith("/archives");
       var isCategories = path === "/categories";
       var activeCategory = params.get("category") || "";
-      var hasTag = params.has("tag");
-      var hasUncategorized = params.has("uncategorized");
 
       var targetName = null;
 
@@ -410,6 +408,11 @@
         targetName = "";
       } else if (isCategories) {
         targetName = "__categories__";
+      } else if (isArchives) {
+        // 归档页始终高亮"归档"按钮，无论 URL 带何种筛选参数：
+        // 分类筛选由归档页内的 FilterTabs 承担，不应反映到导航栏高亮
+        // （与 c750d86 的归档页分类筛选配套）
+        targetName = "__archive__";
       } else if (activeCategory) {
         targetName = activeCategory;
       } else {
@@ -430,9 +433,6 @@
               }
             } catch (e) {}
           }
-        }
-        if (!targetName && isArchives && !hasTag && !hasUncategorized) {
-          targetName = "__archive__";
         }
       }
 
