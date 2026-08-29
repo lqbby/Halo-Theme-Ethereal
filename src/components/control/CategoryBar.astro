@@ -8,7 +8,7 @@
 //
 // 高亮方案：液态滑块（.category-liquid）用 CSS transform 滑动覆盖层，
 // pill 本身不变背景色，仅切换 text color，彻底消除 transition-colors 闪烁。
-// pill z-index:1 在滑块 z-index:0 上方，pill 半透明背景（6%）让滑块颜色透出。
+// pill z-index:1 在滑块 z-index:0 上方，pill 半透明背景（8%）让滑块颜色透出。
 // 滑块是滚动区的兄弟而非子级（需横跨首页/归档/更多），不受 overflow 裁剪或 mask
 // 渐隐约束，故 moveLiquid 会与滚动区可见窗口求交集：半露时只铺可见段、
 // 完全滚出时隐藏，避免高亮底色溢出到相邻 pill/分隔线（issue #52）。
@@ -22,7 +22,7 @@
     <span class="category-liquid" aria-hidden="true"></span>
     <a
       th:href="@{/}"
-      class="category-pill shrink-0 flex items-center justify-center rounded-xl px-3 py-1.5 text-sm active:scale-95"
+      class="category-pill shrink-0 flex items-center justify-center rounded-xl px-3 py-1.5 text-sm"
       data-category-name=""
       data-no-swup
       aria-label="Home"
@@ -32,7 +32,7 @@
 
     <a
       th:href="@{/archives}"
-      class="category-pill shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm active:scale-95"
+      class="category-pill shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm"
       data-category-name="__archive__"
       data-no-swup
     >
@@ -50,7 +50,7 @@
       <div class="contents" th:each="category : ${categoryFinder.listAll()}">
         <a
           th:href="@{${category.status.permalink}}"
-          class="category-pill shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm active:scale-95"
+          class="category-pill shrink-0 flex items-center gap-1.5 rounded-xl px-4 py-1.5 text-sm"
           th:attr="data-category-name=${category.spec.displayName}"
           data-no-swup
         >
@@ -64,7 +64,7 @@
 
     <a
       th:href="@{/categories}"
-      class="category-pill shrink-0 flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm active:scale-95"
+      class="category-pill shrink-0 flex items-center gap-1 rounded-xl px-3 py-1.5 text-sm"
       data-category-name="__categories__"
       data-no-swup
       aria-label="More"
@@ -79,6 +79,10 @@
 <style is:global>
   .category-bar {
     position: relative;
+    border: 1px solid color-mix(in srgb, var(--btn-content) 6%, transparent);
+    box-shadow:
+      0 1px 2px color-mix(in srgb, var(--btn-content) 4%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--btn-content) 4%, transparent);
   }
 
   .category-bar-track {
@@ -99,6 +103,8 @@
     z-index: 0;
     pointer-events: none;
     opacity: 1;
+    box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 35%, transparent);
+    will-change: transform, width;
   }
 
   .category-scroll {
@@ -106,10 +112,20 @@
     scrollbar-width: none;
     -ms-overflow-style: none;
     --mask-fade: 1.5rem;
+    cursor: grab;
+    user-select: none;
   }
 
   .category-scroll::-webkit-scrollbar {
     display: none;
+  }
+
+  .category-scroll.is-dragging {
+    cursor: grabbing;
+  }
+
+  .category-scroll.is-dragging .category-pill {
+    pointer-events: none;
   }
 
   .category-scroll.can-scroll-left {
@@ -157,48 +173,75 @@
 
   .category-pill {
     z-index: 1;
-    border: none;
+    border: 1px solid color-mix(in srgb, var(--btn-content) 8%, transparent);
     border-radius: 0.75rem;
     color: var(--btn-content);
-    background: color-mix(in srgb, var(--btn-content) 6%, transparent);
+    background: color-mix(in srgb, var(--btn-content) 8%, transparent);
     font-weight: 500;
     gap: 0.375rem;
     text-decoration: none;
     position: relative;
-    transition: color 0.2s ease;
+    transition:
+      color 0.2s ease,
+      background 0.2s ease,
+      border-color 0.2s ease,
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
+    will-change: transform;
   }
 
   .category-pill:hover {
     color: var(--primary);
+    background: color-mix(in srgb, var(--btn-content) 16%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 25%, transparent);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+
+  .category-pill:active {
+    transform: translateY(0) scale(0.97);
+    box-shadow: none;
   }
 
   .category-pill[data-active] {
     color: white;
     background: transparent;
     border-color: transparent;
+    font-weight: 600;
+    box-shadow: none;
   }
 
   .category-pill[data-active] .pill-count {
-    background: rgba(255, 255, 255, 0.2);
-    opacity: 0.9;
+    background: rgba(255, 255, 255, 0.25);
+    color: white;
+    opacity: 1;
   }
 
   .category-pill[data-active]:hover {
-    opacity: 0.9;
+    opacity: 0.95;
     border-color: transparent;
+    box-shadow: none;
   }
 
   .category-pill[data-soft-active] {
     color: color-mix(in srgb, var(--primary) 90%, var(--btn-content));
     font-weight: 600;
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   .category-pill[data-soft-active]:hover {
     color: color-mix(in srgb, var(--primary) 100%, var(--btn-content));
+    background: color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
   .category-pill[data-category-name=""] {
     color: var(--primary);
+  }
+
+  .category-pill[data-category-name=""]:hover {
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
   }
 
   .category-pill[data-category-name=""][data-active],
@@ -207,12 +250,15 @@
   }
 
   .category-pill .pill-count {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    opacity: 0.5;
-    padding: 0.05rem 0.35rem;
+    opacity: 0.65;
+    padding: 0.1rem 0.45rem;
     border-radius: 0.375rem;
-    background: color-mix(in srgb, var(--btn-content) 10%, transparent);
+    min-width: 1.25rem;
+    text-align: center;
+    background: color-mix(in srgb, var(--btn-content) 12%, transparent);
+    transition: inherit;
   }
 
   .category-divider {
@@ -233,6 +279,11 @@
     .category-scroll.can-scroll-left.can-scroll-right {
       mask-image: none;
     }
+
+    .category-pill:hover {
+      transform: none;
+      box-shadow: none;
+    }
   }
 </style>
 
@@ -248,6 +299,8 @@
     var scroll = bar.querySelector(".category-scroll");
     var liquid = bar.querySelector(".category-liquid");
     var track = bar.querySelector(".category-bar-track");
+    var resizeBound = false;
+    var clickScrolling = false;
 
     function pathOf(href) {
       try {
@@ -257,9 +310,25 @@
       }
     }
 
+    // 冻结/解冻滑块过渡：拖拽、滚轮、点击远处 pill 的连续定位期间冻结
+    // （transition:none），避免每帧强制同步重排（void offsetWidth），消除滑动卡顿；
+    // 一次性定位（resize / 字体加载 / 初始）仍走 flush 分支保证无动画跳变正确。
+    var liquidFrozen = false;
+    function freezeLiquid() {
+      if (liquidFrozen || !liquid) return;
+      liquidFrozen = true;
+      liquid.style.transition = "none";
+    }
+    function unfreezeLiquid() {
+      if (!liquidFrozen || !liquid) return;
+      void liquid.offsetWidth; // flush 一次，让冻结期间的最终位置无动画落定
+      liquid.style.transition = "";
+      liquidFrozen = false;
+    }
+
     // getBoundingClientRect 定位，滚动期间 rAF 跟随。
     // 滑块位于滚动区外（无 overflow 裁剪），须与滚动窗口求交集：
-    // 半露只铺可见段、完全滚出隐藏，防止底色溢出相邻 pill/分隔线。
+    // 半露只铺可见段、完全滚出隐藏，防止高亮底色溢出相邻 pill/分隔线。
     function moveLiquid(el, animate) {
       if (!liquid || !track || !el) return;
       var trackRect = track.getBoundingClientRect();
@@ -279,13 +348,15 @@
       }
       liquid.style.opacity = "";
       x = Math.max(0, Math.min(x, trackRect.width - w));
-      if (!animate) liquid.style.transition = "none";
       liquid.style.width = w + "px";
       liquid.style.transform = "translateX(" + x + "px)";
+      if (liquidFrozen) return; // 连续定位：只写 transform，不 flush（已在 freeze 时关掉 transition）
       if (!animate) {
-        void liquid.offsetWidth;
+        liquid.style.transition = "none";
+        void liquid.offsetWidth; // 强制落定一次，确保下次还原 transition 后不产生动画
         liquid.style.transition = "";
       }
+      // animate=true：保留 .category-liquid 的 transition，平滑划过去
     }
 
     function moveToActive(animate) {
@@ -299,12 +370,25 @@
       }
     }
 
+    // scrollWidth/clientWidth 在拖拽/滚轮期间不变，缓存避免每帧强制布局读取
+    var cachedScrollWidth = 0;
+    var cachedClientWidth = 0;
+    var maskMetricsDirty = true;
+    function refreshMaskMetrics() {
+      if (!scroll) return;
+      cachedScrollWidth = scroll.scrollWidth;
+      cachedClientWidth = scroll.clientWidth;
+    }
     function updateScrollMask() {
       if (!scroll) return;
-      var hasOverflow = scroll.scrollWidth > scroll.clientWidth + 1;
+      if (maskMetricsDirty) {
+        refreshMaskMetrics();
+        maskMetricsDirty = false;
+      }
+      var hasOverflow = cachedScrollWidth > cachedClientWidth + 1;
       var atStart = scroll.scrollLeft <= 1;
       var atEnd =
-        scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 1;
+        scroll.scrollLeft + cachedClientWidth >= cachedScrollWidth - 1;
       scroll.classList.toggle("can-scroll-left", hasOverflow && !atStart);
       scroll.classList.toggle("can-scroll-right", hasOverflow && !atEnd);
     }
@@ -410,14 +494,47 @@
       scroll.scrollTo({ left: left, behavior: smooth ? "smooth" : "auto" });
     }
 
-    // lqbby.com 同款：rAF 节流，滚动期间滑块无动画跟随
+    // rAF 节流，滚动期间滑块无动画跟随；合并 updateScrollMask 进同一帧
     var liquidRaf = 0;
     function scheduleLiquidSync() {
       if (liquidRaf) return;
       liquidRaf = requestAnimationFrame(function () {
         liquidRaf = 0;
+        updateScrollMask(); // 合并进同一帧，减少一次布局读取
+        if (clickScrolling) return; // 点击触发的滚动期间不瞬间跟随，留待滚动停后平滑收尾
         moveToActive(false);
       });
+    }
+
+    // 判断 pill 当前是否在滚动区可见窗口内（首页/归档/更多等滚动区外 pill 恒为可见）
+    function isPillVisible(p) {
+      if (!scroll || !scroll.contains(p)) return true;
+      var sRect = scroll.getBoundingClientRect();
+      var pRect = p.getBoundingClientRect();
+      return pRect.left >= sRect.left - 1 && pRect.right <= sRect.right + 1;
+    }
+
+    // 等待平滑滚动结束（scroll 静默 140ms 触发，160ms 兜底），回调仅一次
+    function waitScrollEnd(cb) {
+      if (!scroll) {
+        cb();
+        return;
+      }
+      var finished = false;
+      var timer = 0;
+      var onScroll = function () {
+        window.clearTimeout(timer);
+        timer = window.setTimeout(finish, 140);
+      };
+      var finish = function () {
+        if (finished) return;
+        finished = true;
+        window.clearTimeout(timer);
+        scroll.removeEventListener("scroll", onScroll);
+        cb();
+      };
+      scroll.addEventListener("scroll", onScroll, { passive: true });
+      timer = window.setTimeout(finish, 160);
     }
 
     function updateCategoryBar(animate) {
@@ -443,16 +560,108 @@
       scroll.addEventListener(
         "scroll",
         function () {
-          updateScrollMask();
-          scheduleLiquidSync();
+          scheduleLiquidSync(); // 布局读取统一延迟到 rAF 内执行
         },
         { passive: true },
       );
       updateScrollMask();
     }
 
+    // 桌面端：鼠标拖拽 + 滚轮横向滚动，提升可发现性
+    function initDragAndWheelScroll() {
+      if (!scroll) return;
+      if (scroll.dataset.dragBound) return;
+      if (window.matchMedia("(pointer: coarse)").matches) return;
+      scroll.dataset.dragBound = "true";
+
+      var isDown = false;
+      var startX = 0;
+      var scrollLeft = 0;
+      var moved = false;
+      var wheelTimer = 0;
+
+      scroll.addEventListener("pointerdown", function (e) {
+        if (e.button !== 0) return;
+        if (e.target.closest(".category-pill")) return;
+        isDown = true;
+        moved = false;
+        scroll.classList.add("is-dragging");
+        clickScrolling = false; // 用户主动拖拽，取消点击滚动的抑制，恢复瞬间跟随
+        freezeLiquid(); // 拖拽期间冻结滑块过渡，避免每帧强制重排
+        startX = e.pageX - scroll.offsetLeft;
+        scrollLeft = scroll.scrollLeft;
+        try {
+          scroll.setPointerCapture(e.pointerId);
+        } catch (err) {}
+      });
+
+      scroll.addEventListener("pointermove", function (e) {
+        if (!isDown) return;
+        e.preventDefault();
+        var x = e.pageX - scroll.offsetLeft;
+        var walk = (x - startX) * 1.3;
+        if (Math.abs(walk) > 2) moved = true;
+        scroll.scrollLeft = scrollLeft - walk;
+      });
+
+      function endDrag() {
+        if (!isDown) return;
+        isDown = false;
+        scroll.classList.remove("is-dragging");
+        unfreezeLiquid(); // 拖拽结束，恢复滑块平滑动画
+      }
+
+      scroll.addEventListener("pointerup", endDrag);
+      scroll.addEventListener("pointerleave", endDrag);
+      scroll.addEventListener("pointercancel", endDrag);
+
+      scroll.addEventListener(
+        "wheel",
+        function (e) {
+          if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+          e.preventDefault();
+          clickScrolling = false;
+          freezeLiquid(); // 滚轮期间冻结，停手后解冻
+          scroll.scrollLeft += e.deltaY;
+          scheduleLiquidSync();
+          window.clearTimeout(wheelTimer);
+          wheelTimer = window.setTimeout(unfreezeLiquid, 160);
+        },
+        { passive: false },
+      );
+    }
+
+    // 窗口 resize / 字体加载完成后重新定位滑块，避免挤压屏幕时错位
+    function initResizeHandler() {
+      if (resizeBound) return;
+      resizeBound = true;
+
+      var resizeTimer = 0;
+      window.addEventListener(
+        "resize",
+        function () {
+          window.clearTimeout(resizeTimer);
+          resizeTimer = window.setTimeout(function () {
+            maskMetricsDirty = true; // 容器宽度变化，刷新缓存
+            moveToActive(false);
+            updateScrollMask();
+          }, 80);
+        },
+        { passive: true },
+      );
+
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          maskMetricsDirty = true;
+          moveToActive(false);
+        });
+      }
+    }
+
     function init() {
       initScrollFeatures();
+      initDragAndWheelScroll();
+      initResizeHandler();
       updateCategoryBar();
 
       bar.addEventListener("click", function (e) {
@@ -474,8 +683,21 @@
 
         e.preventDefault();
         setActiveCategory(targetUrl);
-        moveLiquid(pill, true);
-        scrollPillIntoView(true);
+        if (isPillVisible(pill)) {
+          moveToActive(true);
+        } else {
+          // 目标 pill 不在视图内：冻结滑块，平滑滚过去后由 waitScrollEnd 解冻并平滑归位，
+          // 过程中抑制 scroll 事件的瞬间跟随，避免拖影/瞬移
+          clickScrolling = true;
+          freezeLiquid();
+          moveToActive(false);
+          scrollPillIntoView(true);
+          waitScrollEnd(function () {
+            clickScrolling = false;
+            unfreezeLiquid();
+            moveToActive(true);
+          });
+        }
 
         if (pathOf(href) === location.pathname) return;
         if (window.swup) window.swup.navigate(href);
@@ -485,6 +707,7 @@
       function onSwupPageView() {
         updateCategoryBar(true);
         initScrollFeatures();
+        initDragAndWheelScroll();
       }
       if (window.swup && window.swup.hooks) {
         window.swup.hooks.on("page:view", onSwupPageView);
