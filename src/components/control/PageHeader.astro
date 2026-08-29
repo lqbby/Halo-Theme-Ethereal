@@ -58,11 +58,7 @@ const {
       <span th:if={sepShowIfExpr} class="text-30">·</span>
       {
         subExpr && (
-          <span
-            th:if={subShowIfExpr}
-            class="text-50 page-header-sub"
-            th:text={subExpr}
-          >
+          <span th:if={subShowIfExpr} class="text-50" th:text={subExpr}>
             {sub}
           </span>
         )
@@ -71,7 +67,7 @@ const {
         filteredExpr && (
           <span
             th:if={filteredExpr}
-            class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content) page-header-filtered"
+            class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
             th:text="#{common.filtered}"
           >
             已筛选

@@ -56,10 +56,9 @@ const stats = [
       filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
     />
 
-    <!-- 类型筛选：追番 / 追剧（data-no-swup 让 Swup 放行，由页脚脚本做局部刷新） -->
+    <!-- 类型筛选：追番 / 追剧 -->
     <FilterTabs
-      class="bangumi-filter-tabs mb-4 flex flex-wrap gap-2"
-      data-no-swup
+      class="mb-4 flex flex-wrap gap-2"
       allHrefExpr="@{/bangumis(typeNum=1, status=${curStatus})}"
       allActiveExpr="curType == 1"
       allLabelExpr="#{page.bangumi.typeAnime}"
@@ -76,8 +75,7 @@ const stats = [
 
     <!-- 状态筛选：全部 / 想看 / 在看 / 已看 -->
     <FilterTabs
-      class="bangumi-filter-tabs mb-6 flex flex-wrap gap-2"
-      data-no-swup
+      class="mb-6 flex flex-wrap gap-2"
       allHrefExpr="@{/bangumis(typeNum=${curType}, status=0)}"
       allActiveExpr="curStatus == 0"
       allLabelExpr="#{common.all}"
@@ -104,226 +102,112 @@ const stats = [
       ]}
     />
 
-    <!-- 追番卡片网格 + 空状态（局部刷新区：按钮不刷新，仅此处更新） -->
-    <div id="bangumi-results">
-      <div
-        th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
-        class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
+    <!-- 追番卡片网格 -->
+    <div
+      th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
+      class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
+    >
+      <a
+        th:each="bangumi, bangumiStat : ${bangumis.items}"
+        th:href="${bangumi.spec.url}"
+        target="_blank"
+        rel="noopener noreferrer"
+        th:title="${bangumi.spec.title}"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${bangumiStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+        class="card-base btn-card-outline group relative block overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
       >
-        <a
-          th:each="bangumi, bangumiStat : ${bangumis.items}"
-          th:href="${bangumi.spec.url}"
-          target="_blank"
-          rel="noopener noreferrer"
-          th:title="${bangumi.spec.title}"
-          th:style="|animation-delay: min(calc(var(--content-delay) + ${bangumiStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-          class="card-base btn-card-outline group relative block overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
-        >
-          <div class="relative w-full overflow-hidden bg-(--btn-regular-bg)">
-            <!-- 封面 -->
-            <img
-              th:src="${bangumi.spec.cover}"
-              th:alt="${bangumi.spec.title}"
-              loading="lazy"
-              decoding="async"
-              referrerpolicy="no-referrer"
-              class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
-            />
+        <div class="relative w-full overflow-hidden bg-(--btn-regular-bg)">
+          <!-- 封面 -->
+          <img
+            th:src="${bangumi.spec.cover}"
+            th:alt="${bangumi.spec.title}"
+            loading="lazy"
+            decoding="async"
+            referrerpolicy="no-referrer"
+            class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
+          />
 
-            <!-- 左上：类型角标 -->
-            <span
-              th:if="${not #strings.isEmpty(bangumi.spec.type)}"
-              class="absolute left-2.5 top-2.5 rounded-md bg-black/45 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
-              th:text="${bangumi.spec.type}">番剧</span
-            >
+          <!-- 左上：类型角标 -->
+          <span
+            th:if="${not #strings.isEmpty(bangumi.spec.type)}"
+            class="absolute left-2.5 top-2.5 rounded-md bg-black/45 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
+            th:text="${bangumi.spec.type}">番剧</span
+          >
 
-            <!-- 右上：评分角标 -->
-            <span
-              th:if="${bangumi.spec.score != null and bangumi.spec.score != '' and bangumi.spec.score != '-'}"
-              class="absolute right-2.5 top-2.5 rounded-md bg-(--primary)/90 px-1.5 py-0.5 text-xs font-bold text-white shadow-sm"
-              th:text="${bangumi.spec.score}">9.9</span
-            >
+          <!-- 右上：评分角标 -->
+          <span
+            th:if="${bangumi.spec.score != null and bangumi.spec.score != '' and bangumi.spec.score != '-'}"
+            class="absolute right-2.5 top-2.5 rounded-md bg-(--primary)/90 px-1.5 py-0.5 text-xs font-bold text-white shadow-sm"
+            th:text="${bangumi.spec.score}">9.9</span
+          >
 
-            <!-- 底部渐变遮罩 + 信息 -->
+          <!-- 底部渐变遮罩 + 信息 -->
+          <div
+            class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3.5 pb-3 pt-10"
+          >
+            <!-- 标题 -->
+            <div class="text-[15px] font-bold leading-snug text-white">
+              <span class="line-clamp-2" th:text="${bangumi.spec.title}"
+                >Title</span
+              >
+            </div>
+
+            <!-- 元信息：地区 · 总集数 -->
             <div
-              class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3.5 pb-3 pt-10"
+              class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-white/75"
             >
-              <!-- 标题 -->
-              <div class="text-[15px] font-bold leading-snug text-white">
-                <span class="line-clamp-2" th:text="${bangumi.spec.title}"
-                  >Title</span
-                >
-              </div>
-
-              <!-- 元信息：地区 · 总集数 -->
-              <div
-                class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-white/75"
+              <span
+                th:if="${not #strings.isEmpty(bangumi.spec.area)}"
+                th:text="${bangumi.spec.area}">日本</span
               >
-                <span
-                  th:if="${not #strings.isEmpty(bangumi.spec.area)}"
-                  th:text="${bangumi.spec.area}">日本</span
-                >
-                <span
-                  th:if="${not #strings.isEmpty(bangumi.spec.area)}"
-                  class="text-white/40">·</span
-                >
-                <span th:text="${bangumi.spec.totalCount}">全24话</span>
-              </div>
-
-              <!-- 统计信息：追番 / 播放 / 弹幕 / 硬币 -->
-              <div
-                class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-white/75"
+              <span
+                th:if="${not #strings.isEmpty(bangumi.spec.area)}"
+                class="text-white/40">·</span
               >
-                {
-                  stats.map((stat) => (
-                    <span class="inline-flex items-center gap-0.5">
-                      <span class={`${stat.icon} text-[12px]`} />
-                      <span th:text={stat.expr}>{stat.text}</span>
-                    </span>
-                  ))
-                }
-              </div>
+              <span th:text="${bangumi.spec.totalCount}">全24话</span>
+            </div>
+
+            <!-- 统计信息：追番 / 播放 / 弹幕 / 硬币 -->
+            <div
+              class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-white/75"
+            >
+              {
+                stats.map((stat) => (
+                  <span class="inline-flex items-center gap-0.5">
+                    <span class={`${stat.icon} text-[12px]`} />
+                    <span th:text={stat.expr}>{stat.text}</span>
+                  </span>
+                ))
+              }
             </div>
           </div>
-        </a>
-      </div>
+        </div>
+      </a>
+    </div>
 
-      <!-- 空状态 -->
-      <div
-        th:if="${bangumis == null or #lists.isEmpty(bangumis.items)}"
-        class="py-16 text-center text-50"
+    <!-- 空状态 -->
+    <div
+      th:if="${bangumis == null or #lists.isEmpty(bangumis.items)}"
+      class="py-16 text-center text-50"
+    >
+      <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
+      ></span>
+      <p
+        th:if="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+        class="mt-4"
+        th:text="#{page.bangumi.emptyFiltered}"
       >
-        <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
-        ></span>
-        <p
-          th:if="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-          class="mt-4"
-          th:text="#{page.bangumi.emptyFiltered}"
-        >
-          该筛选条件下暂无追番
-        </p>
-        <p
-          th:unless="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-          class="mt-4"
-          th:text="#{page.bangumi.empty}"
-        >
-          暂无追番数据
-        </p>
-      </div>
+        该筛选条件下暂无追番
+      </p>
+      <p
+        th:unless="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+        class="mt-4"
+        th:text="#{page.bangumi.empty}"
+      >
+        暂无追番数据
+      </p>
     </div>
   </section>
 
-  <div id="bangumi-pagination" data-no-swup>
-    <Pagination context="bangumis" class="mb-4 onload-animation" />
-  </div>
-
-  <!-- 追番页筛选：按钮不刷新，只局部刷新下方番剧列表（data-no-swup 已让 Swup 放行这些链接） -->
-  <!-- th:inline="none" 关键：禁用 Thymeleaf 对脚本内 [()] / [[]] 的行内表达式解析，
-       否则 map[(text || "")] 这类 JS 会被当成 Thymeleaf 非转义内联语法而渲染抛异常 -->
-  <script is:inline th:inline="none">
-    (function () {
-      function swapInner(sel, doc) {
-        var cur = document.querySelector(sel);
-        var neu = doc.querySelector(sel);
-        if (cur && neu) cur.innerHTML = neu.innerHTML;
-      }
-      function swapOuter(sel, doc) {
-        var cur = document.querySelector(sel);
-        var neu = doc.querySelector(sel);
-        if (cur && neu) cur.outerHTML = neu.outerHTML;
-      }
-      // 「已筛选」徽章：存在性随筛选状态变化，做 outerHTML 同步（含增删）
-      function syncFiltered(doc) {
-        var cur = document.querySelector(".page-header-filtered");
-        var neu = doc.querySelector(".page-header-filtered");
-        if (cur && neu) {
-          cur.outerHTML = neu.outerHTML;
-          return;
-        }
-        if (!cur && neu) {
-          var sub = document.querySelector(".page-header-sub");
-          if (sub && sub.parentNode)
-            sub.parentNode.insertBefore(neu, sub.nextSibling);
-          return;
-        }
-        if (cur && !neu) {
-          cur.remove();
-        }
-      }
-      // 同步两组筛选按钮的 href，避免局部刷新后跨组切换时筛选参数被初始值覆盖
-      function syncHrefs(doc) {
-        var curLinks = document.querySelectorAll(".bangumi-filter-tabs a");
-        var newLinks = doc.querySelectorAll(".bangumi-filter-tabs a");
-        var map = {};
-        newLinks.forEach(function (nl) {
-          map[(nl.textContent || "").trim()] = nl.getAttribute("href");
-        });
-        curLinks.forEach(function (cl) {
-          var key = (cl.textContent || "").trim();
-          if (map[key]) cl.setAttribute("href", map[key]);
-        });
-      }
-      // 原地切换选中态（仅当前组，不影响另一组高亮）
-      function setActive(btn) {
-        if (!btn) return;
-        var group = btn.closest(".bangumi-filter-tabs");
-        if (!group) return;
-        var links = group.querySelectorAll("a");
-        for (var i = 0; i < links.length; i++) {
-          links[i].classList.remove(
-            "bg-(--primary)",
-            "text-white",
-            "dark:text-black/70",
-          );
-        }
-        btn.classList.add("bg-(--primary)", "text-white", "dark:text-black/70");
-      }
-      var busy = false;
-      function partialLoad(href, btn) {
-        if (busy) return;
-        busy = true;
-        fetch(href, {
-          credentials: "same-origin",
-          headers: { "X-Requested-With": "fetch" },
-        })
-          .then(function (r) {
-            if (!r.ok) throw new Error(r.status);
-            return r.text();
-          })
-          .then(function (html) {
-            var doc = new DOMParser().parseFromString(html, "text/html");
-            swapInner("#bangumi-results", doc);
-            swapOuter("#bangumi-pagination", doc);
-            swapInner(".page-header-sub", doc);
-            syncFiltered(doc);
-            syncHrefs(doc);
-            setActive(btn);
-            if (window.history && window.history.pushState)
-              history.pushState({}, "", href);
-          })
-          .catch(function () {
-            window.location.href = href;
-          })
-          .finally(function () {
-            busy = false;
-          });
-      }
-      function intercept(e) {
-        var a = e.target.closest && e.target.closest("a");
-        if (!a || !a.getAttribute("href")) return;
-        if (a.getAttribute("target") === "_blank" || a.hasAttribute("download"))
-          return;
-        var href = a.getAttribute("href");
-        if (href.charAt(0) !== "/") return;
-        if (href.indexOf("/bangumis") !== 0) return;
-        var inTabs = a.closest && a.closest(".bangumi-filter-tabs");
-        var inResults =
-          a.closest && a.closest("#bangumi-results, #bangumi-pagination");
-        if (!inTabs && !inResults) return;
-        e.preventDefault();
-        partialLoad(href, inTabs ? a : null);
-      }
-      document.addEventListener("click", intercept);
-    })();
-  </script>
+  <Pagination context="bangumis" class="mb-4 onload-animation" />
 </MainGridLayout>
