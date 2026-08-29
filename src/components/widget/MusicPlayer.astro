@@ -124,7 +124,6 @@ const layoutId = `${widgetId}-layout`;
             />
             <img
               class="music-cover animate-spin-slow relative z-10 h-full w-full object-cover opacity-0 transition-opacity duration-300"
-              src=""
               alt=""
               style="animation-play-state: paused;"
             />
@@ -376,7 +375,6 @@ const layoutId = `${widgetId}-layout`;
           class="relative h-8 w-8 shrink-0 overflow-hidden rounded-md bg-neutral-200 dark:bg-neutral-700"
         >
           <img
-            src=""
             class="item-cover h-full w-full object-cover"
             loading="lazy"
             alt=""
@@ -596,6 +594,14 @@ const layoutId = `${widgetId}-layout`;
       url.length > 0 &&
       !/(^|[\?&])id=(&|$)/.test(url);
 
+    // ⚠️ 置空 src（el.src = ""）会让浏览器把「当前文档 URL」当成资源去请求 → 必然失败，
+    // 并触发主题 diag 的 "resource failed: <页面地址>"。正确做法是移除属性：
+    // 没有 src 属性时 el.src 读出来依然是空串，JS 语义完全等价，但不会发出任何请求。
+    const setSrcOrClear = (el, url, ok) => {
+      if (ok && url) el.src = url;
+      else el.removeAttribute("src");
+    };
+
     const updateTrackUI = (track) => {
       if (!track) return;
       ui.title.textContent = track.name;
@@ -603,7 +609,7 @@ const layoutId = `${widgetId}-layout`;
       ui.artist.textContent = track.artist;
       ui.artist.title = track.artist;
       ui.cover.classList.add("opacity-0");
-      ui.cover.src = isValidMetingUrl(track.pic) ? track.pic : "";
+      setSrcOrClear(ui.cover, track.pic, isValidMetingUrl(track.pic));
       ui.cover.alt = isValidMetingUrl(track.pic)
         ? `${track.name} - ${track.artist}`
         : cfg.i18n.noCover;
@@ -648,7 +654,7 @@ const layoutId = `${widgetId}-layout`;
         const img = clone.querySelector(".item-cover");
         const title = clone.querySelector(".item-title");
         const artist = clone.querySelector(".item-artist");
-        img.src = isValidMetingUrl(track.pic) ? track.pic : "";
+        setSrcOrClear(img, track.pic, isValidMetingUrl(track.pic));
         img.alt = `${track.name} - ${track.artist}`;
         title.textContent = track.name;
         artist.textContent = track.artist;
@@ -744,7 +750,7 @@ const layoutId = `${widgetId}-layout`;
         const next = index + 1 >= state.playlist.length ? 0 : index + 1;
         return loadTrack(next, autoPlay, skipGuard + 1);
       }
-      audio.src = isValidMetingUrl(track.url) ? track.url : "";
+      setSrcOrClear(audio, track.url, isValidMetingUrl(track.url));
       loadLyrics(track);
       updateTrackUI(track);
       updatePlaylistActiveUI();
