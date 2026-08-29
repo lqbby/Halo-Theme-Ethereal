@@ -50,10 +50,11 @@ const {
   tabTemplate,
   items = [],
   class: className = "mb-6 flex flex-wrap gap-2",
+  ...rest
 } = Astro.props;
 ---
 
-<div th:if={showIfExpr} class={className}>
+<div th:if={showIfExpr} class={className} {...rest}>
   <FilterTab
     hrefExpr={allHrefExpr}
     activeExpr={allActiveExpr}
