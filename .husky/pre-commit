@@ -1,2 +1,6 @@
 #!/usr/bin/env sh
-pnpm exec lint-staged
+# --no-stash：跳过 lint-staged 的备份 stash。
+# 备份 stash 会执行 git stash，在受限环境（沙箱 / 容器 / 某些 CI）下可能
+# 破坏 .git（refs 或 objects 目录被清除，导致仓库失效、提交失败）。
+# 本 hook 只跑 prettier --write（幂等且安全），不需要备份恢复能力。
+pnpm exec lint-staged --no-stash
