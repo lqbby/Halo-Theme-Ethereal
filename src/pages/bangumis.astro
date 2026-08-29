@@ -58,7 +58,7 @@ const stats = [
 
     <!-- 类型筛选：追番 / 追剧 -->
     <FilterTabs
-      class="mb-4 flex flex-wrap gap-2"
+      class="bangumi-filter-tabs mb-4 flex flex-wrap gap-2"
       allHrefExpr="@{/bangumis(typeNum=1, status=${curStatus})}"
       allActiveExpr="curType == 1"
       allLabelExpr="#{page.bangumi.typeAnime}"
@@ -75,7 +75,7 @@ const stats = [
 
     <!-- 状态筛选：全部 / 想看 / 在看 / 已看 -->
     <FilterTabs
-      class="mb-6 flex flex-wrap gap-2"
+      class="bangumi-filter-tabs mb-6 flex flex-wrap gap-2"
       allHrefExpr="@{/bangumis(typeNum=${curType}, status=0)}"
       allActiveExpr="curStatus == 0"
       allLabelExpr="#{common.all}"
@@ -210,4 +210,31 @@ const stats = [
   </section>
 
   <Pagination context="bangumis" class="mb-4 onload-animation" />
+
+  <!-- 追番页筛选按钮显式走 Swup PJAX，避免某些环境下链接未被自动拦截导致整页刷新 -->
+  <script is:inline>
+    (function () {
+      function onFilterClick(e) {
+        var a = e.target.closest && e.target.closest("a");
+        if (!a || !a.href) return;
+        if (a.getAttribute("target") === "_blank" || a.getAttribute("download"))
+          return;
+        var swup = window.swup;
+        if (!swup || !swup.navigate) return;
+        var url = a.getAttribute("href");
+        if (!url || url.indexOf("/bangumis") !== 0) return;
+        e.preventDefault();
+        swup.navigate(url);
+      }
+      function bind() {
+        var tabs = document.querySelectorAll(".bangumi-filter-tabs");
+        for (var i = 0; i < tabs.length; i++) {
+          tabs[i].removeEventListener("click", onFilterClick);
+          tabs[i].addEventListener("click", onFilterClick);
+        }
+      }
+      bind();
+      document.addEventListener("astro:page-load", bind);
+    })();
+  </script>
 </MainGridLayout>
