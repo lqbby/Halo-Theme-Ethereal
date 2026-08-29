@@ -218,7 +218,9 @@ const stats = [
   </div>
 
   <!-- 追番页筛选：按钮不刷新，只局部刷新下方番剧列表（data-no-swup 已让 Swup 放行这些链接） -->
-  <script is:inline>
+  <!-- th:inline="none" 关键：禁用 Thymeleaf 对脚本内 [()] / [[]] 的行内表达式解析，
+       否则 map[(text || "")] 这类 JS 会被当成 Thymeleaf 非转义内联语法而渲染抛异常 -->
+  <script is:inline th:inline="none">
     (function () {
       function swapInner(sel, doc) {
         var cur = document.querySelector(sel);
