@@ -159,7 +159,7 @@ const className = Astro.props.class;
     </div>
 
     <div class="flex items-center">
-      <Search client:only="svelte" />
+      <Search client:load="svelte" />
       <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
            后台「样式开关 enable_random_post」可关；对齐用户魔改 -->
       <button
@@ -170,7 +170,9 @@ const className = Astro.props.class;
         aria-label="随机钓鱼"
         class="random-fish-btn btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
       >
-        <span class="random-fish-icon icon-[material-symbols--phishing-outline-rounded] text-[1.25rem]"></span>
+        <span
+          class="random-fish-icon icon-[material-symbols--phishing-outline-rounded] text-[1.25rem]"
+        ></span>
       </button>
       <!-- 语言切换按钮：位于显示设置按钮左边。后台开关：布局设置 → 菜单栏设置 → 语言切换；
            面板仅列三种手动语言，默认语言由「样式设置 → 主题语言」配置 -->
@@ -178,7 +180,7 @@ const className = Astro.props.class;
         th:if="${theme.config?.layout?.mobileMenu?.enable_change_language == null || theme.config?.layout?.mobileMenu?.enable_change_language}"
         th:remove="tag"
       >
-        <LanguageSwitch client:only="svelte" />
+        <LanguageSwitch client:load="svelte" />
       </span>
       <!-- 面板切换不再使用内联 onclick（CSP 友好），由 public/assets/navbar.js 的 document 级事件委托统一处理。
            入口可见性：总开关开启且任一分区可用（主题色相/文章布局/卡片样式/壁纸模式/壁纸设置/透明设置）；总开关关闭则入口隐藏 -->
@@ -197,7 +199,7 @@ const className = Astro.props.class;
         th:if="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == null || theme.config?.layout?.mobileMenu?.enable_change_color_scheme}"
         th:remove="tag"
       >
-        <LightDarkSwitch client:only="svelte" />
+        <LightDarkSwitch client:load="svelte" />
       </span>
       <button
         th:aria-label="#{nav.menu}"

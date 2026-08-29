@@ -235,6 +235,69 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         };
       })();
     </script>
+    <!-- QQ/X5 内核兼容诊断探针：捕获模块解析/运行时错误并浮层显示，
+         用于定位老内核（如 QQ 内置浏览器 TBS）不执行 JS 的真实报错。
+         正常环境不弹条；确认根因后可整体删除本块。 -->
+    <script is:inline>
+      (function () {
+        if (window.__etherealDiagBound) return;
+        window.__etherealDiagBound = true;
+        function show(msg) {
+          // 仅当显式开启诊断时才弹浮层，避免干扰正常访客。
+          // 开启方式：URL 追加 ?ethereal-diag=1，或 console 执行 localStorage.setItem("ethereal-diag","1")
+          try {
+            var __diagOn =
+              /[?&]ethereal-diag=1\b/.test(location.search) ||
+              (window.localStorage &&
+                localStorage.getItem("ethereal-diag") === "1");
+            if (!__diagOn) return;
+          } catch (e) {}
+          if (window.__etherealDiagShown) return;
+          window.__etherealDiagShown = true;
+          var bar = document.createElement("div");
+          bar.id = "ethereal-diag-bar";
+          bar.style.cssText =
+            "position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;max-height:42vh;overflow:auto;background:#b91c1c;color:#fff;font:12px/1.5 ui-monospace,monospace;padding:10px 12px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.45)";
+          bar.textContent =
+            "[Ethereal 诊断] " + msg + "  | UA: " + navigator.userAgent;
+          (document.body || document.documentElement).appendChild(bar);
+        }
+        window.addEventListener(
+          "error",
+          function (e) {
+            // 资源（img/script/link）加载失败不弹条，仅打 console
+            if (
+              e &&
+              e.target &&
+              e.target.tagName &&
+              (e.target.tagName === "IMG" ||
+                e.target.tagName === "SCRIPT" ||
+                e.target.tagName === "LINK")
+            ) {
+              console.warn(
+                "[Ethereal diag] resource failed:",
+                e.target.src || e.target.href,
+              );
+              return;
+            }
+            var m = e && e.message ? e.message : "unknown error";
+            if (e && e.filename)
+              m += "  @ " + e.filename + ":" + (e.lineno || "?");
+            console.error("[Ethereal diag]", m, e);
+            show(m);
+          },
+          true,
+        );
+        window.addEventListener("unhandledrejection", function (e) {
+          var r =
+            e && e.reason
+              ? e.reason.stack || e.reason.message || e.reason
+              : "unhandledrejection";
+          console.error("[Ethereal diag]", r);
+          show(String(r));
+        });
+      })();
+    </script>
     <script th:inline="javascript">
       // Thymeleaf 运行时注入后台配色配置（Elvis 操作符同时覆盖两种可能的路径）
       var __ecs =
@@ -476,7 +539,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         // 不读 visitorCardStyle 门控：pageWide 独立于卡片样式。
         var pw = localStorage.getItem("pageWide");
         if (pw != null) {
-          document.documentElement.classList.toggle("mods-page-wide", pw === "true");
+          document.documentElement.classList.toggle(
+            "mods-page-wide",
+            pw === "true",
+          );
         }
 
         // 透明设置（全屏透明模式）：覆盖 body 内联变量
@@ -667,6 +733,154 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
          在 visit:start 加标记），首播后的清理由 app.ts 的 animationend 委托承担。
          原 swup:contentReplaced 清理脚本已删除：那是 Swup v3 事件名，
          v4 分发动态拼名事件 swup:{hook}（如 swup:content:replace），该监听从未触发。 -->
+    <!-- 优雅降级兜底：若 app.ts 模块因老内核（如 QQ/X5）语法不支持而未执行，
+         以下内联经典脚本仍能保证 banner 显形与小组件"展开更多"可用。
+         与 app.ts 同源逻辑，仅在模块未生效时作为安全网（1.5s 延时给模块一次机会）。 -->
+    <script is:inline>
+      (function () {
+        function revealBanner() {
+          document.querySelectorAll(".banner-reveal").forEach(function (b) {
+            b.classList.remove("opacity-0", "scale-105");
+          });
+        }
+        function registerWidgetLayout() {
+          if (customElements.get("widget-layout")) return;
+          customElements.define(
+            "widget-layout",
+            class extends HTMLElement {
+              connectedCallback() {
+                if (this.dataset.isCollapsed !== "true") return;
+                var id = this.dataset.id;
+                var btn = this.querySelector(".expand-btn");
+                var wrapper = id ? this.querySelector("#" + id) : null;
+                if (btn)
+                  btn.addEventListener("click", function () {
+                    if (wrapper) wrapper.classList.remove("collapsed");
+                    btn.classList.add("hidden");
+                  });
+              }
+            },
+          );
+        }
+        function run() {
+          setTimeout(function () {
+            revealBanner();
+            registerWidgetLayout();
+          }, 1500);
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", run);
+        } else {
+          run();
+        }
+      })();
+    </script>
+    <!-- X5/TBS 老内核兜底：astro-island 的 bootstrap 是普通 script 且含动态 import()，
+         部分老内核解析失败会导致 Svelte 组件永不 hydrate，语言/亮暗按钮点击无反应。
+         此兜底在 customElements.get('astro-island') 不存在时才生效，桌面浏览器正常
+         走 Svelte 组件逻辑，不会触发，也不影响功能。 -->
+    <script is:inline>
+      (function () {
+        if (
+          typeof customElements !== "undefined" &&
+          customElements.get("astro-island")
+        ) {
+          return; // Svelte hydration 已接管，无需兜底
+        }
+        var $ = function (id) {
+          return document.getElementById(id);
+        };
+        function closePanels(except) {
+          ["language-panel", "light-dark-panel"].forEach(function (id) {
+            if (id !== except) {
+              var p = $(id);
+              if (p) p.classList.add("float-panel-closed");
+            }
+          });
+        }
+        function togglePanel(id) {
+          var p = $(id);
+          if (!p) return;
+          var willOpen = p.classList.contains("float-panel-closed");
+          closePanels(id);
+          p.classList.toggle("float-panel-closed", !willOpen);
+        }
+        // 亮暗切换
+        var schemeBtn = $("scheme-switch");
+        var schemePanel = $("light-dark-panel");
+        if (schemeBtn && schemePanel) {
+          schemeBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            togglePanel("light-dark-panel");
+          });
+          schemePanel.querySelectorAll("button").forEach(function (btn) {
+            btn.addEventListener("click", function (e) {
+              e.stopPropagation();
+              var txt = btn.textContent.trim();
+              var mode = "auto";
+              if (/亮|Light/i.test(txt)) mode = "light";
+              else if (/暗|Dark/i.test(txt)) mode = "dark";
+              try {
+                localStorage.setItem("theme", mode);
+                localStorage.setItem("__user_chose_theme", "1");
+              } catch (_) {}
+              var wantDark =
+                mode === "dark" ||
+                (mode === "auto" &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches);
+              document.documentElement.style.colorScheme = wantDark
+                ? "dark"
+                : "light";
+              document.documentElement.classList.toggle("dark", wantDark);
+              closePanels();
+            });
+          });
+        }
+        // 语言切换
+        var langBtn = $("language-switch");
+        var langPanel = $("language-panel");
+        if (langBtn && langPanel) {
+          langBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            togglePanel("language-panel");
+          });
+          langPanel.querySelectorAll("button").forEach(function (btn) {
+            btn.addEventListener("click", function (e) {
+              e.stopPropagation();
+              var txt = btn.textContent.trim();
+              var code = "zh-CN";
+              if (/繁|TW/i.test(txt)) code = "zh-TW";
+              else if (/English|英/i.test(txt)) code = "en";
+              try {
+                if (window.__etherealSetLanguage)
+                  window.__etherealSetLanguage(code);
+              } catch (_) {}
+              document.cookie =
+                "language=" +
+                encodeURIComponent(code) +
+                "; path=/; max-age=31536000; samesite=Lax";
+              document.cookie =
+                "ethereal_lang_chosen=1; path=/; max-age=31536000; samesite=Lax";
+              setTimeout(function () {
+                window.location.replace(window.location.href);
+              }, 60);
+            });
+          });
+        }
+        // 点击外部关闭面板
+        document.addEventListener("click", function (e) {
+          var t = e.target;
+          if (
+            t &&
+            !t.closest(
+              "#language-switch, #language-panel, #scheme-switch, #light-dark-panel",
+            )
+          ) {
+            closePanels();
+          }
+        });
+      })();
+    </script>
     <!-- 客户端入口脚本：必须位于 </body> 内。若写在 </html> 之外，Astro 会把打包后的
          module 脚本排到文档末尾之后，产出非法 HTML（线上曾复现） -->
     <script>

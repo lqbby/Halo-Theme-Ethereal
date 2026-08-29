@@ -107,13 +107,17 @@ export function setTheme(theme: LIGHT_DARK_MODE, store = false): void {
 }
 
 // 系统配色变化时自动响应（参考 earth 主题）
-window
-  .matchMedia("(prefers-color-scheme: dark)")
-  .addEventListener("change", () => {
-    if (currentColorScheme === AUTO_MODE) {
-      applyThemeToDocument(AUTO_MODE);
-    }
-  });
+// 守卫 typeof window：本模块被 client:load 岛屿（LightDarkSwitch）在服务端预渲染时
+// 也会被导入，此时无 window；该监听器仅用于浏览器内实时跟随系统主题，SSR 应跳过。
+if (typeof window !== "undefined") {
+  window
+    .matchMedia("(prefers-color-scheme: dark)")
+    .addEventListener("change", () => {
+      if (currentColorScheme === AUTO_MODE) {
+        applyThemeToDocument(AUTO_MODE);
+      }
+    });
+}
 
 export function getStoredTheme(): LIGHT_DARK_MODE {
   // 读取并校验 Thymeleaf 注入的后台配置
