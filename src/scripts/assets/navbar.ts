@@ -166,6 +166,23 @@ if (!window.__navbarPanelToggleBound) {
 
     // 手风琴模式：子菜单展开按钮（先于外部关闭判断处理）
     if (!drawerMode) {
+      // 魔改：整行展开模式（mods.menuFullRowExpand）——点击整行任意位置都展开/收起。
+      // 必须先于 .submenu-toggle 判断，否则点在行内非箭头处会被误判为「点击链接→关闭面板」。
+      // preventDefault 同时阻止链接跳转与 Swup 接管导航。
+      var rowEl =
+        e.target && e.target.closest
+          ? e.target.closest(".menu-row-expand")
+          : null;
+      if (rowEl) {
+        var rowToggle = rowEl.querySelector(".submenu-toggle");
+        var rowSubmenuId =
+          rowToggle && rowToggle.getAttribute("data-submenu-id");
+        if (rowSubmenuId) {
+          if (e.preventDefault) e.preventDefault();
+          toggleSubmenu(rowToggle, rowSubmenuId);
+          return;
+        }
+      }
       var toggleBtn =
         e.target && e.target.closest
           ? e.target.closest(".submenu-toggle")

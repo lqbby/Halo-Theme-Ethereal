@@ -28,6 +28,13 @@ spec:
           label: 宽屏布局（112rem）
           value: true
           help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
+        - $formkit: switch
+          name: menuFullRowExpand
+          id: mods_menuFullRowExpand
+          key: mods_menuFullRowExpand
+          label: 移动端菜单整行展开
+          value: false
+          help: "移动端菜单（手风琴样式）中有子菜单的项：开启后点击整行任意位置即展开/收起子菜单，符合手风琴直觉、不易误触；关闭则维持原版行为——仅右侧箭头可展开，点击文字区域跳转到父项链接。注意：开启后父项自身的链接将无法直接访问，如有需要请在子菜单里补一条对应条目。无论本开关如何，箭头按钮与菜单行都已放大到 44px 触控标准"
     - group: layout
       label: 布局设置
       formSchema:

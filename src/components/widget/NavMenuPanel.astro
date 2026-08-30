@@ -131,18 +131,23 @@ import SiteLogo from "../SiteLogo.astro";
   th:unless="${theme.config?.layout?.mobileMenu?.style == 'drawer'}"
   id="nav-menu-panel"
   th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
-  class="float-panel float-panel-closed fixed right-4 px-2 py-2 w-40"
+  class="float-panel float-panel-closed fixed right-4 px-2 py-2 w-48"
 >
   <div class="contents" th:if="${menu != null}">
     <div
       th:each="menuItem, itemStat : ${menu.menuItems}"
       th:with="menuIcon = ${#annotations.get(menuItem, 'icon')}"
     >
-      <div class="flex items-center">
+      <!-- 整行展开：魔改开关 mods.menuFullRowExpand 开启时给行加 menu-row-expand，
+           点击整行任意位置即展开/收起（navbar.ts 事件委托处理），父项链接不再跳转 -->
+      <div
+        class="flex items-center"
+        th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.menuFullRowExpand and menuItem.children != null and !#lists.isEmpty(menuItem.children) ? ' menu-row-expand cursor-pointer' : ''}"
+      >
         <a
           th:href="@{${menuItem.status.href}}"
           th:target="${menuItem.spec.target?.value}"
-          class="group flex-1 flex items-center justify-between gap-3 rounded-lg py-2 pl-3 pr-1 transition hover:bg-(--btn-plain-bg-hover) active:bg-(--btn-plain-bg-active)"
+          class="group flex-1 flex items-center justify-between gap-3 rounded-lg py-3 pl-3 pr-1 transition hover:bg-(--btn-plain-bg-hover) active:bg-(--btn-plain-bg-active)"
         >
           <span class="flex min-w-0 items-center gap-2">
             <span
@@ -175,7 +180,7 @@ import SiteLogo from "../SiteLogo.astro";
           th:data-submenu-id="|submenu-${itemStat.index}|"
           th:aria-label="${menuItem.status.displayName}"
           aria-expanded="false"
-          class="px-2 py-2 submenu-toggle flex-shrink-0"
+          class="submenu-toggle flex h-11 w-11 shrink-0 items-center justify-center"
         >
           <span
             class="icon-[material-symbols--chevron-right-rounded] text-[1.3rem] text-black/20 transition-transform duration-200 dark:text-white/20 inline-block"
@@ -193,7 +198,7 @@ import SiteLogo from "../SiteLogo.astro";
           th:with="childIcon = ${#annotations.get(childItem, 'icon')}"
           th:href="@{${childItem.status.href}}"
           th:target="${childItem.spec.target?.value}"
-          class="group flex items-center justify-between gap-3 rounded-lg py-2 pl-3 pr-1 transition hover:bg-(--btn-plain-bg-hover) active:bg-(--btn-plain-bg-active)"
+          class="group flex items-center justify-between gap-3 rounded-lg py-3 pl-3 pr-1 transition hover:bg-(--btn-plain-bg-hover) active:bg-(--btn-plain-bg-active)"
         >
           <span class="flex min-w-0 items-center gap-2">
             <span
