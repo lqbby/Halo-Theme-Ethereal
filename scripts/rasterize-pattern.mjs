@@ -1,4 +1,9 @@
-// @ts-check
+// @ts-nocheck
+// 本文件是一次性构建工具，产物（public/assets/images/pattern-*.png）已提交进仓库，
+// 不参与 CI 与 astro build。依赖 @resvg/resvg-js 是原生二进制、仅重新生成纹理时才需要
+// （届时临时 npm i 即可），为它常驻 devDependencies 会无谓拖慢 CI 安装，
+// 故关闭类型检查而不是引入依赖。
+//
 // 把装饰性手绘 SVG 纹理（各 ~395KB，含大量路径）预渲染成 PNG 平铺图。
 // 位图背景在滚动时走 GPU 合成、无需主线程逐帧重栅格化 SVG 路径，
 // 直接消除「背景图导致滚动卡顿」。按 background-size:400px 的宽度比例渲染 2x(800) 保 retina 清晰。

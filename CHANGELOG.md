@@ -4,6 +4,20 @@
 
 ## [Unreleased]
 
+### 修复：CI 类型检查失败（astro check 4 errors）
+
+CI 的 `pnpm check` 步骤此前报 4 个错误，均为历史遗留、与近期改动无关：
+
+- **X5 兼容改动误留指令值**：提交 `22edba2`（X5 老内核下语言/亮暗/搜索按钮可见可交互）把
+  `Navbar.astro` 的 Search / LanguageSwitch / LightDarkSwitch 由上游的 `client:only="svelte"`
+  改为 `client:load` 以参与 SSR（否则 hydration 失败时按钮直接消失），但**误将 `="svelte"` 留在
+  了 `client:load` 后面**。`client:load` 是布尔指令、不接受值，导致 `ts(2769)` 类型错误。
+  现去掉该值：SSR 行为不变、X5 兼容效果保留，类型检查通过
+
+- **`scripts/rasterize-pattern.mjs` 缺 `@resvg/resvg-js`**：一次性构建工具（把 SVG 纹理预渲染为
+  PNG，产物 `pattern-*.png` 已提交），不参与 CI 与 astro build。该依赖是原生二进制，仅重新生成
+  纹理时才需要；为它常驻 `devDependencies` 会无谓拖慢 CI 安装，故关闭本文件的类型检查并加注释说明
+
 ### 魔改：移动端菜单触控优化
 
 - **触控区域放大到 44px 标准**：移动端菜单（手风琴样式）此前展开箭头按钮仅约 37 × 37 px、菜单行高约 40px，均低于移动端 44px 最小触控标准，容易点空或误触跳转。现将箭头按钮改为固定 `h-11 w-11`（44 × 44）、菜单行与子菜单项内边距由 `py-2` 提升至 `py-3`（行高约 48px），面板宽度由 `w-40`（160px）加宽到 `w-48`（192px）
