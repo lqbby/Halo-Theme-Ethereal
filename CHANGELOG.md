@@ -4,6 +4,14 @@
 
 ## [Unreleased]
 
+### 移植上游 v1.2.2-rc2（Helio-RC e2ea7f5 / 145a0ce）
+
+- **公告栏支持写入 HTML (#55)**：公告内容新增「内容呈现为HTML」开关与「内容最大高度(px)」设置（默认 640，范围 40–1024）。开启后内容按 HTML 渲染（`th:utext`）且高度由内容自身决定，仅以上限约束、超出部分内部滚动，防撑破侧栏；关闭时按纯文本转义（`th:text`），维持原有行为。**此项取代本地此前无条件改用 `th:utext` 的改动**（提交 a71efcd），冲突处一律采用上游原版实现
+
+- **移动端搜索框聚焦后未占满宽度 (#58)**：移动端搜索面板输入框误用桌面端 `focus:w-60` 定宽，聚焦后反而缩窄并出现空白，已移除
+
+- **回退三栏布局右侧栏空态自动收列 (#33)**：删除 `rightSidebarHasContentExpr` 空态判定与 `th:with` 作用域提升包裹层，布局类改回直接读 `theme.config.layout.pageLayout.layoutMode`；三栏模式下右侧栏为空时不再自动切换两栏，保持布局一致性，目录组件可正常使用
+
 ### 修复
 
 - **分类导航栏滑块高亮溢出 (#52)**：`.category-scroll` 增加 `position: relative`，修正 `scrollPillIntoView` 的 `offsetLeft` 基准（此前相对整个 track，窄屏下过度滚动）；`moveLiquid` 与滚动区可见窗口求交集：半露只铺可见段、完全滚出时隐藏，防止液态滑块（滚动区兄弟节点、不受 `overflow`/`mask` 约束）底色溢出到相邻 pill / 分隔线
