@@ -299,22 +299,21 @@
           return;
         }
 
-        var html = "";
         var i = 0;
         var MAX_TAGS = 10;
         tagMap.forEach(function (count, tag) {
           if (i >= MAX_TAGS) return;
           i++;
-          html +=
-            '<a href="/moments?tag=' +
-            encodeURIComponent(tag) +
-            '" class="home-moment-tag">#' +
-            tag +
-            '<span class="home-moment-tag-count">' +
-            count +
-            "</span></a>";
+          var a = document.createElement("a");
+          a.href = "/moments?tag=" + encodeURIComponent(tag);
+          a.className = "home-moment-tag";
+          a.textContent = "#" + tag;
+          var c = document.createElement("span");
+          c.className = "home-moment-tag-count";
+          c.textContent = String(count);
+          a.appendChild(c);
+          tagsBox.appendChild(a);
         });
-        tagsBox.innerHTML = html;
       }
     }
 
