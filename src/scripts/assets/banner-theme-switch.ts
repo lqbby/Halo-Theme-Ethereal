@@ -13,8 +13,9 @@
     return document.documentElement.classList.contains("dark");
   }
 
-  // 把带 data-theme-src 的 banner 图片 src 切换到当前主题对应的那张。
-  // 首次切换前记录亮色 src（data-light-src），恢复时无需依赖 SSR 原值。
+  // 把带 data-theme-src 的 banner 图片 src 与 object-position 切换到当前主题
+  // 对应的那份。首次切换前记录亮色 src（data-light-src）与位置
+  // （data-light-position），恢复时无需依赖 SSR 原值。
   function swap() {
     var dark = isDark();
     var imgs = document.querySelectorAll(
@@ -27,12 +28,25 @@
       if (!img.getAttribute("data-light-src")) {
         img.setAttribute("data-light-src", img.getAttribute("src") || "");
       }
+      if (!img.getAttribute("data-light-position")) {
+        img.setAttribute("data-light-position", img.style.objectPosition || "");
+      }
       var lightSrc = img.getAttribute("data-light-src") || "";
       var next = dark ? darkSrc : lightSrc;
       if (img.getAttribute("src") !== next) {
         // srcset 清空，避免浏览器按 srcset 覆盖我们指定的 src
         if (img.hasAttribute("srcset")) img.removeAttribute("srcset");
         img.setAttribute("src", next);
+      }
+      // 暗色壁纸独立位置（object-position）：配置了 data-theme-position 时覆盖，
+      // 否则沿用亮色位置
+      var darkPos = img.getAttribute("data-theme-position") || "";
+      var pos =
+        dark && darkPos
+          ? darkPos
+          : img.getAttribute("data-light-position") || "";
+      if (img.style.objectPosition !== pos) {
+        img.style.objectPosition = pos;
       }
     }
   }

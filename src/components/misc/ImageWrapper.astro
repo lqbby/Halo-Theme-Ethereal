@@ -10,6 +10,8 @@ interface Props {
   /** 暗色主题壁纸 URL 的 Thymeleaf 表达式串（如 "${darkSrcX}"），可选；
       传入时在 img 上输出 data-theme-src，由 banner-theme-switch.js 切换 */
   themeSrc?: string;
+  /** 暗色主题壁纸的图片位置（object-position），可选；随 data-theme-src 切换 */
+  themePosition?: string;
 }
 
 const {
@@ -20,6 +22,7 @@ const {
   loading = "lazy",
   fetchpriority = "auto",
   themeSrc,
+  themePosition,
 } = Astro.props;
 const className = Astro.props.class;
 const imageStyle = `object-position: ${position}`;
@@ -40,6 +43,12 @@ const imageStyle = `object-position: ${position}`;
     class="h-full w-full object-cover"
     style={imageStyle}
     alt=""
-    {...themeSrc ? { "th:attr": `data-theme-src=${themeSrc}` } : {}}
+    {...themeSrc
+      ? {
+          "th:attr": `data-theme-src=${themeSrc}${
+            themePosition ? `,data-theme-position=${themePosition}` : ""
+          }`,
+        }
+      : {}}
   />
 </div>

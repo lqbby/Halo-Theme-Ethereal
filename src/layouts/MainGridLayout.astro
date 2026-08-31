@@ -135,7 +135,7 @@ const {
         th:src="${srcX}"
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
-        th:attr="loading=${mobileActive ? 'lazy' : 'eager'},fetchpriority=${mobileActive ? 'low' : 'high'},data-theme-src=${darkSrcX}"
+        th:attr="loading=${mobileActive ? 'lazy' : 'eager'},fetchpriority=${mobileActive ? 'low' : 'high'},data-theme-src=${darkSrcX},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
         decoding="async"
         class="h-full w-full object-cover"
         alt=""
@@ -181,7 +181,7 @@ const {
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
         th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-        th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')},data-theme-src=${carouselDarkImgSrcExpr()}"
+        th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')},data-theme-src=${carouselDarkImgSrcExpr()},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
         decoding="async"
         class="banner-slide absolute inset-0 h-full w-full object-cover"
       />
@@ -204,6 +204,7 @@ const {
           loading="lazy"
           fetchpriority="low"
           themeSrc="${darkSrcX}"
+          themePosition="${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
           class="h-full object-cover"
         />
       </div>
@@ -242,7 +243,7 @@ const {
           th:alt="${site.title}"
           th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
           th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-          th:attr="data-theme-src=${carouselDarkImgSrcExpr('theme.config?.style?.bannerStyle?.mobile?.darkImages')}"
+          th:attr="data-theme-src=${carouselDarkImgSrcExpr('theme.config?.style?.bannerStyle?.mobile?.darkImages')},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
           loading="lazy"
           fetchpriority="low"
           decoding="async"

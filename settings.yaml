@@ -444,6 +444,7 @@ spec:
               preloadCount: 1
               dwellMs: 5000
             position: "center"
+            darkPosition: "center"
             credit:
               enable: false
               text: "© 2022 Ethereal"
@@ -631,6 +632,20 @@ spec:
               name: position
               label: 位置
               value: "center"
+              options:
+                - value: center
+                  label: 居中
+                - value: top
+                  label: 顶部
+                - value: bottom
+                  label: 底部
+            - $formkit: select
+              name: darkPosition
+              id: banner_darkPosition
+              key: banner_darkPosition
+              label: 位置（暗色壁纸）
+              value: "center"
+              help: "暗色壁纸的图片位置（居中/顶部/底部），可与亮色壁纸不同；仅配置了暗色壁纸时生效"
               options:
                 - value: center
                   label: 居中
