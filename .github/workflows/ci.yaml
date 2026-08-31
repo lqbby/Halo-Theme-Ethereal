@@ -191,40 +191,8 @@ jobs:
           path: dist/*.zip
           if-no-files-found: error
 
-      # 自动触发（push）：按 theme.yaml 的 version 自动创建 tag（远程已存在则跳过，幂等）
-      # [2026-08-31] 已按用户要求停用：以后只推代码、不在 GitHub 自动发包。
-      # 保留本步骤并置 if:false，便于将来恢复（如需恢复把 false 改回 github.event_name == 'push'）。
-      - name: 自动创建 tag（push 触发）
-        if: false
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          EXPECTED_SHA: ${{ github.sha }}
-        run: |
-          VERSION=$(grep -m1 '^[[:space:]]*version:' theme.yaml | sed -E 's/^[[:space:]]*version:[[:space:]]*["'\'']?([^"'\''[:space:]]+).*/\1/')
-          [ -n "$VERSION" ] || { echo "::error::无法从 theme.yaml 解析 version 字段"; exit 1; }
-          TAG="v$VERSION"
-          echo "tag=$TAG" >> "$GITHUB_ENV"
-          # 统一发布 tag 变量：下游上传/通知步骤不再区分事件来源
-          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
-          REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/$TAG^{}" | awk 'NR == 1 {print $1}')
-          if [ -z "$REMOTE_TAG_SHA" ]; then
-            REMOTE_TAG_SHA=$(git ls-remote origin "refs/tags/$TAG" | awk 'NR == 1 {print $1}')
-          fi
-          if [ -n "$REMOTE_TAG_SHA" ]; then
-            if [ "$REMOTE_TAG_SHA" != "$EXPECTED_SHA" ]; then
-              echo "::error::远程 tag $TAG 已指向 $REMOTE_TAG_SHA，而不是当前提交 $EXPECTED_SHA"
-              exit 1
-            fi
-            echo "远程已存在指向当前提交的 tag $TAG，跳过创建"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag -a "$TAG" -m "Release $TAG"
-            git push origin "$TAG"
-            echo "已创建并推送 tag $TAG"
-          fi
-          echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
-
+      # [2026-08-31] 已按用户要求删除「自动创建 tag」步骤：以后只推代码、
+      # 不在 GitHub 创建 tag/Release（原本 push 时按 theme.yaml version 自动建 vX.Y.Z tag）。
       # 手动触发：发布行为由显式开关决定；发布版本已在构建前由输入参数写入 theme.yaml
       - name: 校验发布配置（手动触发）
         id: release-config
