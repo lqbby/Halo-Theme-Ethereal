@@ -1,3 +1,4 @@
+import { onSwupHook } from "../../utils/once";
 // @ts-nocheck —— 从 MainGridLayout.astro 内联脚本迁入（保持 ES5 原样，不做类型改造）
 // 随机钓鱼 - 点击按钮鱼钩摇摆 1.5 秒后随机跳转朋友圈文章
 // 放到 swup-container 外部 + 事件委托，保证直接访问和 Swup 导航都生效
@@ -91,13 +92,10 @@
         if (window.swup && window.swup.navigate) window.swup.navigate(chosen);
         else window.location.href = chosen;
         // 跳转动画在页面切换完成后移除（SPA）；整页回退则自然消失
-        if (window.swup && window.swup.hooks) {
-          window.swup.hooks.on("visit:end", removeOverlay, {
-            once: true,
-          });
-        } else {
-          setTimeout(removeOverlay, 2000);
-        }
+        // 跳转动画在页面切换完成后移除（SPA）；整页回退则自然消失。
+        // 用共享 onSwupHook 注册一次性处理器（SwupScriptsPlugin 重执行时重新注册，
+        // 但 { once: true } 保证 handler 触发一次后即解绑，不累积监听）。
+        onSwupHook("visit:end", "random-fish", removeOverlay, { once: true });
       }, 500);
     }
     stopSwing(btn);

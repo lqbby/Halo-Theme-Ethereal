@@ -1,3 +1,4 @@
+import { onPageView, guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 导航栏面板切换：document 级事件委托，替代原先按钮上的内联 onclick（CSP 友好）。
 // 移动端菜单支持两种模式（布局设置 → 菜单栏设置 → 菜单样式）：
@@ -6,9 +7,7 @@
 //    开关切换 #nav-menu-panel 的 float-panel-closed 类（与原版一致）
 // 模式由 DOM 判定：#nav-menu-root 存在即为抽屉模式。
 // 导航栏位于 Swup 容器之外，脚本只执行一次（defer），window 标志防重复绑定。
-if (!window.__navbarPanelToggleBound) {
-  window.__navbarPanelToggleBound = true;
-
+if (!guardOnce("navbar-panel-toggle")) {
   // ===== 模式判定 =====
   // 模式由后台配置决定、页面加载后不变，缓存一次避免每次点击查 DOM
   var drawerMode = !!document.getElementById("nav-menu-root");
@@ -239,21 +238,14 @@ if (!window.__navbarPanelToggleBound) {
     }
   });
 
-  // 换页后刷新抽屉高亮并收起抽屉：Swup 初始化完成后绑定（与 app.ts 同一模式）
-  function bindSwupHooks() {
-    if (!window.swup || !window.swup.hooks) return;
-    window.swup.hooks.on("page:view", function () {
-      if (drawerMode) {
-        updateNavMenuActive();
-        setNavMenuOpen(false);
-      }
-    });
-  }
-  if (window.swup && window.swup.hooks) {
-    bindSwupHooks();
-  } else {
-    document.addEventListener("swup:enable", bindSwupHooks);
-  }
+  // 换页后刷新抽屉高亮并收起抽屉（与 app.ts 同一模式）。
+  // 用共享 onPageView 去重注册：SwupScriptsPlugin 重执行脚本时只注册一次。
+  onPageView("navbar", function () {
+    if (drawerMode) {
+      updateNavMenuActive();
+      setNavMenuOpen(false);
+    }
+  });
 }
 
 // 桌面导航在触屏设备上的子菜单展开（与移动/平板抽屉菜单无关）。

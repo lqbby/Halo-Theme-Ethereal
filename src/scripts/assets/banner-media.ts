@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // Banner 视频：右下角播放/暂停按钮 + 屏幕外暂停（wave 同构）。
 // 视频始终 muted（浏览器自动播放限制），不显示浏览器原生控件，
@@ -8,8 +9,7 @@
 // video.dataset.etherealUserPaused 暴露手动暂停态供其跳过自动播放。
 (function () {
   // 跨页面持久 + Swup 克隆重执行：全局守卫防重复绑定（同 wave.js）
-  if (window.__etherealBannerMediaBound) return;
-  window.__etherealBannerMediaBound = true;
+  if (guardOnce("banner-media")) return;
 
   function initVideo(video, btn) {
     if (!video) return;

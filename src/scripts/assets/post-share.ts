@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— 主体为从 post.bundle.js 提取的 legacy 画布海报代码（800+ 行 ES5），
 // 保持逐字迁移不作类型改造；仅外围新增的 loadQRCode 懒加载逻辑在下方。
 // 构建产物：public/assets/post-share.js（源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
@@ -26,8 +27,7 @@ var t =
   };
 
   window.__etherealSyncCurrentPostUrl();
-  if (!window.__etherealSyncCurrentPostUrlBound) {
-    window.__etherealSyncCurrentPostUrlBound = true;
+  if (!guardOnce("sync-current-post-url")) {
     document.addEventListener("astro:page-load", function () {
       window.__etherealSyncCurrentPostUrl &&
         window.__etherealSyncCurrentPostUrl();

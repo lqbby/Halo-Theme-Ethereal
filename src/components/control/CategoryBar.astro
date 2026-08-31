@@ -289,9 +289,9 @@
 
 <script>
   // @ts-nocheck
+  import { onPageView, guardOnce } from "../../utils/once";
   (function () {
-    if (window.__categoryBarBound) return;
-    window.__categoryBarBound = true;
+    if (guardOnce("category-bar")) return;
 
     var bar = document.getElementById("category-bar");
     if (!bar) return;
@@ -709,11 +709,8 @@
         initScrollFeatures();
         initDragAndWheelScroll();
       }
-      if (window.swup && window.swup.hooks) {
-        window.swup.hooks.on("page:view", onSwupPageView);
-      } else {
-        document.addEventListener("astro:page-load", onSwupPageView);
-      }
+      // 用共享 onPageView 去重注册（跨 SwupScriptsPlugin 重执行只注册一次）。
+      onPageView("category-bar", onSwupPageView);
     }
 
     if (document.readyState === "loading") {

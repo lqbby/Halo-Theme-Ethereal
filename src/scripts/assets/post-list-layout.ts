@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 文章卡片瀑布流（Masonry）布局
 // 仅在容器为 grid 模式且启用瀑布流（data-masonry="true"）时生效；
@@ -123,8 +124,7 @@
   window.__postListRelayout = init;
 
   // 窗口尺寸变化时重排（防抖），只绑定一次避免 Swup 换页后重复监听
-  if (!window.__postListLayoutResizeBound) {
-    window.__postListLayoutResizeBound = true;
+  if (!guardOnce("post-list-layout")) {
     var resizeTimer = null;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);

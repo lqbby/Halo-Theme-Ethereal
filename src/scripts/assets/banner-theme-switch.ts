@@ -8,6 +8,7 @@
 // 覆盖场景：单图/轮播/移动端独立来源（#banner / #banner-mobile 内所有 img）。
 // 说明：暗色变体仅支持图片；视频源（<video>）不做暗色切换，两种主题沿用
 // 同一视频源。
+import { onPageView } from "../../utils/once";
 (function () {
   function isDark() {
     return document.documentElement.classList.contains("dark");
@@ -72,17 +73,7 @@
     bind();
   }
   // Swup 换页后重跑（新页 banner DOM 若被替换，补挂观察器与初始态）。
-  // 守卫：SwupScriptsPlugin 会在每次换页克隆重执行本脚本，不加守卫会重复注册
-  // page:view 监听并随导航次数线性累积（与 navbar.ts 的 __touchSubmenuBound 同款问题）。
-  if (!window.__etherealBannerHooksBound) {
-    window.__etherealBannerHooksBound = true;
-    if (window.swup && window.swup.hooks) {
-      window.swup.hooks.on("page:view", bind);
-    } else {
-      document.addEventListener("swup:enable", function () {
-        if (window.swup && window.swup.hooks)
-          window.swup.hooks.on("page:view", bind);
-      });
-    }
-  }
+  // 用共享 once() 去重注册：SwupScriptsPlugin 每次换页克隆重执行本脚本，
+  // 不加守卫会重复注册 page:view 监听并随导航次数线性累积（原 __etherealBannerHooksBound 守卫）。
+  onPageView("banner-theme-switch", bind);
 })();

@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // Banner 移动端独立来源切换引擎
 // 双容器（#banner / #banner-mobile）显隐由 CSS 媒体查询驱动（首帧即定），
@@ -97,8 +98,7 @@ import { getThemeConfig } from "./_theme-config";
 
   apply();
 
-  if (!window.__etherealBannerSrcSwitchBound) {
-    window.__etherealBannerSrcSwitchBound = true;
+  if (!guardOnce("banner-src-switch")) {
     mq.addEventListener("change", apply);
   }
 })();

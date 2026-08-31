@@ -2,6 +2,7 @@
 // 打字机效果
 // 2.7：初始化骨架与 banner-drop 逐字重复，提取到 _banner-title-shared.ts 共享
 import { initBannerSubtitle } from "./_banner-title-shared";
+import { guardOnce } from "../../utils/once";
 
 (function () {
   var TypewriterEffect = function (el, lines) {
@@ -111,9 +112,7 @@ import { initBannerSubtitle } from "./_banner-title-shared";
   // __twInstance/__blinkInterval 字段，监听器操作的是同一持久元素）。
   // 不守卫则监听器逐次累积；换页后的重初始化由下方 runInitTW() 承担。
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
-  if (!window.__bannerTwBound) {
-    window.__bannerTwBound = true;
-
+  if (!guardOnce("banner-tw")) {
     // I24：后台标签页暂停（打字链 + 光标闪烁；状态保留在实例字段，回前台继续。
     // 对照 wave.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {

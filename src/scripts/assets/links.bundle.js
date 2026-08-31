@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // 友链页脚本合并（构建产物：public/assets/links.bundle.js，源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
 // 由 requirements / collapse / copy / link-apply / random-visit 合并，各 IIFE 守卫独立保留；
 // link-apply 与 random-visit 的原 th:if 门控移除，改由内部守卫（元素不存在即不绑定/不执行）
@@ -440,9 +441,7 @@
   }
 
   // document 级监听器只绑一次（防重执行后多闭包重复响应，见文件头 state 注释）
-  if (!window.__linkApplyBound) {
-    window.__linkApplyBound = true;
-
+  if (!guardOnce("link-apply")) {
     // 点击事件委托（兼容 Swup 重建 DOM）
     document.addEventListener("click", function (e) {
       var target = e.target;
@@ -512,8 +511,7 @@
   // 只绑定一次：本脚本在 links 页面内（Swup 容器），每次进出该页都会被
   // SwupScriptsPlugin 克隆重执行——不守卫则多个闭包各持独立 spinning 标志，
   // 换页 N 次后一次点击会触发 N 个委托、打开 N 个随机链接。
-  if (window.__randomVisitBound) return;
-  window.__randomVisitBound = true;
+  if (guardOnce("random-visit")) return;
 
   var t =
     window.__etherealI18n ||

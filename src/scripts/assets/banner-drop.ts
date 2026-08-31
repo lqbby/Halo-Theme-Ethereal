@@ -2,6 +2,7 @@
 // 文字下坠效果
 // 2.7：初始化骨架与 banner-typewriter 逐字重复，提取到 _banner-title-shared.ts 共享
 import { initBannerSubtitle } from "./_banner-title-shared";
+import { guardOnce } from "../../utils/once";
 
 (function () {
   function DropEffect(el, lines) {
@@ -111,9 +112,7 @@ import { initBannerSubtitle } from "./_banner-title-shared";
   // 重执行（banner 元素在 Swup 容器外跨页持久，实例状态存于元素 __dropInstance
   // 字段）。不守卫则监听器逐次累积；换页后的重初始化由下方 runInitDrop() 承担。
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
-  if (!window.__bannerDropBound) {
-    window.__bannerDropBound = true;
-
+  if (!guardOnce("banner-drop")) {
     // I24：后台标签页暂停（showNext 循环链；当前行状态保留，回前台继续循环。
     // 对照 wave.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {

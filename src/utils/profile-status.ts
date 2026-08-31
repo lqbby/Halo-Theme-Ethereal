@@ -1,3 +1,5 @@
+import { onPageView } from "./once";
+
 /**
  * 个人简介小组件"在线状态"功能。
  *
@@ -606,28 +608,9 @@ export function initProfileStatus(): void {
   syncTooltip();
 
   // Swup 换页会重建 badge DOM，需重新同步气泡文案
-  const bindSwup = () => {
-    const swup = (
-      window as unknown as {
-        swup?: { hooks?: { on: (...args: unknown[]) => void } };
-      }
-    ).swup;
-    if (
-      swup?.hooks &&
-      !(window as unknown as { __profileStatusSwupBound?: boolean })
-        .__profileStatusSwupBound
-    ) {
-      (
-        window as unknown as { __profileStatusSwupBound: boolean }
-      ).__profileStatusSwupBound = true;
-      swup.hooks.on("page:view", syncTooltip);
-    }
-  };
-  if ((window as unknown as { swup?: { hooks?: unknown } }).swup?.hooks) {
-    bindSwup();
-  } else {
-    document.addEventListener("swup:enable", bindSwup);
-  }
+  // Swup 换页会重建 badge DOM，需重新同步气泡文案。
+  // 用共享 onPageView 去重注册（initProfileStatus 已受 bound 守卫只跑一次）。
+  onPageView("profile-status", syncTooltip);
 
   // document 级事件委托：badge 跨页面持久，一次绑定终身有效
   document.addEventListener("click", (e) => {

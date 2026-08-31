@@ -1,3 +1,4 @@
+import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // Banner 叠加层：首页可见 + 居中 + 响应式字号 + 空间不足隐藏
 (function () {
@@ -132,9 +133,7 @@
   // 克隆重执行，不守卫则 resize/scroll 处理器逐次叠加（N 次换页 = N 倍回调开销）。
   // 换页后的重排由上方 fullUpdate() 在每次重执行时完成。
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
-  if (!window.__bannerRespBound) {
-    window.__bannerRespBound = true;
-
+  if (!guardOnce("banner-responsive")) {
     var resizeTimer;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);

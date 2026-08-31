@@ -10,12 +10,12 @@
 // 暂停定时器，无需跨容器事件联动；首图 lazy 在容器被 CSS 显示后立即加载。
 // 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
 import { getThemeConfig } from "./_theme-config";
+import { guardOnce } from "../../utils/once";
 (function () {
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
   // Layout（Swup 容器外）跨页面持久——不守卫则每次换页叠加一套定时器链 +
   // IO 观察器 + 监听器（N 次换页 = N 倍开销），与 wave.js 同模式。
-  if (window.__etherealBannerCarouselBound) return;
-  window.__etherealBannerCarouselBound = true;
+  if (guardOnce("banner-carousel")) return;
 
   var containers = [];
   var c1 = document.getElementById("banner");
