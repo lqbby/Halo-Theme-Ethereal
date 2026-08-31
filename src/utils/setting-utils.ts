@@ -562,11 +562,26 @@ export function applyBannerTitle(enabled: boolean): void {
     const overlay = document.getElementById("banner-overlay");
     if (overlay) {
       overlay.classList.add("banner-title-enter");
-      overlay.addEventListener(
-        "animationend",
-        () => overlay.classList.remove("banner-title-enter"),
-        { once: true },
-      );
+      // 副标题是最后一个入场动画（delay 130ms + 300ms），必须等它结束再移除
+      // banner-title-enter：绑在 overlay 上的 animationend 会因冒泡在标题动画
+      // 结束（~350ms）即触发，提前移除会截断副标题淡入并重触发其动画。
+      // removed 守卫确保只移除一次；setTimeout 兜底防止 reduced-motion 等
+      // 无 animationend 事件时 class 残留、阻断下次重新入场。
+      let removed = false;
+      const doRemove = () => {
+        if (removed) return;
+        removed = true;
+        overlay.classList.remove("banner-title-enter");
+      };
+      overlay.addEventListener("animationend", (e) => {
+        if (
+          e.target instanceof HTMLElement &&
+          e.target.id === "banner-subtitle-wrapper"
+        ) {
+          doRemove();
+        }
+      });
+      setTimeout(doRemove, 800);
     }
   }
 }

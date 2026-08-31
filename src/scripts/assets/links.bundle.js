@@ -159,16 +159,26 @@
             ".icon-\\[material-symbols--content-copy-outline-rounded\\]",
           );
           var originalClasses = iconSpan ? iconSpan.className : "";
+          // 复制按钮含「复制」文字 span（CopyButton.astro，非图标 span），需同步
+          // 切换为「已复制」反馈，否则只有图标变对勾、文字静止（视觉反馈缺失）。
+          var spans = btn.querySelectorAll("span");
+          var labelSpan = null;
+          for (var i = 0; i < spans.length; i++) {
+            if (spans[i] !== iconSpan) labelSpan = spans[i];
+          }
+          var originalText = labelSpan ? labelSpan.textContent : "";
 
           if (iconSpan)
             iconSpan.className =
               "icon-[material-symbols--check-rounded] text-sm";
+          if (labelSpan) labelSpan.textContent = "已复制";
           btn.disabled = true;
           btn.classList.add("text-(--primary)");
 
           function restore() {
             setTimeout(function () {
               if (iconSpan) iconSpan.className = originalClasses;
+              if (labelSpan) labelSpan.textContent = originalText;
               btn.disabled = false;
               btn.classList.remove("text-(--primary)");
             }, 2000);

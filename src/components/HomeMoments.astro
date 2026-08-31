@@ -287,7 +287,9 @@
       if (tagsBox && tagsBox.getAttribute("data-rendered") !== "1") {
         tagsBox.setAttribute("data-rendered", "1");
         var tagMap = new Map();
-        track
+        // 计数源用原始 group（克隆块挂在 track 下，若从 track 数会把每个标签
+        // 算 2 次）；group 是克隆前的原始节点引用，此处只统计原始标签。
+        group
           .querySelectorAll(".home-moment-link .home-moment-tag-data")
           .forEach(function (el) {
             var t = (el.textContent || "").trim();

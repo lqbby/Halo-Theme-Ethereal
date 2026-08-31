@@ -34,13 +34,18 @@
     bind();
   }
 
-  // Swup v4 钩子（navbar.ts 同范式）：SPA 换页后重新判定 hash
-  if (window.swup && window.swup.hooks) {
-    window.swup.hooks.on("page:view", bind);
-  } else {
-    document.addEventListener("swup:enable", function () {
-      if (window.swup && window.swup.hooks)
-        window.swup.hooks.on("page:view", bind);
-    });
+  // Swup v4 钩子（navbar.ts 同范式）：SPA 换页后重新判定 hash。
+  // 守卫：SwupScriptsPlugin 换页重执行脚本，不加守卫会重复注册 page:view 监听
+  //（每次导航多挂一个 bind，locateComment 被幂等调用 N 次 → handler 泄漏）。
+  if (!window.__commentLocateBound) {
+    window.__commentLocateBound = true;
+    if (window.swup && window.swup.hooks) {
+      window.swup.hooks.on("page:view", bind);
+    } else {
+      document.addEventListener("swup:enable", function () {
+        if (window.swup && window.swup.hooks)
+          window.swup.hooks.on("page:view", bind);
+      });
+    }
   }
 })();

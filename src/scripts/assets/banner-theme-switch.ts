@@ -71,13 +71,18 @@
   } else {
     bind();
   }
-  // Swup 换页后重跑（新页 banner DOM 若被替换，补挂观察器与初始态）
-  if (window.swup && window.swup.hooks) {
-    window.swup.hooks.on("page:view", bind);
-  } else {
-    document.addEventListener("swup:enable", function () {
-      if (window.swup && window.swup.hooks)
-        window.swup.hooks.on("page:view", bind);
-    });
+  // Swup 换页后重跑（新页 banner DOM 若被替换，补挂观察器与初始态）。
+  // 守卫：SwupScriptsPlugin 会在每次换页克隆重执行本脚本，不加守卫会重复注册
+  // page:view 监听并随导航次数线性累积（与 navbar.ts 的 __touchSubmenuBound 同款问题）。
+  if (!window.__etherealBannerHooksBound) {
+    window.__etherealBannerHooksBound = true;
+    if (window.swup && window.swup.hooks) {
+      window.swup.hooks.on("page:view", bind);
+    } else {
+      document.addEventListener("swup:enable", function () {
+        if (window.swup && window.swup.hooks)
+          window.swup.hooks.on("page:view", bind);
+      });
+    }
   }
 })();

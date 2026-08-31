@@ -73,7 +73,10 @@
   // newTab=false（fetch 异步回调后，新标签易被弹窗拦截）→ 先显示跳转动画，再同标签导航，保证必跳
   function openRandom(urls, btn, newTab) {
     var chosen = urls[Math.floor(Math.random() * urls.length)];
-    if (newTab && /^https?:\/\//i.test(chosen)) {
+    // 新标签打开：朋友圈页内点击（newTab=true）始终新标签打开，让当前窗口留在
+    // 朋友圈页。站内链接是根相对路径（如 /peng-you-quan/...），原 /^https?:\/\//
+    // 判定永远不进、导致「新标签」意图被下方同标签 SPA 导航分支静默吞掉，此处放行。
+    if (newTab) {
       var a = document.createElement("a");
       a.href = chosen;
       a.target = "_blank";
