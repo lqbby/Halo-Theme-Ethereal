@@ -1,4 +1,5 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+import { getVisitorSwitches } from "../../utils/settings/visitor-switches";
 // 访客文章布局覆盖（显示设置面板「列表/网格」切换）
 // 同步脚本（无 defer/async）：在 PostList 容器解析后立即执行，首帧绘制前完成换类；
 // Swup 换页后由 SwupScriptsPlugin 重执行（同 post-list-layout.js / collapse.js）。
@@ -18,12 +19,9 @@
       : "list";
   }
 
-  // 开关关闭（或总开关关闭）时忽略并清理访客选择，与 fixed 色调语义一致
-  var carrier = document.getElementById("config-carrier");
-  var switchable =
-    (!carrier || carrier.dataset.visitorEnable !== "false") &&
-    (!carrier || carrier.dataset.visitorLayout !== "false");
-  if (!switchable) {
+  // 开关关闭（或总开关关闭）时忽略并清理访客选择，与 fixed 色调语义一致。
+  // 改用设置模块的 getVisitorSwitches() 单一真相源，消除与 setting-utils 的抄写重复。
+  if (!getVisitorSwitches().postListLayout) {
     localStorage.removeItem("postListLayout");
     return;
   }
@@ -48,11 +46,8 @@
 (function () {
   var container = document.getElementById("post-list-container");
   if (!container) return;
-  var carrier = document.getElementById("config-carrier");
-  var switchable =
-    (!carrier || carrier.dataset.visitorEnable !== "false") &&
-    (!carrier || carrier.dataset.visitorCardStyle !== "false");
-  if (!switchable) {
+  // 改用设置模块的 getVisitorSwitches() 单一真相源（与 postListLayout 同款 seam）。
+  if (!getVisitorSwitches().cardStyle) {
     localStorage.removeItem("postListMasonry");
     return;
   }
