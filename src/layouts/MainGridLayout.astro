@@ -11,6 +11,7 @@ import TOC from "../components/widget/TOC.astro";
 import {
   bannerMobileThWith,
   bannerThWith,
+  carouselDarkImgSrcExpr,
   carouselImgSrcExpr,
 } from "../utils/image-suffix";
 import Layout from "./Layout.astro";
@@ -134,7 +135,7 @@ const {
         th:src="${srcX}"
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
-        th:attr="loading=${mobileActive ? 'lazy' : 'eager'},fetchpriority=${mobileActive ? 'low' : 'high'}"
+        th:attr="loading=${mobileActive ? 'lazy' : 'eager'},fetchpriority=${mobileActive ? 'low' : 'high'},data-theme-src=${darkSrcX}"
         decoding="async"
         class="h-full w-full object-cover"
         alt=""
@@ -180,7 +181,7 @@ const {
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
         th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-        th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')}"
+        th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')},data-theme-src=${carouselDarkImgSrcExpr()}"
         decoding="async"
         class="banner-slide absolute inset-0 h-full w-full object-cover"
       />
@@ -202,6 +203,7 @@ const {
           position="${theme.config?.style?.bannerStyle?.position ?: 'center'}"
           loading="lazy"
           fetchpriority="low"
+          themeSrc="${darkSrcX}"
           class="h-full object-cover"
         />
       </div>
@@ -240,6 +242,7 @@ const {
           th:alt="${site.title}"
           th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
           th:classappend="${imgStat.index == 0 ? 'active' : ''}"
+          th:attr="data-theme-src=${carouselDarkImgSrcExpr('theme.config?.style?.bannerStyle?.mobile?.darkImages')}"
           loading="lazy"
           fetchpriority="low"
           decoding="async"
@@ -492,6 +495,11 @@ const {
     <script
       th:if="${mobileActive}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-src-switch.js?v=${ASSET_VERSION}`}
+      defer></script>
+    <!-- 暗色壁纸切换：监听 html.dark 变化，把带 data-theme-src 的 banner 图片
+         在亮/暗两套壁纸间切换（无 data-theme-src 时无副作用） -->
+    <script
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-theme-switch.js?v=${ASSET_VERSION}`}
       defer></script>
     <script
       th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.subtitleEffect == null or theme.config?.style?.bannerText?.subtitleEffect == 'typewriter'}"

@@ -435,8 +435,10 @@ spec:
           value:
             mode: single
             src: "/themes/Ethereal/assets/images/demo-banner.png"
+            darkSrc: ""
             carousel:
               images: []
+              darkImages: []
               effect: fade
               dots: true
               preloadCount: 1
@@ -470,6 +472,16 @@ spec:
                 - "video/mp4"
                 - "video/webm"
               help: "支持图片（含 GIF/WebP/APNG 动图）与视频（MP4/WebM，静音循环播放）"
+            - $formkit: attachment
+              name: darkSrc
+              id: banner_darkSrc
+              key: banner_darkSrc
+              if: "$get(banner_mode).value === 'single'"
+              label: 暗色壁纸（电脑端）
+              value: ""
+              accepts:
+                - "image/*"
+              help: "主题为暗色时使用的电脑端单图壁纸；留空则暗色模式沿用亮色壁纸。仅支持图片（视频源不做暗色变体）"
             - $formkit: switch
               name: showPauseBtn
               id: banner_showPauseBtn
@@ -501,6 +513,16 @@ spec:
                     - "image/*"
                   value: []
                   help: "选择多张静态图片，按顺序循环切换；少于 2 张时按单图显示。支持外部链接，重复链接会自动附加查询参数强制单独请求；随机图接口建议使用无状态服务（uapis.cn 等接口存在同一浏览器会话内反复请求返回同一张图的问题"
+                - $formkit: attachment
+                  name: darkImages
+                  id: carousel_darkImages
+                  key: carousel_darkImages
+                  label: 暗色壁纸（电脑端轮播）
+                  multiple: true
+                  accepts:
+                    - "image/*"
+                  value: []
+                  help: "主题为暗色时使用的电脑端轮播图，与亮色轮播图按同一顺序/数量对应；留空则暗色模式沿用亮色轮播图"
                 - $formkit: select
                   name: effect
                   label: 切换效果
@@ -546,7 +568,9 @@ spec:
               value:
                 mode: single
                 src: ""
+                darkSrc: ""
                 images: []
+                darkImages: []
               children:
                 - $formkit: select
                   name: mode
@@ -572,6 +596,16 @@ spec:
                     - "video/webm"
                   help: "移动端单图/视频；留空则移动端使用电脑端来源"
                 - $formkit: attachment
+                  name: darkSrc
+                  id: banner_mobile_darkSrc
+                  key: banner_mobile_darkSrc
+                  if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'single'"
+                  label: 暗色壁纸（移动端）
+                  value: ""
+                  accepts:
+                    - "image/*"
+                  help: "主题为暗色时使用的移动端单图壁纸；留空则暗色模式沿用移动端亮色壁纸。仅支持图片（视频源不做暗色变体）"
+                - $formkit: attachment
                   name: images
                   id: banner_mobile_images
                   key: banner_mobile_images
@@ -582,6 +616,17 @@ spec:
                     - "image/*"
                   value: []
                   help: "移动端轮播图片，按顺序循环切换；留空则移动端使用电脑端来源。外部随机图接口建议使用无状态服务，uapis.cn 等接口存在同会话返回同一张图的问题"
+                - $formkit: attachment
+                  name: darkImages
+                  id: banner_mobile_darkImages
+                  key: banner_mobile_darkImages
+                  if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'carousel'"
+                  label: 暗色壁纸（移动端轮播）
+                  multiple: true
+                  accepts:
+                    - "image/*"
+                  value: []
+                  help: "主题为暗色时使用的移动端轮播图，与亮色移动端轮播图按同一顺序/数量对应；留空则暗色模式沿用亮色轮播图"
             - $formkit: select
               name: position
               label: 位置

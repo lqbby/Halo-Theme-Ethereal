@@ -87,10 +87,16 @@ export function bannerModeThWith(): string {
 export function bannerThWith(): string {
   const src =
     "#strings.defaultString(theme.config?.style?.bannerStyle?.src, '')";
+  const darkSrc =
+    "#strings.defaultString(theme.config?.style?.bannerStyle?.darkSrc, '')";
   return (
     imageSuffixThWith("p?.banner_width ?: 1920") +
     ", " +
-    bannerMediaVars(src, "theme.config?.style?.bannerStyle?.mode ?: 'single'") +
+    bannerMediaVars(
+      src,
+      "theme.config?.style?.bannerStyle?.mode ?: 'single'",
+      darkSrc,
+    ) +
     ", " +
     bannerMobileVars()
   );
@@ -102,11 +108,22 @@ export function bannerThWith(): string {
  * 局部变量；suffix 仍引用外层图片处理后缀。
  */
 export function bannerMobileThWith(): string {
-  return bannerMediaVars("mobileSrc", "mobileMode");
+  return bannerMediaVars(
+    "mobileSrc",
+    "mobileMode",
+    "#strings.defaultString(theme.config?.style?.bannerStyle?.mobile?.darkSrc, '')",
+  );
 }
 
-/** 生成 Banner 媒体块共用的 mode/srcX/isVideo 局部变量串（依赖外层 suffix）。 */
-function bannerMediaVars(srcExpr: string, modeExpr: string): string {
+/**
+ * 生成 Banner 媒体块共用的 mode/srcX/isVideo/darkSrcX 局部变量串（依赖外层 suffix）。
+ * darkSrcX 为暗色主题壁纸（单图）URL（含 CDN 后缀）；未配置时为 ''。
+ */
+function bannerMediaVars(
+  srcExpr: string,
+  modeExpr: string,
+  darkSrcExpr: string,
+): string {
   return (
     "mode=${" +
     modeExpr +
@@ -115,6 +132,11 @@ function bannerMediaVars(srcExpr: string, modeExpr: string): string {
     srcExpr +
     " + (" +
     cdnSuffixEligible(srcExpr) +
+    " ? suffix : '')}, " +
+    "darkSrcX=${" +
+    darkSrcExpr +
+    " + (" +
+    cdnSuffixEligible(darkSrcExpr) +
     " ? suffix : '')}, " +
     "isVideo=${mode == 'single' and " +
     "(" +
@@ -161,6 +183,26 @@ function bannerMobileVars(): string {
 export function carouselImgSrcExpr(): string {
   const img = "#strings.defaultString(img, '')";
   return "${" + img + " + (" + cdnSuffixEligible(img) + " ? suffix : '')}";
+}
+
+/**
+ * 生成轮播模式单张图片的「暗色主题壁纸」完整 Thymeleaf src 表达式。
+ * 按 th:each 循环索引 imgStat.index 取暗色列表对应元素（与亮色轮播一一对应）；
+ * 暗色列表为空时输出 ''（前台 JS 据此跳过切换，沿用亮色）。依赖外层 suffix。
+ * @param listExpr 暗色列表的 Thymeleaf 表达式（缺省桌面端 carousel.darkImages）
+ */
+export function carouselDarkImgSrcExpr(
+  listExpr = "theme.config?.style?.bannerStyle?.carousel?.darkImages",
+): string {
+  const item = listExpr + "[imgStat.index]";
+  const body =
+    "#strings.defaultString(" +
+    item +
+    ", '') + (" +
+    cdnSuffixEligible(item) +
+    " ? suffix : '')";
+  // #lists.isEmpty 短路：空列表时整条表达式求值为 ''，避免对 null 做索引访问
+  return "${#lists.isEmpty(" + listExpr + ") ? '' : (" + body + ")}";
 }
 
 /**

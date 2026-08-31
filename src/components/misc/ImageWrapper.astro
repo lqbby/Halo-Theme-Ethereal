@@ -7,6 +7,9 @@ interface Props {
   position?: string;
   loading?: "lazy" | "eager";
   fetchpriority?: "high" | "low" | "auto";
+  /** 暗色主题壁纸 URL 的 Thymeleaf 表达式串（如 "${darkSrcX}"），可选；
+      传入时在 img 上输出 data-theme-src，由 banner-theme-switch.js 切换 */
+  themeSrc?: string;
 }
 
 const {
@@ -16,6 +19,7 @@ const {
   position = "center",
   loading = "lazy",
   fetchpriority = "auto",
+  themeSrc,
 } = Astro.props;
 const className = Astro.props.class;
 const imageStyle = `object-position: ${position}`;
@@ -36,5 +40,6 @@ const imageStyle = `object-position: ${position}`;
     class="h-full w-full object-cover"
     style={imageStyle}
     alt=""
+    {...themeSrc ? { "th:attr": `data-theme-src=${themeSrc}` } : {}}
   />
 </div>
