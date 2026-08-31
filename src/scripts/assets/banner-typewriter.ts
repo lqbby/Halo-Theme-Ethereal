@@ -1,5 +1,8 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 打字机效果
+// 2.7：初始化骨架与 banner-drop 逐字重复，提取到 _banner-title-shared.ts 共享
+import { initBannerSubtitle } from "./_banner-title-shared";
+
 (function () {
   var TypewriterEffect = function (el, lines) {
     this.el = el;
@@ -77,40 +80,25 @@
   }
 
   function initTypewriter() {
-    var el = document.getElementById("banner-subtitle");
-    if (!el) return;
-
-    var overlay = el.closest("#banner-overlay");
-    if (overlay && overlay.classList.contains("banner-text-hidden")) return;
-
-    if (el.__twInstance) {
-      el.__twInstance.destroy();
-      delete el.__twInstance;
-    }
-    el.textContent = "";
-
-    var cursor = document.getElementById("banner-cursor");
-    if (cursor) {
-      if (cursor.__blinkInterval) {
-        clearInterval(cursor.__blinkInterval);
-        delete cursor.__blinkInterval;
-      }
-      createCursorBlink(cursor);
-    }
-
-    var dc = document.getElementById("banner-subtitles-data");
-    if (!dc) return;
-    var raw = dc.textContent.trim();
-    if (!raw) return;
-    var lines = raw
-      .split("\n")
-      .map(function (l) {
-        return l.trim();
-      })
-      .filter(Boolean);
-    if (lines.length === 0) return;
-
-    el.__twInstance = new TypewriterEffect(el, lines);
+    // 骨架（取元素/隐藏判定/销毁旧实例/读文案）见 _banner-title-shared.ts；
+    // 本脚本专属的清空文本与光标重挂通过回调插在销毁之后、读文案之前（顺序与原版一致）
+    initBannerSubtitle(
+      "__twInstance",
+      function (el, lines) {
+        return new TypewriterEffect(el, lines);
+      },
+      function (el) {
+        el.textContent = "";
+        var cursor = document.getElementById("banner-cursor");
+        if (cursor) {
+          if (cursor.__blinkInterval) {
+            clearInterval(cursor.__blinkInterval);
+            delete cursor.__blinkInterval;
+          }
+          createCursorBlink(cursor);
+        }
+      },
+    );
   }
 
   function runInitTW() {

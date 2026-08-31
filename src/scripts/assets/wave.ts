@@ -1,26 +1,14 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 波浪 viewBox 动画
+// 2.8：#theme-config 解析与缓存契约收敛到 _theme-config.ts 的 getThemeConfig()
+import { getThemeConfig } from "./_theme-config";
 (function () {
   // 三选开关（settings.yaml styleSwitches.banner_wave）：
   // disabled / 旧版布尔 false → 不启动动画；desktop_only + 触屏设备 → 隐藏容器并跳过动画。
-  // wave.js 是 public/ 静态资产读不到 theme.config，从 Layout.astro 注入的 #theme-config JSON 解析。
-  // 解析结果写入 window.__themeConfig 缓存（I27：与 scripts/assets/_theme-config.ts 共享契约，
-  // 首个 parse 的脚本写缓存，后续脚本复用，避免多脚本重复 JSON.parse）
+  // wave.js 是 public/ 静态资产读不到 theme.config，配置经 getThemeConfig() 从
+  // Layout.astro 注入的 #theme-config JSON 读取（首个执行的脚本写缓存，后续复用）。
   var waveValue = null;
-  var waveCfg = window.__themeConfig;
-  if (waveCfg === undefined) {
-    var waveConfigEl = document.getElementById("theme-config");
-    if (waveConfigEl) {
-      try {
-        waveCfg = JSON.parse(
-          waveConfigEl.textContent || waveConfigEl.innerText,
-        );
-      } catch (e) {
-        waveCfg = null;
-      }
-      window.__themeConfig = waveCfg;
-    }
-  }
+  var waveCfg = getThemeConfig();
   if (waveCfg) {
     var waveSw = waveCfg.style && waveCfg.style.styleSwitches;
     if (waveSw) waveValue = waveSw.banner_wave;

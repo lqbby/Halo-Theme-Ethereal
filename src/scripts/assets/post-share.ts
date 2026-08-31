@@ -278,6 +278,18 @@ var t =
       svg.style.transform = on ? "scale(1.1)" : "";
     }
 
+    // SVG 图标字面量：原先 6 处内联（每段 ~200 字符，链接×3 / 对勾×2 / 下载×1），
+    // 收敛为 3 个常量 + 拼装函数，改图标或文案只需动一处。
+    var SVG_LINK =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>';
+    var SVG_CHECK =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+    var SVG_DOWNLOAD =
+      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+    function btnHtml(svg, label) {
+      return svg + "<span>" + label + "</span>";
+    }
+
     // 复制链接按钮（次要按钮，参考 .ext-btn-back 样式）
     var copyBtn = document.createElement("button");
     copyBtn.style.cssText =
@@ -292,10 +304,7 @@ var t =
       zoomIcon(copyBtn, false);
     };
     // 链接图标
-    copyBtn.innerHTML =
-      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>' +
-      t("post.copyLink", "复制链接") +
-      "</span>";
+    copyBtn.innerHTML = btnHtml(SVG_LINK, t("post.copyLink", "复制链接"));
 
     // 保存图片按钮（主要按钮，参考 .ext-btn-go 样式）
     var saveBtn = document.createElement("button");
@@ -310,10 +319,7 @@ var t =
       zoomIcon(saveBtn, false);
     };
     // 下载图标
-    saveBtn.innerHTML =
-      '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>' +
-      t("post.saveImage", "保存图片") +
-      "</span>";
+    saveBtn.innerHTML = btnHtml(SVG_DOWNLOAD, t("post.saveImage", "保存图片"));
 
     btnRow.appendChild(copyBtn);
     btnRow.appendChild(saveBtn);
@@ -392,22 +398,20 @@ var t =
       }
     });
 
+    // 两条复制路径（Clipboard API / execCommand 兜底）成功后的反馈一致：
+    // 切成对勾 + 「已复制!」，2 秒后恢复链接图标。原先这段在两个分支里各写一遍。
+    function showCopied() {
+      copyBtn.innerHTML = btnHtml(SVG_CHECK, t("post.copied", "已复制!"));
+      setTimeout(function () {
+        copyBtn.innerHTML = btnHtml(SVG_LINK, t("post.copyLink", "复制链接"));
+      }, 2000);
+    }
+
     copyBtn.addEventListener("click", function () {
       try {
         var url = getCurrentUrl();
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(function () {
-            copyBtn.innerHTML =
-              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>' +
-              t("post.copied", "已复制!") +
-              "</span>";
-            setTimeout(function () {
-              copyBtn.innerHTML =
-                '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>' +
-                t("post.copyLink", "复制链接") +
-                "</span>";
-            }, 2000);
-          });
+          navigator.clipboard.writeText(url).then(showCopied);
         } else {
           var ta = document.createElement("textarea");
           ta.value = url;
@@ -416,16 +420,7 @@ var t =
           ta.select();
           document.execCommand("copy");
           document.body.removeChild(ta);
-          copyBtn.innerHTML =
-            '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg><span>' +
-            t("post.copied", "已复制!") +
-            "</span>";
-          setTimeout(function () {
-            copyBtn.innerHTML =
-              '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span>' +
-              t("post.copyLink", "复制链接") +
-              "</span>";
-          }, 2000);
+          showCopied();
         }
       } catch (e) {
         console.error("复制失败:", e);

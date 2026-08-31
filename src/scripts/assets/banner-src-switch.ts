@@ -6,23 +6,13 @@
 // 来源或移动端无有效来源（空值回退）时早退，保持现状行为。
 // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
 // Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（同 wave.js）。
+// 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
+import { getThemeConfig } from "./_theme-config";
 (function () {
-  // #theme-config JSON 解析（I27：写/读 window.__themeConfig 缓存，与
-  // scripts/assets/_theme-config.ts 共享契约，避免多脚本重复 JSON.parse）
-  var cfg = null;
-  var cachedCfg = window.__themeConfig;
-  if (cachedCfg !== undefined) {
-    cfg = cachedCfg;
-  } else {
-    var configEl = document.getElementById("theme-config");
-    if (!configEl) return;
-    try {
-      cfg = JSON.parse(configEl.textContent || configEl.innerText);
-    } catch (e) {
-      return;
-    }
-    window.__themeConfig = cfg;
-  }
+  // #theme-config JSON 解析（2.8：收敛到 _theme-config.ts 的 getThemeConfig）。
+  // 原内联版在元素缺失/解析失败时直接 return；现 getThemeConfig 返回 null，
+  // 由下方 if (!bannerCfg || bannerCfg.useMobileSrc !== true) return 等价拦截。
+  var cfg = getThemeConfig();
   var bannerCfg =
     cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
   if (!bannerCfg || bannerCfg.useMobileSrc !== true) return;

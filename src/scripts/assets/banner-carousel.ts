@@ -8,6 +8,8 @@
 // 独立初始化（slides/指示点/定时器/IO 各自一份），行为设置共用 style.bannerStyle.carousel。
 // 隐藏容器（display:none）的 IntersectionObserver 报 isIntersecting=false 自然
 // 暂停定时器，无需跨容器事件联动；首图 lazy 在容器被 CSS 显示后立即加载。
+// 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
+import { getThemeConfig } from "./_theme-config";
 (function () {
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
   // Layout（Swup 容器外）跨页面持久——不守卫则每次换页叠加一套定时器链 +
@@ -21,21 +23,9 @@
   if (c1) containers.push(c1);
   if (c2) containers.push(c2);
 
-  // #theme-config JSON 解析（I27：写/读 window.__themeConfig 缓存，与
-  // scripts/assets/_theme-config.ts 共享契约，避免多脚本重复 JSON.parse）
-  var cfg = null;
-  var cachedCfg = window.__themeConfig;
-  if (cachedCfg !== undefined) {
-    cfg = cachedCfg;
-  } else {
-    var configEl = document.getElementById("theme-config");
-    if (configEl) {
-      try {
-        cfg = JSON.parse(configEl.textContent || configEl.innerText);
-      } catch (e) {}
-      window.__themeConfig = cfg;
-    }
-  }
+  // #theme-config JSON 解析（2.8：收敛到 _theme-config.ts 的 getThemeConfig，
+  // window.__themeConfig 缓存契约不变）
+  var cfg = getThemeConfig();
   var bannerCfg =
     cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
   var carouselCfg = bannerCfg && bannerCfg.carousel ? bannerCfg.carousel : {};
