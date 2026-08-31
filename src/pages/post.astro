@@ -420,6 +420,14 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     />
   </div>
 
+  <!-- 评论区锚点落位高亮：从通知/邮件(#comment)或侧栏「最近评论」跳转进入时，
+       滚动到评论区并脉冲高亮（配合 components.css 的 comment-locate-flash）。
+       2.5 删过原触发脚本导致失效，comment-locate.ts 已恢复。 -->
+  <script
+    th:if="${haloCommentEnabled}"
+    src={`${basePath}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    defer></script>
+
   <!-- 操作栏脚本（I27）：拆分自原 post.bundle.js（155K，含 140K qrcode 库）。
        三文件按子开关独立门控；qrcode.bundle.js 仅在首次生成分享海报时由
        post-share.js 按需注入（见 post-share.js 的 loadQRCode），文章页默认负载

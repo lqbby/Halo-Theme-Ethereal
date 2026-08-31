@@ -14,6 +14,10 @@
   --halo-cw-emoji-picker-rgb-input: 249, 250, 251;
   --halo-cw-emoji-picker-color-border: rgb(0 0 0 / 0.1);
   --halo-cw-emoji-picker-color-border-over: rgb(0 0 0 / 0.2);
+  /* 视觉统一：让评论组件的圆角/头像跟随 Ethereal 设计令牌，
+     而非插件默认的 .875rem（否则评论区圆角比站点卡片小一圈） */
+  --halo-cw-base-rounded: var(--radius-large);
+  --halo-cw-avatar-rounded: 9999px;
 }
 
 @supports (color: oklch(0 0 0)) {
