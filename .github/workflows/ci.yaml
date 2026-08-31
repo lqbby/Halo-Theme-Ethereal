@@ -1,7 +1,7 @@
 name: CI (Build & Release)
 
 on:
-  # 自动触发：push 到 main 且 theme.yaml 版本较上一提交增大合规时，构建并自动发布
+  # 自动触发：push 到 main 且 theme.yaml 版本较上一提交增大合规时，构建（2026-08-31 起不自动发布）
   push:
     branches: [main]
   # 手动触发：发布 tag 按 theme.yaml 版本 + 版本后缀自动推导（后缀支持 -rc1 等
@@ -9,10 +9,10 @@ on:
   workflow_dispatch:
     inputs:
       publish-github:
-        description: "是否发布到 GitHub Release（默认 true；false 时仅构建，不发布）"
+        description: "是否发布到 GitHub Release（默认 false：仅构建，不发布。2026-08-31 起默认不发包）"
         required: false
         type: boolean
-        default: true
+        default: false
       tag:
         description: "发布到该 GitHub Release tag（可留空：按 theme.yaml 版本+版本后缀自动推导；填写时必须与推导结果一致）"
         required: false
@@ -71,7 +71,7 @@ jobs:
             exit 0
           fi
           if node scripts/check-version-bump.mjs; then
-            echo "::notice::push 触发：版本较上一提交增大且合规，构建并自动发布"
+            echo "::notice::push 触发：版本较上一提交增大且合规，构建（不自动发布）"
             echo "trigger=true" >> "$GITHUB_OUTPUT"
           else
             echo "::notice::push 触发：版本未增大或 semver 不合规，跳过构建（详见脚本输出）"
@@ -79,7 +79,7 @@ jobs:
           fi
 
   build:
-    name: Build & Release Theme
+    name: Build Theme
     needs: [version-check]
     # 手动触发时 trigger 恒为 true；push 时取决于版本检测结果
     if: needs.version-check.outputs.trigger == 'true'
@@ -102,8 +102,8 @@ jobs:
         run: |
           echo "触发事件: $EVENT_NAME"
           if [[ "$EVENT_NAME" == "push" ]]; then
-            echo "发布决策: 自动发布（tag 自动创建，版本检测已通过）"
-            echo "步骤计划: 构建 → 质量门 → 自动创建 tag → 上传 Release（Halo 默认同步）"
+            echo "发布决策: 仅构建，不发布（2026-08-31 起 push 不再自动发包）"
+            echo "步骤计划: 构建 → 质量门 → artifact"
           else
             echo "publish-github: $PUBLISH_GITHUB"
             echo "tag: $INPUT_TAG"
@@ -192,8 +192,10 @@ jobs:
           if-no-files-found: error
 
       # 自动触发（push）：按 theme.yaml 的 version 自动创建 tag（远程已存在则跳过，幂等）
+      # [2026-08-31] 已按用户要求停用：以后只推代码、不在 GitHub 自动发包。
+      # 保留本步骤并置 if:false，便于将来恢复（如需恢复把 false 改回 github.event_name == 'push'）。
       - name: 自动创建 tag（push 触发）
-        if: github.event_name == 'push'
+        if: false
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EXPECTED_SHA: ${{ github.sha }}
@@ -314,10 +316,9 @@ jobs:
           echo "校验通过：发布 tag $TAG"
 
       # 上传 zip 到 Release；不存在时自动创建（说明取 release.md），已存在时更新资产。
-      # sync-halo=false 时在说明中注入隐藏标记 <!-- skip-halo-sync -->（页面不可见），
-      # cd.yaml 检测到该标记即跳过 Halo 应用市场同步
+      # [2026-08-31] 仅手动触发（publish-github=true）才发包；push 不再自动上传。
       - name: 上传到 GitHub Release
-        if: github.event_name == 'push' || steps.release-config.outputs.publish == 'true'
+        if: steps.release-config.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE_TYPE: ${{ github.event.inputs.release-type || 'latest' }}
@@ -362,9 +363,10 @@ jobs:
           fi
 
       # 通知 CD 同步 Halo 应用市场：GITHUB_TOKEN 创建的 Release 不会触发
-      # release:published 事件（GitHub 防递归机制），需显式发送 repository_dispatch
+      # release:published 事件（GitHub 防递归机制），需显式发送 repository_dispatch。
+      # [2026-08-31] 仅手动发包时通知；push 不再发包故不再通知。
       - name: 通知 CD 同步 Halo（repository_dispatch）
-        if: github.event_name == 'push' || steps.release-config.outputs.publish == 'true'
+        if: steps.release-config.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
