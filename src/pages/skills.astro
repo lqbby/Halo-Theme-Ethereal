@@ -17,198 +17,11 @@ import PageHeader from "../components/control/PageHeader.astro";
 >
   <!-- 注：分类计数用字面量投影（category == 'literal'），勿在 items.![...] 投影内引用
        param（Map 条目会遮蔽上下文变量导致 #lists.contains(null,...) 抛异常） -->
-  <section
-    th:with="items=${theme.config?.extendPages?.skills?.entries?.items},
-      frontendCount=${items != null ? #aggregates.sum(items.![category == 'frontend' ? 1 : 0]) : 0},
-      backendCount=${items != null ? #aggregates.sum(items.![category == 'backend' ? 1 : 0]) : 0},
-      databaseCount=${items != null ? #aggregates.sum(items.![category == 'database' ? 1 : 0]) : 0},
-      toolsCount=${items != null ? #aggregates.sum(items.![category == 'tools' ? 1 : 0]) : 0},
-      otherCount=${items != null ? #aggregates.sum(items.![category == 'other' ? 1 : 0]) : 0},
-      pageSize=${theme.config?.extendPages?.skills?.pageSize != null ? #conversions.convert(theme.config?.extendPages?.skills?.pageSize, 'java.lang.Integer') : 10},
-      totalSize=${items != null ? #lists.size(items) : 0},
-      hasFilter=${not #lists.isEmpty(param.category)},
-      totalPages=${not hasFilter and pageSize > 0 ? (totalSize + pageSize - 1) / pageSize : 1},
-      rawPage=${param.page != null and param.page.length > 0 and param.page[0] matches '\d+' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
-      curPage=${rawPage > totalPages ? totalPages : (rawPage < 1 ? 1 : rawPage)},
-      startIndex=${(curPage - 1) * pageSize},
-      endIndex=${startIndex + pageSize > totalSize ? totalSize : startIndex + pageSize},
-      pagedItems=${not hasFilter and pageSize > 0 and totalSize > 0 ? items.subList(startIndex < 0 ? 0 : startIndex, endIndex > totalSize ? totalSize : endIndex) : items}"
-    class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-  >
-    <!-- 页头 -->
-    <PageHeader
-      containerClass="mb-8 flex flex-col items-start gap-3 md:flex-row md:items-end md:justify-between"
-      titleExpr="${singlePage.spec.title}"
-      title="技能"
-      iconClass="icon-[material-symbols--psychology]"
-      labelExpr="#{page.skills.title}"
-      label="技能"
-      subExpr="${theme.config?.extendPages?.skills?.subtitle ?: #messages.msg('page.skills.subtitle')}"
-      sub="我的技术技能和专业知识"
-      filteredExpr="${not #lists.isEmpty(param.category)}"
-    />
-
-    <!-- 分类筛选标签（参考 links/equipments 分组标签；URL 参数切换，
-          整页导航触发 Swup 过渡 + onload-animation 入场动画） -->
-    <FilterTabs
-      showIfExpr="${items != null and not #lists.isEmpty(items)}"
-      class="mb-8 flex flex-wrap gap-2"
-      allHrefExpr="@{${singlePage.status.permalink}}"
-      allActiveExpr="#lists.isEmpty(param.category)"
-      items={[
-        {
-          hrefExpr: "@{${singlePage.status.permalink}(category='frontend')}",
-          activeExpr: "#lists.contains(param.category, 'frontend')",
-          labelExpr: "#{page.skills.frontend}",
-          countExpr: "${frontendCount}",
-          showIfExpr: "${frontendCount > 0}",
-        },
-        {
-          hrefExpr: "@{${singlePage.status.permalink}(category='backend')}",
-          activeExpr: "#lists.contains(param.category, 'backend')",
-          labelExpr: "#{page.skills.backend}",
-          countExpr: "${backendCount}",
-          showIfExpr: "${backendCount > 0}",
-        },
-        {
-          hrefExpr: "@{${singlePage.status.permalink}(category='database')}",
-          activeExpr: "#lists.contains(param.category, 'database')",
-          labelExpr: "#{page.skills.database}",
-          countExpr: "${databaseCount}",
-          showIfExpr: "${databaseCount > 0}",
-        },
-        {
-          hrefExpr: "@{${singlePage.status.permalink}(category='tools')}",
-          activeExpr: "#lists.contains(param.category, 'tools')",
-          labelExpr: "#{page.skills.tools}",
-          countExpr: "${toolsCount}",
-          showIfExpr: "${toolsCount > 0}",
-        },
-        {
-          hrefExpr: "@{${singlePage.status.permalink}(category='other')}",
-          activeExpr: "#lists.contains(param.category, 'other')",
-          labelExpr: "#{page.skills.other}",
-          countExpr: "${otherCount}",
-          showIfExpr: "${otherCount > 0}",
-        },
-      ]}
-    />
-
-    <!-- 技能卡片网格（按当前 category 参数在服务端过滤） -->
-    <div
-      class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4"
-    >
-      <div
-        th:each="skill, iterStat : ${pagedItems}"
-        th:if="${#lists.isEmpty(param.category) or #lists.contains(param.category, skill.category)}"
-        th:with="skillColor=${#strings.isEmpty(skill.color) ? 'var(--primary)' : skill.color}, levelWidth=${skill.level == 'expert' ? '100%' : (skill.level == 'advanced' ? '80%' : (skill.level == 'intermediate' ? '60%' : (skill.level == 'beginner' ? '40%' : '20%')))}, levelText=${skill.level == 'expert' ? #messages.msg('page.skills.expert') : (skill.level == 'advanced' ? #messages.msg('page.skills.advanced') : (skill.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (skill.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}, hasYears=${not #strings.isEmpty(skill.years) and #strings.toString(skill.years) != '0'}, hasMonths=${not #strings.isEmpty(skill.months) and #strings.toString(skill.months) != '0'}"
-        class="skill-card group relative overflow-hidden rounded-xl border border-black/10 transition-all duration-300 dark:border-white/10 onload-animation card-hover-lift"
-        th:style="|animation-delay: min(calc(var(--content-delay) + ${iterStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-      >
-        <div class="p-5">
-          <div class="mb-3 flex items-center gap-4">
-            <div
-              class="card-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg)"
-              th:style="|color: ${skillColor}|"
-            >
-              <span
-                th:if="${skill.icon != null and skill.icon.value != null}"
-                class="text-xl"
-                th:utext="${skill.icon.value}"></span>
-              <span
-                th:unless="${skill.icon != null and skill.icon.value != null}"
-                class="text-xl font-bold"
-                th:text="${#strings.substring(skill.name ?: '?', 0, 1)}">S</span
-              >
-            </div>
-
-            <div class="min-w-0 flex-1">
-              <div class="mb-1 flex items-center justify-between">
-                <h3
-                  class="truncate text-lg font-bold text-90 transition-colors duration-200 group-hover:text-(--primary)"
-                  th:text="${skill.name}"
-                >
-                  技能名
-                </h3>
-                <span
-                  th:if="${not #strings.isEmpty(levelText)}"
-                  class="ml-2 shrink-0 rounded-md bg-(--primary)/10 px-2 py-0.5 text-xs font-medium text-(--primary)"
-                  th:text="${levelText}">熟练度</span
-                >
-              </div>
-              <p
-                th:if="${hasYears or hasMonths}"
-                class="flex flex-wrap items-center gap-1 text-sm text-50"
-              >
-                <span
-                  th:if="${hasYears}"
-                  th:text="|${skill.years} #{page.skills.years}|">2 年</span
-                >
-                <span
-                  th:if="${hasMonths}"
-                  th:text="|${skill.months} #{page.skills.months}|">6 个月</span
-                >
-              </p>
-            </div>
-          </div>
-
-          <p
-            class="line-clamp-2 min-h-[2.5rem] text-sm text-50"
-            th:text="${skill.description}"
-          >
-            描述
-          </p>
-
-          <div class="mt-3 h-1.5 w-full rounded-full bg-(--btn-regular-bg)">
-            <div
-              class="h-1.5 rounded-full transition-all duration-500"
-              th:style="'width:' + ${levelWidth} + '; background-color:' + ${skillColor}"
-            >
-            </div>
-          </div>
-        </div>
-
-        <!-- 悬浮渐变遮罩 -->
-        <div
-          class="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        >
-        </div>
-      </div>
-    </div>
-
-    <!-- 筛选后空状态（选中分类下无技能时显示；计数来自外层 th:with 的字面量投影，
-            param 仅在投影外比对，规避 Map 投影遮蔽上下文变量的坑） -->
-    <div
-      th:if="${items != null and not #lists.isEmpty(items) and not #lists.isEmpty(param.category) and ((#lists.contains(param.category, 'frontend') and frontendCount == 0) or (#lists.contains(param.category, 'backend') and backendCount == 0) or (#lists.contains(param.category, 'database') and databaseCount == 0) or (#lists.contains(param.category, 'tools') and toolsCount == 0) or (#lists.contains(param.category, 'other') and otherCount == 0))}"
-      class="py-16 text-center"
-    >
-      <span
-        class="icon-[material-symbols--search-off-rounded] mb-4 text-5xl text-black/15 dark:text-white/15"
-      ></span>
-      <p
-        class="text-lg text-black/40 dark:text-white/40"
-        th:text="#{page.skills.noResults}"
-      >
-        该分类下暂无技能
-      </p>
-    </div>
-
-    <!-- 空状态（未配置任何技能） -->
-    <div
-      th:if="${items == null or #lists.isEmpty(items)}"
-      class="py-16 text-center text-50"
-    >
-      <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
-      ></span>
-      <p class="mt-4 text-sm" th:text="#{page.skills.empty}">
-        暂无技能数据，请在主题设置中配置
-      </p>
-    </div>
-  </section>
-
-  <!-- 分页（与 Pagination.astro 同样式，位于卡片外；URL 用 ?page=N 并保留筛选参数。
-        注意：th:if 先于同元素的 th:with 执行，故变量计算放在外层包装元素上；
-        有筛选参数时 totalPages 恒为 1，分页自动隐藏（筛选视图展示全部匹配项） -->
+  {
+    /* 列表（section）与分页（下方 nav）共用的变量提升到外层包装元素：
+      th:remove="tag" 只移除本标签、保留内容与变量作用域，避免分页区把
+      同一套 items/pageSize/totalSize/hasFilter/totalPages/rawPage/curPage 再算一遍 */
+  }
   <div
     th:with="items=${theme.config?.extendPages?.skills?.entries?.items},
       pageSize=${theme.config?.extendPages?.skills?.pageSize != null ? #conversions.convert(theme.config?.extendPages?.skills?.pageSize, 'java.lang.Integer') : 10},
@@ -216,93 +29,284 @@ import PageHeader from "../components/control/PageHeader.astro";
       hasFilter=${not #lists.isEmpty(param.category)},
       totalPages=${not hasFilter and pageSize > 0 ? (totalSize + pageSize - 1) / pageSize : 1},
       rawPage=${param.page != null and param.page.length > 0 and param.page[0] matches '\d+' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
-      curPage=${rawPage > totalPages ? totalPages : (rawPage < 1 ? 1 : rawPage)},
-      sep=${not #lists.isEmpty(param.category) ? '?category=' + param.category[0] + '&' : '?'},
-      windowStart=${curPage le 3 ? 1 : (curPage ge totalPages - 2 ? (totalPages - 4 gt 1 ? totalPages - 4 : 1) : curPage - 2)},
-      windowEnd=${curPage le 3 ? (totalPages lt 5 ? totalPages : 5) : (curPage ge totalPages - 2 ? totalPages : curPage + 2)}"
+      curPage=${rawPage > totalPages ? totalPages : (rawPage < 1 ? 1 : rawPage)}"
     th:remove="tag"
   >
-    <nav
-      th:if="${totalPages gt 1}"
-      class="mb-4 onload-animation flex flex-row justify-center gap-3"
-      th:aria-label="#{pagination.label}"
-      aria-label="Pagination"
+    <section
+      th:with="frontendCount=${items != null ? #aggregates.sum(items.![category == 'frontend' ? 1 : 0]) : 0},
+        backendCount=${items != null ? #aggregates.sum(items.![category == 'backend' ? 1 : 0]) : 0},
+        databaseCount=${items != null ? #aggregates.sum(items.![category == 'database' ? 1 : 0]) : 0},
+        toolsCount=${items != null ? #aggregates.sum(items.![category == 'tools' ? 1 : 0]) : 0},
+        otherCount=${items != null ? #aggregates.sum(items.![category == 'other' ? 1 : 0]) : 0},
+        startIndex=${(curPage - 1) * pageSize},
+        endIndex=${startIndex + pageSize > totalSize ? totalSize : startIndex + pageSize},
+        pagedItems=${not hasFilter and pageSize > 0 and totalSize > 0 ? items.subList(startIndex < 0 ? 0 : startIndex, endIndex > totalSize ? totalSize : endIndex) : items}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
     >
-      <a
-        th:href="${curPage gt 1 ? singlePage.status.permalink + sep + 'page=' + (curPage - 1) : ''}"
-        th:classappend="${curPage gt 1 ? '' : ' disabled'}"
-        th:aria-label="#{pagination.previous}"
-        class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
-      >
-        <span
-          class="icon-[material-symbols--chevron-left-rounded] text-[1.75rem]"
-        ></span>
-      </a>
+      <!-- 页头 -->
+      <PageHeader
+        containerClass="mb-8 flex flex-col items-start gap-3 md:flex-row md:items-end md:justify-between"
+        titleExpr="${singlePage.spec.title}"
+        title="技能"
+        iconClass="icon-[material-symbols--psychology]"
+        labelExpr="#{page.skills.title}"
+        label="技能"
+        subExpr="${theme.config?.extendPages?.skills?.subtitle ?: #messages.msg('page.skills.subtitle')}"
+        sub="我的技术技能和专业知识"
+        filteredExpr="${not #lists.isEmpty(param.category)}"
+      />
+
+      <!-- 分类筛选标签（参考 links/equipments 分组标签；URL 参数切换，
+          整页导航触发 Swup 过渡 + onload-animation 入场动画） -->
+      <FilterTabs
+        showIfExpr="${items != null and not #lists.isEmpty(items)}"
+        class="mb-8 flex flex-wrap gap-2"
+        allHrefExpr="@{${singlePage.status.permalink}}"
+        allActiveExpr="#lists.isEmpty(param.category)"
+        items={[
+          {
+            hrefExpr: "@{${singlePage.status.permalink}(category='frontend')}",
+            activeExpr: "#lists.contains(param.category, 'frontend')",
+            labelExpr: "#{page.skills.frontend}",
+            countExpr: "${frontendCount}",
+            showIfExpr: "${frontendCount > 0}",
+          },
+          {
+            hrefExpr: "@{${singlePage.status.permalink}(category='backend')}",
+            activeExpr: "#lists.contains(param.category, 'backend')",
+            labelExpr: "#{page.skills.backend}",
+            countExpr: "${backendCount}",
+            showIfExpr: "${backendCount > 0}",
+          },
+          {
+            hrefExpr: "@{${singlePage.status.permalink}(category='database')}",
+            activeExpr: "#lists.contains(param.category, 'database')",
+            labelExpr: "#{page.skills.database}",
+            countExpr: "${databaseCount}",
+            showIfExpr: "${databaseCount > 0}",
+          },
+          {
+            hrefExpr: "@{${singlePage.status.permalink}(category='tools')}",
+            activeExpr: "#lists.contains(param.category, 'tools')",
+            labelExpr: "#{page.skills.tools}",
+            countExpr: "${toolsCount}",
+            showIfExpr: "${toolsCount > 0}",
+          },
+          {
+            hrefExpr: "@{${singlePage.status.permalink}(category='other')}",
+            activeExpr: "#lists.contains(param.category, 'other')",
+            labelExpr: "#{page.skills.other}",
+            countExpr: "${otherCount}",
+            showIfExpr: "${otherCount > 0}",
+          },
+        ]}
+      />
+
+      <!-- 技能卡片网格（按当前 category 参数在服务端过滤） -->
       <div
-        class="flex flex-row items-center rounded-lg bg-(--card-bg) font-bold text-neutral-700 dark:text-neutral-300"
+        class="grid grid-cols-[repeat(auto-fill,minmax(min(280px,100%),1fr))] gap-4"
       >
-        <a
-          th:if="${windowStart gt 1}"
-          th:href="${singlePage.status.permalink + sep + 'page=1'}"
-          th:aria-label="#{pagination.page(1)}"
-          class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
-          >1</a
+        <div
+          th:each="skill, iterStat : ${pagedItems}"
+          th:if="${#lists.isEmpty(param.category) or #lists.contains(param.category, skill.category)}"
+          th:with="skillColor=${#strings.isEmpty(skill.color) ? 'var(--primary)' : skill.color}, levelWidth=${skill.level == 'expert' ? '100%' : (skill.level == 'advanced' ? '80%' : (skill.level == 'intermediate' ? '60%' : (skill.level == 'beginner' ? '40%' : '20%')))}, levelText=${skill.level == 'expert' ? #messages.msg('page.skills.expert') : (skill.level == 'advanced' ? #messages.msg('page.skills.advanced') : (skill.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (skill.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}, hasYears=${not #strings.isEmpty(skill.years) and #strings.toString(skill.years) != '0'}, hasMonths=${not #strings.isEmpty(skill.months) and #strings.toString(skill.months) != '0'}"
+          class="skill-card group relative overflow-hidden rounded-xl border border-black/10 transition-all duration-300 dark:border-white/10 onload-animation card-hover-lift"
+          th:style="|animation-delay: min(calc(var(--content-delay) + ${iterStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
         >
-        <a
-          th:if="${windowStart == 3}"
-          th:href="${singlePage.status.permalink + sep + 'page=2'}"
-          th:aria-label="#{pagination.page(2)}"
-          class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
-          >2</a
-        >
-        <span
-          th:if="${windowStart gt 3}"
-          class="icon-[material-symbols--more-horiz] mx-1"></span>
-        <span
-          class="contents"
-          th:each="pn : ${#numbers.sequence(windowStart, windowEnd)}"
-        >
-          <div
-            th:if="${pn == curPage}"
-            class="flex h-11 w-11 items-center justify-center rounded-lg bg-(--primary) font-bold text-white dark:text-black/70"
-            th:text="${pn}"
-          >
-            1
+          <div class="p-5">
+            <div class="mb-3 flex items-center gap-4">
+              <div
+                class="card-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg)"
+                th:style="|color: ${skillColor}|"
+              >
+                <span
+                  th:if="${skill.icon != null and skill.icon.value != null}"
+                  class="text-xl"
+                  th:utext="${skill.icon.value}"></span>
+                <span
+                  th:unless="${skill.icon != null and skill.icon.value != null}"
+                  class="text-xl font-bold"
+                  th:text="${#strings.substring(skill.name ?: '?', 0, 1)}"
+                  >S</span
+                >
+              </div>
+
+              <div class="min-w-0 flex-1">
+                <div class="mb-1 flex items-center justify-between">
+                  <h3
+                    class="truncate text-lg font-bold text-90 transition-colors duration-200 group-hover:text-(--primary)"
+                    th:text="${skill.name}"
+                  >
+                    技能名
+                  </h3>
+                  <span
+                    th:if="${not #strings.isEmpty(levelText)}"
+                    class="ml-2 shrink-0 rounded-md bg-(--primary)/10 px-2 py-0.5 text-xs font-medium text-(--primary)"
+                    th:text="${levelText}">熟练度</span
+                  >
+                </div>
+                <p
+                  th:if="${hasYears or hasMonths}"
+                  class="flex flex-wrap items-center gap-1 text-sm text-50"
+                >
+                  <span
+                    th:if="${hasYears}"
+                    th:text="|${skill.years} #{page.skills.years}|">2 年</span
+                  >
+                  <span
+                    th:if="${hasMonths}"
+                    th:text="|${skill.months} #{page.skills.months}|"
+                    >6 个月</span
+                  >
+                </p>
+              </div>
+            </div>
+
+            <p
+              class="line-clamp-2 min-h-[2.5rem] text-sm text-50"
+              th:text="${skill.description}"
+            >
+              描述
+            </p>
+
+            <div class="mt-3 h-1.5 w-full rounded-full bg-(--btn-regular-bg)">
+              <div
+                class="h-1.5 rounded-full transition-all duration-500"
+                th:style="'width:' + ${levelWidth} + '; background-color:' + ${skillColor}"
+              >
+              </div>
+            </div>
           </div>
-          <a
-            th:unless="${pn == curPage}"
-            th:href="${singlePage.status.permalink + sep + 'page=' + pn}"
-            th:aria-label="#{pagination.page(${pn})}"
-            class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
-            th:text="${pn}">2</a
+
+          <!-- 悬浮渐变遮罩 -->
+          <div
+            class="pointer-events-none absolute inset-0 bg-gradient-to-br from-[var(--primary)]/5 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
           >
-        </span>
-        <span
-          th:if="${windowEnd lt totalPages - 2}"
-          class="icon-[material-symbols--more-horiz] mx-1"></span>
-        <a
-          th:if="${windowEnd == totalPages - 2}"
-          th:href="${singlePage.status.permalink + sep + 'page=' + (totalPages - 1)}"
-          th:aria-label="#{pagination.page(${totalPages - 1})}"
-          class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
-          th:text="${totalPages - 1}"></a>
-        <a
-          th:if="${windowEnd lt totalPages}"
-          th:href="${singlePage.status.permalink + sep + 'page=' + totalPages}"
-          th:aria-label="#{pagination.page(${totalPages})}"
-          class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
-          th:text="${totalPages}"></a>
+          </div>
+        </div>
       </div>
-      <a
-        th:href="${curPage lt totalPages ? singlePage.status.permalink + sep + 'page=' + (curPage + 1) : ''}"
-        th:classappend="${curPage lt totalPages ? '' : ' disabled'}"
-        th:aria-label="#{pagination.next}"
-        class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
+
+      <!-- 筛选后空状态（选中分类下无技能时显示；计数来自外层 th:with 的字面量投影，
+            param 仅在投影外比对，规避 Map 投影遮蔽上下文变量的坑） -->
+      <div
+        th:if="${items != null and not #lists.isEmpty(items) and not #lists.isEmpty(param.category) and ((#lists.contains(param.category, 'frontend') and frontendCount == 0) or (#lists.contains(param.category, 'backend') and backendCount == 0) or (#lists.contains(param.category, 'database') and databaseCount == 0) or (#lists.contains(param.category, 'tools') and toolsCount == 0) or (#lists.contains(param.category, 'other') and otherCount == 0))}"
+        class="py-16 text-center"
       >
         <span
-          class="icon-[material-symbols--chevron-right-rounded] text-[1.75rem]"
+          class="icon-[material-symbols--search-off-rounded] mb-4 text-5xl text-black/15 dark:text-white/15"
         ></span>
-      </a>
-    </nav>
+        <p
+          class="text-lg text-black/40 dark:text-white/40"
+          th:text="#{page.skills.noResults}"
+        >
+          该分类下暂无技能
+        </p>
+      </div>
+
+      <!-- 空状态（未配置任何技能） -->
+      <div
+        th:if="${items == null or #lists.isEmpty(items)}"
+        class="py-16 text-center text-50"
+      >
+        <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
+        ></span>
+        <p class="mt-4 text-sm" th:text="#{page.skills.empty}">
+          暂无技能数据，请在主题设置中配置
+        </p>
+      </div>
+    </section>
+
+    <!-- 分页（与 Pagination.astro 同样式，位于卡片外；URL 用 ?page=N 并保留筛选参数。
+        注意：th:if 先于同元素的 th:with 执行，故变量计算放在外层包装元素上；
+        有筛选参数时 totalPages 恒为 1，分页自动隐藏（筛选视图展示全部匹配项） -->
+    <div
+      th:with="sep=${not #lists.isEmpty(param.category) ? '?category=' + param.category[0] + '&' : '?'},
+      windowStart=${curPage le 3 ? 1 : (curPage ge totalPages - 2 ? (totalPages - 4 gt 1 ? totalPages - 4 : 1) : curPage - 2)},
+      windowEnd=${curPage le 3 ? (totalPages lt 5 ? totalPages : 5) : (curPage ge totalPages - 2 ? totalPages : curPage + 2)}"
+      th:remove="tag"
+    >
+      <nav
+        th:if="${totalPages gt 1}"
+        class="mb-4 onload-animation flex flex-row justify-center gap-3"
+        th:aria-label="#{pagination.label}"
+        aria-label="Pagination"
+      >
+        <a
+          th:href="${curPage gt 1 ? singlePage.status.permalink + sep + 'page=' + (curPage - 1) : ''}"
+          th:classappend="${curPage gt 1 ? '' : ' disabled'}"
+          th:aria-label="#{pagination.previous}"
+          class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
+        >
+          <span
+            class="icon-[material-symbols--chevron-left-rounded] text-[1.75rem]"
+          ></span>
+        </a>
+        <div
+          class="flex flex-row items-center rounded-lg bg-(--card-bg) font-bold text-neutral-700 dark:text-neutral-300"
+        >
+          <a
+            th:if="${windowStart gt 1}"
+            th:href="${singlePage.status.permalink + sep + 'page=1'}"
+            th:aria-label="#{pagination.page(1)}"
+            class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+            >1</a
+          >
+          <a
+            th:if="${windowStart == 3}"
+            th:href="${singlePage.status.permalink + sep + 'page=2'}"
+            th:aria-label="#{pagination.page(2)}"
+            class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+            >2</a
+          >
+          <span
+            th:if="${windowStart gt 3}"
+            class="icon-[material-symbols--more-horiz] mx-1"></span>
+          <span
+            class="contents"
+            th:each="pn : ${#numbers.sequence(windowStart, windowEnd)}"
+          >
+            <div
+              th:if="${pn == curPage}"
+              class="flex h-11 w-11 items-center justify-center rounded-lg bg-(--primary) font-bold text-white dark:text-black/70"
+              th:text="${pn}"
+            >
+              1
+            </div>
+            <a
+              th:unless="${pn == curPage}"
+              th:href="${singlePage.status.permalink + sep + 'page=' + pn}"
+              th:aria-label="#{pagination.page(${pn})}"
+              class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+              th:text="${pn}">2</a
+            >
+          </span>
+          <span
+            th:if="${windowEnd lt totalPages - 2}"
+            class="icon-[material-symbols--more-horiz] mx-1"></span>
+          <a
+            th:if="${windowEnd == totalPages - 2}"
+            th:href="${singlePage.status.permalink + sep + 'page=' + (totalPages - 1)}"
+            th:aria-label="#{pagination.page(${totalPages - 1})}"
+            class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+            th:text="${totalPages - 1}"></a>
+          <a
+            th:if="${windowEnd lt totalPages}"
+            th:href="${singlePage.status.permalink + sep + 'page=' + totalPages}"
+            th:aria-label="#{pagination.page(${totalPages})}"
+            class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+            th:text="${totalPages}"></a>
+        </div>
+        <a
+          th:href="${curPage lt totalPages ? singlePage.status.permalink + sep + 'page=' + (curPage + 1) : ''}"
+          th:classappend="${curPage lt totalPages ? '' : ' disabled'}"
+          th:aria-label="#{pagination.next}"
+          class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
+        >
+          <span
+            class="icon-[material-symbols--chevron-right-rounded] text-[1.75rem]"
+          ></span>
+        </a>
+      </nav>
+    </div>
   </div>
 </MainGridLayout>

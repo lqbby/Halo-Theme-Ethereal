@@ -24,8 +24,15 @@ const className = Astro.props.class;
 
   <!-- 内容层：无 backdrop-filter，z-index 高于模糊层，背景透明（露下层模糊/纯色）；
        id="navbar-card" 供欢迎弹窗等按导航栏卡片实际边缘（max-w 居中后）对齐 -->
+  {
+    /* visitorStyleEnabled：显示设置入口/面板的门控条件（总开关开启 且 任一分区可用）。
+      入口按钮与面板原本各写一遍这个长表达式，提取到此处统一复用。
+      注：用 JSX 注释而非 HTML 注释——strip-comments 不处理 error/404.html，
+      HTML 注释会残留进该页产物 */
+  }
   <div
     id="navbar-card"
+    th:with="visitorStyleEnabled=${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}"
     class:list={[
       className,
       "relative z-10 mx-auto flex h-[4.5rem] max-w-(--page-width) items-center justify-between px-4 rounded-(--radius-large) !rounded-t-none",
@@ -185,7 +192,7 @@ const className = Astro.props.class;
       <!-- 面板切换不再使用内联 onclick（CSP 友好），由 public/assets/navbar.js 的 document 级事件委托统一处理。
            入口可见性：总开关开启且任一分区可用（主题色相/文章布局/卡片样式/壁纸模式/壁纸设置/透明设置）；总开关关闭则入口隐藏 -->
       <button
-        th:if="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}"
+        th:if="${visitorStyleEnabled}"
         th:aria-label="#{nav.displaySettings}"
         aria-label="Display Settings"
         class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
@@ -218,10 +225,7 @@ const className = Astro.props.class;
     <NavMenuPanel />
     <!-- 显示设置面板（I27）：与入口按钮同条件门控——总开关关闭或全部分区关闭时，
          面板及其 client:only chunk 不随页面传输（th:if 包住组件输出，含 module script 标签） -->
-    <span
-      th:if="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}"
-      th:remove="tag"
-    >
+    <span th:if="${visitorStyleEnabled}" th:remove="tag">
       <DisplaySettings client:only="svelte" />
     </span>
   </div>

@@ -174,19 +174,24 @@ import PageHeader from "../components/control/PageHeader.astro";
   <div class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
     <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
       <!-- 左卡片：我的博客信息 -->
+      {
+        /* ownerInfo：本站信息，卡片内 16 处引用，提取为变量统一复用；
+          改用空安全导航 ownerInfo?.xxx，ownerInfo 存在时与原式等价 */
+      }
       <div
+        th:with="ownerInfo=${theme.config?.links?.ownerInfo}"
         class="rounded-xl border p-4"
         style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
       >
         <div class="flex items-center gap-3">
           <img
-            th:if="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
-            th:src="${theme.config?.links?.ownerInfo.owner_avatar}"
-            th:alt="${theme.config?.links?.ownerInfo.owner_name}"
+            th:if="${not #strings.isEmpty(ownerInfo?.owner_avatar)}"
+            th:src="${ownerInfo?.owner_avatar}"
+            th:alt="${ownerInfo?.owner_name}"
             class="h-14 w-14 shrink-0 rounded-xl object-cover"
           />
           <div
-            th:unless="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
+            th:unless="${not #strings.isEmpty(ownerInfo?.owner_avatar)}"
             class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
           >
             <span class="icon-[material-symbols--link-rounded] text-2xl"></span>
@@ -194,13 +199,13 @@ import PageHeader from "../components/control/PageHeader.astro";
           <div class="min-w-0 flex-1">
             <h3
               class="text-base font-bold text-90"
-              th:text="${theme.config?.links?.ownerInfo.owner_name}"
+              th:text="${ownerInfo?.owner_name}"
             >
               博客名称
             </h3>
             <p
               class="mt-0.5 line-clamp-2 text-[13px] text-50"
-              th:text="${theme.config?.links?.ownerInfo.owner_description}"
+              th:text="${ownerInfo?.owner_description}"
             >
               博客描述
             </p>
@@ -215,13 +220,11 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerSiteName}">站点名称</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_name}"
+                th:text="${ownerInfo?.owner_name}"
               >
                 博客名称
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_name}"
-            />
+            </div><CopyButton copyText="${ownerInfo?.owner_name}" />
           </div>
           <div
             class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
@@ -233,13 +236,11 @@ import PageHeader from "../components/control/PageHeader.astro";
                 >
               </div><div
                 class="line-clamp-2 text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_description}"
+                th:text="${ownerInfo?.owner_description}"
               >
                 博客描述
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_description}"
-            />
+            </div><CopyButton copyText="${ownerInfo?.owner_description}" />
           </div>
           <div
             class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
@@ -249,13 +250,11 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerSiteUrl}">站点链接</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_url}"
+                th:text="${ownerInfo?.owner_url}"
               >
                 https://example.com
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_url}"
-            />
+            </div><CopyButton copyText="${ownerInfo?.owner_url}" />
           </div>
           <div
             class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
@@ -265,13 +264,11 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerAvatarUrl}">头像链接</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_avatar}"
+                th:text="${ownerInfo?.owner_avatar}"
               >
                 https://example.com/avatar.jpg
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_avatar}"
-            />
+            </div><CopyButton copyText="${ownerInfo?.owner_avatar}" />
           </div>
           <div
             class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
@@ -281,13 +278,11 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerRss}">RSS 地址</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_rss}"
+                th:text="${ownerInfo?.owner_rss}"
               >
                 /rss.xml
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_rss}"
-            />
+            </div><CopyButton copyText="${ownerInfo?.owner_rss}" />
           </div>
         </div>
       </div>
