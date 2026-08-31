@@ -1,14 +1,13 @@
-import { onSwupHook } from "../../utils/once";
 // @ts-nocheck —— 从 MainGridLayout.astro 内联脚本迁入（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { onSwupHook } from "../../utils/once";
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "../../utils/i18n";
 // 随机钓鱼 - 点击按钮鱼钩摇摆 1.5 秒后随机跳转朋友圈文章
 // 放到 swup-container 外部 + 事件委托，保证直接访问和 Swup 导航都生效
 // 构建产物：public/assets/random-fish.js（esbuild 编译，勿手改产物）
 (function () {
-  var t =
-    window.__etherealI18n ||
-    function (_key, fallback) {
-      return fallback;
-    };
   var SPIN_DELAY = 1500; // 摇摆等待时长（ms）
   var spinning = false; // 防止重复点击
 

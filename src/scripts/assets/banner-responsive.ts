@@ -1,5 +1,6 @@
-import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // Banner 叠加层：首页可见 + 居中 + 响应式字号 + 空间不足隐藏
 (function () {
   // ── Banner 响应式常量 ──

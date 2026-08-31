@@ -1,10 +1,10 @@
 // 外链跳转提示（模态框方案）
 import { getThemeConfig } from "./theme-config";
+import { copyText } from "./clipboard";
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "./i18n";
 import type { ExternalLink } from "../types/config";
-
-// 客户端 i18n：复用 Layout.astro 注入的全局助手（缺失时退化为回退文案）
-const t =
-  window.__etherealI18n ?? ((key: string, fallback: string) => fallback);
 /** 简单 {0} 占位符替换，与 i18n 参数格式一致 */
 function fmt(msg: string, ...args: (string | number)[]): string {
   return String(msg).replace(/\{(\d+)\}/g, (m, i) =>
@@ -307,29 +307,19 @@ function bindStaticListeners(modal: HTMLElement) {
     }
     copyBtn.style.color = "var(--primary)";
     copyBtn.disabled = true;
-    navigator.clipboard
-      .writeText(text)
-      .then(() => {
-        setTimeout(() => {
-          if (icon)
-            icon.className =
-              "icon-[material-symbols--content-copy-outline-rounded]";
-          if (label) label.textContent = t("external_link.copy_link", "复制");
-          copyBtn.style.color = "";
-          copyBtn.disabled = false;
-        }, 2000);
-      })
-      .catch(() => {
-        console.warn("[ExternalLink] Clipboard write failed");
-        setTimeout(() => {
-          if (icon)
-            icon.className =
-              "icon-[material-symbols--content-copy-outline-rounded]";
-          if (label) label.textContent = t("external_link.copy_link", "复制");
-          copyBtn.style.color = "";
-          copyBtn.disabled = false;
-        }, 2000);
-      });
+    // #5：统一到 copyText（Clipboard API + execCommand 兜底）；原 then/catch 里
+    // 重复两遍的恢复逻辑合并为一处，仅真的失败时告警
+    copyText(text).then((ok) => {
+      if (!ok) console.warn("[ExternalLink] Clipboard write failed");
+      setTimeout(() => {
+        if (icon)
+          icon.className =
+            "icon-[material-symbols--content-copy-outline-rounded]";
+        if (label) label.textContent = t("external_link.copy_link", "复制");
+        copyBtn.style.color = "";
+        copyBtn.disabled = false;
+      }, 2000);
+    });
   });
 
   // Back button

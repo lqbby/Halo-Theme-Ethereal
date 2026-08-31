@@ -1,5 +1,6 @@
-import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // 文章卡片瀑布流（Masonry）布局
 // 仅在容器为 grid 模式且启用瀑布流（data-masonry="true"）时生效；
 // 否则恢复 CSS grid 布局。换页后由 SwupScriptsPlugin 重执行覆盖（同 collapse.js）。

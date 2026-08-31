@@ -23,10 +23,9 @@ import { onPageView } from "./once";
  */
 
 import { getThemeConfig, setThemeConfig } from "./theme-config";
-
-// 客户端 i18n：复用 Layout.astro 注入的全局助手（缺失时退化为回退文案）
-const t =
-  window.__etherealI18n ?? ((key: string, fallback: string) => fallback);
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "./i18n";
 
 export interface StatusOption {
   key: string;

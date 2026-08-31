@@ -1,18 +1,16 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 波浪 viewBox 动画
 // 2.8：#theme-config 解析与缓存契约收敛到 _theme-config.ts 的 getThemeConfig()
-import { getThemeConfig } from "./_theme-config";
+// #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，Vite 侧共用）
+// #6：styleSwitches 下钻收敛到 getStyleSwitches()
+import { getStyleSwitches } from "./_theme-config";
 (function () {
   // 三选开关（settings.yaml styleSwitches.banner_wave）：
   // disabled / 旧版布尔 false → 不启动动画；desktop_only + 触屏设备 → 隐藏容器并跳过动画。
-  // wave.js 是 public/ 静态资产读不到 theme.config，配置经 getThemeConfig() 从
+  // wave.js 是 public/ 静态资产读不到 theme.config，配置经 getStyleSwitches() 从
   // Layout.astro 注入的 #theme-config JSON 读取（首个执行的脚本写缓存，后续复用）。
-  var waveValue = null;
-  var waveCfg = getThemeConfig();
-  if (waveCfg) {
-    var waveSw = waveCfg.style && waveCfg.style.styleSwitches;
-    if (waveSw) waveValue = waveSw.banner_wave;
-  }
+  var waveSw = getStyleSwitches();
+  var waveValue = waveSw ? waveSw.banner_wave : null;
   // 关闭（含旧版布尔 false）：不启动动画
   if (waveValue === false || waveValue === "disabled") return;
   // 移动端关闭：触屏设备（pointer: coarse，与 navbar.js 判定一致）隐藏波浪容器并跳过动画

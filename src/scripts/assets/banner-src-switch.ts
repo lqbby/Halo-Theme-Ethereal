@@ -1,5 +1,6 @@
-import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // Banner 移动端独立来源切换引擎
 // 双容器（#banner / #banner-mobile）显隐由 CSS 媒体查询驱动（首帧即定），
 // 本脚本只负责媒体生命周期：激活容器首图升级 eager、视频 preload/播放切换。
@@ -8,14 +9,14 @@ import { guardOnce } from "../../utils/once";
 // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
 // Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（同 wave.js）。
 // 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
-import { getThemeConfig } from "./_theme-config";
+// #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，Vite 侧共用）
+// #6：bannerStyle 下钻收敛到 getBannerConfig()
+import { getBannerConfig } from "./_theme-config";
 (function () {
-  // #theme-config JSON 解析（2.8：收敛到 _theme-config.ts 的 getThemeConfig）。
-  // 原内联版在元素缺失/解析失败时直接 return；现 getThemeConfig 返回 null，
-  // 由下方 if (!bannerCfg || bannerCfg.useMobileSrc !== true) return 等价拦截。
-  var cfg = getThemeConfig();
-  var bannerCfg =
-    cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
+  // #theme-config JSON 解析（2.8 收敛到 _theme-config.ts；#6 起下钻经
+  // getBannerConfig()）。原内联版在元素缺失/解析失败时直接 return；
+  // 现缺失返回 null，由下方 if (!bannerCfg || ...) return 等价拦截。
+  var bannerCfg = getBannerConfig();
   if (!bannerCfg || bannerCfg.useMobileSrc !== true) return;
   // 移动端是否有有效来源由 SSR 统一判定（src/utils/image-suffix.ts
   // bannerMobileVars() 的 mobileActive），移动容器 #banner-mobile 仅在

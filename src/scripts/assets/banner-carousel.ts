@@ -9,7 +9,9 @@
 // 隐藏容器（display:none）的 IntersectionObserver 报 isIntersecting=false 自然
 // 暂停定时器，无需跨容器事件联动；首图 lazy 在容器被 CSS 显示后立即加载。
 // 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
-import { getThemeConfig } from "./_theme-config";
+// #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，与 Vite 侧共用）
+// #6：bannerStyle 下钻收敛到 getBannerConfig()
+import { getBannerConfig } from "./_theme-config";
 import { guardOnce } from "../../utils/once";
 (function () {
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
@@ -23,11 +25,9 @@ import { guardOnce } from "../../utils/once";
   if (c1) containers.push(c1);
   if (c2) containers.push(c2);
 
-  // #theme-config JSON 解析（2.8：收敛到 _theme-config.ts 的 getThemeConfig，
-  // window.__themeConfig 缓存契约不变）
-  var cfg = getThemeConfig();
-  var bannerCfg =
-    cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
+  // #theme-config JSON 解析（2.8 收敛到 _theme-config.ts；#6 起下钻经
+  // getBannerConfig()，配置结构变更单点）
+  var bannerCfg = getBannerConfig();
   var carouselCfg = bannerCfg && bannerCfg.carousel ? bannerCfg.carousel : {};
   var effect = carouselCfg.effect === "slide" ? "slide" : "fade";
   var showDots = carouselCfg.dots !== false;

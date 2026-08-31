@@ -1,5 +1,6 @@
-import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // Banner 视频：右下角播放/暂停按钮 + 屏幕外暂停（wave 同构）。
 // 视频始终 muted（浏览器自动播放限制），不显示浏览器原生控件，
 // 仅自定义按钮控制播放/继续。

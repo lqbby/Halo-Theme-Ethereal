@@ -1,4 +1,8 @@
 import { guardOnce } from "../../utils/once";
+import { copyText } from "../../utils/clipboard";
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "../../utils/i18n";
 // 友链页脚本合并（构建产物：public/assets/links.bundle.js，源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
 // 由 requirements / collapse / copy / link-apply / random-visit 合并，各 IIFE 守卫独立保留；
 // link-apply 与 random-visit 的原 th:if 门控移除，改由内部守卫（元素不存在即不绑定/不执行）
@@ -185,13 +189,12 @@ import { guardOnce } from "../../utils/once";
             }, 2000);
           }
 
-          navigator.clipboard
-            .writeText(text)
-            .then(restore)
-            .catch(function () {
-              console.warn("[Copy] Clipboard write failed");
-              restore();
-            });
+          // #5：统一到 copyText（Clipboard API + execCommand 兜底）；
+          // restore 无论成败都要跑，仅失败时告警
+          copyText(text).then(function (ok) {
+            if (!ok) console.warn("[Copy] Clipboard write failed");
+            restore();
+          });
         }
       });
     });
@@ -513,11 +516,6 @@ import { guardOnce } from "../../utils/once";
   // 换页 N 次后一次点击会触发 N 个委托、打开 N 个随机链接。
   if (guardOnce("random-visit")) return;
 
-  var t =
-    window.__etherealI18n ||
-    function (_key, fallback) {
-      return fallback;
-    };
   var SPIN_DELAY = 1500; // 旋转等待时长（ms）
   var spinning = false; // 防止重复点击
 

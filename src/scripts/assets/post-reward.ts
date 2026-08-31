@@ -1,13 +1,9 @@
 // 文章打赏模态框（微信/支付宝收款二维码）
 // 构建产物：public/assets/post-reward.js（源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
 import { getThemeConfig } from "./_theme-config";
-
-// 客户端 i18n：复用 Layout.astro 注入的全局助手（缺失时退化为回退文案）
-var t =
-  window.__etherealI18n ||
-  function (k, f) {
-    return f;
-  };
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "../../utils/i18n";
 
 (function () {
   "use strict";

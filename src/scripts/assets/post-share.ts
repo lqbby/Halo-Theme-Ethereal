@@ -1,15 +1,13 @@
-import { guardOnce } from "../../utils/once";
 // @ts-nocheck —— 主体为从 post.bundle.js 提取的 legacy 画布海报代码（800+ 行 ES5），
 // 保持逐字迁移不作类型改造；仅外围新增的 loadQRCode 懒加载逻辑在下方。
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
+import { copyText } from "../../utils/clipboard";
+// #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
+// 直接读 window.i18nResources，不依赖全局助手已注入）
+import { t } from "../../utils/i18n";
 // 构建产物：public/assets/post-share.js（源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
 // 文章分享图生成器（v4）+ 当前文章 URL 同步
-
-// 客户端 i18n：复用 Layout.astro 注入的全局助手（缺失时退化为回退文案）
-var t =
-  window.__etherealI18n ||
-  function (k, f) {
-    return f;
-  };
 
 // 文章协议区 URL 同步（支持 Swup 页面切换）
 (function () {
@@ -407,21 +405,14 @@ var t =
       }, 2000);
     }
 
+    // #5：复制实现统一到 utils/clipboard 的 copyText（Clipboard API + execCommand
+    // 兜底），仅在真的复制成功时才给反馈，不再出现「失败也显示已复制」
     copyBtn.addEventListener("click", function () {
       try {
-        var url = getCurrentUrl();
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(showCopied);
-        } else {
-          var ta = document.createElement("textarea");
-          ta.value = url;
-          ta.style.cssText = "position:fixed;opacity:0";
-          document.body.appendChild(ta);
-          ta.select();
-          document.execCommand("copy");
-          document.body.removeChild(ta);
-          showCopied();
-        }
+        copyText(getCurrentUrl()).then(function (ok) {
+          if (ok) showCopied();
+          else console.error("复制失败");
+        });
       } catch (e) {
         console.error("复制失败:", e);
       }
