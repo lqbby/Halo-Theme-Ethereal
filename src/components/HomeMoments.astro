@@ -28,8 +28,7 @@
   <a
     th:href="@{/moments}"
     class="home-moments-overlay"
-    aria-label="查看我的瞬间"
-  ></a>
+    aria-label="查看我的瞬间"></a>
 
   <!-- ===== 顶部：跑马灯行 ===== -->
   <div class="relative z-10 flex flex-nowrap items-center gap-3">
@@ -43,8 +42,7 @@
       ></span>
       <span
         class="text-sm font-bold text-(--btn-content)"
-        th:text="#{page.moments.title}"
-        >瞬间</span
+        th:text="#{page.moments.title}">瞬间</span
       >
     </a>
 
@@ -71,8 +69,7 @@
             <span
               class="home-moment-owner text-sm font-bold text-(--primary)"
               th:if="${moment.owner != null and not #strings.isEmpty(moment.owner.displayName)}"
-              th:text="${moment.owner.displayName}"
-              >作者</span
+              th:text="${moment.owner.displayName}">作者</span
             >
             <span
               class="text-sm text-(--primary)"
@@ -81,19 +78,16 @@
             >
             <span
               class="home-moment-text text-sm text-50"
-              th:text="${moment.spec.content.raw}"
-              >内容</span
+              th:text="${moment.spec.content.raw}">内容</span
             >
             <span
               class="home-moment-dot mx-3 inline-block h-1 w-1 shrink-0 rounded-full bg-(--primary)/40"
-              aria-hidden="true"
-            ></span>
+              aria-hidden="true"></span>
             <span
               class="home-moment-tag-data"
               style="display:none"
               th:each="tagName : ${moment.spec.tags}"
-              th:text="${tagName}"
-              ></span>
+              th:text="${tagName}"></span>
           </a>
         </div>
       </div>
@@ -103,8 +97,9 @@
         th:if="${homeMoments == null or #lists.isEmpty(homeMoments.items)}"
         class="px-3 text-sm text-30"
         th:text="#{page.moments.empty}"
-        >暂无瞬间</div
       >
+        暂无瞬间
+      </div>
     </div>
 
     <!-- 更多 -->
@@ -123,7 +118,8 @@
   <div
     id="home-moments-tags"
     class="relative z-10 mt-3 flex flex-wrap items-center gap-2"
-  ></div>
+  >
+  </div>
 </section>
 
 <style is:global>
@@ -221,28 +217,6 @@
     opacity: 0.7;
   }
 
-  /* 移动端性能降级：关闭跑马灯无限滚动动画（改为原生横向滑动），
-     同时关闭两端渐隐遮罩——无限 transform 动画与 mask 在低端机持续
-     触发合成层重绘，是移动端卡顿主因 */
-  @media (max-width: 767px) {
-    .home-moments-track--animate {
-      animation: none !important;
-      /* 释放合成层：桌面端动画时提升的 GPU 合成层，移动端不再需要，
-         避免占用安卓低端机紧张的显存 */
-      will-change: auto !important;
-    }
-    .home-moments-marquee {
-      overflow-x: auto;
-      -webkit-mask-image: none;
-      mask-image: none;
-      scrollbar-width: none;
-      -ms-overflow-style: none;
-    }
-    .home-moments-marquee::-webkit-scrollbar {
-      display: none;
-    }
-  }
-
   /* 减少动态偏好：关闭滚动 */
   @media (prefers-reduced-motion: reduce) {
     .home-moments-track--animate {
@@ -289,11 +263,8 @@
         var setupMarquee = function () {
           var groupWidth = group.scrollWidth;
           var marqueeWidth = marquee.clientWidth;
-          // 移动端不启用无缝滚动动画（CSS 已降级为原生横向滑动），
-          // 也不克隆内容，避免 DOM 翻倍加重低端机负担
-          var isMobile = window.matchMedia("(max-width: 767px)").matches;
 
-          if (groupWidth > marqueeWidth && !isMobile) {
+          if (groupWidth > marqueeWidth) {
             var clone = group.cloneNode(true);
             clone.setAttribute("aria-hidden", "true");
             track.appendChild(clone);
