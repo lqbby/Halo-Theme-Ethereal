@@ -157,6 +157,10 @@ var t =
     document.body.appendChild(card);
 
     function close() {
+      // ESC 监听统一在此移除：原先只在 Escape 分支里移除，点关闭按钮或点遮罩
+      // 关闭时监听器会残留（每次开弹窗泄漏一个 document 级 keydown）。
+      // close() 覆盖按钮/遮罩/ESC 全部关闭路径，故移到这里。
+      document.removeEventListener("keydown", escHandler);
       backdrop.style.transition = "opacity 0.15s ease";
       backdrop.style.opacity = "0";
       card.style.transition = "opacity 0.15s ease, transform 0.15s ease";
@@ -170,10 +174,10 @@ var t =
 
     backdrop.addEventListener("click", close);
     closeBtn.addEventListener("click", close);
+    // ESC 关闭（监听器由 close() 统一移除，此处不再重复移除）
     var escHandler = function (e: KeyboardEvent) {
       if (e.key === "Escape") {
         close();
-        document.removeEventListener("keydown", escHandler);
       }
     };
     document.addEventListener("keydown", escHandler);

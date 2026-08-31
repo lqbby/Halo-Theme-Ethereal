@@ -47,16 +47,21 @@
 
   var speeds = [18, 12, 8];
   var running = true;
+  // 一次性缓存 3 个波浪 SVG：rAF 每帧原本各查一次 getElementById（60fps 下约
+  // 180 次/秒）。#wave-container 位于 Swup 容器之外、跨换页持久，元素不重建，
+  // 缓存安全；缺失的槽位留 null，由 setWaveViewBox 跳过。
+  var waveSvgs = [
+    document.getElementById("wave-svg-1"),
+    document.getElementById("wave-svg-2"),
+    document.getElementById("wave-svg-3"),
+  ];
 
   function setWaveViewBox() {
     var t = performance.now() / 1000;
-    for (var i = 1; i <= 3; i++) {
-      var svg = document.getElementById("wave-svg-" + i);
+    for (var i = 0; i < 3; i++) {
+      var svg = waveSvgs[i];
       if (!svg) continue;
-      svg.setAttribute(
-        "viewBox",
-        ((t / speeds[i - 1]) % 1) * 2880 + " 0 1440 200",
-      );
+      svg.setAttribute("viewBox", ((t / speeds[i]) % 1) * 2880 + " 0 1440 200");
     }
   }
 
@@ -82,7 +87,7 @@
 
   // 波浪不在视口内时暂停
   if ("IntersectionObserver" in window) {
-    var waveContainer = document.getElementById("wave-svg-1").closest("div");
+    var waveContainer = waveSvgs[0] ? waveSvgs[0].closest("div") : null;
     if (waveContainer) {
       var observer = new IntersectionObserver(
         function (entries) {

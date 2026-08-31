@@ -358,6 +358,10 @@ var t =
 
     // ---- 关闭函数 ----
     function close() {
+      // ESC 监听统一在此移除：原先只在 Escape 分支里移除，点关闭按钮或点遮罩
+      // 关闭时监听器会残留（每次开弹窗泄漏一个 document 级 keydown）。
+      // close() 覆盖按钮/遮罩/ESC 全部关闭路径，故移到这里。
+      document.removeEventListener("keydown", escHandler);
       backdrop.style.transition = "opacity 0.15s ease";
       backdrop.style.opacity = "0";
       card.style.transition = "opacity 0.15s ease, transform 0.15s ease";
@@ -428,11 +432,10 @@ var t =
       }
     });
 
-    // ESC 关闭
+    // ESC 关闭（监听器由 close() 统一移除，此处不再重复移除）
     var escHandler = function (e) {
       if (e.key === "Escape") {
         close();
-        document.removeEventListener("keydown", escHandler);
       }
     };
     document.addEventListener("keydown", escHandler);
@@ -993,13 +996,43 @@ var t =
 
   // ==================== 初始化 ====================
 
-  function safeInit() {
+  var RETRY_LIMIT = 10;
+
+  // dataset 守卫防重复绑定：脚本每次被重执行都会新建闭包，generateShareImage
+  // 是全新引用，removeEventListener 删不掉上一轮注册的旧监听器（会随换页累积）。
+  function bindButton() {
     var btn = document.getElementById("post-share-btn");
-    if (btn) {
-      btn.removeEventListener("click", generateShareImage);
-      btn.addEventListener("click", generateShareImage);
-    } else {
-      setTimeout(safeInit, 500);
+    if (!btn || btn.dataset.shareBound) return false;
+    btn.dataset.shareBound = "true";
+    btn.addEventListener("click", generateShareImage);
+    return true;
+  }
+
+  // 重试定时器全局唯一，避免 Swup 多次触发叠加
+  var retryTimer = null;
+  var retryCount = 0;
+
+  function clearRetry() {
+    if (retryTimer) {
+      clearInterval(retryTimer);
+      retryTimer = null;
+    }
+  }
+
+  function safeInit() {
+    if (bindButton()) {
+      clearRetry();
+      return;
+    }
+    // 按钮可能因 Swup 渲染时机延迟出现，有限重试后放弃
+    // （后台关闭分享时按钮不存在，避免无限轮询）
+    if (!retryTimer) {
+      retryCount = 0;
+      retryTimer = setInterval(function () {
+        if (bindButton() || ++retryCount >= RETRY_LIMIT) {
+          clearRetry();
+        }
+      }, 300);
     }
   }
 

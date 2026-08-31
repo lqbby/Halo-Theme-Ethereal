@@ -262,6 +262,13 @@ if (!window.__navbarPanelToggleBound) {
 (function () {
   if (!window.matchMedia("(pointer: coarse)").matches) return;
   if (window.matchMedia("(max-width: 1023px)").matches) return;
+  // 本 IIFE 位于上方 __navbarPanelToggleBound 守卫之外，脚本每次被
+  // SwupScriptsPlugin 重执行都会再注册一个 window 级 capture 监听
+  // （N 次换页 = N 个监听器，同一次点击被重复处理）。
+  // 处理函数内部每次都实时查 DOM（#navbar 在 Swup 容器外、跨换页持久），
+  // 注册一次即可长期生效，故用跨换页的 window 标志守卫。
+  if (window.__touchSubmenuBound) return;
+  window.__touchSubmenuBound = true;
 
   function closeAll() {
     document.querySelectorAll(".group.submenu-open").forEach(function (g) {
