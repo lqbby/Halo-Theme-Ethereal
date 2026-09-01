@@ -11,14 +11,6 @@
   html,
   body {
     min-height: 100%;
-    /* 移动端触屏：关闭根滚动容器的 overscroll 行为——Android Chrome 的下拉刷新
-       与 iOS 的橡皮筋回弹都会把整个文档（含 Banner 壁纸）跟着手指拖出视口再
-       弹回，观感就是"壁纸被拉动"。
-       注意 overscroll-behavior 只对滚动容器生效，所以必须写在根滚动容器上
-       （OverlayScrollbars 在触屏设备会因 nativeScrollbarsOverlaid 取消初始化，
-       滚动容器即文档本身）。仅影响到达滚动边界时的回弹/下拉刷新，正常滚动
-       手感完全不变。 */
-    overscroll-behavior-y: none;
   }
 
   body {
