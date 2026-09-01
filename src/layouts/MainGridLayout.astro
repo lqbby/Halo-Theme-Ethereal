@@ -78,6 +78,19 @@ const {
       display: block;
     }
   }
+
+  /* 移动端触屏：禁止壁纸被"拉动"。
+     裸 <img>/<video> 在移动端会被浏览器当成可拖拽对象——手指按在壁纸上滑动
+     会进入原生图片拖拽（Android Chrome）或长按菜单+拖起（iOS Safari），
+     表现为壁纸跟着手指走。这里统一禁掉拖拽与长按菜单；touch-action: pan-y
+     保留正常的纵向滚动，只挡掉拖拽/双击缩放等干扰手势。 */
+  #banner-wrapper img,
+  #banner-wrapper video {
+    -webkit-user-drag: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: pan-y;
+  }
 </style>
 
 <Layout
@@ -139,6 +152,7 @@ const {
         decoding="async"
         class="h-full w-full object-cover"
         alt=""
+        draggable="false"
       />
     </div>
     <div
@@ -184,6 +198,7 @@ const {
         th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')},data-theme-src=${carouselDarkImgSrcExpr()},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
         decoding="async"
         class="banner-slide absolute inset-0 h-full w-full object-cover"
+        draggable="false"
       />
     </div>
     <div
@@ -248,6 +263,7 @@ const {
           fetchpriority="low"
           decoding="async"
           class="banner-slide absolute inset-0 h-full w-full object-cover"
+          draggable="false"
         />
       </div>
     </div>
