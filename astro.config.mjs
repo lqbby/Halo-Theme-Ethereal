@@ -202,6 +202,7 @@ export default defineConfig({
           "person-outline-rounded",
           "photo-library-outline-rounded",
           "photo-library-sharp",
+          "pinboard",
           "play-circle-rounded",
           "radio-button-partial",
           "refresh-rounded",
