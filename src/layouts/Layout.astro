@@ -433,13 +433,78 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
       th:inline="javascript"
     >
       (function () {
-        var url = /*[[${theme.config.style.externalFont.fontFile}]]*/ "";
-        var family = /*[[${theme.config.style.externalFont.family}]]*/ "";
-        if (!url) return;
+        var rawUrl = /*[[${theme.config.style.externalFont.fontFile}]]*/ "";
+        var rawFamily = /*[[${theme.config.style.externalFont.family}]]*/ "";
+        var trustedHosts = [
+          "fonts.googleapis.com",
+          "fonts.gstatic.com",
+          "cdn.bootcdn.net",
+        ];
+
+        function isTrustedHost(hostname) {
+          var host = hostname.toLowerCase();
+          return (
+            host === window.location.hostname.toLowerCase() ||
+            trustedHosts.some(function (allowed) {
+              return host === allowed || host.endsWith("." + allowed);
+            })
+          );
+        }
+
+        function normalizeFontUrl(value) {
+          if (typeof value !== "string" || !value.trim()) return null;
+          try {
+            var parsed = new URL(value.trim(), document.baseURI);
+            if (
+              (parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+              parsed.username ||
+              parsed.password ||
+              !isTrustedHost(parsed.hostname)
+            ) {
+              return null;
+            }
+            return parsed.href;
+          } catch (_error) {
+            return null;
+          }
+        }
+
+        function normalizeFontFamily(value) {
+          if (typeof value !== "string") return "";
+          var families = value
+            .split(",")
+            .map(function (item) {
+              return item.trim().replace(/^["']|["']$/g, "");
+            })
+            .filter(Boolean);
+          if (!families.length || families.length > 8) return "";
+          if (
+            families.some(function (item) {
+              return !/^[\p{L}\p{N}_ .-]+$/u.test(item);
+            })
+          ) {
+            return "";
+          }
+          return families
+            .map(function (item) {
+              return (
+                '"' + item.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + '"'
+              );
+            })
+            .join(",");
+        }
+
+        function cssString(value) {
+          return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+        }
+
+        var url = normalizeFontUrl(rawUrl);
+        var family = normalizeFontFamily(rawFamily);
+        if (!url || !family) return;
         // CSS 链接模式：.css 结尾或包含 fonts.googleapis.com
         if (
-          /\.css(\?|$)/.test(url) ||
-          url.indexOf("fonts.googleapis.com") !== -1
+          /\.css(\?|$)/i.test(new URL(url).pathname + new URL(url).search) ||
+          new URL(url).hostname.toLowerCase().endsWith("fonts.googleapis.com")
         ) {
           var link = document.createElement("link");
           link.rel = "stylesheet";
@@ -456,12 +521,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           fallbackLink.href = url;
           noscript.appendChild(fallbackLink);
           document.head.appendChild(noscript);
-          if (family) {
-            var fs = document.createElement("style");
-            fs.textContent = "body{font-family:" + family + "}";
-            document.head.appendChild(fs);
-          }
-        } else if (family) {
+          var fs = document.createElement("style");
+          fs.textContent = "body{font-family:" + family + "}";
+          document.head.appendChild(fs);
+        } else {
           // 字体文件模式：直接注入 @font-face
           var ext = (url.split(".").pop().split("?")[0] || "").toLowerCase();
           var fmtMap = {
@@ -475,9 +538,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           var fmt = fmtMap[ext] || "woff2";
           var s = document.createElement("style");
           s.textContent =
-            '@font-face{font-family:"EtherealCustomFont";src:url(' +
-            url +
-            ') format("' +
+            '@font-face{font-family:"EtherealCustomFont";src:url("' +
+            cssString(url) +
+            '") format("' +
             fmt +
             '");font-weight:400;font-style:normal;font-display:swap}body{font-family:"EtherealCustomFont",' +
             family +

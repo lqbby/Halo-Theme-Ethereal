@@ -13,7 +13,9 @@ import { onPageView } from "./once";
  *     成功则展示状态选项列表 + 自定义文案输入框；
  *   - 访客（401/403）：模态框内提示「暂无权限切换」。
  *
- * PUT 为整体替换，因此必须先 GET 完整配置再改字段再 PUT，避免冲掉其他后台配置。
+ * 配置接口使用 PUT 整体替换。写入前始终重新读取最新配置，并携带 ETag
+ * 做乐观并发校验；发生版本冲突时重新合并状态字段后重试一次，避免覆盖
+ * 其他后台配置。
  *
  * ⚠️ 状态集合维护须知：新增/修改状态需同步 4 处 ——
  * ① settings.yaml (select 选项 + 文案字段 + value)
@@ -118,9 +120,6 @@ const MODAL_ID = "status-modal";
 let bound = false;
 let modalEventsBound = false;
 
-/** 打开模态框时缓存的最新完整配置（选择状态时直接修改后 PUT） */
-let pendingConfig: Record<string, unknown> | null = null;
-
 /** 模态框内当前选中的状态 key（点「确认切换」时应用） */
 let selectedKey = "online";
 
@@ -210,7 +209,7 @@ function setBadgeStatus(status: string) {
 // ── API ───────────────────────────────────────────────
 
 type FetchResult =
-  | { ok: true; config: Record<string, unknown> }
+  | { ok: true; config: Record<string, unknown>; etag?: string }
   | { ok: false; reason: "unauthorized" | "network" };
 
 async function fetchJsonConfig(): Promise<FetchResult> {
@@ -223,10 +222,66 @@ async function fetchJsonConfig(): Promise<FetchResult> {
     }
     if (!resp.ok) return { ok: false, reason: "network" };
     const config = (await resp.json()) as Record<string, unknown>;
-    return { ok: true, config };
+    return {
+      ok: true,
+      config,
+      etag: resp.headers.get("ETag") || undefined,
+    };
   } catch {
     return { ok: false, reason: "network" };
   }
+}
+
+type ConfigMutation = (config: Record<string, unknown>) => boolean;
+
+type UpdateResult =
+  | { ok: true; config: Record<string, unknown>; changed: boolean }
+  | { ok: false; reason: "unauthorized" | "network"; status?: number };
+
+/**
+ * 以最新配置为基准执行小范围修改。若服务端提供 ETag，则使用 If-Match
+ * 拒绝基于旧版本的整体替换，并在冲突时重新读取并重试一次。
+ */
+async function updateJsonConfig(mutate: ConfigMutation): Promise<UpdateResult> {
+  let latest = await fetchJsonConfig();
+  if (!latest.ok) return latest;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const config = latest.config;
+    const changed = mutate(config);
+    if (!changed) return { ok: true, config, changed: false };
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (latest.etag) headers["If-Match"] = latest.etag;
+
+    try {
+      const resp = await fetch(getJsonConfigUrl(), {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(config),
+        credentials: "same-origin",
+      });
+      if (resp.ok || resp.status === 204) {
+        setThemeConfig(config);
+        return { ok: true, config, changed: true };
+      }
+      if ((resp.status === 409 || resp.status === 412) && attempt === 0) {
+        latest = await fetchJsonConfig();
+        if (!latest.ok) return latest;
+        continue;
+      }
+      if (resp.status === 401 || resp.status === 403) {
+        return { ok: false, reason: "unauthorized", status: resp.status };
+      }
+      return { ok: false, reason: "network", status: resp.status };
+    } catch {
+      return { ok: false, reason: "network" };
+    }
+  }
+
+  return { ok: false, reason: "network" };
 }
 
 // ── 模态框（复用 DOM，参考 external-link 模态框模式）──
@@ -484,39 +539,25 @@ function selectOption(key: string) {
  * 后台切换状态保存后，旧状态文案即使残留在配置里，打开模态框时也会被清空，
  * 前台不再显示旧文案（无需刷新、无需手动删除）。
  */
-async function cleanupStaleStatusText(
-  config: Record<string, unknown>,
-  currentKey: string,
-) {
-  const sidebar = (config.sidebar ??= {}) as Record<string, unknown>;
-  const profile = (sidebar.profile ??= {}) as Record<string, unknown>;
-  const settings = (profile.statusSettings ??= {}) as Record<string, unknown>;
-  let dirty = false;
-  for (const o of STATUS_OPTIONS) {
-    if (o.key === currentKey) continue;
-    if (settings[o.key] !== undefined) {
-      settings[o.key] = "";
+async function cleanupStaleStatusText(currentKey: string) {
+  await updateJsonConfig((config) => {
+    const sidebar = (config.sidebar ??= {}) as Record<string, unknown>;
+    const profile = (sidebar.profile ??= {}) as Record<string, unknown>;
+    const settings = (profile.statusSettings ??= {}) as Record<string, unknown>;
+    let dirty = false;
+    for (const o of STATUS_OPTIONS) {
+      if (o.key === currentKey) continue;
+      if (settings[o.key] !== undefined && settings[o.key] !== "") {
+        settings[o.key] = "";
+        dirty = true;
+      }
+    }
+    if (settings.statusText !== undefined) {
+      delete settings.statusText;
       dirty = true;
     }
-  }
-  if (settings.statusText !== undefined) {
-    delete settings.statusText;
-    dirty = true;
-  }
-  if (!dirty) return;
-  try {
-    const resp = await fetch(getJsonConfigUrl(), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-      credentials: "same-origin",
-    });
-    if (resp.ok || resp.status === 204) {
-      setThemeConfig(config);
-    }
-  } catch {
-    // 清理失败不影响本次使用（下次打开再试）
-  }
+    return dirty;
+  });
 }
 
 /** 点击状态表情：探测登录态后打开对应模态框 */
@@ -526,12 +567,10 @@ async function openStatusModal() {
     showTipModal(result.reason);
     return;
   }
-  pendingConfig = result.config;
-
   selectedKey = getCurrentStatus();
 
   // 自动清理非当前状态的文案残留（后台切换状态后留下的旧文案）
-  await cleanupStaleStatusText(result.config, selectedKey);
+  await cleanupStaleStatusText(selectedKey);
 
   // 卡片网格（4 列，选中态 is-active，card-hover-lift 接悬浮开关）+ 自定义文案输入框
   const body = document.createElement("div");
@@ -544,59 +583,41 @@ async function openStatusModal() {
   );
 }
 
-/** 确认切换：将当前选中状态修改到缓存配置并 PUT 写回 */
+/** 确认切换：基于服务端最新配置修改状态并 PUT 写回 */
 async function applyStatus() {
   const key = selectedKey;
   if (!getOption(key)) return;
-  // 无缓存（异常场景）时重新 GET
-  if (!pendingConfig) {
-    const result = await fetchJsonConfig();
-    if (!result.ok) {
-      showTipModal(result.reason);
-      return;
-    }
-    pendingConfig = result.config;
-  }
-
-  const config = pendingConfig;
-  const sidebar = (config.sidebar ??= {}) as Record<string, unknown>;
-  const profile = (sidebar.profile ??= {}) as Record<string, unknown>;
-  const statusSettings = (profile.statusSettings ??= {}) as Record<
-    string,
-    unknown
-  >;
-  statusSettings.status = key;
   // 自定义文案：只保留当前状态的文案，其余状态清空（与后台设置一致），
   // 同时清理历史嵌套 statusText 结构；避免切换状态后旧状态文案残留。
   const textInput =
     getModal().querySelector<HTMLInputElement>("#status-text-input");
   const text = textInput ? textInput.value.trim().slice(0, 10) : "";
-  clearStatusTexts(statusSettings);
-  statusSettings[key] = text;
-
-  try {
-    const resp = await fetch(getJsonConfigUrl(), {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-      credentials: "same-origin",
-    });
-    if (resp.ok || resp.status === 204) {
-      // 同步前端配置缓存，同会话内立即生效（无需刷新页面）
-      setThemeConfig(config);
-      pendingConfig = null;
-      setBadgeStatus(key);
-      hideModal();
-      return;
-    }
-    if (resp.status === 401 || resp.status === 403) {
-      showTipModal("unauthorized");
-      return;
-    }
-    showTipModal("network", `保存失败（HTTP ${resp.status}），请稍后再试`);
-  } catch {
-    showTipModal("network");
+  const result = await updateJsonConfig((config) => {
+    const sidebar = (config.sidebar ??= {}) as Record<string, unknown>;
+    const profile = (sidebar.profile ??= {}) as Record<string, unknown>;
+    const statusSettings = (profile.statusSettings ??= {}) as Record<
+      string,
+      unknown
+    >;
+    const previous = JSON.stringify(statusSettings);
+    statusSettings.status = key;
+    clearStatusTexts(statusSettings);
+    statusSettings[key] = text;
+    return JSON.stringify(statusSettings) !== previous;
+  });
+  if (result.ok) {
+    setBadgeStatus(key);
+    hideModal();
+    return;
   }
+  if (result.reason === "unauthorized") {
+    showTipModal("unauthorized");
+    return;
+  }
+  showTipModal(
+    "network",
+    result.status ? `保存失败（HTTP ${result.status}），请稍后再试` : undefined,
+  );
 }
 
 export function initProfileStatus(): void {

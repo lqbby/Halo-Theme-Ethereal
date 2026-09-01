@@ -163,6 +163,23 @@ html[data-banner-display="fullscreen"] {
   --banner-height-extend: 65vh;
 }
 
+/* 移动端地址栏展开/收起时，100vh 可能代表布局视口，而
+   banner-sync.ts 的延伸量使用 window.innerHeight（可视视口）。
+   两者混用会让全屏壁纸底部与波浪条出现错位。支持动态视口单位时，
+   让基础高度和全屏高度统一跟随可视视口；不支持的浏览器继续使用上面的 vh 回退。 */
+@supports (height: 100dvh) {
+  @media (max-width: 767.98px) {
+    :root {
+      --banner-height: 35dvh;
+      --banner-height-home: 65dvh;
+    }
+
+    html[data-banner-display="fullscreen"] {
+      --banner-height-home: 100dvh;
+    }
+  }
+}
+
 /* 魔改宽屏布局：总开关 + layout.pageWidth 开启时，<html> 挂 mods-page-wide 类，
    把内容容器放宽到 112rem（旧 fork 同款宽屏）；关闭则回到上游 75rem 原版
    注意：用 !important 覆盖 @layer properties 内的默认 --page-width 声明优先级 */

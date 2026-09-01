@@ -86,7 +86,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: write # 创建 tag 与 Release 需要
+      contents: read # 构建、检查和上传 artifact 只需要读取仓库
+    outputs:
+      publish: ${{ steps.release-config.outputs.publish || 'false' }}
+      release_tag: ${{ steps.release-config.outputs.release_tag }}
+      release_type: ${{ steps.release-config.outputs.release_type }}
+      sync_halo: ${{ steps.release-config.outputs.sync_halo }}
     steps:
       - uses: actions/checkout@v7
 
@@ -211,6 +216,8 @@ jobs:
             fi
             echo "publish=false" >> "$GITHUB_ENV"
             echo "publish=false" >> "$GITHUB_OUTPUT"
+            echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+            echo "sync_halo=$SYNC_HALO" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [[ -n "$MANUAL_RELEASE_TAG" ]]; then
@@ -218,6 +225,8 @@ jobs:
             echo "RELEASE_TAG=$MANUAL_RELEASE_TAG" >> "$GITHUB_ENV"
             echo "RELEASE_TYPE=$RELEASE_TYPE" >> "$GITHUB_ENV"
             echo "release_tag=$MANUAL_RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+            echo "sync_halo=$SYNC_HALO" >> "$GITHUB_OUTPUT"
             echo "手动发布版本校验通过：theme.yaml=$MANUAL_THEME_VERSION，Release tag=$MANUAL_RELEASE_TAG"
             exit 0
           fi
@@ -281,19 +290,33 @@ jobs:
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
           echo "RELEASE_TYPE=$RELEASE_TYPE" >> "$GITHUB_ENV"
           echo "release_tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "release_type=$RELEASE_TYPE" >> "$GITHUB_OUTPUT"
+          echo "sync_halo=$SYNC_HALO" >> "$GITHUB_OUTPUT"
           echo "校验通过：发布 tag $TAG"
 
-      # 上传 zip 到 Release；不存在时自动创建（说明取 release.md），已存在时更新资产。
-      # [2026-08-31] 仅手动触发（publish-github=true）才发包；push 不再自动上传。
+  publish:
+    name: Publish Release
+    needs: [build]
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # 仅发布任务需要写入 Release 资产
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: ethereal-theme
+          path: dist
+
       - name: 上传到 GitHub Release
-        if: steps.release-config.outputs.publish == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TYPE: ${{ github.event.inputs.release-type || 'latest' }}
-          SYNC_HALO: ${{ github.event.inputs.sync-halo }}
+          RELEASE_TYPE: ${{ needs.build.outputs.release_type }}
+          SYNC_HALO: ${{ needs.build.outputs.sync_halo }}
         run: |
-          TAG="$RELEASE_TAG"
-          # 组装 Release 说明：release.md 内容；sync-halo=false 时追加跳过标记
+          TAG="${{ needs.build.outputs.release_tag }}"
           WRITE_NOTES=0
           if [[ "$SYNC_HALO" == "false" ]]; then
             WRITE_NOTES=1
@@ -320,25 +343,19 @@ jobs:
               else
                 gh release create "$TAG" dist/*.zip --notes-file /tmp/release-notes.md
               fi
+            elif [[ "$RELEASE_TYPE" == "pre-release" ]]; then
+              gh release create "$TAG" dist/*.zip --prerelease
             else
-              if [[ "$RELEASE_TYPE" == "pre-release" ]]; then
-                gh release create "$TAG" dist/*.zip --prerelease
-              else
-                gh release create "$TAG" dist/*.zip
-              fi
+              gh release create "$TAG" dist/*.zip
             fi
             echo "已创建 Release $TAG 并上传资产"
           fi
 
-      # 通知 CD 同步 Halo 应用市场：GITHUB_TOKEN 创建的 Release 不会触发
-      # release:published 事件（GitHub 防递归机制），需显式发送 repository_dispatch。
-      # [2026-08-31] 仅手动发包时通知；push 不再发包故不再通知。
-      - name: 通知 CD 同步 Halo（repository_dispatch）
-        if: steps.release-config.outputs.publish == 'true'
+      - name: 通知 CD 同步 Halo
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          TAG="$RELEASE_TAG"
+          TAG="${{ needs.build.outputs.release_tag }}"
           curl -fsS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
