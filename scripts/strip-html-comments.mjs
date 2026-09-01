@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 
 /**
  * 剥离单个 HTML 文件的注释（保护 <script>/<style> 内部）。
+ * @param {string} file
  * @returns {Promise<number>} 移除的注释条数（0 表示无变化）
  */
 async function stripHtmlCommentsFile(file) {
