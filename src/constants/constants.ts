@@ -76,3 +76,35 @@ export const BANNER_SUBTITLE_DEFAULT = 1.5;
 
 // Swup visit:end 恢复延迟（ms）
 export const SWUP_VISIT_END_DELAY = 200;
+
+/**
+ * banner 几何的视口基准高度（像素）。
+ *
+ * 移动端地址栏展开/收起会让 window.innerHeight 随滚动连续变化（等价于 dvh），
+ * 而 CSS 侧移动端已统一改用 svh（地址栏展开时的高度，滚动全程恒定，见
+ * variables.css）计算 --banner-height / --banner-height-home / 首帧
+ * --banner-height-extend。若继续取运行期 innerHeight，收起地址栏后算出的延伸
+ * 像素会偏大：banner 底边（svh 恒定）与波浪底边（随延伸量变化）分离，滚动中
+ * 表现为"波浪条错位"，壁纸框高度变化还会让 object-cover 反复重裁。
+ *
+ * 因此移动端一律以 CSS 的 svh 实测值为基准：用临时探针元素读 100svh 的布局
+ * 高度，保证 JS 写入的像素与 CSS 几何严格同基准（也不受"刷新时恢复滚动位置、
+ * 地址栏已是收起态"影响）。桌面端无地址栏，直接用 innerHeight；探针读不到
+ * （老浏览器不支持 svh）时同样回落 innerHeight。
+ *
+ * ⚠️ 本文件会进入服务端预渲染 bundle（wallpaper.ts → 访客设置面板 SSR），
+ * 因此这里只允许函数定义，禁止任何模块级 window/document 访问；本函数本身
+ * 也只允许在浏览器端调用（load / resize / 切换壁纸模式），不在滚动帧内调用。
+ */
+export function stableViewportHeight(): number {
+  if (window.innerWidth >= BANNER_TABLET_BREAKPOINT) {
+    return window.innerHeight;
+  }
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none;";
+  document.documentElement.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return height > 0 ? height : window.innerHeight;
+}

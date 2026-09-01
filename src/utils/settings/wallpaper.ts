@@ -1,6 +1,7 @@
 import {
   bannerExtendVh,
   calcBannerHeightExtend,
+  stableViewportHeight,
 } from "../../constants/constants.ts";
 import {
   getVisitorSwitches,
@@ -104,8 +105,11 @@ export function getStoredBannerDisplay(): BannerDisplayMode {
  *  来源 constants.ts，勿硬编码）。disabled/transparent 模式不使用延伸量
  *  （横幅隐藏 / 固定定位覆写），按横幅值写入即可 */
 function applyBannerExtend(mode: BannerDisplayMode): void {
+  // 用稳定视口高度（移动端 = svh 实测值）而非 window.innerHeight：访客可能在
+  // 页面已滚动（地址栏收起）时切换模式，用 innerHeight 会算出偏大的延伸量，
+  // 与 CSS 侧 svh 几何脱节，波浪与 banner 底边错位
   const offset = calcBannerHeightExtend(
-    window.innerHeight,
+    stableViewportHeight(),
     bannerExtendVh(mode === "fullscreen"),
   );
   document.documentElement.style.setProperty(

@@ -163,19 +163,33 @@ html[data-banner-display="fullscreen"] {
   --banner-height-extend: 65vh;
 }
 
-/* 移动端地址栏展开/收起时，100vh 可能代表布局视口，而
-   banner-sync.ts 的延伸量使用 window.innerHeight（可视视口）。
-   两者混用会让全屏壁纸底部与波浪条出现错位。支持动态视口单位时，
-   让基础高度和全屏高度统一跟随可视视口；不支持的浏览器继续使用上面的 vh 回退。 */
-@supports (height: 100dvh) {
+/* 移动端：banner 几何一律以 svh（small viewport height = 地址栏展开时的可视
+   高度）为基准，滚动全程恒定。
+
+   此前用 dvh（dynamic viewport height）：它在地址栏展开/收起时随滚动连续
+   变化，而 --banner-height-extend 是 JS 按某一瞬间视口算出的固定像素值。
+   两者基准不同步会造成相对漂移 —— 以地址栏高度差 Δ≈80px 计：
+     · banner 底边 = 65dvh            → 随 Δ 下移 0.65Δ ≈ 52px
+     · 波浪底边 = 35dvh + 8px + 延伸px → 只下移 0.35Δ ≈ 28px
+   两个边界以 0.30Δ ≈ 24px 的速度分离，即「上下滑动时波浪条错位」；同时
+   壁纸框高度 65dvh 反复变化，object-cover 不断重新裁切，观感即「壁纸被拉动」。
+
+   改用 svh 后四个量（--banner-height / --banner-height-home /
+   --banner-height-extend 及其全屏变体）同基准，滚动中不再相对移动。
+   JS 侧对应改用 banner-sync.ts 的 stableViewportHeight()（实测 100svh），
+   保证写入的像素与这里的 CSS 基准一致；不支持 svh 的浏览器回退到上面的 vh。 */
+@supports (height: 100svh) {
   @media (max-width: 767.98px) {
     :root {
-      --banner-height: 35dvh;
-      --banner-height-home: 65dvh;
+      --banner-height: 35svh;
+      --banner-height-home: 65svh;
+      /* 首帧兜底（JS 接管前）；运行期由 head 脚本 / banner-sync 写成 px */
+      --banner-height-extend: 30svh;
     }
 
     html[data-banner-display="fullscreen"] {
-      --banner-height-home: 100dvh;
+      --banner-height-home: 100svh;
+      --banner-height-extend: 65svh;
     }
   }
 }

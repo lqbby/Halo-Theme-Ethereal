@@ -4,9 +4,11 @@
 // 同源，不再维护 body.banner-fullscreen class。
 // 高度数值的权威定义在 constants.ts（BANNER_HEIGHT / *_EXTEND / *_HOME 等）。
 import {
+  BANNER_TABLET_BREAKPOINT,
   bannerExtendVh,
   bannerHomeVh,
   calcBannerHeightExtend,
+  stableViewportHeight,
 } from "../constants/constants";
 
 // 全屏模式由 <html data-banner-display> 标记；首页 banner 高度随模式推导
@@ -46,6 +48,11 @@ function syncHomeClass(pathname = window.location.pathname) {
   document.body.classList.toggle("is-home", isHomePath(pathname));
 }
 
+// 视口基准高度 stableViewportHeight() 定义在 constants.ts（与 CSS svh 基准
+// 严格同源，见其 JSDoc）。不能放本文件：wallpaper.ts（访客设置面板 SSR 链路）
+// 也需要它，而本文件含模块级 window 语句，进服务端预渲染 bundle 会直接
+// ReferenceError——constants.ts 是两端都能安全引入的唯一公共位置
+
 // 重算延伸像素写入 CSS 变量。head 内联脚本负责首帧计算（解析期 innerHeight），
 // 此处负责运行期响应式（resize）与首屏后纠正。访客可在运行期切换壁纸模式
 // （setting-utils 的 applyBannerDisplay 会重写 data-banner-display 并重算延伸），
@@ -54,13 +61,25 @@ function refreshBannerExtend(): void {
   const fullscreen =
     document.documentElement.dataset.bannerDisplay === "fullscreen";
   const offset = calcBannerHeightExtend(
-    window.innerHeight,
+    stableViewportHeight(),
     bannerExtendVh(fullscreen),
   );
   document.documentElement.style.setProperty(
     "--banner-height-extend",
     `${offset}px`,
   );
+}
+
+// resize 守卫：移动端地址栏展开/收起同样会触发 resize，但宽度不变。此时若
+// 重算，延伸量会切到"地址栏收起"视口的值，与 svh 几何脱节，且发生在滚动
+// 过程中 —— 观感就是波浪/壁纸突然跳一下。宽度不变即视为地址栏伸缩，忽略；
+// 旋转（宽度变化）与桌面端窗口缩放照常重算。
+let lastResizeWidth = window.innerWidth;
+function onResize(): void {
+  const widthChanged = window.innerWidth !== lastResizeWidth;
+  lastResizeWidth = window.innerWidth;
+  if (!widthChanged && window.innerWidth < BANNER_TABLET_BREAKPOINT) return;
+  refreshBannerExtend();
 }
 
 // Safari 首次导航：解析期 window.innerHeight 与最终视口可能不一致（布局未
@@ -70,6 +89,6 @@ function refreshBannerExtend(): void {
 // resize 同理重算；is-home 只与路径相关，由 app.ts 的 init / 换页钩子维护，
 // 此处无需重复同步
 window.addEventListener("load", refreshBannerExtend);
-window.addEventListener("resize", refreshBannerExtend);
+window.addEventListener("resize", onResize);
 
 export { syncHomeClass, isHomePath };
