@@ -8,6 +8,29 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+/**
+ * 剥离单个 HTML 文件的注释（保护 <script>/<style> 内部）。
+ * @returns {Promise<number>} 移除的注释条数（0 表示无变化）
+ */
+async function stripHtmlCommentsFile(file) {
+  let html = await readFile(file, "utf8");
+  const parts = html.split(PROTECTED);
+  let removed = 0;
+  const stripped = parts
+    .map((seg, i) => {
+      if (i % 2 === 1) return seg; // 保护块原样保留
+      const matched = seg.match(COMMENT);
+      if (matched) removed += matched.length;
+      return seg.replace(COMMENT, "");
+    })
+    .join("");
+  if (stripped !== html) {
+    await writeFile(file, stripped);
+    return removed;
+  }
+  return 0;
+}
+
 // 保护块：script/style 内部（Thymeleaf 内联语法、字符串字面量中的 `<!--` 均在其中）
 // 结束标签用 [^>]*> 宽松匹配：兼容 `</script >`、`</script data-x>` 等带空白/属性的写法
 const PROTECTED =
@@ -15,35 +38,34 @@ const PROTECTED =
 // 跨行非贪婪匹配 HTML 注释；未闭合（无 --> 配对）时匹配到段尾一并清除，避免残留破坏结构
 const COMMENT = /<!--[\s\S]*?(?:-->|$)/g;
 
-/** @param {string} dirPath */
+/**
+ * 递归剥离目录下全部 HTML 文件的注释（含子目录）。
+ * 修复：原实现仅遍历顶层，导致 templates/error、templates/gateway_fragments
+ * 等子目录模板的注释未被剥离。
+ * @param {string} dirPath
+ */
 export async function stripHtmlCommentsInDir(dirPath) {
   let files = 0;
   let comments = 0;
   let entries;
   try {
-    entries = await readdir(dirPath);
+    entries = await readdir(dirPath, { withFileTypes: true });
   } catch {
     console.warn(`[strip-comments] 目录不存在，跳过：${dirPath}`);
     return { files: 0, comments: 0 };
   }
-  for (const name of entries) {
-    if (!name.endsWith(".html")) continue;
-    const file = join(dirPath, name);
-    let html = await readFile(file, "utf8");
-    const parts = html.split(PROTECTED);
-    let removed = 0;
-    const stripped = parts
-      .map((seg, i) => {
-        if (i % 2 === 1) return seg; // 保护块原样保留
-        const matched = seg.match(COMMENT);
-        if (matched) removed += matched.length;
-        return seg.replace(COMMENT, "");
-      })
-      .join("");
-    if (stripped !== html) {
-      await writeFile(file, stripped);
-      files++;
-      comments += removed;
+  for (const e of entries) {
+    const p = join(dirPath, e.name);
+    if (e.isDirectory()) {
+      const r = await stripHtmlCommentsInDir(p);
+      files += r.files;
+      comments += r.comments;
+    } else if (e.isFile() && e.name.endsWith(".html")) {
+      const removed = await stripHtmlCommentsFile(p);
+      if (removed > 0) {
+        files++;
+        comments += removed;
+      }
     }
   }
   console.log(`[strip-comments] 剥离 ${comments} 条注释（${files} 个 HTML）`);
