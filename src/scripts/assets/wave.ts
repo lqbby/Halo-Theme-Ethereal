@@ -5,6 +5,12 @@
 // #6：styleSwitches 下钻收敛到 getStyleSwitches()
 import { getStyleSwitches } from "./_theme-config";
 (function () {
+  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
+  function onIdle(cb) {
+    if ("requestIdleCallback" in window)
+      requestIdleCallback(cb, { timeout: 2000 });
+    else setTimeout(cb, 1);
+  }
   // 三选开关（settings.yaml styleSwitches.banner_wave）：
   // disabled / 旧版布尔 false → 不启动动画；desktop_only + 触屏设备 → 隐藏容器并跳过动画。
   // wave.js 是 public/ 静态资产读不到 theme.config，配置经 getStyleSwitches() 从
@@ -89,7 +95,11 @@ import { getStyleSwitches } from "./_theme-config";
     }
   }
 
-  requestAnimationFrame(step);
+  // P1（1.2.86）：波浪为底部装饰、不在首屏关键路径，把 rAF 动画链启动推到
+  // 主线程空闲（requestIdleCallback），削减首屏 load 期的同步主线程工作（TBT）
+  onIdle(function () {
+    requestAnimationFrame(step);
+  });
   // 原 swup:contentReplaced 同步监听已删除：Swup v3 事件名，v4 分发
   // swup:{hook}（如 swup:content:replace），该监听从未触发；
   // 且 rAF 链每帧持续同步 viewBox，无需换页时额外校准。

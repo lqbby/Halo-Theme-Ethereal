@@ -14,6 +14,12 @@
 import { getBannerConfig } from "./_theme-config";
 import { guardOnce } from "../../utils/once";
 (function () {
+  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
+  function onIdle(cb) {
+    if ("requestIdleCallback" in window)
+      requestIdleCallback(cb, { timeout: 2000 });
+    else setTimeout(cb, 1);
+  }
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
   // Layout（Swup 容器外）跨页面持久——不守卫则每次换页叠加一套定时器链 +
   // IO 观察器 + 监听器（N 次换页 = N 倍开销），与 wave.js 同模式。
@@ -280,7 +286,14 @@ import { guardOnce } from "../../utils/once";
     }
   }
 
+  // P1（1.2.86）：轮播为装饰性轮换，首图靠 CSS .active 默认显示，把初始化
+  // （建指示点/DOM + 预加载 + 启动定时器）推到 requestIdleCallback，削减首屏
+  // 同步主线程工作（TBT）；首图已 eager+preload（P0-1），idle 时 start() 立即就绪
   for (var ci = 0; ci < containers.length; ci++) {
-    initBannerCarousel(containers[ci]);
+    (function (c) {
+      onIdle(function () {
+        initBannerCarousel(c);
+      });
+    })(containers[ci]);
   }
 })();

@@ -5,6 +5,12 @@ import { initBannerSubtitle } from "./_banner-title-shared";
 import { guardOnce } from "../../utils/once";
 
 (function () {
+  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
+  function onIdle(cb) {
+    if ("requestIdleCallback" in window)
+      requestIdleCallback(cb, { timeout: 2000 });
+    else setTimeout(cb, 1);
+  }
   var TypewriterEffect = function (el, lines) {
     this.el = el;
     this.lines = lines;
@@ -148,5 +154,9 @@ import { guardOnce } from "../../utils/once";
     document.addEventListener("banner:visible", runInitTW);
   }
 
-  runInitTW();
+  // P1（1.2.86）：打字机为 banner 副标题装饰，首屏 home 初始加载不依赖
+  // banner:visible（仅 Swup 从非首页回首页才分发），把初始同步初始化推到
+  // 主线程空闲（requestIdleCallback），削减首屏 load 期同步主线程工作（TBT）；
+  // banner:visible 监听器保留，Swup 导航回首页时照常触发
+  onIdle(runInitTW);
 })();
