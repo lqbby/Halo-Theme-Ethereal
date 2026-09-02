@@ -340,10 +340,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
         });
     }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", load);
-    } else {
-      load();
-    }
+    // 视口懒加载：评论列表进入可视区才拉数据（首屏不再无条件瀑布请求）
+    window.__themeLazyInit("recent-comments-list", load);
   })();
 </script>

@@ -245,6 +245,40 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         };
       })();
     </script>
+    <!-- 侧边栏组件视口懒加载助手：仅当容器进入可视区（提前 300px）才执行 init，
+         避免首屏一次性执行/请求所有侧边栏 widget（天气、一言、站点统计、
+         音乐、最近评论），降低 LCP/TBT。不支持 IntersectionObserver 的老内核
+         或容器不存在时退化为立即执行，保证功能不缺失。 -->
+    <script is:inline>
+      (function () {
+        if (window.__themeLazyInit) return;
+        window.__themeLazyInit = function (elId, initFn) {
+          var el =
+            typeof elId === "string" ? document.getElementById(elId) : elId;
+          if (!el) {
+            initFn();
+            return;
+          }
+          if (typeof initFn !== "function") return;
+          if (!("IntersectionObserver" in window)) {
+            initFn();
+            return;
+          }
+          var io = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (e) {
+                if (e.isIntersecting) {
+                  io.disconnect();
+                  initFn();
+                }
+              });
+            },
+            { rootMargin: "300px" },
+          );
+          io.observe(el);
+        };
+      })();
+    </script>
     <!-- QQ/X5 内核兼容诊断探针：捕获模块解析/运行时错误并浮层显示，
          用于定位老内核（如 QQ 内置浏览器 TBS）不执行 JS 的真实报错。
          正常环境不弹条；确认根因后可整体删除本块。 -->

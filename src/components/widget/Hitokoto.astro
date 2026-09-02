@@ -237,12 +237,8 @@ const className = Astro.props.class;
       }
     }
 
-    // 初始化
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initHitokoto);
-    } else {
-      initHitokoto();
-    }
+    // 视口懒加载：卡片进入可视区才初始化（首屏不再无条件发一言请求）
+    window.__themeLazyInit("hitokotoCard", initHitokoto);
 
     // 换页后重新初始化：由 SwupScriptsPlugin 重执行本脚本时自动覆盖；
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。

@@ -401,7 +401,7 @@ const layoutId = `${widgetId}-layout`;
 </div>
 
 <script define:vars={{ widgetId }} is:inline>
-  (() => {
+  (function initFirefly() {
     const widget = document.getElementById(widgetId);
     if (!widget || widget.dataset.fireflyBound === "true") return;
     widget.dataset.fireflyBound = "true";
@@ -1018,5 +1018,7 @@ const layoutId = `${widgetId}-layout`;
 
     // 换页清理音频：Swup 容器替换时旧 audio 元素随之销毁；
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
-  })();
+  });
+  // 视口懒加载：播放器容器进入可视区才初始化（首屏不再无条件加载歌单）
+  window.__themeLazyInit(widgetId, initFirefly);
 </script>

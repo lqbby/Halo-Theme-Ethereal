@@ -464,16 +464,9 @@ const style = Astro.props.style;
       }
     }
 
-    // 初始加载
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", refreshSiteStats);
-    } else {
-      refreshSiteStats();
-    }
-
-    // swup 页面切换后：SwupScriptsPlugin 在每次换页时重执行本脚本，
-    // 直接调用 refreshSiteStats 完成数据刷新（原 swup:contentReplaced
-    // 监听删除——v3 事件名，v4 分发 swup:{hook}，从未触发）。
-    refreshSiteStats();
+    // 视口懒加载：统计区块进入可视区才刷新（修复原「readyState 分支 +
+    // 底部无条件调用」的双执行 bug；swup 换页时本脚本重执行，容器已在
+    // 可视区会立即触发，等价于原「换页刷新」语义）。
+    window.__themeLazyInit("site-stats-total-words", refreshSiteStats);
   })();
 </script>

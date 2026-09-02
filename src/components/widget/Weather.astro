@@ -481,7 +481,8 @@ const className = Astro.props.class;
         });
     }
 
-    loadWeather();
+    // 视口懒加载：容器进入可视区才拉天气数据（首屏不再无条件请求）
+    window.__themeLazyInit("weather-content", loadWeather);
     // 换页后数据刷新：由 SwupScriptsPlugin 重执行本脚本时自动覆盖；
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
   })();
