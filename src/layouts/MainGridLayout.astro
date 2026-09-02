@@ -126,8 +126,8 @@ const {
           rel="preload"
           as="image"
           fetchpriority="high"
-          th:if="${mode == 'single' and !isVideo and !mobileActive}"
-          th:href="${srcX}"
+          th:if="${!mobileActive and ((mode == 'single' and !isVideo) or (mode == 'carousel' and carouselHasImg))}"
+          th:href="${mode == 'single' ? srcX : carouselFirstSrcX}"
         />
       )
     }

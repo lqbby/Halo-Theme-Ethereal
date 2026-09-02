@@ -98,7 +98,15 @@ export function bannerThWith(): string {
       darkSrc,
     ) +
     ", " +
-    bannerMobileVars()
+    bannerMobileVars() +
+    ", " +
+    // 轮播首图 URL（供桌面 <link rel=preload> 在 mode=='carousel' 时提前发现，
+    // 消除 LCP discovery delay；与下方 #banner 轮播分支 imgStat.index==0 对齐）
+    "carouselHasImg=${!#lists.isEmpty(theme.config?.style?.bannerStyle?.carousel?.images)}, " +
+    "carouselFirst=${#strings.defaultString(theme.config?.style?.bannerStyle?.carousel?.images[0], '')}, " +
+    "carouselFirstSrcX=${carouselFirst + (" +
+    cdnSuffixEligible("carouselFirst") +
+    " ? suffix : '')}"
   );
 }
 
