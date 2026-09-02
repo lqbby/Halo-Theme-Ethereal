@@ -25,38 +25,31 @@
     will-change: transform, opacity;
   }
 
-  /* 魔改：卡片背景 PNG 纹理（仅 <html class="mods-card-pattern"> 时生效；
+  /* 魔改：卡片背景纹理（仅 <html class="mods-card-pattern"> 时生效；
      关闭魔改 → 无纹理，回到上游原版）。
+     仅电脑端（>=768px）应用：
+       - 媒体查询不命中时浏览器根本不会请求其中的 url()，手机端零下载零解码
+       - 取代原 1.2.78 之前的「先无条件加载 PNG、再在 max-width:767px 隐藏」——
+         旧方案让手机端白下 653KB 然后把它藏起来
+     SVG 是矢量，按 background-size 实时光栅化，高清屏天然锐利，无需 2x 超采样图 */
+  @media (min-width: 768px) {
+    :root.mods-card-pattern .card-base,
+    :root.mods-card-pattern .float-panel {
+      background-image: url(/themes/Ethereal/assets/images/pattern-light.svg);
+      background-position: 50%;
+      background-repeat: repeat;
+      background-size: 400px;
+    }
 
-     ⚠️ url() 必须直接写在 background-image 上，不要放进 CSS 自定义属性：
-     自定义属性里含 url() 时，Chromium 无法静态判断最终命中哪个值，会把亮/暗两张纹理
-     （653.4 KB / 584.3 KB）无条件预加载。拆成下面两条静态规则后，只有当前主题命中的
-     那一条会被下载 —— 亮色只下 pattern-light.png，暗色只下 pattern-dark.png。 */
-  :root.mods-card-pattern .card-base,
-  :root.mods-card-pattern .float-panel {
-    background-image: url(/themes/Ethereal/assets/images/pattern-light.png);
-    background-position: 50%;
-    background-repeat: repeat;
-    background-size: 400px;
-  }
-
-  /* 暗色：仅覆盖 background-image，其余平铺参数继承上面亮色规则 */
-  :root.dark.mods-card-pattern .card-base,
-  :root.dark.mods-card-pattern .float-panel {
-    background-image: url(/themes/Ethereal/assets/images/pattern-dark.png);
+    /* 暗色：仅覆盖 background-image，其余平铺参数继承上面亮色规则 */
+    :root.dark.mods-card-pattern .card-base,
+    :root.dark.mods-card-pattern .float-panel {
+      background-image: url(/themes/Ethereal/assets/images/pattern-dark.svg);
+    }
   }
 
   :root.dark .float-panel {
     @apply shadow-none;
-  }
-
-  /* 移动端只保留纯色卡片背景：PNG 纹理在低端机长列表滚动掉帧，关闭 */
-  @media (max-width: 767px) {
-    .card-base,
-    .float-panel,
-    .submenu-panel {
-      background-image: none !important;
-    }
   }
 
   /* 标签胶囊（全站统一）：颜色跟随标签配置 tag.spec.color（由 th:style 注入

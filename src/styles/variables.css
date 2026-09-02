@@ -32,9 +32,10 @@
   --primary: oklch(0.7 0.14 var(--hue));
   --page-bg: oklch(0.95 0.01 var(--hue));
   --card-bg: white;
-  /* 卡片装饰纹理（v1.1.32 引入 PNG 预渲染，解决 SVG 平铺滚动卡顿）：
-     亮/暗纹理的 url() 已直接写在 components.css 的 .card-base / .float-panel 规则里
-     （亮色见该文件 mods-card-pattern 规则）。
+  /* 卡片装饰纹理（v1.2.79 切换为 SVG 矢量图，Telegram 内置涂鸦风格）：
+     亮/暗纹理的 url() 已直接写在 components.css 的 .card-base / .float-panel 规则里，
+     并用 @media (min-width: 768px) 包起 → 媒体查询不命中时浏览器不请求 url()，
+     手机端零下载；电脑端仅下当前主题那张 SVG（brotli ≈14.4KB，原 PNG 653KB）。
      此处刻意不定义 --box-pattern —— 自定义属性里的 url() 会被浏览器无条件预加载，
      导致亮暗两张图同时下载。请勿改回自定义属性写法。 */
   --btn-content: oklch(0.55 0.12 var(--hue));
