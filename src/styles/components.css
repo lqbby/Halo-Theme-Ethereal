@@ -341,6 +341,29 @@
       走独立合成路径无此问题。锁步不依赖属性——同 --dur-banner、同缓动、
       同帧切换（body.is-home）即可严格同步。CSS 驱动保留：修复 Safari 首帧
       getComputedStyle 读不到延伸量的时序问题 */
+  /* P5（1.2.93）：波浪平移由 rAF + setAttribute("viewBox") 每帧改 viewBox（触发 SVG
+     layout 重算 + 主线程每帧开销）改为 CSS @keyframes 纯 transform。svg 宽度 300%
+     （path 平铺到 4320 = 3×viewBox 1440），viewBox 固定 0 0 1440 200，靠平移内容实现
+     无缝循环：translateX(-66.6667%) = 移动 2 个 viewBox 宽，第 3 份恰好顶上第 1 份，
+     与原来 ((t/speed)%1)*2880 每 speed 秒平移 2880（2×viewBox）完全对偶、逐像素等价。
+     动画只改 transform，走合成器路径，零 layout / 零 paint / 零主线程每帧开销。 */
+  @keyframes wave-scroll {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-66.6667%);
+    }
+  }
+  .wave-scroll {
+    animation: wave-scroll var(--wave-dur, 12s) linear infinite;
+    will-change: transform;
+  }
+  /* JS 暂停（后台/视口外）：切 animation-play-state，不动每帧属性 */
+  .wave-paused .wave-scroll {
+    animation-play-state: paused;
+  }
+
   #wave-container {
     top: var(--banner-height);
     transform: translateY(calc(-100% + var(--wave-cover-offset)));

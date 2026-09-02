@@ -1,16 +1,11 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
-// 波浪 viewBox 动画
+// 波浪动画（P5 优化：由 rAF + setAttribute("viewBox") 每帧改 viewBox 触发 SVG layout
+// 重算，改为 CSS @keyframes 平移，动画完全走合成器路径，零主线程每帧开销）
 // 2.8：#theme-config 解析与缓存契约收敛到 _theme-config.ts 的 getThemeConfig()
 // #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，Vite 侧共用）
 // #6：styleSwitches 下钻收敛到 getStyleSwitches()
 import { getStyleSwitches } from "./_theme-config";
 (function () {
-  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
-  function onIdle(cb) {
-    if ("requestIdleCallback" in window)
-      requestIdleCallback(cb, { timeout: 2000 });
-    else setTimeout(cb, 1);
-  }
   // 三选开关（settings.yaml styleSwitches.banner_wave）：
   // disabled / 旧版布尔 false → 不启动动画；desktop_only + 触屏设备 → 隐藏容器并跳过动画。
   // wave.js 是 public/ 静态资产读不到 theme.config，配置经 getStyleSwitches() 从
@@ -29,78 +24,34 @@ import { getStyleSwitches } from "./_theme-config";
     return;
   }
 
-  if (!document.getElementById("wave-svg-1")) return;
+  var waveContainer = document.getElementById("wave-container");
+  if (!waveContainer) return;
 
   // 只初始化一次：本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，
   // 而 #wave-container 位于 Layout（Swup 容器外）跨页面持久——不守卫则每次换页
-  // 叠加一条 rAF 动画链 + visibilitychange 监听 + IO 观察器（N 次换页 = N 倍每帧开销）。
+  // 叠加 visibilitychange 监听 + IO 观察器（N 次换页 = N 倍开销）。
   if (window.__waveInited) return;
   window.__waveInited = true;
 
-  var speeds = [18, 12, 8];
-  var running = true;
-  // 一次性缓存 3 个波浪 SVG：rAF 每帧原本各查一次 getElementById（60fps 下约
-  // 180 次/秒）。#wave-container 位于 Swup 容器之外、跨换页持久，元素不重建，
-  // 缓存安全；缺失的槽位留 null，由 setWaveViewBox 跳过。
-  var waveSvgs = [
-    document.getElementById("wave-svg-1"),
-    document.getElementById("wave-svg-2"),
-    document.getElementById("wave-svg-3"),
-  ];
-
-  function setWaveViewBox() {
-    var t = performance.now() / 1000;
-    for (var i = 0; i < 3; i++) {
-      var svg = waveSvgs[i];
-      if (!svg) continue;
-      svg.setAttribute("viewBox", ((t / speeds[i]) % 1) * 2880 + " 0 1440 200");
-    }
-  }
-
-  function step() {
-    setWaveViewBox();
-    if (running) requestAnimationFrame(step);
-  }
-
-  function resume() {
-    if (running) return;
-    running = true;
-    requestAnimationFrame(step);
+  // CSS 动画驱动（components.css 的 @keyframes wave-scroll），JS 只负责
+  // 视口外/后台暂停：通过切换 animation-play-state 暂停/恢复，不触碰每帧属性。
+  function setPaused(paused) {
+    waveContainer.classList.toggle("wave-paused", paused);
   }
 
   // 页面不可见时暂停
   document.addEventListener("visibilitychange", function () {
-    if (document.hidden) {
-      running = false;
-    } else {
-      resume();
-    }
+    setPaused(document.hidden);
   });
 
   // 波浪不在视口内时暂停
   if ("IntersectionObserver" in window) {
-    var waveContainer = waveSvgs[0] ? waveSvgs[0].closest("div") : null;
-    if (waveContainer) {
-      var observer = new IntersectionObserver(
-        function (entries) {
-          if (entries[0].isIntersecting) {
-            resume();
-          } else {
-            running = false;
-          }
-        },
-        { rootMargin: "100px" },
-      );
-      observer.observe(waveContainer);
-    }
+    var observer = new IntersectionObserver(
+      function (entries) {
+        setPaused(!entries[0].isIntersecting);
+      },
+      { rootMargin: "100px" },
+    );
+    observer.observe(waveContainer);
   }
-
-  // P1（1.2.86）：波浪为底部装饰、不在首屏关键路径，把 rAF 动画链启动推到
-  // 主线程空闲（requestIdleCallback），削减首屏 load 期的同步主线程工作（TBT）
-  onIdle(function () {
-    requestAnimationFrame(step);
-  });
-  // 原 swup:contentReplaced 同步监听已删除：Swup v3 事件名，v4 分发
-  // swup:{hook}（如 swup:content:replace），该监听从未触发；
-  // 且 rAF 链每帧持续同步 viewBox，无需换页时额外校准。
 })();
