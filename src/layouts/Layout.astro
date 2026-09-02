@@ -817,13 +817,11 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     <script is:inline>
       (function () {
         function revealBanner() {
-          // 图片渐显已由 CSS @keyframes banner-reveal 接管，此处仅视频容器
-          // （.banner-reveal-video）仍需移除 opacity-0/scale-105 遮蔽
-          document
-            .querySelectorAll(".banner-reveal-video")
-            .forEach(function (b) {
-              b.classList.remove("opacity-0", "scale-105");
-            });
+          // 兜底：app.ts showBanner() 未生效时，强制移除所有 banner 容器的
+          // opacity-0/scale-105 遮蔽，避免媒体异常时 banner 永久隐藏
+          document.querySelectorAll(".banner-reveal").forEach(function (b) {
+            b.classList.remove("opacity-0", "scale-105");
+          });
         }
         function registerWidgetLayout() {
           if (customElements.get("widget-layout")) return;

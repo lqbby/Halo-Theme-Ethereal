@@ -341,28 +341,6 @@
       走独立合成路径无此问题。锁步不依赖属性——同 --dur-banner、同缓动、
       同帧切换（body.is-home）即可严格同步。CSS 驱动保留：修复 Safari 首帧
       getComputedStyle 读不到延伸量的时序问题 */
-  /* P5（1.2.93）：波浪平移由 rAF + setAttribute("viewBox") 每帧改 viewBox（触发 SVG
-     layout 重算 + 主线程每帧开销）改为 CSS @keyframes 纯 transform。svg 宽度 300%
-     （path 平铺到 4320 = 3×viewBox 1440），viewBox 固定 0 0 1440 200，靠平移内容实现
-     无缝循环：translateX(-66.6667%) = 移动 2 个 viewBox 宽，第 3 份恰好顶上第 1 份，
-     与原来 ((t/speed)%1)*2880 每 speed 秒平移 2880（2×viewBox）完全对偶、逐像素等价。
-     动画只改 transform，走合成器路径，零 layout / 零 paint / 零主线程每帧开销。 */
-  @keyframes wave-scroll {
-    from {
-      transform: translateX(0);
-    }
-    to {
-      transform: translateX(-66.6667%);
-    }
-  }
-  .wave-scroll {
-    animation: wave-scroll var(--wave-dur, 12s) linear infinite;
-    will-change: transform;
-  }
-  /* JS 暂停（后台/视口外）：切 animation-play-state，不动每帧属性 */
-  .wave-paused .wave-scroll {
-    animation-play-state: paused;
-  }
 
   #wave-container {
     top: var(--banner-height);
@@ -423,39 +401,10 @@
     height: calc(var(--banner-height-home) - var(--navbar-height));
   }
 
-  /* Banner 渐显：由 CSS @keyframes 自动播放（合成器驱动、不依赖 JS 回调）。
-     替代旧的「静态 opacity-0/scale-105 + img.onload 回调移除 class + transition」
-     机制——旧机制下 LCP 图要等 JS 回调才解除遮蔽，elementRenderDelay 高达 1.1s
-     （Lighthouse 2026-09-02 实测）。animation-fill-mode: backwards 保证图片
-     就绪前保持首帧态（opacity 0），图片 paint 即开始渐显，不闪白、不占主线程。
-     视频分支仍由 app.ts showBanner() 等 loadeddata 后播（见其 video 逻辑）。 */
-  @keyframes banner-reveal {
-    0% {
-      opacity: 0;
-      transform: scale(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  .banner-reveal {
-    animation: banner-reveal var(--dur-banner, 700ms) ease backwards;
-  }
-
-  /* 视频容器不走 CSS 动画：视频首帧时序由 app.ts showBanner() 等 loadeddata
-     后移除 opacity-0/scale-105 控制（保留原 JS 机制），避免"容器先空显示、
-     视频后出现"的闪烁。 */
-  .banner-reveal-video {
-    animation: none;
-  }
-
-  /* 疾速档（snappy）：渐显缩短，契合"立即可读"节奏 */
-  html[data-speed="snappy"] .banner-reveal {
-    animation-duration: var(--dur-entry, 120ms);
-  }
-
+  /* Banner 渐显：静态 opacity-0/scale-105 + app.ts showBanner() 等 img.onload
+     回调移除 class，CSS transition 驱动过渡。渐显必须绑定图片加载完成时刻——
+     图片就绪才解除遮蔽，保证「图片出现即渐显」的观感；若用 CSS 无条件动画
+     则与加载时序脱钩，慢加载图片会先空白后硬闪现（视觉回归，已回退）。 */
   /* 标题/副标题淡入淡出：时长与 banner 装配件位移统一（--dur-banner 随档位） */
   #banner-overlay {
     transition: opacity var(--dur-banner, 700ms) ease;
