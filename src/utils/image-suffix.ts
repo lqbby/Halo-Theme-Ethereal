@@ -229,7 +229,10 @@ function urlEndsWith(urlExpr: string, ext: string): string {
 
 /**
  * 生成「图片 URL 是否可追加 CDN 尺寸后缀」的 Thymeleaf 布尔表达式主体。
- * 仅静态 jpg/jpeg/png 追加，避免图片处理链路破坏 gif/webp/apng 动画。
+ * 仅静态位图（jpg/jpeg/png/webp/avif）追加，避免图片处理链路破坏 gif/apng 动画。
+ * webp/avif 在 EdgeOne eo-img.resize 下为静态有损/无损缩放，封面类静态图安全；
+ * 动图（gif/apng）跳过以保留动画。Lighthouse 2026-09-02 实测：Lsky 图床封面多为
+ * webp，原被排除导致 266KB 原图直出，追加缩放后随 CDN 降采样。
  * 匹配路径末尾扩展名（先去掉查询串），避免 contains 对
  * "?src=x.mp4"/"/images/jpg/" 等子串误判。
  * @param urlExpr 图片 URL 的 Thymeleaf 表达式（需自带空值兜底，如 "img ?: ''"）
@@ -242,6 +245,10 @@ export function cdnSuffixEligible(urlExpr: string): string {
     urlEndsWith(urlExpr, ".jpeg") +
     " or " +
     urlEndsWith(urlExpr, ".png") +
+    " or " +
+    urlEndsWith(urlExpr, ".webp") +
+    " or " +
+    urlEndsWith(urlExpr, ".avif") +
     ")"
   );
 }

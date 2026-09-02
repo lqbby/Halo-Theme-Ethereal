@@ -133,12 +133,12 @@ const layoutId = `${widgetId}-layout`;
         <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div class="flex items-center justify-between gap-2 overflow-hidden">
             <div class="relative min-w-0 flex-1 overflow-hidden">
-              <h3
+              <div
                 class="music-title truncate text-base font-bold leading-tight text-neutral-800 dark:text-neutral-100"
                 th:text="${musicTitle}"
               >
                 音乐
-              </h3>
+              </div>
             </div>
             <button
               class="btn-lrc-toggle shrink-0 p-0.5 pr-2 text-neutral-400 transition-all duration-300 hover:text-(--primary) active:scale-95"
@@ -594,6 +594,15 @@ const layoutId = `${widgetId}-layout`;
       url.length > 0 &&
       !/(^|[\?&])id=(&|$)/.test(url);
 
+    // 封面降采样：Meting/网易云 pic 支持 ?param=WxH 裁剪参数。主封面展示 56px（150
+    // 覆盖 ~2.7x DPR），播放列表封面展示仅 32px（100 覆盖 ~3x DPR）——300y300 原图
+    // 每张 ~51KB，18 首歌的播放列表白耗 ~900KB 传输（Lighthouse 2026-09-02 实测）。
+    // 非 Meting 风格 URL（无 param 参数）replace 不命中，原样返回，安全。
+    const picWithParam = (url, size) =>
+      typeof url === "string" && url
+        ? url.replace(/([?&]param=)\d+y\d+/, `$1${size}y${size}`)
+        : url;
+
     // ⚠️ 置空 src（el.src = ""）会让浏览器把「当前文档 URL」当成资源去请求 → 必然失败，
     // 并触发主题 diag 的 "resource failed: <页面地址>"。正确做法是移除属性：
     // 没有 src 属性时 el.src 读出来依然是空串，JS 语义完全等价，但不会发出任何请求。
@@ -609,7 +618,11 @@ const layoutId = `${widgetId}-layout`;
       ui.artist.textContent = track.artist;
       ui.artist.title = track.artist;
       ui.cover.classList.add("opacity-0");
-      setSrcOrClear(ui.cover, track.pic, isValidMetingUrl(track.pic));
+      setSrcOrClear(
+        ui.cover,
+        picWithParam(track.pic, 150),
+        isValidMetingUrl(track.pic),
+      );
       ui.cover.alt = isValidMetingUrl(track.pic)
         ? `${track.name} - ${track.artist}`
         : cfg.i18n.noCover;
@@ -654,7 +667,11 @@ const layoutId = `${widgetId}-layout`;
         const img = clone.querySelector(".item-cover");
         const title = clone.querySelector(".item-title");
         const artist = clone.querySelector(".item-artist");
-        setSrcOrClear(img, track.pic, isValidMetingUrl(track.pic));
+        setSrcOrClear(
+          img,
+          picWithParam(track.pic, 100),
+          isValidMetingUrl(track.pic),
+        );
         img.alt = `${track.name} - ${track.artist}`;
         title.textContent = track.name;
         artist.textContent = track.artist;

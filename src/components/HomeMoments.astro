@@ -24,11 +24,11 @@
   th:if="${theme.config?.layout?.postList?.showHomeMoments == null or theme.config?.layout?.postList?.showHomeMoments}"
   th:with="homeMoments = ${momentFinder?.list({size: theme.config?.layout?.postList?.homeMomentsCount ?: 10})}"
 >
-  <!-- 整条可点击覆盖层：空白区域点击跳 /moments（z-1，内容在 z-10 之上） -->
-  <a
-    th:href="@{/moments}"
-    class="home-moments-overlay"
-    aria-label="查看我的瞬间"></a>
+  <!-- 装饰性覆盖层：父级 home-moments-wrap 为 pointer-events-none，本层继承后
+       不拦截内层链接点击；纯装饰，不作为可聚焦链接（避免 target-size /
+       label-content-name-mismatch 审计误报）。空白区跳转由顶部「瞬间」徽标与
+       「更多」链接承担。 -->
+  <div class="home-moments-overlay"></div>
 
   <!-- ===== 顶部：跑马灯行 ===== -->
   <div class="relative z-10 flex flex-nowrap items-center gap-3">
@@ -130,6 +130,9 @@
     z-index: 1;
     border-radius: inherit;
     text-decoration: none;
+    /* 父级 home-moments-wrap 为 pointer-events-none，此处显式继承并固化，
+       确保覆盖层永不拦截内层链接点击、也不作为可聚焦目标参与 a11y 审计 */
+    pointer-events: none;
   }
 
   /* ===== 跑马灯 ===== */
@@ -267,6 +270,12 @@
           if (groupWidth > marqueeWidth) {
             var clone = group.cloneNode(true);
             clone.setAttribute("aria-hidden", "true");
+            // 克隆块内的瞬间链接是装饰性重复（aria-hidden 已对读屏隐藏），
+            // 但 <a> 默认可聚焦，会被 aria-hidden-focus 审计判为「可聚焦元素藏在
+            // aria-hidden 容器内」→ 显式 tabindex=-1 移出 tab 序。
+            clone.querySelectorAll("a").forEach(function (a) {
+              a.setAttribute("tabindex", "-1");
+            });
             track.appendChild(clone);
             track.classList.add("home-moments-track--animate");
             // 速度 ~48px/s，最小 20s，避免内容少时转太快
