@@ -3,4 +3,4 @@
 # 备份 stash 会执行 git stash，在受限环境（沙箱 / 容器 / 某些 CI）下可能
 # 破坏 .git（refs 或 objects 目录被清除，导致仓库失效、提交失败）。
 # 本 hook 只跑 prettier --write（幂等且安全），不需要备份恢复能力。
-node "C:/Users/lq/.workbuddy/binaries/node/workspace/node_modules/pnpm/bin/pnpm.cjs" exec lint-staged --no-stash
+pnpm exec lint-staged --no-stash
