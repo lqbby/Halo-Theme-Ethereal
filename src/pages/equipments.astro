@@ -61,7 +61,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
           <img
             th:src="${equipment.spec.cover}"
             th:alt="${equipment.spec.displayName}"
-            th:attr="loading=${equipStat.index == 0} ? 'eager' : 'lazy', fetchpriority=${equipStat.index == 0} ? 'high' : 'auto'"
+            th:attr="loading=${equipStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${equipStat.index == 0 ? 'high' : 'auto'}"
             decoding="async"
             class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
           />

@@ -125,7 +125,7 @@ const statIconClass =
     <img
       th:src="|${post.spec.cover}${suffix}|"
       th:alt="${post.spec.title}"
-      th:attr="loading=${postStat.index == 0} ? 'eager' : 'lazy', fetchpriority=${postStat.index == 0} ? 'high' : 'auto'"
+      th:attr="loading=${postStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${postStat.index == 0 ? 'high' : 'auto'}"
       decoding="async"
       class="h-full w-full object-cover"
     />

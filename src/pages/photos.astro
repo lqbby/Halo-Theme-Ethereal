@@ -112,7 +112,7 @@ import "../styles/photos-gallery-lightbox.css";
                 alt=""
                 th:src="${not #strings.isEmpty(photo.spec.cover) ? photo.spec.cover : photo.spec.url}"
                 th:alt="${photo.spec.displayName}"
-                th:attr="loading=${photoStat.index == 0} ? 'eager' : 'lazy', fetchpriority=${photoStat.index == 0} ? 'high' : 'auto'"
+                th:attr="loading=${photoStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${photoStat.index == 0 ? 'high' : 'auto'}"
                 decoding="async"
                 th:style="${photo.exif != null and photo.exif.imageWidth != null ? 'aspect-ratio: ' + photo.exif.imageWidth + ' / ' + photo.exif.imageHeight : ''}"
                 class="photo-cover w-full object-cover transition duration-300 group-hover:scale-105"

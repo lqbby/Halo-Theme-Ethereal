@@ -212,8 +212,15 @@ export function carouselDarkImgSrcExpr(
     ", '') + (" +
     cdnSuffixEligible(item) +
     " ? suffix : '')";
-  // #lists.isEmpty 短路：空列表时整条表达式求值为 ''，避免对 null 做索引访问
-  return "${#lists.isEmpty(" + listExpr + ") ? '' : (" + body + ")}";
+  // #lists.size(list) > imgStat.index 短路（1.2.89 修复）：
+  // imgStat.index 由「亮色」轮播列表的 th:each 产生，却用来索引「暗色」列表，
+  // 二者是不同集合——仅判 #lists.isEmpty 挡不住「暗色列表比亮色短」：非空但更短时
+  // darkImages[idx] 下标越界抛 EL1025E，整页 500（与 1.2.85 P0-1 回归同一类）。
+  // 例：images 5 张 / darkImages 2 张 → 第 3 轮 imgStat.index==2 时 darkImages[2] 直接崩。
+  // #lists.size 对 null / 空集合均返回 0，一个守卫同时覆盖 null / 空 / 过短三种情况。
+  return (
+    "${#lists.size(" + listExpr + ") > imgStat.index ? (" + body + ") : ''}"
+  );
 }
 
 /**
