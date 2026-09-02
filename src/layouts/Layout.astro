@@ -566,6 +566,11 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
       crossorigin
       th:if="${theme.config?.style?.externalFont?.enable}"
     />
+    <!-- P2（1.2.87）：预连接常驻第三方源，削减首跳 DNS/TCP/TLS 往返
+         - tc.lqbby.com：Lsky 图床（banner 大图 + 文章卡图），首页最大图片源
+         - m801.music.126.net：网易云音乐播放器音频流（来自 Lighthouse 网络追踪） -->
+    <link rel="preconnect" href="https://tc.lqbby.com" />
+    <link rel="preconnect" href="https://m801.music.126.net" />
     <slot name="head" />
   </head>
   <!-- is-home 服务端初值仅作首帧兜底（避免 JS 运行前无 FOUC 感知）；运行期以
