@@ -21,7 +21,10 @@ const COLLAPSED_HEIGHT = "7.5rem";
     <div id="recent-comments-list" class="flex flex-col gap-1">
       <div
         class="px-2 py-3 text-center text-xs text-neutral-400"
-        th:text="#{widget.recentComments.loading}">加载中...</div>
+        th:text="#{widget.recentComments.loading}"
+      >
+        加载中...
+      </div>
     </div>
   </WidgetLayout>
 </div>
@@ -29,6 +32,12 @@ const COLLAPSED_HEIGHT = "7.5rem";
 <script is:inline th:inline="none">
   (function () {
     var LIMIT = 5;
+    // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复瀑布请求
+    var CACHE_KEY = "ethereal-recent-comments";
+    var CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+    // 「文章名 → permalink」映射：load 阶段预解析一次，渲染阶段直接取链接，
+    // 不再对每条评论单独发一次文章详情请求
+    var permalinkMap = {};
     // 新版 Halo(2.20+) 的 comments 列表接口已废弃「无差别列出全部评论」，
     // 必须按 subject(kind+name) 查。这里改为：拉最近文章 → 只查有评论计数的
     // → 并发取每篇评论 → 合并按时间排序取前 LIMIT。
@@ -39,7 +48,8 @@ const COLLAPSED_HEIGHT = "7.5rem";
 
     function safeFetch(url, opts, timeout) {
       var SF = window.__themeSafeFetch;
-      if (SF && SF.safeFetch) return SF.safeFetch(url, opts || {}, timeout || 8000);
+      if (SF && SF.safeFetch)
+        return SF.safeFetch(url, opts || {}, timeout || 8000);
       return fetch(url, opts);
     }
 
@@ -87,7 +97,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
     // 1) 登录用户直接用 owner.avatar；
     // 2) 邮箱型访客(owner.kind==="Email")无 avatar 字段，CommentNext 用
     //    spec.owner.annotations["email-hash"] 现算 weavatar 头像
-    //    （https://weavatar.com/avatar/{hash}?d=mp&f=webp&s=96），这里复刻同一算法；
+    //    （https://weavatar.com/avatar/{hash}?d=mp&f=webp&s=64），这里复刻同一算法；
     // 3) 都没有返回 ""，交由下方首字母色块兜底（img.onerror 也会回退到色块）。
     function resolveAvatar(owner, spec) {
       if (owner && owner.avatar) return owner.avatar;
@@ -100,7 +110,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
         return (
           "https://weavatar.com/avatar/" +
           encodeURIComponent(hash) +
-          "?d=mp&f=webp&s=96"
+          "?d=mp&f=webp&s=64"
         );
       }
       return "";
@@ -139,17 +149,32 @@ const COLLAPSED_HEIGHT = "7.5rem";
         var avatarEl;
         var initial = (name || "?").trim().charAt(0).toUpperCase();
         var colorSeed = 0;
-        for (var ci = 0; ci < (name || "").length; ci++) colorSeed += name.charCodeAt(ci);
-        var palette = ["#ef4444","#f59e0b","#10b981","#3b82f6","#8b5cf6","#ec4899","#14b8a6","#f97316"];
+        for (var ci = 0; ci < (name || "").length; ci++)
+          colorSeed += name.charCodeAt(ci);
+        var palette = [
+          "#ef4444",
+          "#f59e0b",
+          "#10b981",
+          "#3b82f6",
+          "#8b5cf6",
+          "#ec4899",
+          "#14b8a6",
+          "#f97316",
+        ];
         var avatarColor = palette[colorSeed % palette.length];
         if (avatar) {
           var img = document.createElement("img");
-          img.className = "h-8 w-8 shrink-0 rounded-full border border-black/5 object-cover dark:border-white/10";
+          img.className =
+            "h-8 w-8 shrink-0 rounded-full border border-black/5 object-cover dark:border-white/10";
           img.loading = "lazy";
           img.alt = name;
           img.src = avatar;
           img.onerror = function () {
-            if (img.parentNode) img.parentNode.replaceChild(makeInitialAvatar(initial, avatarColor), img);
+            if (img.parentNode)
+              img.parentNode.replaceChild(
+                makeInitialAvatar(initial, avatarColor),
+                img,
+              );
           };
           avatarEl = img;
         } else {
@@ -182,42 +207,17 @@ const COLLAPSED_HEIGHT = "7.5rem";
         a.appendChild(body);
         listEl.appendChild(a);
 
-        // 尽力解析评论所属文章链接（best-effort，失败则保持 #）
-        resolvePermalink(a, spec.subjectRef, c.metadata && c.metadata.name);
+        // 评论所属文章链接：优先用 load 阶段预解析的 permalink（缓存命中时走 c.__permalink），
+        // 都拿不到则保持 #（点击放行默认行为，不跳转）。
+        var permalink = c.__permalink || permalinkOf(spec.subjectRef);
+        if (permalink) a.href = permalink + "#comment";
       });
     }
 
-    function resolvePermalink(a, subjectRef, commentName) {
-      if (!subjectRef || !subjectRef.kind || !subjectRef.name) return;
-      var typeMap = {
-        Post: "posts",
-        SinglePage: "singlepages",
-        Journal: "journals",
-        Sheet: "singlepages",
-      };
-      var type = typeMap[subjectRef.kind];
-      if (!type) return;
-      var url =
-        "/apis/api.content.halo.run/v1alpha1/" +
-        type +
-        "/" +
-        encodeURIComponent(subjectRef.name);
-      safeFetch(url, {}, 6000)
-        .then(function (r) {
-          return r.ok ? r.json() : null;
-        })
-        .then(function (d) {
-          if (!d) return;
-          var permalink =
-            (d.status && d.status.permalink) ||
-            (d.spec && d.spec.slug ? "/" + d.spec.slug : null);
-          if (permalink) {
-            // 指向稳定 SSR 容器 #comment（评论区），不指向异步渲染的具体评论
-            // #comment-{name}，避免首屏不存在而定位失败/滚动冲突。
-            a.href = permalink + "#comment";
-          }
-        })
-        .catch(function () {});
+    // 从 load 阶段预解析的「文章名 → permalink」映射取链接，避免每条评论再发一次请求
+    function permalinkOf(subjectRef) {
+      if (!subjectRef || !subjectRef.name) return null;
+      return permalinkMap[subjectRef.name] || null;
     }
 
     function showEmpty() {
@@ -237,6 +237,23 @@ const COLLAPSED_HEIGHT = "7.5rem";
     }
 
     function load() {
+      // 先读会话缓存：命中且未过期直接渲染，避免重复瀑布请求
+      try {
+        var cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (
+            parsed &&
+            parsed.ts &&
+            Date.now() - parsed.ts < CACHE_TTL &&
+            parsed.comments
+          ) {
+            renderComments(parsed.comments);
+            return;
+          }
+        }
+      } catch (e) {}
+
       safeFetch(POSTS_API, {}, 8000)
         .then(function (r) {
           if (!r.ok) throw new Error("HTTP " + r.status);
@@ -244,6 +261,16 @@ const COLLAPSED_HEIGHT = "7.5rem";
         })
         .then(function (data) {
           var posts = (data && data.items) || [];
+          // 预解析「文章名 → permalink」映射，渲染阶段直接取链接
+          permalinkMap = {};
+          posts.forEach(function (p) {
+            var nm = p.metadata && p.metadata.name;
+            if (!nm) return;
+            var perm =
+              (p.status && p.status.permalink) ||
+              (p.spec && p.spec.slug ? "/" + p.spec.slug : null);
+            if (perm) permalinkMap[nm] = perm;
+          });
           // 只查有评论计数的文章，避免无谓请求（stats.comment 在匿名 posts 列表里可见）
           var withComments = posts.filter(function (p) {
             return (p.stats && p.stats.comment) > 0;
@@ -275,7 +302,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
                 .catch(function () {
                   return [];
                 });
-            })
+            }),
           );
         })
         .then(function (lists) {
@@ -293,7 +320,19 @@ const COLLAPSED_HEIGHT = "7.5rem";
             var tb = new Date((b.spec && b.spec.creationTime) || 0).getTime();
             return tb - ta;
           });
-          renderComments(all.slice(0, LIMIT));
+          var top = all.slice(0, LIMIT);
+          // 渲染前把 permalink 固化进评论对象，缓存命中时无需再拉文章列表
+          top.forEach(function (c) {
+            var sr = c.spec && c.spec.subjectRef;
+            c.__permalink = (sr && sr.name && permalinkMap[sr.name]) || null;
+          });
+          try {
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), comments: top }),
+            );
+          } catch (e) {}
+          renderComments(top);
         })
         .catch(function (e) {
           console.warn("[RecentComments] load failed:", e);
@@ -306,7 +345,5 @@ const COLLAPSED_HEIGHT = "7.5rem";
     } else {
       load();
     }
-    // swup 页面切换后重执行（与 SiteStats 一致）
-    load();
   })();
 </script>
