@@ -175,7 +175,7 @@ import PageHeader from "../components/control/PageHeader.astro";
           <!-- 时间轴节点 -->
           <div
             class="timeline-node"
-            th:classappend="${#strings.isEmpty(item.endDate)} ? ' timeline-node-current' : ''"
+            th:classappend="${#strings.isEmpty(item.endDate) ? ' timeline-node-current' : ''}"
             th:style="${#strings.isEmpty(item.endDate) ? 'background-color:#22c55e' : (#strings.isEmpty(item.color) ? 'background-color:var(--primary)' : 'background-color:' + item.color)}"
           >
           </div>

@@ -149,7 +149,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         </a>
         <a
           th:href="@{/schedule-calendar}"
-          th:classappend="${view.weekStart == view.currentWeekStart} ? 'pointer-events-none opacity-40' : ''"
+          th:classappend="${view.weekStart == view.currentWeekStart ? 'pointer-events-none opacity-40' : ''}"
           th:aria-disabled="${view.weekStart == view.currentWeekStart}"
           class="btn-regular h-10 rounded-lg px-3 text-sm font-bold active:scale-95"
         >
@@ -173,19 +173,19 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         th:each="day, dayStat : ${view.days}"
         th:with="isToday=${day.date == #strings.substring(view.serverTime, 0, 10)}"
         class="min-h-24 rounded-xl border p-3 transition"
-        th:style="${isToday} ? 'border-color: color-mix(in oklab, var(--primary) 40%, transparent); background: color-mix(in oklab, var(--primary) 6%, transparent)' : 'border-color: transparent; background: var(--btn-regular-bg)'"
+        th:style="${isToday ? 'border-color: color-mix(in oklab, var(--primary) 40%, transparent); background: color-mix(in oklab, var(--primary) 6%, transparent)' : 'border-color: transparent; background: var(--btn-regular-bg)'}"
       >
         <div class="mb-2 flex items-baseline justify-between">
           <span
             class="text-xs font-bold"
-            th:classappend="${isToday} ? 'text-(--primary)' : 'text-75'"
+            th:classappend="${isToday ? 'text-(--primary)' : 'text-75'}"
             th:text="${#temporals.dayOfWeekNameShort(#temporals.createDate(day.date, 'yyyy-MM-dd'))}"
           >
             星期一
           </span>
           <span
             class="text-xs"
-            th:classappend="${isToday} ? 'text-(--primary)' : 'text-30'"
+            th:classappend="${isToday ? 'text-(--primary)' : 'text-30'}"
             th:text="${#strings.substring(day.date, 5)}"
           >
             07-27

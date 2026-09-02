@@ -28,8 +28,10 @@ const hasRuntimeCollapse = Boolean(collapseExpression);
 const collapseCondition = collapseExpression
   ? `\${${collapseExpression}}`
   : undefined;
+// 三元必须整体位于 ${} 内：写成 `${expr} ? 'a' : ''` 时三元落在 SpEL 之外，
+// 会被 Thymeleaf 当字面量原样输出，导致折叠样式彻底失效。
 const collapseClassAppend = collapseExpression
-  ? `\${${collapseExpression}} ? 'collapsed' : ''`
+  ? `\${${collapseExpression} ? 'collapsed' : ''}`
   : undefined;
 const collapseDataAttr = collapseExpression
   ? `data-is-collapsed=\${${collapseExpression}}`

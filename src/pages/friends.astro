@@ -95,7 +95,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
               <div class="friends-timeline-col-line">
                 <div
                   class="friends-timeline-dot"
-                  th:classappend="${iterStat.index == 0 || curDate != prevDate} ? 'friends-timeline-dot-primary' : 'friends-timeline-dot-dimmed'"
+                  th:classappend="${iterStat.index == 0 || curDate != prevDate ? 'friends-timeline-dot-primary' : 'friends-timeline-dot-dimmed'}"
                 >
                 </div>
               </div>
