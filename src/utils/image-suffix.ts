@@ -224,6 +224,41 @@ export function carouselDarkImgSrcExpr(
 }
 
 /**
+ * 轮播幻灯片 <img> 的完整 th:attr 串（桌面端）。
+ *
+ * ⚠️ 必须整体由 JS 生成、用「无引号花括号」`th:attr={carouselSlideAttrExpr()}` 输出：
+ * Astro 对含 Thymeleaf 表达式 ${...} 的「引号」属性值不做插值解析，若写成
+ * `th:attr="...${carouselDarkImgSrcExpr()}..."`，函数名会原样留在产物里，
+ * Thymeleaf 求值 ${carouselDarkImgSrcExpr()} 找不到该函数 → 整页 500。
+ * （1.2.90 修复：该写法自 1.2.62 引入，单图模式下 th:if 不成立故一直潜伏未爆）
+ */
+export function carouselSlideAttrExpr(): string {
+  return (
+    "loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')}," +
+    "fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')}," +
+    "data-theme-src=" +
+    carouselDarkImgSrcExpr() +
+    "," +
+    "data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+  );
+}
+
+/**
+ * 移动端轮播幻灯片 <img> 的完整 th:attr 串。
+ * 同样必须用 `th:attr={carouselMobileSlideAttrExpr()}` 输出，理由见 carouselSlideAttrExpr。
+ */
+export function carouselMobileSlideAttrExpr(): string {
+  return (
+    "data-theme-src=" +
+    carouselDarkImgSrcExpr(
+      "theme.config?.style?.bannerStyle?.mobile?.darkImages",
+    ) +
+    "," +
+    "data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+  );
+}
+
+/**
  * 生成「URL 路径（去查询串后小写）以指定扩展名结尾」的 Thymeleaf 布尔表达式。
  *
  * 关键陷阱：Thymeleaf 的 #strings.substringBefore(url, '?') 在 URL 不含 '?'

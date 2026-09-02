@@ -11,8 +11,9 @@ import TOC from "../components/widget/TOC.astro";
 import {
   bannerMobileThWith,
   bannerThWith,
-  carouselDarkImgSrcExpr,
   carouselImgSrcExpr,
+  carouselMobileSlideAttrExpr,
+  carouselSlideAttrExpr,
 } from "../utils/image-suffix";
 import Layout from "./Layout.astro";
 
@@ -195,7 +196,7 @@ const {
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
         th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-        th:attr="loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')},fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')},data-theme-src=${carouselDarkImgSrcExpr()},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+        th:attr={carouselSlideAttrExpr()}
         decoding="async"
         class="banner-slide absolute inset-0 h-full w-full object-cover"
         draggable="false"
@@ -258,7 +259,7 @@ const {
           th:alt="${site.title}"
           th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
           th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-          th:attr="data-theme-src=${carouselDarkImgSrcExpr('theme.config?.style?.bannerStyle?.mobile?.darkImages')},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+          th:attr={carouselMobileSlideAttrExpr()}
           loading="lazy"
           fetchpriority="low"
           decoding="async"
