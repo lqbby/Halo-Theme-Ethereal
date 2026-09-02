@@ -26,13 +26,24 @@
   }
 
   /* 魔改：卡片背景 PNG 纹理（仅 <html class="mods-card-pattern"> 时生效；
-     关闭魔改 → 无纹理，回到上游原版）。亮/暗模式各指向 --box-pattern */
+     关闭魔改 → 无纹理，回到上游原版）。
+
+     ⚠️ url() 必须直接写在 background-image 上，不要放进 CSS 自定义属性：
+     自定义属性里含 url() 时，Chromium 无法静态判断最终命中哪个值，会把亮/暗两张纹理
+     （653.4 KB / 584.3 KB）无条件预加载。拆成下面两条静态规则后，只有当前主题命中的
+     那一条会被下载 —— 亮色只下 pattern-light.png，暗色只下 pattern-dark.png。 */
   :root.mods-card-pattern .card-base,
   :root.mods-card-pattern .float-panel {
-    background-image: var(--box-pattern);
+    background-image: url(/themes/Ethereal/assets/images/pattern-light.png);
     background-position: 50%;
     background-repeat: repeat;
     background-size: 400px;
+  }
+
+  /* 暗色：仅覆盖 background-image，其余平铺参数继承上面亮色规则 */
+  :root.dark.mods-card-pattern .card-base,
+  :root.dark.mods-card-pattern .float-panel {
+    background-image: url(/themes/Ethereal/assets/images/pattern-dark.png);
   }
 
   :root.dark .float-panel {
