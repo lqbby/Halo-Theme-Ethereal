@@ -14,7 +14,7 @@
 
 /** Thymeleaf 后缀表达式主体（不含 ${} 包裹），引用局部变量 w/provider/fmt */
 export const CDN_SUFFIX_RAW =
-  "w == 0 || provider == 'none' ? '' : provider == 'halo' ? '?width=' + w : provider == 'aliyun_esa' ? '?image_process=resize,w_' + w : provider == 'aliyun_oss' ? '?x-oss-process=image/resize,w_' + w : provider == 'tencent_eo' ? '?eo-img.resize=w/' + w : provider == 'tencent_cos' ? '?imageMogr2/thumbnail/' + w + 'x' : provider == 'qiniu' ? '?imageView2/2/w/' + w : provider == 'upyun' ? '!/fw/' + w : provider == 'custom' ? #strings.replace(#strings.defaultString(fmt, ''), '{width}', '' + w) : ''";
+  "w == 0 || provider == 'none' ? '' : provider == 'halo' ? '?width=' + w : provider == 'lsky' ? '?w=' + w : provider == 'aliyun_esa' ? '?image_process=resize,w_' + w : provider == 'aliyun_oss' ? '?x-oss-process=image/resize,w_' + w : provider == 'tencent_eo' ? '?eo-img.resize=w/' + w : provider == 'tencent_cos' ? '?imageMogr2/thumbnail/' + w + 'x' : provider == 'qiniu' ? '?imageView2/2/w/' + w : provider == 'upyun' ? '!/fw/' + w : provider == 'custom' ? #strings.replace(#strings.defaultString(fmt, ''), '{width}', '' + w) : ''";
 
 /**
  * 生成图片尺寸后缀的完整 th:with 局部变量串。
@@ -37,6 +37,7 @@ export function imageSuffixThWith(widthDefault: string): string {
 /** 各 CDN 服务商的后缀模板（{width} 为占位符），与 CDN_SUFFIX_RAW 保持一致 */
 export const CDN_SUFFIX_PATTERNS: Record<string, string> = {
   halo: "?width={width}",
+  lsky: "?w={width}",
   aliyun_esa: "?image_process=resize,w_{width}",
   aliyun_oss: "?x-oss-process=image/resize,w_{width}",
   tencent_eo: "?eo-img.resize=w/{width}",
