@@ -32,10 +32,13 @@
        - 取代原 1.2.78 之前的「先无条件加载 PNG、再在 max-width:767px 隐藏」——
          旧方案让手机端白下 653KB 然后把它藏起来
 
-     单文件方案：一张白墨 SVG + background-blend-mode: difference，靠底色差自动反色：
-       - 亮色底（白/oklch ~55）：白墨经 difference 反成暗墨
-       - 暗色底（深灰/黑）：白墨经 difference 显成亮墨
-     实色底亮色模式 Δ ≈ -46 / 暗色模式 Δ ≈ +29（已 CSS 合成规范验算过，半透明底也同向）。 */
+     1.2.81 双模式平衡（贴合主题观感）：
+       - 单文件白墨 SVG（fill-opacity 0.12）+ 亮色走 difference：
+           白墨反成深墨，Δ ≈ -30 → 亮色卡片呈精致水印
+       - :root.dark 单独走 screen：
+           白墨在深底上柔和提亮，Δ ≈ +27 → 暗色卡片与亮色等权重，不再过曝
+       - 尺寸 200px 与旧 1.2.80 一致
+     实色底亮色模式 Δ ≈ -30 / 暗色模式 Δ ≈ +27（sRGB 合成验算）。 */
   @media (min-width: 768px) {
     :root.mods-card-pattern .card-base,
     :root.mods-card-pattern .float-panel {
@@ -44,6 +47,10 @@
       background-repeat: repeat;
       background-size: 200px;
       background-blend-mode: difference;
+    }
+    :root.dark.mods-card-pattern .card-base,
+    :root.dark.mods-card-pattern .float-panel {
+      background-blend-mode: screen;
     }
   }
 

@@ -32,9 +32,10 @@
   --primary: oklch(0.7 0.14 var(--hue));
   --page-bg: oklch(0.95 0.01 var(--hue));
   --card-bg: white;
-  /* 卡片装饰纹理（v1.2.80 切换为单文件 + 背景混合模式自动反色）：
-     components.css 用 background-blend-mode: difference + 一张白墨 SVG，
-     靠底色差自动反色，亮暗模式共用同一个 url()。
+  /* 卡片装饰纹理（v1.2.81 调整观感贴合主题）：
+     单文件白墨 SVG（fill-opacity 0.12，components.css 引用），
+     亮色模式走 difference（白墨反成深墨水印），
+     暗色模式单独走 screen（白墨柔和提亮）—— 两边 Δ 接近、观感平衡。
      整体由 @media (min-width: 768px) 包起 → 手机端媒体查询不命中，零下载零解码。
      此处刻意不定义 --box-pattern —— 自定义属性里的 url() 会被浏览器无条件预加载，
      导致亮暗两张图同时下载。请勿改回自定义属性写法。 */
