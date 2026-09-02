@@ -102,7 +102,8 @@ import PageHeader from "../components/control/PageHeader.astro";
                   <img
                     th:src="${project.cover}"
                     th:alt="${project.title}"
-                    loading="lazy"
+                    th:attr="loading=${stat.index == 0} ? 'eager' : 'lazy', fetchpriority=${stat.index == 0} ? 'high' : 'auto'"
+                    decoding="async"
                     class="h-44 w-full object-cover transition group-hover:scale-105"
                   />
                 </a>
@@ -184,7 +185,8 @@ import PageHeader from "../components/control/PageHeader.astro";
             <img
               th:src="${project.cover}"
               th:alt="${project.title}"
-              loading="lazy"
+              th:attr="loading=${stat.index == 0} ? 'eager' : 'lazy', fetchpriority=${stat.index == 0} ? 'high' : 'auto'"
+              decoding="async"
               class="h-44 w-full object-cover transition group-hover:scale-105"
             />
           </a>

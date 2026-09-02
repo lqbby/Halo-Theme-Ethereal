@@ -122,7 +122,7 @@ const stats = [
             <img
               th:src="${bangumi.spec.cover}"
               th:alt="${bangumi.spec.title}"
-              loading="lazy"
+              th:attr="loading=${bangumiStat.index == 0} ? 'eager' : 'lazy', fetchpriority=${bangumiStat.index == 0} ? 'high' : 'auto'"
               decoding="async"
               referrerpolicy="no-referrer"
               class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
