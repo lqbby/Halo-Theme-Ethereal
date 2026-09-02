@@ -817,9 +817,13 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     <script is:inline>
       (function () {
         function revealBanner() {
-          document.querySelectorAll(".banner-reveal").forEach(function (b) {
-            b.classList.remove("opacity-0", "scale-105");
-          });
+          // 图片渐显已由 CSS @keyframes banner-reveal 接管，此处仅视频容器
+          // （.banner-reveal-video）仍需移除 opacity-0/scale-105 遮蔽
+          document
+            .querySelectorAll(".banner-reveal-video")
+            .forEach(function (b) {
+              b.classList.remove("opacity-0", "scale-105");
+            });
         }
         function registerWidgetLayout() {
           if (customElements.get("widget-layout")) return;

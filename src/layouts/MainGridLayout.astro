@@ -127,7 +127,7 @@ const {
           rel="preload"
           as="image"
           fetchpriority="high"
-          th:if="${!mobileActive and ((mode == 'single' and !isVideo) or (mode == 'carousel' and carouselHasImg))}"
+          th:if="${(mode == 'single' and !isVideo) or (mode == 'carousel' and carouselHasImg)}"
           th:href="${mode == 'single' ? srcX : carouselFirstSrcX}"
         />
       )
@@ -137,19 +137,24 @@ const {
     <div
       id="banner"
       th:if="${mode == 'single' and !isVideo}"
-      class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+      class="banner-reveal relative h-full w-full overflow-hidden"
     >
       <div
         class="pointer-events-none absolute inset-0 bg-opacity-50 transition dark:bg-black/10"
       >
       </div>
-      <!-- 移动端独立来源开启时两端都可能被隐藏：首图按 mobileActive 降级 lazy，
-         由 banner-src-switch.js 在激活时升级 eager，避免隐藏端下载 -->
+      <!-- 桌面首图始终 eager+high：mobileActive 是「是否配置移动端独立来源」的
+          服务端判定，与当前视口无关；桌面视口下 #banner 才是首屏 LCP 图，
+          若按 mobileActive 降级 lazy，LCP 图在初始 HTML 里既无 preload 又 lazy，
+          只能靠 banner-src-switch.js 运行时补救 → requestDiscoverable:false，
+          resourceLoadDelay 高达 1.4s（Lighthouse 2026-09-02 实测）。
+          隐藏端（移动端 #banner-mobile）本就有 display:none 天然不下载，
+          无需对桌面首图做 lazy 降级。 -->
       <img
         th:src="${srcX}"
         th:alt="${site.title}"
         th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
-        th:attr="loading=${mobileActive ? 'lazy' : 'eager'},fetchpriority=${mobileActive ? 'low' : 'high'},data-theme-src=${darkSrcX},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+        th:attr="loading=eager,fetchpriority=high,data-theme-src=${darkSrcX},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
         decoding="async"
         class="h-full w-full object-cover"
         alt=""
@@ -159,7 +164,7 @@ const {
     <div
       id="banner"
       th:if="${mode == 'single' and isVideo}"
-      class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+      class="banner-reveal banner-reveal-video relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
     >
       <!-- 独立来源开启时桌面视频可能被隐藏：autoplay 会覆盖 preload=none 强制
          拉流，必须一并去掉（th:attr 值为 null 时不输出该属性），播放由
@@ -188,7 +193,7 @@ const {
     <div
       id="banner"
       th:if="${mode == 'carousel'}"
-      class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+      class="banner-reveal relative h-full w-full overflow-hidden"
     >
       <img
         th:each="img, imgStat : ${theme.config?.style?.bannerStyle?.carousel?.images}"
@@ -211,7 +216,7 @@ const {
       <div
         id="banner-mobile-reveal"
         th:if="${mode == 'single' and !isVideo}"
-        class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+        class="banner-reveal relative h-full w-full overflow-hidden"
       >
         <ImageWrapper
           src="${srcX}"
@@ -226,7 +231,7 @@ const {
       </div>
       <div
         th:if="${mode == 'single' and isVideo}"
-        class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+        class="banner-reveal banner-reveal-video relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
       >
         <video
           id="banner-video-mobile"
@@ -251,7 +256,7 @@ const {
       </div>
       <div
         th:if="${mode == 'carousel'}"
-        class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
+        class="banner-reveal relative h-full w-full overflow-hidden"
       >
         <img
           th:each="img, imgStat : ${mobileImages}"

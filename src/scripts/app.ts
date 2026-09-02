@@ -130,32 +130,20 @@ document.addEventListener("animationend", removeOnloadAnimation);
 document.addEventListener("animationcancel", removeOnloadAnimation);
 
 // ── Banner 显示 ──
-// 双容器（桌面 #banner / 移动 #banner-mobile-reveal）各自等待首图加载后
-// 移除 opacity-0/scale-105 渐显；隐藏端（display:none）不触发加载回调，
-// 由 banner-src-switch.js 在激活时升级 eager 后自然走完同一流程
+// 图片渐显已由 CSS @keyframes banner-reveal 接管（components.css，合成器驱动、
+// 不依赖 JS 回调，避免 img.onload 等待计入 LCP elementRenderDelay）。
+// 此处仅剩视频分支仍有意义：视频首帧（loadeddata）就绪前保持 opacity-0 遮蔽，
+// 就绪后移除遮蔽 + 播视频，避免"容器先空显示、视频后出现"的闪烁。
+// 视频容器带 .banner-reveal-video 类，CSS 侧 animation:none 不干扰此 JS 时序。
 function showBanner() {
-  // 媒体容器统一带 .banner-reveal：图片等首图加载、视频等首帧可播后移除
-  // opacity-0/scale-105 渐显；加载失败也放行，避免媒体异常时 banner 永久隐藏
-  document.querySelectorAll(".banner-reveal").forEach((banner) => {
+  document.querySelectorAll(".banner-reveal-video").forEach((banner) => {
     const reveal = () => banner.classList.remove("opacity-0", "scale-105");
     const video = banner.querySelector("video");
-    if (video) {
-      if (video.readyState >= 2) reveal();
-      else {
-        video.addEventListener("loadeddata", reveal, { once: true });
-        video.addEventListener("error", reveal, { once: true });
-      }
-      return;
-    }
-    const img = banner.querySelector("img");
-    if (img) {
-      if (img.complete && img.naturalWidth > 0) reveal();
-      else {
-        img.onload = reveal;
-        img.onerror = reveal;
-      }
-    } else {
-      reveal();
+    if (!video) return;
+    if (video.readyState >= 2) reveal();
+    else {
+      video.addEventListener("loadeddata", reveal, { once: true });
+      video.addEventListener("error", reveal, { once: true });
     }
   });
 }

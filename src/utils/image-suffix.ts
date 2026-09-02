@@ -233,9 +233,13 @@ export function carouselDarkImgSrcExpr(
  * （1.2.90 修复：该写法自 1.2.62 引入，单图模式下 th:if 不成立故一直潜伏未爆）
  */
 export function carouselSlideAttrExpr(): string {
+  // 轮播首图（index==0）始终 eager+high：mobileActive 是服务端「是否配置移动端
+  // 独立来源」判定、与视口无关，不能据此对桌面首图降级 lazy（LCP 图发现时机
+  // 推迟 → requestDiscoverable:false，resourceLoadDelay 1.4s，Lighthouse
+  // 2026-09-02 实测）。移动端隐藏容器靠 display:none 天然不下载，无需 lazy 降级。
   return (
-    "loading=${mobileActive ? 'lazy' : (imgStat.index == 0 ? 'eager' : 'lazy')}," +
-    "fetchpriority=${mobileActive ? 'low' : (imgStat.index == 0 ? 'high' : 'low')}," +
+    "loading=${imgStat.index == 0 ? 'eager' : 'lazy'}," +
+    "fetchpriority=${imgStat.index == 0 ? 'high' : 'low'}," +
     "data-theme-src=" +
     carouselDarkImgSrcExpr() +
     "," +
