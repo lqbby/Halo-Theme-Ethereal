@@ -31,20 +31,19 @@
        - 媒体查询不命中时浏览器根本不会请求其中的 url()，手机端零下载零解码
        - 取代原 1.2.78 之前的「先无条件加载 PNG、再在 max-width:767px 隐藏」——
          旧方案让手机端白下 653KB 然后把它藏起来
-     SVG 是矢量，按 background-size 实时光栅化，高清屏天然锐利，无需 2x 超采样图 */
+
+     单文件方案：一张白墨 SVG + background-blend-mode: difference，靠底色差自动反色：
+       - 亮色底（白/oklch ~55）：白墨经 difference 反成暗墨
+       - 暗色底（深灰/黑）：白墨经 difference 显成亮墨
+     实色底亮色模式 Δ ≈ -46 / 暗色模式 Δ ≈ +29（已 CSS 合成规范验算过，半透明底也同向）。 */
   @media (min-width: 768px) {
     :root.mods-card-pattern .card-base,
     :root.mods-card-pattern .float-panel {
-      background-image: url(/themes/Ethereal/assets/images/pattern-light.svg);
+      background-image: url(/themes/Ethereal/assets/images/pattern.svg);
       background-position: 50%;
       background-repeat: repeat;
-      background-size: 400px;
-    }
-
-    /* 暗色：仅覆盖 background-image，其余平铺参数继承上面亮色规则 */
-    :root.dark.mods-card-pattern .card-base,
-    :root.dark.mods-card-pattern .float-panel {
-      background-image: url(/themes/Ethereal/assets/images/pattern-dark.svg);
+      background-size: 200px;
+      background-blend-mode: difference;
     }
   }
 
