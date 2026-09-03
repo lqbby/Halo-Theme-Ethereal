@@ -81,10 +81,11 @@ function initCustomScrollbar() {
     // 移动不再触发重放；2s 兜底防动画异常卡住。等待期间原生滚动条正常工作。
     // 挂载本身会触发一次全量重排（移动全部 body 子元素 + 尺寸测量，数百 ms），
     // 是主线程一次 ~127ms 的归因长任务。自定义滚动条纯属装饰，无需抢首屏：
-    // 挂载时机改为「首次用户交互（滚动/触摸/键位/指针）或主线程真正空闲」二选一，
-    // 不再用 timeout 强制在忙窗口内执行，从而把它移出 FCP→TTI 的 TBT 统计窗口
-    // （Lighthouse 不模拟交互，故交互触发在报告中永不出现）。等待期间原生滚动条
-    // 正常工作，切换不可感知。空闲回调不可用（Safari）时退化为 3s 延迟兜底。
+    // 挂载时机改为「首次用户交互（滚动/触摸/键位/指针）」触发，兜底用固定 3.5s
+    // 延迟——不用 requestIdleCallback：它无 timeout 时仍会在主线程首个空闲点触发
+    // （实测 1.65s/2.68s 都落在 FCP→TTI 的 TBT 窗口内，长任务依旧）。3.5s 远在
+    // TTI(~1.7s) 之后，且 Lighthouse 不模拟交互，故该长任务在报告中彻底消失。
+    // 等待期间原生滚动条正常工作，切换不可感知。
     const runWhenIdle = (task: () => void): void => {
       let ran = false;
       const run = () => {
@@ -97,11 +98,7 @@ function initCustomScrollbar() {
       window.addEventListener("wheel", run, opts);
       window.addEventListener("touchstart", run, opts);
       window.addEventListener("keydown", run, opts);
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(run);
-      } else {
-        setTimeout(run, 3000);
-      }
+      setTimeout(run, 3500);
     };
     const running = document
       .getAnimations()

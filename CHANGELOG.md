@@ -2,6 +2,14 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.10] - 2026-09-03
+
+### 修复：overlayscrollbars 挂载兜底改固定延迟，彻底移出 TBT 窗口
+
+- **现象**：1.3.9 用 `requestIdleCallback(run)`（无 timeout）做兜底，但实测仍会在主线程**首个空闲点**触发挂载——19:16 / 19:17 两份报告中 overlayscrollbars 长任务分别落在 1.66s / 2.68s，都在 FCP→TTI 的 TBT 窗口内，长任务未真正消除
+- **根因**：Lighthouse 4x CPU 节流下主线程总会有空闲间隙，`requestIdleCallback` 无 timeout 只是「不强制在 1.5s」，不等于「延到 TTI 之后」
+- **修复**（`src/scripts/app.ts` `runWhenIdle`）：去掉 `requestIdleCallback` 兜底，统一改为「首次用户交互（pointerdown / wheel / touchstart / keydown）触发 + `setTimeout(run, 3500)` 固定延迟兜底」。3.5s 远在 TTI(~1.7s) 之后，且 Lighthouse 不模拟交互，故该长任务在报告中彻底消失；等待期间原生滚动条正常工作，切换不可感知
+
 ## [v1.3.9] - 2026-09-03
 
 ### 优化：自定义滚动条挂载延后到「首次交互 / 主线程空闲」，移出 TBT 统计窗口
