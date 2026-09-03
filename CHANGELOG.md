@@ -2,6 +2,14 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.8] - 2026-09-03
+
+### 修复：首页 banner 冗余 `<link rel=preload>` 触发「preloaded but not used」警告
+
+- **现象**：Lighthouse 报首页 banner 图 `<link rel=preload>`「preloaded but not used」——SSR 固定预加载亮色壁纸 `srcX`，但暗色模式下 `banner-theme-switch.js` 会把 `<img>.src` 切到 `data-theme-src`（暗色壁纸），亮色 preload 永不使用
+- **根因**：主题暗色是 `html.dark` 类切换（后台默认 / 手动开关 / 自动模式驱动），而 `<link rel=preload>` 的 `media` 只能匹配媒体查询、匹配不了类——无法用 `media="(prefers-color-scheme: dark)"` 正确门控（只在「自动模式 + 系统深色」时命中，手动/默认暗色仍失效）
+- **修复**（`src/layouts/MainGridLayout.astro` + `src/utils/image-suffix.ts`）：移除冗余的 banner `<link rel=preload>` 及仅供它使用的 `carouselHasImg` / `carouselFirst` / `carouselFirstSrcX` 局部变量。banner `<img>` 本身已带 `loading=eager` + `fetchpriority=high`（单图与轮播首图均是），预加载扫描器可直接发现并高优先级拉取，preload 完全冗余；删掉后警告在亮 / 暗 / 手动全部场景消失，LCP 影响可忽略
+
 ## [v1.3.7] - 2026-09-03
 
 ### 修复：banner_width=0 仍显示 `?w=0`（字符串 `"0"` 类型陷阱，1.3.6 修复未生效的根因）

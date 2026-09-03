@@ -105,18 +105,7 @@ export function bannerThWith(): string {
       darkSrc,
     ) +
     ", " +
-    bannerMobileVars() +
-    ", " +
-    // 轮播首图 URL（供桌面 <link rel=preload> 在 mode=='carousel' 时提前发现，
-    // 消除 LCP discovery delay；与下方 #banner 轮播分支 imgStat.index==0 对齐）
-    "carouselHasImg=${!#lists.isEmpty(theme.config?.style?.bannerStyle?.carousel?.images)}, " +
-    // #lists.isEmpty 短路：空集合 / null 列表时整条求值为 ''，避免对空集合做 [0] 下标访问
-    // 抛 EL1025E（#strings.defaultString 拦不住下标越界，[0] 先求值即炸）。
-    // 修复 1.2.85 P0-1 引入的回归：carousel.images 为空时首页/文章页全 500。
-    "carouselFirst=${!#lists.isEmpty(theme.config?.style?.bannerStyle?.carousel?.images) ? theme.config?.style?.bannerStyle?.carousel?.images[0] : ''}, " +
-    "carouselFirstSrcX=${" +
-    w0Strip("carouselFirst") +
-    "}"
+    bannerMobileVars()
   );
 }
 
@@ -318,7 +307,7 @@ export function cdnSuffixEligible(urlExpr: string): string {
  * ?w=0 就不出现」）。
  *
  * 非 w==0 分支沿用原拼接：src + (可加后缀 ? suffix : '')。
- * urlExpr 一律经 #strings.defaultString 兜底 null（carouselFirst 等非空值兜底来源）。
+ * urlExpr 一律经 #strings.defaultString 兜底 null（src/darkSrc 等非空值兜底来源）。
  * @param urlExpr 图片 URL 的 Thymeleaf 表达式
  */
 function w0Strip(urlExpr: string): string {
