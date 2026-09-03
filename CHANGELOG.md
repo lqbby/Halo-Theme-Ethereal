@@ -2,6 +2,14 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.7] - 2026-09-03
+
+### 修复：banner_width=0 仍显示 `?w=0`（字符串 `"0"` 类型陷阱，1.3.6 修复未生效的根因）
+
+- **现象**：部署 1.3.6 并后台设 `banner_width=0` 后，线上首页 banner 仍输出 `?w=0`。实测 DB（`/registry/configmaps/Ethereal-configMap`）中 `banner_width` 存储为 **字符串 `"0"`**——Halo 后台 FormKit 的 `number` 字段以字符串形式落库
+- **根因**：主题 Thymeleaf 表达式里 `w == 0` 是整数比较，SpEL 对 `String "0" == Integer 0` 判 `false`，导致 `CDN_SUFFIX_RAW` 首条短路与 `w0Strip()` 的剥离分支双双失效；`suffix` 走 `provider == 'lsky' ? '?w=' + w` 拼出 `?w=0`。1.3.6 的 `w0Strip` 逻辑本身正确，但被 `w == 0` 这个类型陷阱挡在门外
+- **修复**（`src/utils/image-suffix.ts`）：新增统一判定常量 `W_IS_ZERO = "(w == 0 or w == '0')"`，同时兼容数字 `0` 与字符串 `'0'`，并替换 `CDN_SUFFIX_RAW` 与 `w0Strip()` 两处 `w == 0`。因 `CDN_SUFFIX_RAW` 为 banner / 卡片封面 / 文章图 / 头像四路宽度共用，此修复一并覆盖 `card_cover_width` / `article_image_width` / `avatar_size` 设为 0 时的同类隐患
+
 ## [v1.3.6] - 2026-09-03
 
 ### 修复：banner_width=0（原图）时剥离 src 自带的 `?w=0` 冗余后缀

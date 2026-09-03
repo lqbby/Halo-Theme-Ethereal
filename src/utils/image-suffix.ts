@@ -12,9 +12,15 @@
  * 这类纯表达式属性输出（参考各页面调用处）。
  */
 
+/** w 是否为 0 的统一判定（兼容数字 0 与字符串 '0'）。
+ *  Halo 后台 FormKit 的 number 字段实际以字符串存储（实测 banner_width=0 存为 "0"），
+ *  SpEL 中字符串 "0" 与整数 0 比较为 false，导致原 w == 0 短路失效、仍拼接 ?w=0。 */
+const W_IS_ZERO = "(w == 0 or w == '0')";
+
 /** Thymeleaf 后缀表达式主体（不含 ${} 包裹），引用局部变量 w/provider/fmt */
 export const CDN_SUFFIX_RAW =
-  "w == 0 || provider == 'none' ? '' : provider == 'halo' ? '?width=' + w : provider == 'lsky' ? '?w=' + w : provider == 'aliyun_esa' ? '?image_process=resize,w_' + w : provider == 'aliyun_oss' ? '?x-oss-process=image/resize,w_' + w : provider == 'tencent_eo' ? '?eo-img.resize=w/' + w : provider == 'tencent_cos' ? '?imageMogr2/thumbnail/' + w + 'x' : provider == 'qiniu' ? '?imageView2/2/w/' + w : provider == 'upyun' ? '!/fw/' + w : provider == 'custom' ? #strings.replace(#strings.defaultString(fmt, ''), '{width}', '' + w) : ''";
+  W_IS_ZERO +
+  " || provider == 'none' ? '' : provider == 'halo' ? '?width=' + w : provider == 'lsky' ? '?w=' + w : provider == 'aliyun_esa' ? '?image_process=resize,w_' + w : provider == 'aliyun_oss' ? '?x-oss-process=image/resize,w_' + w : provider == 'tencent_eo' ? '?eo-img.resize=w/' + w : provider == 'tencent_cos' ? '?imageMogr2/thumbnail/' + w + 'x' : provider == 'qiniu' ? '?imageView2/2/w/' + w : provider == 'upyun' ? '!/fw/' + w : provider == 'custom' ? #strings.replace(#strings.defaultString(fmt, ''), '{width}', '' + w) : ''";
 
 /**
  * 生成图片尺寸后缀的完整 th:with 局部变量串。
@@ -322,7 +328,8 @@ function w0Strip(urlExpr: string): string {
     safe +
     ", '?w=0', ''), '?width=0', '')";
   return (
-    "w == 0 ? " +
+    W_IS_ZERO +
+    " ? " +
     stripped +
     " : " +
     safe +
