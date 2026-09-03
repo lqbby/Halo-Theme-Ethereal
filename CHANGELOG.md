@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### 修复：音乐播放器封面降采样对 Meting 代理地址不生效
+
+- **播放列表封面白耗约 1 MiB 传输**：`MusicPlayer` 的 `picWithParam` 此前只识别网易云直链的 `?param=WxH` 参数，而歌单接口返回的是自建 Meting 代理地址（形如 `.../api?server=netease&type=pic&id=xxx&auth=xxx`，**不含 `param`**），正则不命中，代理便无条件 302 到 `?param=300y300`——18 首歌的列表封面实测共 1072 KiB，而屏幕上只显示 32px。现补充代理形态识别：URL 命中 `type=pic` 时通过 `URL.searchParams` 追加 `&size=N`（`auth` 原样保留；服务端自 2026-09-03 起已放行 `size` 参数，鉴权串由 `server+type+id` 计算、不含 size，故既有链接照常有效）。实测封面体积降 **92%**（`300y300` → `100y100`），首页约省 986 KiB。网易云直链、站内相对路径、图床地址的处理均维持原样
+
 ### 修复：CI 类型检查失败（astro check 4 errors）
 
 CI 的 `pnpm check` 步骤此前报 4 个错误，均为历史遗留、与近期改动无关：
