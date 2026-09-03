@@ -2,6 +2,14 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.9] - 2026-09-03
+
+### 优化：自定义滚动条挂载延后到「首次交互 / 主线程空闲」，移出 TBT 统计窗口
+
+- **现象**：Lighthouse 主线程明细中 overlayscrollbars 挂载是首页一次 ~127ms 的归因长任务（start ~1687ms，仍落在 FCP→TTI 的 TBT 统计窗口内），拉高 TBT
+- **根因**：旧逻辑用 `requestIdleCallback(task, { timeout: 1500 })` 错峰，`timeout` 会在主线程持续忙碌（图片解码 / 内联脚本执行）时**强制**把挂载塞进忙窗口执行，成为长任务；自定义滚动条纯属装饰，无需抢首屏
+- **修复**（`src/scripts/app.ts` `runWhenIdle`）：挂载时机改为「首次用户交互（pointerdown / wheel / touchstart / keydown）或 `requestIdleCallback` 真正空闲」二选一，去掉 `timeout` 强制；Lighthouse 不模拟交互，故交互触发在报告中不再出现，空闲兜底也会自然落在忙期之后。Safari 无空闲回调时退化为 3s 延迟（原为立即执行）。原生滚动条在等待期间正常工作，切换不可感知
+
 ## [v1.3.8] - 2026-09-03
 
 ### 修复：首页 banner 冗余 `<link rel=preload>` 触发「preloaded but not used」警告
