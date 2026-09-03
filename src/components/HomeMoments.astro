@@ -64,7 +64,7 @@
             th:each="moment : ${homeMoments.items}"
             th:if="${moment.spec.content != null and not #strings.isEmpty(moment.spec.content.raw)}"
             th:href="@{/moments/{name}(name=${moment.metadata.name})}"
-            class="home-moment-link group flex items-center whitespace-nowrap"
+            class="home-moment-link group flex min-h-[24px] items-center whitespace-nowrap"
           >
             <span
               class="home-moment-owner text-sm font-bold text-(--primary)"
@@ -105,7 +105,7 @@
     <!-- 更多 -->
     <a
       th:href="@{/moments}"
-      class="btn-regular group flex h-8 shrink-0 items-center gap-0.5 rounded-lg px-3 text-sm font-bold active:scale-95"
+      class="btn-regular group relative z-10 flex h-8 shrink-0 items-center gap-0.5 rounded-lg px-3 text-sm font-bold active:scale-95"
     >
       <span th:text="#{common.more}">更多</span>
       <span

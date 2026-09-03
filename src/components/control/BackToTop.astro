@@ -440,9 +440,13 @@ import { Icon } from "astro-icon/components";
     var btn = getTocBtn();
     if (!btn) return;
     btn.classList.toggle("toc-active", open);
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    // aria-expanded 必须写在 button 上：div 无隐式 role，挂 aria-expanded 会触发
+    // aria-allowed-attr 违规（Lighthouse axe-core 1.3.4 实测）。SSR 时已在
+    // <button> 上写 aria-expanded="false"，运行时这里同步到同一 button 上，
+    // 保证首屏与运行态一致。class 仍在 div（CSS .toc-active 在外层）
     var inner = btn.querySelector("button");
     if (!inner) return;
+    inner.setAttribute("aria-expanded", open ? "true" : "false");
     var t = window.__etherealI18n || __tocI18nFallback;
     inner.setAttribute(
       "aria-label",

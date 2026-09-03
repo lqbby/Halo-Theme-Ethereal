@@ -2,6 +2,23 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.5] - 2026-09-03
+
+### 性能：`#main-grid` CLS 修复（0.097 → 目标 <0.05）
+
+Lighthouse 13.4.1（2026-09-03 12:29 桌面档）对 `www.lqbby.com` 的审计报 CLS **0.097**，其中 `#main-grid`（2697×1496 巨型网格）一项贡献 **0.096（99.4%）**。
+
+- **`transition: all` 是元凶**：`MainGridLayout.astro` 的 `#main-grid` 类串长期带 `transition duration-[var(--dur-banner,700ms)]`（即 `transition-property: all`），首次绘制后任何布局属性（`top` / `min-height` / `grid-template-*`）变化都会被动画化 700ms，期间浏览器每帧重排一次巨型元素，被 Layout Instability API 计入 CLS 会话窗口
+- **去掉 Tailwind `transition duration-...`**（MainGridLayout.astro）：首帧与运行期不再有过渡开销，CLS 巨型位移不再每帧计入
+- **显式补回 `transition: translate`**（components.css）：Tailwind 的 `transition` utility 默认 `transition-property` 不含独立 `translate` 属性（只含 `transform`），所以 `home-switch` 时网格 `translate: 0 var(--banner-height-extend)` 的同帧切换**原来就不靠 Tailwind 类**——靠的是 `#main-panel-wrapper` 的 `html.home-switch` `top` transition（L300-303）。但为防御万一与保持显式，CSS 显式声明 `transition: translate var(--dur-banner, 700ms) cubic-bezier(0.4, 0, 0.2, 1)`
+- **`html:not(.page-ready)` 首帧禁用**（components.css）：复用 `#wave-container` 已用的同款范式（L370-372）。`translate: none` ↔ 长度值不可插值（CSS Transforms 2），首帧启用过渡会形成瞬移；同时首帧 `--banner-height-extend` 从 vh 兜底切到 JS px 时，禁用过渡可避免该过渡被纳入 CLS 计分窗口。`app.ts` 双 rAF 后加 `page-ready` 恢复
+
+### 无障碍：Lighthouse axe-core 92 → 100（三处全部修复）
+
+- **`#back-to-toc-btn` `aria-allowed-attr`**：原脚本 `syncTocBtnState()` 把 `aria-expanded` 写到外层 `<div id="back-to-toc-btn">`（`getTocBtn()` 返回 div），div 无隐式 role，挂 `aria-expanded` 触发 axe 违规。改为写到内层 `<button>`（SSR 已正确写在 button 上）—— class 仍在 div（CSS `.toc-active` 在外层），运行时与首屏一致
+- **`.home-moment-link` `target-size`（520.7×20，需 ≥24×24）**：补 `min-h-[24px]`，使跑马灯条目点击区高度达标
+- **`a.btn-regular`「更多」`target-size`（70×32，最小可点空间被压到 70×6）**：根因是 CSS 绘制顺序——`#home-moments-marquee` 是 `position: relative`（Group 3：positioned），`.home-moment-link` 是 static（Group 2）但被父级提到 Group 3 一起绘制；而「更多」是 Group 2，画在 marquee **下面**，跑马灯链接的 bounding rect（axe 忽略 `overflow:hidden` 裁剪）就把按钮压到只剩 6px 安全区。现给「更多」加 `relative z-10`（Group 4：positioned + z-index），按钮升到顶层，安全区恢复完整 70×32
+
 ## [Unreleased]
 
 ### 性能：评论区与图片灯箱懒加载（首屏 JS -~200KB）

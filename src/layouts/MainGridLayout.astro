@@ -354,7 +354,7 @@ const {
 
       <div
         id="main-grid"
-        class="pointer-events-auto left-0 right-0 mx-auto grid w-full grid-cols-[1fr] grid-rows-[auto] gap-4 px-0 transition duration-[var(--dur-banner,700ms)] md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr_auto] md:px-4"
+        class="pointer-events-auto left-0 right-0 mx-auto grid w-full grid-cols-[1fr] grid-rows-[auto] gap-4 px-0 md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr_auto] md:px-4"
         th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:grid-cols-[17.5rem_1fr_17.5rem]'}"
       >
         <!-- banner 署名链接：可见文本（credit.text）即天然可访问名，不设 aria-label
