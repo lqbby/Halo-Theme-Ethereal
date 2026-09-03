@@ -2,6 +2,13 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.6] - 2026-09-03
+
+### 修复：banner_width=0（原图）时剥离 src 自带的 `?w=0` 冗余后缀
+
+- **现象**：后台图片处理宽度设为 0（期望原图）时，首页 banner 的 `<img>` / `<link rel=preload>` / 暗色壁纸 URL 仍出现 `?w=0`。根因是 Lsky 图床原图链接默认就带 `?w=0`，用户 banner src / darkSrc 配置里复制的是这份 URL；主题 CDN 后缀逻辑（`CDN_SUFFIX_RAW` 首条 `w == 0 ? ''`）本就保证 w=0 时不追加后缀，但 src 自带的 `?w=0` 会原样透传到最终 URL
+- **修复**（`src/utils/image-suffix.ts`）：新增 `w0Strip()` 辅助，banner 全链路 URL 生成统一改走它——单图 `srcX`/`darkSrcX`（`bannerMediaVars`）、轮播首图 `carouselFirstSrcX`（`bannerThWith`）、轮播逐张 `carouselImgSrcExpr` / `carouselDarkImgSrcExpr`、移动端复用 `bannerMediaVars`。当 `w == 0` 时经 `#strings.replace` 剥离 `?w=0` 与 `?width=0`（Lsky/Halo 两种原图标记），非 0 时沿用原「src + (可加后缀 ? suffix : '')」逻辑不变
+
 ## [v1.3.5] - 2026-09-03
 
 ### 性能：`#main-grid` CLS 修复（0.097 → 目标 <0.05）

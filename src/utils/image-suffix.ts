@@ -108,9 +108,9 @@ export function bannerThWith(): string {
     // 抛 EL1025E（#strings.defaultString 拦不住下标越界，[0] 先求值即炸）。
     // 修复 1.2.85 P0-1 引入的回归：carousel.images 为空时首页/文章页全 500。
     "carouselFirst=${!#lists.isEmpty(theme.config?.style?.bannerStyle?.carousel?.images) ? theme.config?.style?.bannerStyle?.carousel?.images[0] : ''}, " +
-    "carouselFirstSrcX=${carouselFirst + (" +
-    cdnSuffixEligible("carouselFirst") +
-    " ? suffix : '')}"
+    "carouselFirstSrcX=${" +
+    w0Strip("carouselFirst") +
+    "}"
   );
 }
 
@@ -141,15 +141,11 @@ function bannerMediaVars(
     modeExpr +
     "}, " +
     "srcX=${" +
-    srcExpr +
-    " + (" +
-    cdnSuffixEligible(srcExpr) +
-    " ? suffix : '')}, " +
+    w0Strip(srcExpr) +
+    "}, " +
     "darkSrcX=${" +
-    darkSrcExpr +
-    " + (" +
-    cdnSuffixEligible(darkSrcExpr) +
-    " ? suffix : '')}, " +
+    w0Strip(darkSrcExpr) +
+    "}, " +
     "isVideo=${mode == 'single' and " +
     "(" +
     urlEndsWith(srcExpr, ".mp4") +
@@ -194,7 +190,7 @@ function bannerMobileVars(): string {
  */
 export function carouselImgSrcExpr(): string {
   const img = "#strings.defaultString(img, '')";
-  return "${" + img + " + (" + cdnSuffixEligible(img) + " ? suffix : '')}";
+  return "${" + w0Strip(img) + "}";
 }
 
 /**
@@ -207,12 +203,7 @@ export function carouselDarkImgSrcExpr(
   listExpr = "theme.config?.style?.bannerStyle?.carousel?.darkImages",
 ): string {
   const item = listExpr + "[imgStat.index]";
-  const body =
-    "#strings.defaultString(" +
-    item +
-    ", '') + (" +
-    cdnSuffixEligible(item) +
-    " ? suffix : '')";
+  const body = w0Strip("#strings.defaultString(" + item + ", '')");
   // #lists.size(list) > imgStat.index 短路（1.2.89 修复）：
   // imgStat.index 由「亮色」轮播列表的 th:each 产生，却用来索引「暗色」列表，
   // 二者是不同集合——仅判 #lists.isEmpty 挡不住「暗色列表比亮色短」：非空但更短时
@@ -308,5 +299,35 @@ export function cdnSuffixEligible(urlExpr: string): string {
     " or " +
     urlEndsWith(urlExpr, ".avif") +
     ")"
+  );
+}
+
+/**
+ * 生成「w==0 时剥离 URL 自带 0 值尺寸后缀，否则按原逻辑拼接 suffix」的 Thymeleaf 表达式主体。
+ *
+ * 背景：后台 banner_width=0（原图）时，主题 CDN 后缀逻辑（CDN_SUFFIX_RAW 首条短路）
+ * 已保证不追加后缀；但用户 banner src / darkSrc 里常自带 Lsky/Halo 原图链接默认携带的
+ * `?w=0` / `?width=0`（图床复制的 URL 本身就有），这些冗余尺寸后缀会原样输出到最终 URL。
+ * 本函数在 w==0 时主动剥离二者，使最终 URL 干净（用户诉求：「后台设置是 0 的时候，
+ * ?w=0 就不出现」）。
+ *
+ * 非 w==0 分支沿用原拼接：src + (可加后缀 ? suffix : '')。
+ * urlExpr 一律经 #strings.defaultString 兜底 null（carouselFirst 等非空值兜底来源）。
+ * @param urlExpr 图片 URL 的 Thymeleaf 表达式
+ */
+function w0Strip(urlExpr: string): string {
+  const safe = "#strings.defaultString(" + urlExpr + ", '')";
+  const stripped =
+    "#strings.replace(#strings.replace(" +
+    safe +
+    ", '?w=0', ''), '?width=0', '')";
+  return (
+    "w == 0 ? " +
+    stripped +
+    " : " +
+    safe +
+    " + (" +
+    cdnSuffixEligible(urlExpr) +
+    " ? suffix : '')"
   );
 }
