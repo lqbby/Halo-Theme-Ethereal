@@ -678,19 +678,66 @@ const layoutId = `${widgetId}-layout`;
       });
     };
 
+    // P0②（1.3.2）：播放列表容器只有 max-h-48（192px，约可容纳 5-6 项），一次性
+    // 给全部封面赋 src 会全部落在浏览器原生 lazy 的预取阈值内（~1250px）而全量加载
+    //（Lighthouse 2026-09-03：18 张封面即整页图片开销的大头）。改为只先加载前 6 张，
+    // 其余记录到 data-lazy-src，由 IntersectionObserver（root = 滚动容器自身）在
+    // 滚动接近可视区时再赋值——与 LCP 无关的封面不参与首屏流量。
+    const EAGER_PLAYLIST_COUNT = 6;
+
+    const loadLazyCover = (img) => {
+      const url = img.dataset.lazySrc;
+      if (!url) return;
+      delete img.dataset.lazySrc;
+      img.src = url;
+    };
+
+    // 渲染列表会整体重建 DOM，旧观察器一并作废（disconnect 防泄漏）
+    let playlistLazyObserver = null;
+    const observeLazyCovers = (lazyImages) => {
+      if (playlistLazyObserver) {
+        playlistLazyObserver.disconnect();
+        playlistLazyObserver = null;
+      }
+      if (!lazyImages.length) return;
+      if (!("IntersectionObserver" in window)) {
+        // 无 IO 的老浏览器退回旧行为：全部立即加载
+        lazyImages.forEach(loadLazyCover);
+        return;
+      }
+      playlistLazyObserver = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            loadLazyCover(entry.target);
+            playlistLazyObserver.unobserve(entry.target);
+          }
+        },
+        { root: ui.playlistContainer, rootMargin: "100px" },
+      );
+      lazyImages.forEach((img) => playlistLazyObserver.observe(img));
+    };
+
     const renderPlaylist = () => {
       ui.playlistContainer.innerHTML = "";
+      const lazyImages = [];
       state.playlist.forEach((track, index) => {
         const clone = ui.itemTemplate.content.cloneNode(true);
         const item = clone.querySelector(".playlist-item");
         const img = clone.querySelector(".item-cover");
         const title = clone.querySelector(".item-title");
         const artist = clone.querySelector(".item-artist");
-        setSrcOrClear(
-          img,
-          picWithParam(track.pic, 100),
-          isValidMetingUrl(track.pic),
-        );
+        const coverUrl = picWithParam(track.pic, 100);
+        if (isValidMetingUrl(track.pic)) {
+          if (index < EAGER_PLAYLIST_COUNT) {
+            img.src = coverUrl;
+          } else {
+            img.dataset.lazySrc = coverUrl;
+            lazyImages.push(img);
+          }
+        } else {
+          img.removeAttribute("src");
+        }
         img.alt = `${track.name} - ${track.artist}`;
         title.textContent = track.name;
         artist.textContent = track.artist;
@@ -700,6 +747,7 @@ const layoutId = `${widgetId}-layout`;
         item.addEventListener("click", () => playTrackByIndex(index));
         ui.playlistContainer.appendChild(clone);
       });
+      observeLazyCovers(lazyImages);
       updatePlaylistActiveUI();
     };
 
