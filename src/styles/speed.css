@@ -1,8 +1,9 @@
-/* 动画速度三档：由 <html data-speed="relaxed|balanced|snappy"> 驱动全局时长变量。
-   在 src/layouts/Layout.astro 中从后台设置 styleSwitches.speedTier 注入。
+/* 动画速度四档：由 <html data-speed="relaxed|balanced|optimal|snappy"> 驱动全局时长变量。
+   在 src/layouts/Layout.astro 中从后台设置 theme.config?.style?.animationSpeed?.speedTier 注入。
 
    舒缓 relaxed —— 完整演出，时长与错峰步长拉长，适合展示型页面
    均衡 balanced —— 当前主题原值（零回归，默认档）
+   最优 optimal  —— 轻快：比均衡快约 45%，保留错峰层次与过渡，内容近立即可见
    疾速 snappy   —— 保留微动效但内容立即可见：入场只位移不透明门控、错峰清零 */
 
 /* 均衡档（默认）时长 = 主题原值。
@@ -31,6 +32,19 @@ html[data-speed="relaxed"] {
   --dur-float: 450ms;
   --dur-banner: 800ms;
   --dur-banner-transition: 1000ms;
+}
+
+/* 最优 optimal —— 轻快：比均衡快约 45%，保留错峰层次与过渡，内容近立即可见 */
+html[data-speed="optimal"] {
+  --dur-swup: 150ms; /* 换页退场 */
+  --dur-entry: 160ms; /* 换页入场动画 */
+  --dur-entry-step: 30ms; /* 列表/组件错峰步长 */
+  --dur-entry-max: 240ms; /* 入场错峰上限 */
+  --content-delay: 50ms; /* 内容块基础延迟 */
+  --dur-scroll: 500ms; /* 导航栏隐藏 */
+  --dur-float: 240ms; /* 浮动按钮位移动画 */
+  --dur-banner: 400ms; /* banner 载入 */
+  --dur-banner-transition: 450ms; /* 轮播切换动画 */
 }
 
 html[data-speed="snappy"] {
