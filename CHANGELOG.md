@@ -9,10 +9,6 @@
 - **comment-next.iife.js（120KB，45% 未用）随 HTML 立即执行**：`<halo:comment>` 由 Halo 服务端注入脚本，而评论区在文章/瞬间/单页/友链/图床页的首屏之下。现把注入产物包进 `<template id="comment-lazy-template">`（内容惰性：脚本不下载、web component 不升级），由 `app.ts` 的 IntersectionObserver 在评论区接近视口（提前 400px）时把内容搬到占位节点激活；无 IO 老内核退化为立即加载，Swup 换页后按新 DOM 重新绑定
 - **PhotoSwipe 全家桶（~80KB）每次 page:view 都 eager 初始化**：首屏几乎从不点击图片。现改为武装一个 capture 阶段的轻量委托监听，click 真正命中图库图片（`.custom-md img` / `#post-cover img` / `.moment-media img` / `#photo-detail-image`）时才动态拉起 PhotoSwipe 并重放本次 click 开图；拦截时 `preventDefault` 避免图片被链接包裹时的意外跳转。相册页（photos-gallery）保持原 eager 逻辑不变
 
-### 性能：播放列表封面按需渲染
-
-- **18 张封面一次性全量请求**：播放列表容器只有 `max-h-48`（192px，约容纳 5-6 项），但渲染时给全部封面赋了 `src`——它们都落在浏览器原生 `loading="lazy"` 的预取阈值（~1250px）内，滚动不滚到也会全量下载（Lighthouse 2026-09-03 实测：封面是整页图片开销的大头）。现改为只立即加载**前 6 张**，其余记录到 `data-lazy-src`，由 `IntersectionObserver`（root = 播放列表滚动容器，`rootMargin: 100px`）在滚动接近可视区时再赋值；无 `IntersectionObserver` 的老浏览器退回旧行为全量加载，列表重渲染时旧观察器 `disconnect` 防泄漏。与 1.3.1 的 `size` 降采样叠加后，未滚动时播放列表封面流量约 **16.5 KiB**（原 1072 KiB，-98%）
-
 ### 修复：音乐播放器封面降采样对 Meting 代理地址不生效
 
 - **播放列表封面白耗约 1 MiB 传输**：`MusicPlayer` 的 `picWithParam` 此前只识别网易云直链的 `?param=WxH` 参数，而歌单接口返回的是自建 Meting 代理地址（形如 `.../api?server=netease&type=pic&id=xxx&auth=xxx`，**不含 `param`**），正则不命中，代理便无条件 302 到 `?param=300y300`——18 首歌的列表封面实测共 1072 KiB，而屏幕上只显示 32px。现补充代理形态识别：URL 命中 `type=pic` 时通过 `URL.searchParams` 追加 `&size=N`（`auth` 原样保留；服务端自 2026-09-03 起已放行 `size` 参数，鉴权串由 `server+type+id` 计算、不含 size，故既有链接照常有效）。实测封面体积降 **92%**（`300y300` → `100y100`），首页约省 986 KiB。网易云直链、站内相对路径、图床地址的处理均维持原样
