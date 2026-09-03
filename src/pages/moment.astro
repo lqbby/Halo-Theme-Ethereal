@@ -184,9 +184,13 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     >
       评论
     </h2>
-    <Fragment
-      set:html={'<halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}" />'}
-    />
+    <!-- P3（1.3.3）：评论区懒加载，机制见 post.astro 同名注释 -->
+    <template id="comment-lazy-template">
+      <Fragment
+        set:html={'<halo:comment group="moment.halo.run" kind="Moment" th:attr="name=${moment.metadata.name}" />'}
+      />
+    </template>
+    <div id="comment-lazy-placeholder"></div>
   </div>
 </MainGridLayout>
 

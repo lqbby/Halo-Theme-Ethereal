@@ -33,7 +33,7 @@ import { initLegacyAdmonitions } from "../utils/legacy-admonitions";
 import { initExternalLinkRedirect } from "../utils/external-link-redirect";
 import { initProfileStatus } from "../utils/profile-status";
 import {
-  initContentLightbox,
+  armLazyLightbox,
   initPhotosGallery,
   destroyAll,
 } from "../utils/content-media";
@@ -295,12 +295,13 @@ function setupSwup() {
   window.swup.hooks.on("page:view", () => {
     syncHomeClass();
     syncBannerOverlay();
-    void initContentLightbox();
+    armLazyLightbox();
     void initPhotosGallery();
     showBanner();
     scrollFunction();
     initLegacyAdmonitions();
     initExternalLinkRedirect();
+    initCommentLazyLoad();
   });
   // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"，合成器驱动不占
   // 主线程，无 scrl 引擎的每帧 JS 测量卡顿）。同页锚点（目录点击）平滑由
@@ -429,6 +430,42 @@ function updateTocBtnVisibility() {
   window.__etherealFloatingControlsReposition?.();
 }
 
+// ── 评论区懒加载（P3，1.3.3）──
+// <halo:comment> 由 Halo 服务端注入，comment-next.iife.js（~120KB，45% 未用）随
+// HTML 解析立即执行，而评论区在文章页首屏之下。页面模板把产物包进
+// <template id="comment-lazy-template">（内容惰性：脚本不下载、web component 不
+// 升级），这里在评论区接近视口（提前 400px）时把内容搬到占位节点激活。
+// Swup 换页后新 DOM 的占位为空，page:view 重新绑定即可覆盖 SPA 场景。
+function initCommentLazyLoad() {
+  const box = document.getElementById("comment");
+  const tpl = document.getElementById(
+    "comment-lazy-template",
+  ) as HTMLTemplateElement | null;
+  const slot = document.getElementById("comment-lazy-placeholder");
+  if (!box || !tpl || !slot) return;
+  if (slot.childNodes.length > 0) return; // 本次导航已激活（幂等）
+  const adopt = () => {
+    if (slot.childNodes.length > 0) return;
+    while (tpl.content.firstChild) {
+      slot.appendChild(tpl.content.firstChild);
+    }
+  };
+  if (!("IntersectionObserver" in window)) {
+    adopt();
+    return;
+  }
+  const io = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        io.disconnect();
+        adopt();
+      }
+    },
+    { rootMargin: "400px" },
+  );
+  io.observe(box);
+}
+
 // ── 初始化 ──
 function init() {
   syncHomeClass();
@@ -446,6 +483,7 @@ function init() {
   showBanner();
   initLegacyAdmonitions();
   updateTocBtnVisibility();
+  initCommentLazyLoad();
 }
 
 setClickOutsideToClose("display-setting", [
@@ -467,7 +505,7 @@ if (!(window as any).__etherealScrollDown) {
 }
 
 init();
-void initContentLightbox();
+armLazyLightbox();
 void initPhotosGallery();
 
 if (window?.swup?.hooks) {

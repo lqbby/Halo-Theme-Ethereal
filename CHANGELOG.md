@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### 性能：评论区与图片灯箱懒加载（首屏 JS -~200KB）
+
+- **comment-next.iife.js（120KB，45% 未用）随 HTML 立即执行**：`<halo:comment>` 由 Halo 服务端注入脚本，而评论区在文章/瞬间/单页/友链/图床页的首屏之下。现把注入产物包进 `<template id="comment-lazy-template">`（内容惰性：脚本不下载、web component 不升级），由 `app.ts` 的 IntersectionObserver 在评论区接近视口（提前 400px）时把内容搬到占位节点激活；无 IO 老内核退化为立即加载，Swup 换页后按新 DOM 重新绑定
+- **PhotoSwipe 全家桶（~80KB）每次 page:view 都 eager 初始化**：首屏几乎从不点击图片。现改为武装一个 capture 阶段的轻量委托监听，click 真正命中图库图片（`.custom-md img` / `#post-cover img` / `.moment-media img` / `#photo-detail-image`）时才动态拉起 PhotoSwipe 并重放本次 click 开图；拦截时 `preventDefault` 避免图片被链接包裹时的意外跳转。相册页（photos-gallery）保持原 eager 逻辑不变
+
 ### 性能：播放列表封面按需渲染
 
 - **18 张封面一次性全量请求**：播放列表容器只有 `max-h-48`（192px，约容纳 5-6 项），但渲染时给全部封面赋了 `src`——它们都落在浏览器原生 `loading="lazy"` 的预取阈值（~1250px）内，滚动不滚到也会全量下载（Lighthouse 2026-09-03 实测：封面是整页图片开销的大头）。现改为只立即加载**前 6 张**，其余记录到 `data-lazy-src`，由 `IntersectionObserver`（root = 播放列表滚动容器，`rootMargin: 100px`）在滚动接近可视区时再赋值；无 `IntersectionObserver` 的老浏览器退回旧行为全量加载，列表重渲染时旧观察器 `disconnect` 防泄漏。与 1.3.1 的 `size` 降采样叠加后，未滚动时播放列表封面流量约 **16.5 KiB**（原 1072 KiB，-98%）

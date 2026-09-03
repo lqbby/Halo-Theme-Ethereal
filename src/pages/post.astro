@@ -415,9 +415,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     >
       评论
     </h2>
-    <Fragment
-      set:html={'<halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}" />'}
-    />
+    <!-- P3（1.3.3）：评论区懒加载——halo:comment 注入的 comment-next.iife.js
+         随 HTML 解析立即执行（~120KB，评论区在首屏之下用不上）。包进 <template>
+         后内容惰性（脚本不下载、web component 不升级），由 app.ts 的
+         IntersectionObserver 在评论区接近视口时搬到占位节点再激活。 -->
+    <template id="comment-lazy-template">
+      <Fragment
+        set:html={'<halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}" />'}
+      />
+    </template>
+    <div id="comment-lazy-placeholder"></div>
   </div>
 
   <!-- 评论区锚点落位高亮：从通知/邮件(#comment)或侧栏「最近评论」跳转进入时，
