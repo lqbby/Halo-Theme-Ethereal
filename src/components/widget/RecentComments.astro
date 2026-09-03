@@ -41,12 +41,13 @@ const COLLAPSED_HEIGHT = "7.5rem";
     // 新版 Halo(2.20+) 的 comments 列表接口已废弃「无差别列出全部评论」，
     // 必须按 subject(kind+name) 查。这里改为：拉最近文章 → 只查有评论计数的
     // → 并发取每篇评论 → 合并按时间排序取前 LIMIT。
-    // 全局最新评论聚合端点（由小插件 ethereal-comments-latest 提供）：
+    // 全局最新评论聚合端点（由小插件 recent-comments 提供，1.0.0 起通用化）：
     // 后端一次遍历 Comment 并按 spec.creationTime 倒序截取，同时解析好 permalink，
     // 侧边栏从「1 次 posts + N 次 comments」的 N+1 瀑布压成 1 个请求。
     // 插件未安装 / 未授权时自动回退下面的 posts 瀑布（见 load 的 catch）。
     var LATEST_API =
-      "/apis/api.ethereal.lqbby.com/v1alpha1/comments/latest?size=" + LIMIT;
+      "/apis/api.recent-comments.halo.run/v1alpha1/comments/latest?size=" +
+      LIMIT;
     var POSTS_API =
       "/apis/api.content.halo.run/v1alpha1/posts?size=20&sort=metadata.creationTimestamp,desc";
     var listEl = document.getElementById("recent-comments-list");
