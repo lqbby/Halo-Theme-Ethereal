@@ -252,7 +252,7 @@ const stats = [
 
     #bangumi-list.bangumi-list-enter {
       opacity: 0;
-      animation: var(--dur-entry, 300ms) fade-in-up;
+      animation: var(--dur-swup, 200ms) fade-in-up;
       animation-fill-mode: forwards;
     }
   </style>
@@ -326,12 +326,62 @@ const stats = [
 
       // 局部加载：fetch 目标页完整 HTML → 提取 #bangumi-list → 替换当前容器。
       // 目标页无 #bangumi-list（如后退到非番剧页）则整页跳转兜底。
-      // 过渡：先退场淡出+下沉（--dur-swup），结束后换入新内容并重播 fade-in-up
-      // （bangumi-list-enter，--dur-entry）；换入前剥离卡片/分页自带的 onload-animation
-      // 与错峰延迟，避免每次筛选重播「过度动画」，统一由容器做一次性入场。
+      // 过渡：点击立即退场淡出（与 fetch 并行，对齐 Swup 点击即反馈），fetch 完成
+      // 且退场结束即换入新内容并重播 fade-in-up；换入前剥离卡片/分页自带的
+      // onload-animation 与错峰延迟，避免每次筛选重播「过度动画」，统一由容器入场。
       function loadArchive(url) {
         if (loading) return;
         loading = true;
+
+        var current = document.getElementById("bangumi-list");
+        if (!current) {
+          loading = false;
+          window.location.href = url;
+          return;
+        }
+
+        var incoming = null;
+        var exitDone = false;
+
+        function swap() {
+          if (!incoming || !exitDone) return;
+          loading = false;
+          // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
+          incoming.querySelectorAll(".onload-animation").forEach(function (el) {
+            el.classList.remove("onload-animation");
+            el.style.removeProperty("animation-delay");
+          });
+          // 禁用 transition 移除退场类，避免反向淡入；换入后恢复并重播入场动画。
+          current.style.transition = "none";
+          current.classList.remove("bangumi-list-exit");
+          current.innerHTML = incoming.innerHTML;
+          void current.offsetWidth;
+          current.style.transition = "";
+          history.pushState({ bangumiFilter: true }, "", url);
+          setActiveTab(url);
+          // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
+          current.classList.remove("bangumi-list-enter");
+          void current.offsetWidth;
+          current.classList.add("bangumi-list-enter");
+        }
+
+        function onExit() {
+          if (exitDone) return;
+          exitDone = true;
+          current.removeEventListener("transitionend", onExit);
+          if (exitTimer) {
+            clearTimeout(exitTimer);
+            exitTimer = null;
+          }
+          swap();
+        }
+
+        // 退场立即开始，与 fetch 并行：点击即有视觉反馈，不干等网络。
+        current.addEventListener("transitionend", onExit);
+        // 兜底：transitionend 未触发（如 prefers-reduced-motion）时强制完成。
+        exitTimer = setTimeout(onExit, 400);
+        current.classList.add("bangumi-list-exit");
+
         fetch(url, { cache: "no-store" })
           .then(function (r) {
             if (!r.ok) throw new Error("HTTP " + r.status);
@@ -339,52 +389,14 @@ const stats = [
           })
           .then(function (html) {
             var doc = new DOMParser().parseFromString(html, "text/html");
-            var incoming = doc.getElementById("bangumi-list");
-            var current = document.getElementById("bangumi-list");
-            if (!incoming || !current) {
+            incoming = doc.getElementById("bangumi-list");
+            if (!incoming) {
               loading = false;
               window.location.href = url;
               return;
             }
-
             syncHeader(doc);
-
-            // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
-            incoming
-              .querySelectorAll(".onload-animation")
-              .forEach(function (el) {
-                el.classList.remove("onload-animation");
-                el.style.removeProperty("animation-delay");
-              });
-
-            var finished = false;
-            function finish() {
-              if (finished) return;
-              finished = true;
-              loading = false;
-              current.removeEventListener("transitionend", finish);
-              if (exitTimer) {
-                clearTimeout(exitTimer);
-                exitTimer = null;
-              }
-              // 禁用 transition 移除退场类，避免反向淡入；换入后恢复并重播入场动画。
-              current.style.transition = "none";
-              current.classList.remove("bangumi-list-exit");
-              current.innerHTML = incoming.innerHTML;
-              void current.offsetWidth;
-              current.style.transition = "";
-              history.pushState({ bangumiFilter: true }, "", url);
-              setActiveTab(url);
-              // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
-              current.classList.remove("bangumi-list-enter");
-              void current.offsetWidth;
-              current.classList.add("bangumi-list-enter");
-            }
-
-            current.addEventListener("transitionend", finish);
-            // 兜底：transitionend 未触发（如 prefers-reduced-motion）时强制完成。
-            exitTimer = setTimeout(finish, 400);
-            current.classList.add("bangumi-list-exit");
+            swap();
           })
           .catch(function () {
             loading = false;
