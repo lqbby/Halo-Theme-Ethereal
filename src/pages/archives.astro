@@ -47,8 +47,8 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       </p>
     </div>
 
-    <!-- 框二：分类菜单（PJAX 无刷新筛选：分类切换 + “全部” + 未分类）
-         激活判定/标签/计数均由 service 端表达式完成，无额外脚本；
+    <!-- 框二：分类菜单（PJAX 局部刷新触发器：点击只刷新框三 #archive-list，
+         本框与框一保持不动；激活判定/标签/计数均由 service 端表达式完成）
          计数挂在 countClass=archive-cat-count 供筛选态脚本读取 -->
     <div class="card-base px-9 py-6 mb-4">
       <div id="archive-filter-tabs" class="flex flex-wrap gap-2">
@@ -75,123 +75,144 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       </div>
     </div>
 
-    <!-- 框三：归档列表 -->
+    <!-- 框三：归档列表（局部 PJAX 刷新容器：分类菜单切换只替换 #archive-list 内内容） -->
     <div class="card-base px-8 py-6">
-      <div class="contents" th:each="archive : ${archives.items}">
-        <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对 -->
-        <div
-          th:attr="data-archive-year-row=${archive.year}, data-year=${archive.year}"
-        >
-          <div class="flex h-15 w-full flex-row items-center">
-            <div
-              class="w-[15%] text-right text-2xl font-bold text-75 transition md:w-[10%]"
-              th:text="${archive.year}"
-            >
-              2026
-            </div>
-            <div class="w-[15%] md:w-[10%]">
+      <div id="archive-list">
+        <div class="contents" th:each="archive : ${archives.items}">
+          <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对 -->
+          <div
+            th:attr="data-archive-year-row=${archive.year}, data-year=${archive.year}"
+          >
+            <div class="flex h-15 w-full flex-row items-center">
               <div
-                class="z-50 mx-auto h-3 w-3 rounded-full bg-none outline-3 -outline-offset-2 outline-(--primary)"
+                class="w-[15%] text-right text-2xl font-bold text-75 transition md:w-[10%]"
+                th:text="${archive.year}"
               >
+                2026
+              </div>
+              <div class="w-[15%] md:w-[10%]">
+                <div
+                  class="z-50 mx-auto h-3 w-3 rounded-full bg-none outline-3 -outline-offset-2 outline-(--primary)"
+                >
+                </div>
+              </div>
+              <div
+                class="w-[70%] text-left text-50 transition md:w-[80%]"
+                th:with={yearCountThWith}
+                th:attr="data-archive-year-count=${archive.year}"
+                th:text={`#{page.archives.count(\${postCount})}`}
+              >
+                1 篇文章
               </div>
             </div>
-            <div
-              class="w-[70%] text-left text-50 transition md:w-[80%]"
-              th:with={yearCountThWith}
-              th:attr="data-archive-year-count=${archive.year}"
-              th:text={`#{page.archives.count(\${postCount})}`}
-            >
-              1 篇文章
-            </div>
-          </div>
 
-          <div class="contents" th:each="month : ${archive.months}">
-            <a
-              th:each="post : ${month.posts}"
-              th:if={`\${${postMatchRow}}`}
-              th:href="@{${post.status.permalink}}"
-              th:attr="aria-label=${post.spec.title}, data-archive-row=${post.spec.slug}, data-year=${archive.year}"
-              class="group btn-plain block! h-10 w-full rounded-lg hover:text-[initial]"
-            >
-              <div class="flex h-full flex-row items-center justify-start">
-                <div
-                  class="w-[15%] text-right text-sm text-50 transition md:w-[10%]"
-                  th:text="${#dates.format(post.spec.publishTime, 'MM-dd')}"
-                >
-                  04-29
-                </div>
-
-                <div
-                  class="dash-line relative flex h-full w-[15%] items-center md:w-[10%]"
-                >
+            <div class="contents" th:each="month : ${archive.months}">
+              <a
+                th:each="post : ${month.posts}"
+                th:if={`\${${postMatchRow}}`}
+                th:href="@{${post.status.permalink}}"
+                th:attr="aria-label=${post.spec.title}, data-archive-row=${post.spec.slug}, data-year=${archive.year}"
+                class="group btn-plain block! h-10 w-full rounded-lg hover:text-[initial]"
+              >
+                <div class="flex h-full flex-row items-center justify-start">
                   <div
-                    class="z-50 mx-auto h-1 w-1 rounded bg-(--btn-regular-bg) outline-4 outline-(--card-bg) transition-all group-hover:h-5 group-hover:bg-(--primary) group-hover:outline-(--btn-plain-bg-hover) group-active:outline-(--btn-plain-bg-active)"
+                    class="w-[15%] text-right text-sm text-50 transition md:w-[10%]"
+                    th:text="${#dates.format(post.spec.publishTime, 'MM-dd')}"
                   >
+                    04-29
+                  </div>
+
+                  <div
+                    class="dash-line relative flex h-full w-[15%] items-center md:w-[10%]"
+                  >
+                    <div
+                      class="z-50 mx-auto h-1 w-1 rounded bg-(--btn-regular-bg) outline-4 outline-(--card-bg) transition-all group-hover:h-5 group-hover:bg-(--primary) group-hover:outline-(--btn-plain-bg-hover) group-active:outline-(--btn-plain-bg-active)"
+                    >
+                    </div>
+                  </div>
+
+                  <div
+                    class="w-[70%] overflow-hidden overflow-ellipsis whitespace-nowrap pr-8 text-left font-bold text-75 transition-all group-hover:translate-x-1 group-hover:text-(--primary) md:w-[65%] md:max-w-[65%]"
+                    th:text="${post.spec.title}"
+                  >
+                    Post
+                  </div>
+
+                  <div
+                    class="hidden overflow-hidden overflow-ellipsis whitespace-nowrap text-left text-sm text-30 transition md:block md:w-[15%]"
+                  >
+                    <span
+                      th:each="tag : ${post.tags}"
+                      th:text="${'#' + tag.spec.displayName + ' '}"
+                      >#Tag
+                    </span>
                   </div>
                 </div>
-
-                <div
-                  class="w-[70%] overflow-hidden overflow-ellipsis whitespace-nowrap pr-8 text-left font-bold text-75 transition-all group-hover:translate-x-1 group-hover:text-(--primary) md:w-[65%] md:max-w-[65%]"
-                  th:text="${post.spec.title}"
-                >
-                  Post
-                </div>
-
-                <div
-                  class="hidden overflow-hidden overflow-ellipsis whitespace-nowrap text-left text-sm text-30 transition md:block md:w-[15%]"
-                >
-                  <span
-                    th:each="tag : ${post.tags}"
-                    th:text="${'#' + tag.spec.displayName + ' '}"
-                    >#Tag
-                  </span>
-                </div>
-              </div>
-            </a>
+              </a>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div
-        th:if="${#lists.isEmpty(archives.items)}"
-        class="flex flex-col items-center justify-center gap-3 py-16 text-center"
-      >
-        <span
-          class="icon-[material-symbols--inbox-outline-rounded] text-4xl text-30"
-        ></span>
-        <div class="text-sm text-50" th:text="#{page.archives.empty}">
-          暂无文章
+        <div
+          th:if="${#lists.isEmpty(archives.items)}"
+          class="flex flex-col items-center justify-center gap-3 py-16 text-center"
+        >
+          <span
+            class="icon-[material-symbols--inbox-outline-rounded] text-4xl text-30"
+          ></span>
+          <div class="text-sm text-50" th:text="#{page.archives.empty}">
+            暂无文章
+          </div>
         </div>
-      </div>
 
-      <!-- 筛选结果为空：行全部被过滤时脚本显示；初始隐藏避免无脚本时闪烁 -->
-      <div
-        id="archive-empty-filter"
-        th:if="${filterActive}"
-        hidden
-        class="flex flex-col items-center justify-center gap-3 py-16 text-center"
-      >
-        <span
-          class="icon-[material-symbols--inbox-outline-rounded] text-4xl text-30"
-        ></span>
-        <div class="text-sm text-50" th:text="#{page.archives.emptyFiltered}">
-          该筛选条件下暂无文章
+        <!-- 筛选结果为空：行全部被过滤时脚本显示；初始隐藏避免无脚本时闪烁 -->
+        <div
+          id="archive-empty-filter"
+          th:if="${filterActive}"
+          hidden
+          class="flex flex-col items-center justify-center gap-3 py-16 text-center"
+        >
+          <span
+            class="icon-[material-symbols--inbox-outline-rounded] text-4xl text-30"
+          ></span>
+          <div class="text-sm text-50" th:text="#{page.archives.emptyFiltered}">
+            该筛选条件下暂无文章
+          </div>
         </div>
-      </div>
 
-      <Pagination context="archives" class="mt-4" />
+        <Pagination context="archives" class="mt-4" />
+      </div>
     </div>
   </div>
 
-  <!-- 筛选态补丁（行级过滤后）：按已渲染行重新统计各年可见数、隐藏空年份、显隐筛选空态。
-       非筛选态为零副作用；Swup 换页后由 SwupScriptsPlugin 重执行。 -->
+  <!-- 局部 PJAX：分类菜单点击只刷新框三 #archive-list，框一/框二保持不动。
+       流程：阻止 Swup 整页换页 → fetch 目标页 → DOMParser 提取 #archive-list →
+       innerHTML 替换 → pushState → 切换激活态 → 重跑筛选态补丁。
+       筛选态补丁（run）：按已渲染行统计各年可见数、隐藏空年份、显隐空态、更新副标题。 -->
   <script is:inline>
     // @ts-nocheck 浏览器运行时脚本
     (function () {
+      var ACTIVE_CLASSES = [
+        "bg-(--primary)",
+        "text-white",
+        "dark:text-black/70",
+      ];
+
+      function tr(key, fallback) {
+        var i18n = window.__etherealI18n;
+        return i18n ? i18n(key, fallback) : fallback;
+      }
+      function fmt(msg, n) {
+        return String(msg).replace("{0}", n);
+      }
+
+      // 筛选态补丁：仅依据 #archive-list 内已渲染行，统计各年可见数、隐藏空年份、
+      // 显隐筛选空态、更新框一副标题（框一/框二不被替换，仅文字/状态更新）。
       function run() {
         var params = new URL(window.location.href).searchParams;
         var active = params.has("category") || params.has("uncategorized");
-        var rows = document.querySelectorAll("[data-archive-row]");
+        var list = document.getElementById("archive-list");
+        var rows = list ? list.querySelectorAll("[data-archive-row]") : [];
         var yearCounts = {};
         rows.forEach(function (row) {
           var y = row.getAttribute("data-year");
@@ -199,14 +220,8 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           yearCounts[y] = (yearCounts[y] || 0) + 1;
         });
 
-        var tr = window.__etherealI18n;
-        var fmt = function (msg, n) {
-          return String(msg).replace("{0}", n);
-        };
-
-        document
-          .querySelectorAll("[data-archive-year-row]")
-          .forEach(function (row) {
+        (list ? list.querySelectorAll("[data-archive-year-row]") : []).forEach(
+          function (row) {
             var y = row.getAttribute("data-year") || "";
             var countEl = row.querySelector("[data-archive-year-count]");
             if (!countEl) return;
@@ -219,18 +234,14 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
             } else {
               row.style.display = "";
             }
-          });
+          },
+        );
 
         var empty = document.getElementById("archive-empty-filter");
         if (empty) {
           empty.hidden = !(active && rows.length === 0);
         }
 
-        // 头部副标题：筛选态显示「分类名 · 共 N 篇文章」。分类名与文章数取自
-        // 页面内分类选择器（#archive-filter-tabs）的 FilterTab：
-        // href 的 category 参数匹配 → label span 为分类名、
-        // .archive-cat-count 为 category.postCount（服务端数据）；
-        // 未分类无计数值，回退为当前页可见行数（多数站点未分类单页可容）。
         if (active) {
           var catName = null;
           var catCount = null;
@@ -271,12 +282,81 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         }
       }
 
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", run);
-      } else {
+      // 激活态切换：按目标 URL 的筛选参数匹配各 tab（全部/分类/未分类），
+      // 客户端增删 active class（Tailwind 规则已由服务端渲染的 active tab 保证存在）。
+      function setActiveTab(url) {
+        var target = new URL(url, window.location.origin).searchParams;
+        var tabBox = document.getElementById("archive-filter-tabs");
+        if (!tabBox) return;
+        tabBox.querySelectorAll("a").forEach(function (a) {
+          var hp = new URL(a.href, window.location.origin).searchParams;
+          var active =
+            (hp.get("category") || "") === (target.get("category") || "") &&
+            hp.has("uncategorized") === target.has("uncategorized");
+          ACTIVE_CLASSES.forEach(function (c) {
+            a.classList[active ? "add" : "remove"](c);
+          });
+        });
+      }
+
+      // 局部加载：fetch 目标页完整 HTML → 提取 #archive-list → 替换当前容器。
+      // 目标页无 #archive-list（如浏览器后退到非归档页）则整页跳转兜底。
+      function loadArchive(url) {
+        fetch(url, { cache: "no-store" })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then(function (html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            var incoming = doc.getElementById("archive-list");
+            var current = document.getElementById("archive-list");
+            if (!incoming || !current) {
+              window.location.href = url;
+              return;
+            }
+            current.innerHTML = incoming.innerHTML;
+            history.pushState({ archiveFilter: true }, "", url);
+            setActiveTab(url);
+            run();
+          })
+          .catch(function () {
+            window.location.href = url;
+          });
+      }
+
+      // 绑定分类菜单链接：阻止 Swup 整页换页 + 阻止默认跳转，改走局部加载。
+      function bindTabs() {
+        var tabBox = document.getElementById("archive-filter-tabs");
+        if (!tabBox) return;
+        tabBox.querySelectorAll("a").forEach(function (a) {
+          a.setAttribute("data-no-swup", "");
+          a.addEventListener("click", function (e) {
+            e.preventDefault();
+            loadArchive(a.href);
+          });
+        });
+      }
+
+      function init() {
+        bindTabs();
         run();
       }
-      document.addEventListener("astro:page-load", run);
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+
+      // 浏览器前进/后退：仍在归档页则按当前 URL 局部恢复，否则整页刷新。
+      window.addEventListener("popstate", function () {
+        if (window.location.pathname.replace(/\/+$/, "") === "/archives") {
+          loadArchive(window.location.href);
+        } else {
+          window.location.reload();
+        }
+      });
     })();
   </script>
 </MainGridLayout>
