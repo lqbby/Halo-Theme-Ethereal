@@ -264,6 +264,19 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
             initFn();
             return;
           }
+          // 换页后（Swup 替换容器）组件会重新渲染出「加载中」占位；若此刻元素
+          // 已在可视区（含 300px 提前量）则同步立即初始化——同一 tick 内用缓存
+          // 数据替换占位，避免 IO 异步回调（至少延迟一帧）造成的「加载中」闪现。
+          var cs = window.getComputedStyle(el);
+          if (cs.display !== "none" && cs.visibility !== "hidden") {
+            var rect = el.getBoundingClientRect();
+            var vh =
+              window.innerHeight || document.documentElement.clientHeight;
+            if (rect.top < vh + 300 && rect.bottom > -300) {
+              initFn();
+              return;
+            }
+          }
           var io = new IntersectionObserver(
             function (entries) {
               entries.forEach(function (e) {

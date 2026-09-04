@@ -97,12 +97,14 @@
     background: var(--primary);
     border-radius: 0.75rem;
     transition:
-      transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-      width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transform 0.4s cubic-bezier(0.4, 1.2, 0.6, 1),
+      width 0.4s cubic-bezier(0.4, 1.2, 0.6, 1);
     z-index: 0;
     pointer-events: none;
     opacity: 1;
-    box-shadow: 0 0 18px color-mix(in srgb, var(--primary) 35%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
+      0 0 18px color-mix(in srgb, var(--primary) 35%, transparent);
     will-change: transform, width;
   }
 
@@ -203,7 +205,7 @@
   }
 
   .category-pill[data-active] {
-    color: white;
+    color: var(--on-primary);
     background: transparent;
     border-color: transparent;
     font-weight: 600;
@@ -211,8 +213,8 @@
   }
 
   .category-pill[data-active] .pill-count {
-    background: rgba(255, 255, 255, 0.25);
-    color: white;
+    background: color-mix(in srgb, var(--on-primary) 14%, transparent);
+    color: var(--on-primary);
     opacity: 1;
   }
 
@@ -245,7 +247,7 @@
 
   .category-pill[data-category-name=""][data-active],
   .category-pill[data-category-name=""][data-active]:hover {
-    color: white;
+    color: var(--on-primary);
   }
 
   .category-pill .pill-count {
@@ -282,6 +284,16 @@
     .category-pill:hover {
       transform: none;
       box-shadow: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .category-liquid {
+      transition: none;
+    }
+
+    .category-pill {
+      transition: color 0.2s ease;
     }
   }
 </style>
@@ -544,8 +556,25 @@
         bar.setAttribute("data-current-post-category", postCategory);
       }
       setActiveCategory();
-      moveToActive(animate);
-      scrollPillIntoView(true);
+      var act =
+        bar.querySelector(".category-pill[data-active]") ||
+        bar.querySelector(".category-pill[data-soft-active]");
+      if (act && !isPillVisible(act)) {
+        // 与点击 pill 走同一条分支：滚动期间冻结 liquid，结束后再平滑归位，
+        // 避免 scroll 事件触发的 scheduleLiquidSync 反复 flush transition 造成的不流畅抖动
+        clickScrolling = true;
+        freezeLiquid();
+        moveToActive(false);
+        scrollPillIntoView(true);
+        waitScrollEnd(function () {
+          clickScrolling = false;
+          unfreezeLiquid();
+          moveToActive(true);
+        });
+      } else {
+        moveToActive(animate);
+        scrollPillIntoView(true);
+      }
       updateScrollMask();
     }
 
