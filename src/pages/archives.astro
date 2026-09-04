@@ -180,7 +180,12 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           </div>
         </div>
 
-        <Pagination context="archives" class="mt-4" />
+        <!-- 分页仅「全部」态显示：筛选（category/uncategorized）是在当前页内做
+             行级过滤，archives.totalPages 仍是未筛选的页数（如全部 2 页），筛选后
+             实际常不足 1 页，若继续显示会误导为「还有第 2 页」。 -->
+        <div th:if="${not filterActive}" class="contents">
+          <Pagination context="archives" class="mt-4" />
+        </div>
       </div>
     </div>
   </div>
