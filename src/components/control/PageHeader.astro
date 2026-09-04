@@ -25,7 +25,9 @@ interface Props {
   subExpr?: string;
   subShowIfExpr?: string;
   sub?: string;
+  subId?: string;
   filteredExpr?: string;
+  filteredId?: string;
 }
 
 const {
@@ -39,7 +41,9 @@ const {
   subExpr,
   subShowIfExpr,
   sub = "",
+  subId,
   filteredExpr,
+  filteredId,
 } = Astro.props;
 ---
 
@@ -58,7 +62,12 @@ const {
       <span th:if={sepShowIfExpr} class="text-30">·</span>
       {
         subExpr && (
-          <span th:if={subShowIfExpr} class="text-50" th:text={subExpr}>
+          <span
+            id={subId}
+            th:if={subShowIfExpr}
+            class="text-50"
+            th:text={subExpr}
+          >
             {sub}
           </span>
         )
@@ -66,6 +75,7 @@ const {
       {
         filteredExpr && (
           <span
+            id={filteredId}
             th:if={filteredExpr}
             class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
             th:text="#{common.filtered}"

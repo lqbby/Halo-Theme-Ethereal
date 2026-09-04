@@ -38,178 +38,391 @@ const stats = [
   description="#{page.bangumi.description(${site.title})}"
 >
   <div class="bangumi-page">
-    <section
+    <div
+      th:remove="tag"
       th:with="
       curType=${bangumis.typeNum},
       curStatus=${bangumis.status}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
     >
-      <PageHeader
-        containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
-        titleExpr="#{page.bangumi.title}"
-        title="追番"
-        iconClass="icon-[mingcute--bilibili-fill]"
-        labelExpr="#{page.bangumi.subtitle}"
-        label="我的追番"
-        subExpr="#{page.bangumi.subtitleCount(${bangumis.total})}"
-        subShowIfExpr="${bangumis != null}"
-        sub="0 部"
-        filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-      />
+      <!-- 框一：头部（归档页同款简洁框；局部 PJAX 时本框不动，仅副标题/已筛选徽章由脚本同步） -->
+      <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+        <PageHeader
+          containerClass="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+          titleExpr="#{page.bangumi.title}"
+          title="追番"
+          iconClass="icon-[mingcute--bilibili-fill]"
+          labelExpr="#{page.bangumi.subtitle}"
+          label="我的追番"
+          subExpr="#{page.bangumi.subtitleCount(${bangumis.total})}"
+          subShowIfExpr="${bangumis != null}"
+          subId="bangumi-subtitle"
+          sub="0 部"
+          filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+          filteredId="bangumi-filtered"
+        />
+      </section>
 
-      <!-- 类型筛选：追番 / 追剧 -->
-      <FilterTabs
-        class="mb-4 flex flex-wrap gap-2"
-        allHrefExpr="@{/bangumis(typeNum=1, status=${curStatus})}"
-        allActiveExpr="curType == 1"
-        allLabelExpr="#{page.bangumi.typeAnime}"
-        allLabel="追番"
-        items={[
-          {
-            hrefExpr: "@{/bangumis(typeNum=2, status=${curStatus})}",
-            activeExpr: "curType == 2",
-            labelExpr: "#{page.bangumi.typeDrama}",
-            label: "追剧",
-          },
-        ]}
-      />
-
-      <!-- 状态筛选：全部 / 想看 / 在看 / 已看 -->
-      <FilterTabs
-        class="mb-6 flex flex-wrap gap-2"
-        allHrefExpr="@{/bangumis(typeNum=${curType}, status=0)}"
-        allActiveExpr="curStatus == 0"
-        allLabelExpr="#{common.all}"
-        allLabel="全部"
-        items={[
-          {
-            hrefExpr: "@{/bangumis(typeNum=${curType}, status=1)}",
-            activeExpr: "curStatus == 1",
-            labelExpr: "#{page.bangumi.statusWant}",
-            label: "想看",
-          },
-          {
-            hrefExpr: "@{/bangumis(typeNum=${curType}, status=2)}",
-            activeExpr: "curStatus == 2",
-            labelExpr: "#{page.bangumi.statusWatching}",
-            label: "在看",
-          },
-          {
-            hrefExpr: "@{/bangumis(typeNum=${curType}, status=3)}",
-            activeExpr: "curStatus == 3",
-            labelExpr: "#{page.bangumi.statusWatched}",
-            label: "已看",
-          },
-        ]}
-      />
-
-      <!-- 追番卡片网格 -->
-      <div
-        th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
-        class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
-      >
-        <a
-          th:each="bangumi, bangumiStat : ${bangumis.items}"
-          th:href="${bangumi.spec.url}"
-          target="_blank"
-          rel="noopener noreferrer"
-          th:title="${bangumi.spec.title}"
-          th:style="|animation-delay: min(calc(var(--content-delay) + ${bangumiStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-          class="card-base btn-card-outline group relative block overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
-        >
-          <div class="relative w-full overflow-hidden bg-(--btn-regular-bg)">
-            <!-- 封面 -->
-            <img
-              th:src="${bangumi.spec.cover}"
-              th:alt="${bangumi.spec.title}"
-              th:attr="loading=${bangumiStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${bangumiStat.index == 0 ? 'high' : 'auto'}"
-              decoding="async"
-              referrerpolicy="no-referrer"
-              class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
-            />
-
-            <!-- 左上：类型角标 -->
-            <span
-              th:if="${not #strings.isEmpty(bangumi.spec.type)}"
-              class="absolute left-2.5 top-2.5 rounded-md bg-black/45 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
-              th:text="${bangumi.spec.type}">番剧</span
-            >
-
-            <!-- 右上：评分角标 -->
-            <span
-              th:if="${bangumi.spec.score != null and bangumi.spec.score != '' and bangumi.spec.score != '-'}"
-              class="absolute right-2.5 top-2.5 rounded-md bg-(--primary)/90 px-1.5 py-0.5 text-xs font-bold text-white shadow-sm"
-              th:text="${bangumi.spec.score}">9.9</span
-            >
-
-            <!-- 底部渐变遮罩 + 信息 -->
-            <div
-              class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3.5 pb-3 pt-10"
-            >
-              <!-- 标题 -->
-              <div class="text-[15px] font-bold leading-snug text-white">
-                <span class="line-clamp-2" th:text="${bangumi.spec.title}"
-                  >Title</span
-                >
-              </div>
-
-              <!-- 元信息：地区 · 总集数 -->
-              <div
-                class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-white/75"
-              >
-                <span
-                  th:if="${not #strings.isEmpty(bangumi.spec.area)}"
-                  th:text="${bangumi.spec.area}">日本</span
-                >
-                <span
-                  th:if="${not #strings.isEmpty(bangumi.spec.area)}"
-                  class="text-white/40">·</span
-                >
-                <span th:text="${bangumi.spec.totalCount}">全24话</span>
-              </div>
-
-              <!-- 统计信息：追番 / 播放 / 弹幕 / 硬币 -->
-              <div
-                class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-white/75"
-              >
+      <!-- 框二：筛选菜单（类型 + 状态两组；点击只刷新框三 #bangumi-list） -->
+      <section class="card-base mb-4 px-6 py-6 md:px-9">
+        <div id="bangumi-filter-tabs">
+          <div data-filter-group="type">
+            <FilterTabs
+              class="mb-3 flex flex-wrap gap-2"
+              allHrefExpr="@{/bangumis(typeNum=1, status=${curStatus})}"
+              allActiveExpr="curType == 1"
+              allLabelExpr="#{page.bangumi.typeAnime}"
+              allLabel="追番"
+              items={[
                 {
-                  stats.map((stat) => (
-                    <span class="inline-flex items-center gap-0.5">
-                      <span class={`${stat.icon} text-[12px]`} />
-                      <span th:text={stat.expr}>{stat.text}</span>
-                    </span>
-                  ))
-                }
-              </div>
-            </div>
+                  hrefExpr: "@{/bangumis(typeNum=2, status=${curStatus})}",
+                  activeExpr: "curType == 2",
+                  labelExpr: "#{page.bangumi.typeDrama}",
+                  label: "追剧",
+                },
+              ]}
+            />
           </div>
-        </a>
-      </div>
+          <div data-filter-group="status">
+            <FilterTabs
+              class="flex flex-wrap gap-2"
+              allHrefExpr="@{/bangumis(typeNum=${curType}, status=0)}"
+              allActiveExpr="curStatus == 0"
+              allLabelExpr="#{common.all}"
+              allLabel="全部"
+              items={[
+                {
+                  hrefExpr: "@{/bangumis(typeNum=${curType}, status=1)}",
+                  activeExpr: "curStatus == 1",
+                  labelExpr: "#{page.bangumi.statusWant}",
+                  label: "想看",
+                },
+                {
+                  hrefExpr: "@{/bangumis(typeNum=${curType}, status=2)}",
+                  activeExpr: "curStatus == 2",
+                  labelExpr: "#{page.bangumi.statusWatching}",
+                  label: "在看",
+                },
+                {
+                  hrefExpr: "@{/bangumis(typeNum=${curType}, status=3)}",
+                  activeExpr: "curStatus == 3",
+                  labelExpr: "#{page.bangumi.statusWatched}",
+                  label: "已看",
+                },
+              ]}
+            />
+          </div>
+        </div>
+      </section>
 
-      <!-- 空状态 -->
-      <div
-        th:if="${bangumis == null or #lists.isEmpty(bangumis.items)}"
-        class="py-16 text-center text-50"
-      >
-        <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
-        ></span>
-        <p
-          th:if="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-          class="mt-4"
-          th:text="#{page.bangumi.emptyFiltered}"
-        >
-          该筛选条件下暂无追番
-        </p>
-        <p
-          th:unless="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-          class="mt-4"
-          th:text="#{page.bangumi.empty}"
-        >
-          暂无追番数据
-        </p>
-      </div>
-    </section>
+      <!-- 框三：番剧网格（局部 PJAX 刷新容器：切换筛选只替换 #bangumi-list 内内容） -->
+      <section class="card-base px-6 py-6 md:px-9">
+        <div id="bangumi-list">
+          <!-- 追番卡片网格 -->
+          <div
+            th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
+            class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
+          >
+            <a
+              th:each="bangumi, bangumiStat : ${bangumis.items}"
+              th:href="${bangumi.spec.url}"
+              target="_blank"
+              rel="noopener noreferrer"
+              th:title="${bangumi.spec.title}"
+              th:style="|animation-delay: min(calc(var(--content-delay) + ${bangumiStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+              class="card-base btn-card-outline group relative block overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
+            >
+              <div
+                class="relative w-full overflow-hidden bg-(--btn-regular-bg)"
+              >
+                <!-- 封面 -->
+                <img
+                  th:src="${bangumi.spec.cover}"
+                  th:alt="${bangumi.spec.title}"
+                  th:attr="loading=${bangumiStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${bangumiStat.index == 0 ? 'high' : 'auto'}"
+                  decoding="async"
+                  referrerpolicy="no-referrer"
+                  class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
+                />
 
-    <Pagination context="bangumis" class="mb-4 onload-animation" />
+                <!-- 左上：类型角标 -->
+                <span
+                  th:if="${not #strings.isEmpty(bangumi.spec.type)}"
+                  class="absolute left-2.5 top-2.5 rounded-md bg-black/45 px-2 py-0.5 text-xs font-medium text-white backdrop-blur-sm"
+                  th:text="${bangumi.spec.type}">番剧</span
+                >
+
+                <!-- 右上：评分角标 -->
+                <span
+                  th:if="${bangumi.spec.score != null and bangumi.spec.score != '' and bangumi.spec.score != '-'}"
+                  class="absolute right-2.5 top-2.5 rounded-md bg-(--primary)/90 px-1.5 py-0.5 text-xs font-bold text-white shadow-sm"
+                  th:text="${bangumi.spec.score}">9.9</span
+                >
+
+                <!-- 底部渐变遮罩 + 信息 -->
+                <div
+                  class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-3.5 pb-3 pt-10"
+                >
+                  <!-- 标题 -->
+                  <div class="text-[15px] font-bold leading-snug text-white">
+                    <span class="line-clamp-2" th:text="${bangumi.spec.title}"
+                      >Title</span
+                    >
+                  </div>
+
+                  <!-- 元信息：地区 · 总集数 -->
+                  <div
+                    class="mt-1 flex flex-wrap items-center gap-x-1 text-xs text-white/75"
+                  >
+                    <span
+                      th:if="${not #strings.isEmpty(bangumi.spec.area)}"
+                      th:text="${bangumi.spec.area}">日本</span
+                    >
+                    <span
+                      th:if="${not #strings.isEmpty(bangumi.spec.area)}"
+                      class="text-white/40">·</span
+                    >
+                    <span th:text="${bangumi.spec.totalCount}">全24话</span>
+                  </div>
+
+                  <!-- 统计信息：追番 / 播放 / 弹幕 / 硬币 -->
+                  <div
+                    class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-white/75"
+                  >
+                    {
+                      stats.map((stat) => (
+                        <span class="inline-flex items-center gap-0.5">
+                          <span class={`${stat.icon} text-[12px]`} />
+                          <span th:text={stat.expr}>{stat.text}</span>
+                        </span>
+                      ))
+                    }
+                  </div>
+                </div>
+              </div>
+            </a>
+          </div>
+
+          <!-- 空状态 -->
+          <div
+            th:if="${bangumis == null or #lists.isEmpty(bangumis.items)}"
+            class="py-16 text-center text-50"
+          >
+            <span
+              class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
+            ></span>
+            <p
+              th:if="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+              class="mt-4"
+              th:text="#{page.bangumi.emptyFiltered}"
+            >
+              该筛选条件下暂无追番
+            </p>
+            <p
+              th:unless="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+              class="mt-4"
+              th:text="#{page.bangumi.empty}"
+            >
+              暂无追番数据
+            </p>
+          </div>
+
+          <Pagination context="bangumis" class="mt-4" />
+        </div>
+      </section>
+    </div>
   </div>
+
+  <style is:global>
+    /* 番剧页局部 PJAX 列表切换过渡：复用主题 --dur-swup/--dur-entry 变量，
+       退场淡出+下沉，入场重播 fade-in-up（独立类名，避免被
+       html.swup-visited .bangumi-page .onload-animation 抑制）。 */
+    #bangumi-list {
+      transition-property: opacity, translate;
+      transition-duration: var(--dur-swup, 200ms);
+      transition-timing-function: var(
+        --default-transition-timing-function,
+        cubic-bezier(0.4, 0, 0.2, 1)
+      );
+    }
+
+    #bangumi-list.bangumi-list-exit {
+      opacity: 0;
+      translate: 0 1rem;
+    }
+
+    #bangumi-list.bangumi-list-enter {
+      opacity: 0;
+      animation: var(--dur-entry, 300ms) fade-in-up;
+      animation-fill-mode: forwards;
+    }
+  </style>
+
+  <!-- 局部 PJAX：筛选菜单点击只刷新框三 #bangumi-list，框一/框二保持不动。
+       流程：阻止 Swup 整页换页 → fetch 目标页 → DOMParser 提取 #bangumi-list →
+       替换 innerHTML → pushState → 同步框一副标题/已筛选徽章 → 切换激活态。
+       激活态分 type/status 两个独立维度，各按对应 URL 参数匹配。 -->
+  <script is:inline>
+    // @ts-nocheck 浏览器运行时脚本
+    (function () {
+      var ACTIVE_CLASSES = [
+        "bg-(--primary)",
+        "text-white",
+        "dark:text-black/70",
+      ];
+      // 局部加载进行中标记：退场过渡/拉取期间忽略重复点击，避免重叠切换。
+      var loading = false;
+      var exitTimer = null;
+
+      // 同步框一头部：副标题计数 + 「已筛选」徽章（框一不随局部刷新替换，
+      // 从目标页头部提取对应元素更新；徽章在服务端按 filteredExpr 条件渲染，
+      // 目标页无徽章时移除当前徽章，有则补入）。
+      function syncHeader(doc) {
+        var incomingSub = doc.getElementById("bangumi-subtitle");
+        var currentSub = document.getElementById("bangumi-subtitle");
+        if (incomingSub && currentSub) {
+          currentSub.textContent = incomingSub.textContent;
+        }
+        var incomingBadge = doc.getElementById("bangumi-filtered");
+        var currentBadge = document.getElementById("bangumi-filtered");
+        if (incomingBadge && !currentBadge) {
+          if (currentSub) {
+            currentSub.insertAdjacentElement(
+              "afterend",
+              incomingBadge.cloneNode(true),
+            );
+          }
+        } else if (!incomingBadge && currentBadge) {
+          currentBadge.parentNode.removeChild(currentBadge);
+        }
+      }
+
+      // 激活态切换：分 type/status 两个维度，各按目标 URL 的对应参数匹配
+      // （缺省 typeNum=1 / status=0，与插件默认一致，保证后退到无参数页时正确高亮）。
+      function setActiveTab(url) {
+        var target = new URL(url, window.location.origin).searchParams;
+        var type = target.get("typeNum") || "1";
+        var status = target.get("status") || "0";
+        var tabBox = document.getElementById("bangumi-filter-tabs");
+        if (!tabBox) return;
+        tabBox
+          .querySelectorAll('[data-filter-group="type"] a')
+          .forEach(function (a) {
+            var hp = new URL(a.href, window.location.origin).searchParams;
+            var active = (hp.get("typeNum") || "1") === type;
+            ACTIVE_CLASSES.forEach(function (c) {
+              a.classList[active ? "add" : "remove"](c);
+            });
+          });
+        tabBox
+          .querySelectorAll('[data-filter-group="status"] a')
+          .forEach(function (a) {
+            var hp = new URL(a.href, window.location.origin).searchParams;
+            var active = (hp.get("status") || "0") === status;
+            ACTIVE_CLASSES.forEach(function (c) {
+              a.classList[active ? "add" : "remove"](c);
+            });
+          });
+      }
+
+      // 局部加载：fetch 目标页完整 HTML → 提取 #bangumi-list → 替换当前容器。
+      // 目标页无 #bangumi-list（如后退到非番剧页）则整页跳转兜底。
+      // 过渡：先退场淡出+下沉（--dur-swup），结束后换入新内容并重播 fade-in-up
+      // （bangumi-list-enter，--dur-entry）；换入前剥离卡片/分页自带的 onload-animation
+      // 与错峰延迟，避免每次筛选重播「过度动画」，统一由容器做一次性入场。
+      function loadArchive(url) {
+        if (loading) return;
+        loading = true;
+        fetch(url, { cache: "no-store" })
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.text();
+          })
+          .then(function (html) {
+            var doc = new DOMParser().parseFromString(html, "text/html");
+            var incoming = doc.getElementById("bangumi-list");
+            var current = document.getElementById("bangumi-list");
+            if (!incoming || !current) {
+              loading = false;
+              window.location.href = url;
+              return;
+            }
+
+            syncHeader(doc);
+
+            // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
+            incoming
+              .querySelectorAll(".onload-animation")
+              .forEach(function (el) {
+                el.classList.remove("onload-animation");
+                el.style.removeProperty("animation-delay");
+              });
+
+            var finished = false;
+            function finish() {
+              if (finished) return;
+              finished = true;
+              loading = false;
+              current.removeEventListener("transitionend", finish);
+              if (exitTimer) {
+                clearTimeout(exitTimer);
+                exitTimer = null;
+              }
+              // 禁用 transition 移除退场类，避免反向淡入；换入后恢复并重播入场动画。
+              current.style.transition = "none";
+              current.classList.remove("bangumi-list-exit");
+              current.innerHTML = incoming.innerHTML;
+              void current.offsetWidth;
+              current.style.transition = "";
+              history.pushState({ bangumiFilter: true }, "", url);
+              setActiveTab(url);
+              // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
+              current.classList.remove("bangumi-list-enter");
+              void current.offsetWidth;
+              current.classList.add("bangumi-list-enter");
+            }
+
+            current.addEventListener("transitionend", finish);
+            // 兜底：transitionend 未触发（如 prefers-reduced-motion）时强制完成。
+            exitTimer = setTimeout(finish, 400);
+            current.classList.add("bangumi-list-exit");
+          })
+          .catch(function () {
+            loading = false;
+            window.location.href = url;
+          });
+      }
+
+      // 绑定筛选菜单链接：阻止 Swup 整页换页 + 阻止默认跳转，改走局部加载。
+      function bindTabs() {
+        var tabBox = document.getElementById("bangumi-filter-tabs");
+        if (!tabBox) return;
+        tabBox.querySelectorAll("a").forEach(function (a) {
+          a.setAttribute("data-no-swup", "");
+          a.addEventListener("click", function (e) {
+            e.preventDefault();
+            loadArchive(a.href);
+          });
+        });
+      }
+
+      function init() {
+        bindTabs();
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+
+      // 浏览器前进/后退：仍在番剧页则按当前 URL 局部恢复，否则整页刷新。
+      window.addEventListener("popstate", function () {
+        if (window.location.pathname.replace(/\/+$/, "") === "/bangumis") {
+          loadArchive(window.location.href);
+        } else {
+          window.location.reload();
+        }
+      });
+    })();
+  </script>
 </MainGridLayout>
