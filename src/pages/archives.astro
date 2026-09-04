@@ -2,7 +2,6 @@
 import FilterTabs from "../components/control/FilterTabs.astro";
 import FilterTab from "../components/control/FilterTab.astro";
 import Pagination from "../components/control/Pagination.astro";
-import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 
 // 分类筛选：由页面内分类选择器（FilterTabs，moment 同款）驱动，
@@ -31,24 +30,28 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
 >
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <div th:remove="tag" th:with={topWith}>
-    <div class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-      <!-- 标题区域 -->
-      <PageHeader
-        containerClass="mb-6"
-        titleExpr="#{page.archives.title}"
-        title="归档"
-        iconClass="icon-[material-symbols--library-books-outline-rounded]"
-        labelExpr="#{page.archives.subtitle}"
-        label="文章归档"
-        sepShowIfExpr="${true}"
-        subExpr="#{page.archives.subtitleCount(${totalPosts})}"
-        sub="共 0 篇文章"
-      />
+    <!-- 框一：头部卡片（归档 + 共 N 篇文章，与 tags/categories 同款简洁风格） -->
+    <div class="card-base px-8 py-6 mb-4">
+      <div
+        class="text-2xl font-bold text-(--primary) mb-2"
+        th:text="#{page.archives.title}"
+      >
+        归档
+      </div>
+      <p
+        id="archive-subtitle"
+        class="text-30 text-sm"
+        th:text="#{page.archives.subtitleCount(${totalPosts})}"
+      >
+        共 0 篇文章
+      </p>
+    </div>
 
-      <!-- 分类选择器（moment 同款 FilterTabs）：分类切换 + “全部” + 未分类。
-           激活判定/标签/计数均由 service 端表达式完成，无额外脚本；
-           计数挂在 countClass=archive-cat-count 供筛选态脚本读取 -->
-      <div id="archive-filter-tabs" class="mb-5 flex flex-wrap gap-2">
+    <!-- 框二：分类菜单（PJAX 无刷新筛选：分类切换 + “全部” + 未分类）
+         激活判定/标签/计数均由 service 端表达式完成，无额外脚本；
+         计数挂在 countClass=archive-cat-count 供筛选态脚本读取 -->
+    <div class="card-base px-9 py-6 mb-4">
+      <div id="archive-filter-tabs" class="flex flex-wrap gap-2">
         <FilterTabs
           class="flex flex-wrap gap-2"
           showIfExpr="${not #lists.isEmpty(categoryFinder.listAll())}"
@@ -70,7 +73,10 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           label="未分类"
         />
       </div>
+    </div>
 
+    <!-- 框三：归档列表 -->
+    <div class="card-base px-8 py-6">
       <div class="contents" th:each="archive : ${archives.items}">
         <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对 -->
         <div
@@ -172,8 +178,9 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           该筛选条件下暂无文章
         </div>
       </div>
+
+      <Pagination context="archives" class="mt-4" />
     </div>
-    <Pagination context="archives" class="mb-4 onload-animation" />
   </div>
 
   <!-- 筛选态补丁（行级过滤后）：按已渲染行重新统计各年可见数、隐藏空年份、显隐筛选空态。
@@ -219,7 +226,7 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           empty.hidden = !(active && rows.length === 0);
         }
 
-        // 页头副标题：筛选态显示「分类名 · 共 N 篇文章」。分类名与文章数取自
+        // 头部副标题：筛选态显示「分类名 · 共 N 篇文章」。分类名与文章数取自
         // 页面内分类选择器（#archive-filter-tabs）的 FilterTab：
         // href 的 category 参数匹配 → label span 为分类名、
         // .archive-cat-count 为 category.postCount（服务端数据）；
@@ -252,11 +259,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
             catName = tr("page.archives.uncategorized", "Uncategorized");
             catCount = String(rows.length);
           }
-          var subs = document.querySelectorAll(".page-header-sub");
-          if (subs.length && catName) {
+          var sub = document.getElementById("archive-subtitle");
+          if (sub && catName) {
             var displayCount =
               catCount != null && catCount !== "" ? catCount : "0";
-            subs[0].textContent =
+            sub.textContent =
               catName +
               " · " +
               fmt(tr("page.archives.subtitleCount", "{0} posts"), displayCount);

@@ -6,44 +6,27 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   title="|#{page.categories.title} - ${site.title}|"
   description="#{page.categories.description(${site.title})}"
 >
-  <!-- ===== 分类页（UI 重设计 v2：Firefly 风格分类胶囊墙） =====
-       参考 firefly.cuteleaf.cn/categories 的胶囊导航语言：
-       - 主体 = 分类胶囊（pill）墙，flex-wrap 自动换行
-       - 默认 outline 态 → hover 填充统一主题色渐变 + 上浮 + 光晕（对齐 Firefly，不多彩）
-       - 保留 Ethereal 动效：数字滚动 / 错峰入场 -->
+  <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
+  <h1 class="sr-only" th:text="#{page.categories.title}">分类</h1>
 
-  <!-- ── Hero：简洁标题 + 统计 ── -->
-  <section
-    class="cat-hero card-base onload-animation relative mb-5 overflow-hidden px-6 py-7 md:px-9"
-  >
-    <div class="relative flex items-center gap-4">
-      <div class="cat-hero-icon">
-        <span
-          class="icon-[material-symbols--folder-open-rounded] text-[1.625rem]"
-        ></span>
-      </div>
-      <div class="min-w-0">
-        <h1
-          class="cat-hero-title text-3xl font-bold text-90 md:text-4xl"
-          th:text="#{page.categories.title}"
-        >
-          分类
-        </h1>
-        <div class="mt-1.5 flex flex-wrap items-center gap-x-2 text-sm">
-          <span class="font-bold text-(--primary)" th:text="#{page.categories.subtitle}"
-            >文章分类</span
-          >
-          <span class="text-30">·</span>
-          <span class="cat-hero-stats text-50" id="cat-hero-stats">–</span>
-        </div>
-      </div>
+  <!-- 段一：头部卡片（分类 + 共 N 个分类，与 tags 页同款简洁风格） -->
+  <div class="card-base px-8 py-6 mb-4">
+    <div
+      class="text-2xl font-bold text-(--primary) mb-2"
+      th:text="#{page.categories.title}"
+    >
+      分类
     </div>
-  </section>
+    <p
+      class="text-30 text-sm"
+      th:text="#{page.categories.subtitleCount(${#lists.size(categories)})}"
+    >
+      共 0 个分类
+    </p>
+  </div>
 
-  <!-- ── 分类胶囊墙 ── -->
-  <section
-    class="card-base onload-animation flex flex-wrap gap-3 px-6 py-6 md:px-9"
-  >
+  <!-- 段二：分类胶囊墙卡片（错峰入场 + 文章数数字滚动） -->
+  <div class="card-base onload-animation flex flex-wrap gap-3 px-9 py-6">
     <a
       th:each="category, stat : ${categories}"
       th:href="@{${category.status.permalink}}"
@@ -55,23 +38,21 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       <!-- 主题色小圆点 -->
       <span class="cat-pill-dot" aria-hidden="true"></span>
       <!-- 名称 -->
-      <span class="cat-pill-name" th:text="${category.spec.displayName}">分类</span>
+      <span class="cat-pill-name" th:text="${category.spec.displayName}"
+        >分类</span
+      >
       <!-- 文章数徽章（JS 数字滚动） -->
       <span
         class="cat-pill-count"
         th:attr="data-count=${category.postCount ?: 0}"
-        th:text="${category.postCount ?: 0}"
-        >0</span
+        th:text="${category.postCount ?: 0}">0</span
       >
     </a>
-  </section>
+  </div>
 
-  <!-- ── 互动脚本：数字滚动 / Hero 统计 ── -->
+  <!-- 互动脚本：文章数数字滚动 -->
   <script is:inline>
     (function () {
-      var pills = document.querySelectorAll(".cat-pill");
-
-      // 1) 文章数数字滚动（进入视口，easeOutCubic）
       var counts = document.querySelectorAll(".cat-pill-count[data-count]");
       function animate(el, target) {
         var dur = 550;
@@ -90,7 +71,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
           function (entries) {
             entries.forEach(function (en) {
               if (en.isIntersecting) {
-                animate(en.target, Number(en.target.getAttribute("data-count")) || 0);
+                animate(
+                  en.target,
+                  Number(en.target.getAttribute("data-count")) || 0,
+                );
                 io.unobserve(en.target);
               }
             });
@@ -105,49 +89,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
           c.textContent = c.getAttribute("data-count") || 0;
         });
       }
-
-      // 2) Hero 统计：分类数 + 文章总数
-      var stats = document.getElementById("cat-hero-stats");
-      if (stats) {
-        var n = counts.length;
-        var sum = 0;
-        counts.forEach(function (c) {
-          sum += Number(c.getAttribute("data-count")) || 0;
-        });
-        if (n > 0) {
-          var i18n = window.i18nResources || {};
-          var tpl = i18n["page.categories.subtitleCount"];
-          var catTxt =
-            tpl && tpl.indexOf("#{") === -1
-              ? tpl.replace("{0}", n)
-              : "共 " + n + " 个分类";
-          stats.textContent = catTxt + " · " + sum + " 篇文章";
-        } else {
-          stats.textContent = "";
-        }
-      }
     })();
   </script>
 
   <style is:global>
-    /* ── Hero ── */
-    .cat-hero-icon {
-      display: grid;
-      place-items: center;
-      width: 3.25rem;
-      height: 3.25rem;
-      flex-shrink: 0;
-      border-radius: 1rem;
-      color: white;
-      background: linear-gradient(135deg, var(--primary), color-mix(in srgb, var(--primary) 62%, black));
-      box-shadow: 0 8px 20px -6px color-mix(in srgb, var(--primary) 55%, transparent);
-      transform: rotate(-4deg);
-      transition: transform 0.3s ease;
-    }
-    .cat-hero:hover .cat-hero-icon {
-      transform: rotate(0deg) scale(1.05);
-    }
-
     /* ── 分类胶囊（半透明毛玻璃 + 统一主题色，对齐 Firefly 风格） ── */
     .cat-pill {
       display: inline-flex;
