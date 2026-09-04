@@ -110,6 +110,14 @@ export default defineConfig({
         },
       }),
       cache: false, // 禁用缓存，避免友链页面内容不完整
+      // I26：loadOnIdle: false —— @swup/astro 默认把 Swup 初始化延迟到
+      // load 事件 + requestIdleCallback（无 timeout）+ 动态 import 完成后，
+      // 导致刷新后「首次点击菜单/分类」时 window.swup 尚未就绪，跳转失效
+      // （第二次点击 swup 已就绪才正常）。改为立即初始化（静态 import +
+      // 同步 new Swup），让 window.swup / clickDelegate 在 DOMContentLoaded
+      // 前就绪，换取「首次点击即可跳转」的确定性。代价是 Swup 核心+插件
+      // （约 38KB）由按需动态加载变为随页同步加载，首屏 TBT 略有上升。
+      loadOnIdle: false,
       // I25：删除 preload——cache:false 下 @swup/astro 强制禁用 preload（死配置），
       // 保留会误导未来误启用（每 hover = 整页 HTML 拉取，成为带宽放大面）
       accessibility: true,

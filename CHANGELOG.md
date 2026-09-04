@@ -2,6 +2,19 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.26] - 2026-09-04
+
+### 修复：刷新页面后「首次点击菜单/分类跳转失败，第二次才成功」
+
+- **现象（用户反馈「刷新页面之后，点击第一个菜单跳转都无效，顶部菜单栏和下面的分类栏都一样，第二次之后都跳转成功了」）**
+  - 页面加载/刷新后，第一次点击顶部导航菜单或分类栏的任何链接都无跳转反应，第二次点击才正常
+
+- **根因**：`@swup/astro` 的 `loadOnIdle` 选项**默认为 `true`**，生成的 Swup 初始化脚本通过 `onIdleAfterLoad(initSwup)` 延迟执行——即「等 `load` 事件 + `requestIdleCallback`（且**无 timeout 兜底**）后」才 `new Swup` 并挂 `window.swup` / `clickDelegate` 事件委托。刷新后若浏览器一直未进入空闲（或空闲时机晚于用户第一次点击），`window.swup` 尚未就绪，分类栏兜底逻辑 `if (window.swup) ... else location.href` 与 Swup 事件委托都拿不到实例，首次点击导航失效；第二次点击时 swup 已初始化完成才恢复。
+
+- **修复**（`astro.config.mjs`）：在 `swup({...})` 配置中显式加 `loadOnIdle: false`，让 `@swup/astro` 改为**同步静态 import** Swup + 插件，脚本末尾直接 `initSwup()`（`new Swup` + `window.swup = r`），不再等待 `load`/空闲。构建产物 `page.C67wxfCi.js` 末尾为 `window.swup=r}pe();`，不含 `requestIdleCallback`/`onIdle`/`load` 监听，首屏 DOMContentLoaded 前即就绪。
+
+- **结果**：刷新后首次点击菜单/分类即可正常跳转（真实浏览器验证：`/` → 首次点击 `/categories` 即成功跳转，`window.swup` 为 `object`）。
+
 ## [v1.3.25] - 2026-09-04
 
 ### 修复：番剧 tab 切换「先变白」+ 朋友圈「加载更多」按钮消失
