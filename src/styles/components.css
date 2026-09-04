@@ -1192,83 +1192,38 @@
   display: none;
 }
 
-/* 朋友圈时间轴 - 纵向虚线布局
+/* 朋友圈动态列表 - 双栏网格布局（桌面两列 / 移动单列） */
 .friends-timeline {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
 }
 
-/* 时间轴一行 */
-.friends-timeline-row {
-  display: flex;
-  align-items: stretch;
+@media (min-width: 768px) {
+  .friends-timeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-/* 中栏：虚线 + 圆点容器 */
-.friends-timeline-col-line {
-  position: relative;
-  width: 2rem;
-  min-width: 2rem;
-  flex-shrink: 0;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-}
-
-/* 纵向虚线 */
-.friends-timeline-col-line::before {
-  content: "";
-  position: absolute;
-  left: calc(50% - 1px);
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  border-left: 2px dashed var(--line-color);
-  pointer-events: none;
-}
-
-/* 圆点节点 */
-.friends-timeline-dot {
-  position: relative;
-  z-index: 1;
-  margin-top: calc(0.3rem + 3px);
-  width: 12px;
-  height: 12px;
-  min-width: 12px;
-  border-radius: 50%;
-  background: var(--primary);
-  outline: 3px solid var(--card-bg);
-  transition:
-    transform 0.2s ease,
-    background 0.2s ease;
-}
-
-/* 日期变更时的主节点（实心） */
-.friends-timeline-dot-primary {
-  background: var(--primary);
-  outline-color: color-mix(in oklab, var(--primary) 12%, transparent);
-}
-
-/* 同业后续条目：不显示圆点，虚线直接贯穿 */
-.friends-timeline-dot-dimmed {
-  display: none;
-}
-
-/* 右栏：卡片区域 */
-.friends-timeline-col-card {
-  flex: 1;
-  min-width: 0;
-  padding-bottom: 0.5rem;
-}
-
-/* 卡片上方的日期时间 */
-.friends-timeline-card-date {
+/* 日期分组标题：跨两列，日期变更时才渲染（friends.astro th:if） */
+.friends-timeline-date {
+  grid-column: 1 / -1;
   font-size: 1.125rem;
   font-weight: 700;
   color: var(--primary);
   line-height: 1;
-  padding: 0.3rem 0 0.5rem 0;
+  padding-top: 0.5rem;
   letter-spacing: 0.02em;
+}
+
+/* 卡片容器：grid 项，卡片 flex 撑满等高 */
+.friends-timeline-row {
+  display: flex;
+  min-width: 0;
+}
+
+.friends-timeline-row .friends-card {
+  flex: 1;
 }
 
 /* 卡片悬浮上移 + 主题色阴影（受样式开关控制）。

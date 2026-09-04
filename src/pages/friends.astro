@@ -75,7 +75,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         </button>
       </div>
 
-      <!-- 时间线列表 - 纵向时间轴布局 -->
+      <!-- 动态列表 - 双栏网格布局（桌面两列 / 移动单列，日期分组跨两列） -->
       <div
         th:if="${not #lists.isEmpty(allItems.items)}"
         id="friends-timeline"
@@ -87,112 +87,102 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
             th:remove="tag"
             th:with="curDate = ${item.publishedAt != null ? #dates.format(item.publishedAt, 'yyyy-MM-dd') : ''}, prevItem = ${iterStat.index > 0 ? allItems.items[iterStat.index - 1] : null}, prevDate = ${prevItem != null && prevItem.publishedAt != null ? #dates.format(prevItem.publishedAt, 'yyyy-MM-dd') : ''}"
           >
+            <!-- 日期标题（跨两列，日期变更时才显示） -->
+            <div
+              class="friends-timeline-date"
+              th:if="${iterStat.index == 0 || curDate != prevDate}"
+              th:text="${curDate}"
+            >
+              2025-07-26
+            </div>
+
+            <!-- 卡片 -->
             <div
               class="friends-timeline-row"
               th:attr="data-group-author=${item.author}, data-group-date=${curDate}"
             >
-              <!-- 左栏：虚线 + 圆点 -->
-              <div class="friends-timeline-col-line">
-                <div
-                  class="friends-timeline-dot"
-                  th:classappend="${iterStat.index == 0 || curDate != prevDate ? 'friends-timeline-dot-primary' : 'friends-timeline-dot-dimmed'}"
-                >
-                </div>
-              </div>
-
-              <!-- 右栏：日期（卡片上方）+ 卡片 -->
-              <div class="friends-timeline-col-card">
-                <!-- 日期文本，日期变更时才显示 -->
-                <div
-                  class="friends-timeline-card-date"
-                  th:if="${iterStat.index == 0 || curDate != prevDate}"
-                  th:text="${curDate}"
-                >
-                  2025-07-26
-                </div>
-                <article
-                  class="card-base btn-card-outline rounded-xl p-5 onload-animation friends-card card-hover-lift"
-                  th:style="'animation-delay: min(calc(var(--content-delay) + ' + ${iterStat.index} + ' * var(--dur-entry-step)), var(--dur-entry-max, 400ms))'"
-                >
-                  <div class="flex gap-4">
-                    <!-- 头像 -->
-                    <div class="relative shrink-0">
-                      <img
-                        th:if="${not #strings.isEmpty(item.authorLogo)}"
-                        th:src="${item.authorLogo != null and (item.authorLogo.startsWith('http') or item.authorLogo.startsWith('//') or item.authorLogo.startsWith('/')) ? item.authorLogo : null}"
-                        th:alt="${item.author}"
-                        class="friends-avatar h-12 w-12 rounded-xl bg-(--btn-regular-bg) object-cover"
-                      />
-                      <div
-                        th:unless="${not #strings.isEmpty(item.authorLogo)}"
-                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
-                      >
-                        <span
-                          class="icon-[material-symbols--account-circle] text-[2rem]"
-                        ></span>
-                      </div>
-                    </div>
-
-                    <!-- 内容区 -->
-                    <div class="min-w-0 flex-1">
-                      <!-- 作者 + 时间 -->
-                      <div
-                        class="flex items-center gap-2 min-w-0 friends-item-header"
-                      >
-                        <a
-                          href="#"
-                          class="friend-author truncate text-[15px] font-semibold text-(--primary) transition hover:text-(--primary)"
-                          th:attr="data-site=${item.url}"
-                        >
-                          <span th:text="${item.author}">Author</span>
-                        </a>
-                        <span class="text-30 select-none">&middot;</span>
-                        <time
-                          class="shrink-0 text-xs text-30"
-                          th:datetime="${item.publishedAt}"
-                          th:text="${item.publishedAt != null ? #dates.format(item.publishedAt, 'HH:mm') : ''}"
-                          >14:30</time
-                        >
-                      </div>
-
-                      <!-- 文章标题 -->
-                      <a
-                        th:href="${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="mt-2 block line-clamp-2 text-[15px] font-semibold text-90 leading-snug transition hover:text-(--primary) friends-item-title"
-                      >
-                        <span th:text="${item.title}">Article Title</span>
-                        <span
-                          class="icon-[fa6-solid--arrow-up-right-from-square] ml-1 inline-block align-middle text-[10px] text-30"
-                        ></span>
-                      </a>
-
-                      <!-- 文章摘要 -->
-                      <div
-                        th:if="${not #strings.isEmpty(item.summary)}"
-                        class="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-50 friends-item-summary"
-                        th:text="${item.summary}"
-                      >
-                        Summary text here...
-                      </div>
-
-                      <!-- 来源链接 -->
-                      <a
-                        th:href="${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="friends-source-link mt-2.5 inline-flex items-center gap-1 text-xs text-30 transition hover:text-(--primary)"
-                      >
-                        <span
-                          class="icon-[material-symbols--link-rounded] shrink-0 text-[13px]"
-                        ></span>
-                        <span th:text="#{page.friends.source}">来自朋友圈</span>
-                      </a>
+              <article
+                class="card-base btn-card-outline rounded-xl p-5 onload-animation friends-card card-hover-lift"
+                th:style="'animation-delay: min(calc(var(--content-delay) + ' + ${iterStat.index} + ' * var(--dur-entry-step)), var(--dur-entry-max, 400ms))'"
+              >
+                <div class="flex gap-4">
+                  <!-- 头像 -->
+                  <div class="relative shrink-0">
+                    <img
+                      th:if="${not #strings.isEmpty(item.authorLogo)}"
+                      th:src="${item.authorLogo != null and (item.authorLogo.startsWith('http') or item.authorLogo.startsWith('//') or item.authorLogo.startsWith('/')) ? item.authorLogo : null}"
+                      th:alt="${item.author}"
+                      class="friends-avatar h-12 w-12 rounded-xl bg-(--btn-regular-bg) object-cover"
+                    />
+                    <div
+                      th:unless="${not #strings.isEmpty(item.authorLogo)}"
+                      class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
+                    >
+                      <span
+                        class="icon-[material-symbols--account-circle] text-[2rem]"
+                      ></span>
                     </div>
                   </div>
-                </article>
-              </div>
+
+                  <!-- 内容区 -->
+                  <div class="min-w-0 flex-1">
+                    <!-- 作者 + 时间 -->
+                    <div
+                      class="flex items-center gap-2 min-w-0 friends-item-header"
+                    >
+                      <a
+                        href="#"
+                        class="friend-author truncate text-[15px] font-semibold text-(--primary) transition hover:text-(--primary)"
+                        th:attr="data-site=${item.url}"
+                      >
+                        <span th:text="${item.author}">Author</span>
+                      </a>
+                      <span class="text-30 select-none">&middot;</span>
+                      <time
+                        class="shrink-0 text-xs text-30"
+                        th:datetime="${item.publishedAt}"
+                        th:text="${item.publishedAt != null ? #dates.format(item.publishedAt, 'HH:mm') : ''}"
+                        >14:30</time
+                      >
+                    </div>
+
+                    <!-- 文章标题 -->
+                    <a
+                      th:href="${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="mt-2 block line-clamp-2 text-[15px] font-semibold text-90 leading-snug transition hover:text-(--primary) friends-item-title"
+                    >
+                      <span th:text="${item.title}">Article Title</span>
+                      <span
+                        class="icon-[fa6-solid--arrow-up-right-from-square] ml-1 inline-block align-middle text-[10px] text-30"
+                      ></span>
+                    </a>
+
+                    <!-- 文章摘要 -->
+                    <div
+                      th:if="${not #strings.isEmpty(item.summary)}"
+                      class="mt-1.5 line-clamp-2 text-[13px] leading-relaxed text-50 friends-item-summary"
+                      th:text="${item.summary}"
+                    >
+                      Summary text here...
+                    </div>
+
+                    <!-- 来源链接 -->
+                    <a
+                      th:href="${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      class="friends-source-link mt-2.5 inline-flex items-center gap-1 text-xs text-30 transition hover:text-(--primary)"
+                    >
+                      <span
+                        class="icon-[material-symbols--link-rounded] shrink-0 text-[13px]"
+                      ></span>
+                      <span th:text="#{page.friends.source}">来自朋友圈</span>
+                    </a>
+                  </div>
+                </div>
+              </article>
             </div>
           </div>
         </div>

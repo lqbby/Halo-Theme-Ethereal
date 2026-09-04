@@ -44,7 +44,7 @@ const stats = [
       curType=${bangumis.typeNum},
       curStatus=${bangumis.status}"
     >
-      <!-- 框一：头部（归档页同款简洁框；局部 PJAX 时本框不动，仅副标题/已筛选徽章由脚本同步） -->
+      <!-- 框一：头部（完全静态：标题 + 副标题，无动态数据，局部 PJAX 时不刷新也不更新） -->
       <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
         <PageHeader
           containerClass="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
@@ -53,12 +53,7 @@ const stats = [
           iconClass="icon-[mingcute--bilibili-fill]"
           labelExpr="#{page.bangumi.subtitle}"
           label="我的追番"
-          subExpr="#{page.bangumi.subtitleCount(${bangumis.total})}"
-          subShowIfExpr="${bangumis != null}"
-          subId="bangumi-subtitle"
-          sub="0 部"
-          filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-          filteredId="bangumi-filtered"
+          sepShowIfExpr="${false}"
         />
       </section>
 
@@ -117,6 +112,26 @@ const stats = [
       <!-- 框三：番剧网格（局部 PJAX 刷新容器：切换筛选只替换 #bangumi-list 内内容） -->
       <section class="card-base px-6 py-6 md:px-9">
         <div id="bangumi-list">
+          <!-- 计数行：总数量 + 已筛选徽章（随框三整体替换，无需额外同步） -->
+          <div
+            th:if="${bangumis != null}"
+            class="mb-5 flex flex-wrap items-center gap-2"
+          >
+            <span
+              class="icon-[material-symbols--favorite-outline-rounded] text-lg text-(--primary)"
+            ></span>
+            <span
+              class="text-sm font-semibold text-75"
+              th:text="#{page.bangumi.subtitleCount(${bangumis.total})}"
+              >共 142 部</span
+            >
+            <span
+              th:if="${bangumis.typeNum != 1 or bangumis.status != 0}"
+              class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
+              th:text="#{common.filtered}">已筛选</span
+            >
+          </div>
+
           <!-- 追番卡片网格 -->
           <div
             th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
@@ -273,29 +288,6 @@ const stats = [
       var loading = false;
       var exitTimer = null;
 
-      // 同步框一头部：副标题计数 + 「已筛选」徽章（框一不随局部刷新替换，
-      // 从目标页头部提取对应元素更新；徽章在服务端按 filteredExpr 条件渲染，
-      // 目标页无徽章时移除当前徽章，有则补入）。
-      function syncHeader(doc) {
-        var incomingSub = doc.getElementById("bangumi-subtitle");
-        var currentSub = document.getElementById("bangumi-subtitle");
-        if (incomingSub && currentSub) {
-          currentSub.textContent = incomingSub.textContent;
-        }
-        var incomingBadge = doc.getElementById("bangumi-filtered");
-        var currentBadge = document.getElementById("bangumi-filtered");
-        if (incomingBadge && !currentBadge) {
-          if (currentSub) {
-            currentSub.insertAdjacentElement(
-              "afterend",
-              incomingBadge.cloneNode(true),
-            );
-          }
-        } else if (!incomingBadge && currentBadge) {
-          currentBadge.parentNode.removeChild(currentBadge);
-        }
-      }
-
       // 激活态切换：分 type/status 两个维度，各按目标 URL 的对应参数匹配
       // （缺省 typeNum=1 / status=0，与插件默认一致，保证后退到无参数页时正确高亮）。
       function setActiveTab(url) {
@@ -395,7 +387,6 @@ const stats = [
               window.location.href = url;
               return;
             }
-            syncHeader(doc);
             swap();
           })
           .catch(function () {
