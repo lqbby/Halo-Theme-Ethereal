@@ -81,7 +81,7 @@ function initCustomScrollbar() {
     // 移动不再触发重放；2s 兜底防动画异常卡住。等待期间原生滚动条正常工作。
     // 挂载本身会触发一次全量重排（移动全部 body 子元素 + 尺寸测量，数百 ms），
     // 是主线程一次 ~127ms 的归因长任务。自定义滚动条纯属装饰，无需抢首屏：
-    // 挂载时机改为「首次用户交互（滚动/触摸/键位/指针）」触发，兜底用固定 3.5s
+    // 挂载时机改为「滚动 / 触摸滚动 / 键位」触发（不含点击/指针，见下方注释），兜底用固定 3.5s
     // 延迟——不用 requestIdleCallback：它无 timeout 时仍会在主线程首个空闲点触发
     // （实测 1.65s/2.68s 都落在 FCP→TTI 的 TBT 窗口内，长任务依旧）。3.5s 远在
     // TTI(~1.7s) 之后，且 Lighthouse 不模拟交互，故该长任务在报告中彻底消失。
@@ -94,9 +94,14 @@ function initCustomScrollbar() {
         task();
       };
       const opts = { once: true, passive: true } as const;
-      window.addEventListener("pointerdown", run, opts);
+      // ⚠️ 勿用 pointerdown / touchstart 触发：它们会在「点击 / 触摸」时触发 mount，
+      // mount 同步 appendChild 移动全部 body 子元素，干扰同一次点击的 click 处理，
+      // 导致刷新后「首次点击菜单/分类失效」（需等 3.5s 兜底 mount 完成才恢复，
+      // 即用户观察到的「约 4 秒后首次点击才成功」）。wheel（桌面滚轮）/ touchmove
+      // （移动端触摸滚动）/ keydown（键盘）都不直接对应「点击」，触发 mount 不会
+      // 干扰正在进行的点击。
       window.addEventListener("wheel", run, opts);
-      window.addEventListener("touchstart", run, opts);
+      window.addEventListener("touchmove", run, opts);
       window.addEventListener("keydown", run, opts);
       setTimeout(run, 3500);
     };

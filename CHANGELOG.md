@@ -2,6 +2,21 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.27] - 2026-09-04
+
+### 修复：刷新后「首次点击菜单/分类失效，约 4 秒后恢复」的真正根因
+
+- **现象（用户澄清「刷新之后只有滚动一下才能点击正常跳转」→「大概 4 秒钟后可以第一次点击成功，4 秒钟前不行」）**
+  - 刷新后立即点击顶部导航菜单或分类栏任何链接都失效，约 4 秒后首次点击才成功。此前误判为「第二次点击成功」「滚动一下才能点」，实为同一现象的不同触发方式。
+
+- **真正根因**：`app.ts` 的 `initCustomScrollbar()` 用 `runWhenIdle` 把 **OverlayScrollbars 初始化**延迟到「首次用户交互」或「固定 3.5s 兜底」。首次交互包含 `pointerdown`（点击按下）——用户刷新后首次**点击**菜单时，`pointerdown` 触发 OverlayScrollbars 初始化，**同步 appendChild 移动全部 body 子元素**（包裹进滚动容器 viewport），干扰了同一次点击的 click 事件处理 → 点击失效。3.5s 兜底（叠加动态 `import("overlayscrollbars")` 的加载时间 ≈ **4 秒**）后 mount 完成、DOM 稳定，点击恢复。
+
+- **为何 1.3.26 未解决**：1.3.26 的 `loadOnIdle: false` 只是让 Swup 同步初始化（消除 `requestIdleCallback` 延迟），但真正的「点击失效」来自 OverlayScrollbars 初始化时的 DOM 移动，与 Swup 初始化时机无关。
+
+- **修复**（`app.ts`）：`runWhenIdle` 移除 `pointerdown` / `touchstart` 触发（点击/触摸不再触发 mount），改为 `wheel`（桌面滚轮）/ `touchmove`（移动端触摸滚动）/ `keydown`（键盘）+ 3.5s 兜底。点击不再触发 DOM 移动，首次点击即正常；滚动/键盘/兜底仍保证 OverlayScrollbars 最终初始化。
+
+- **验证**：agent-browser 环境原生滚动条为 overlay（`scrollbarGap=0`），被 `cancel: { nativeScrollbarsOverlaid: true }` 取消初始化，故此前在该环境永远测不出此 bug（`window.swup` 就绪 + 点击成功）；用户 Windows 经典滚动条环境（`scrollbarGap≈17`）正常初始化，可复现。
+
 ## [v1.3.26] - 2026-09-04
 
 ### 修复：刷新页面后「首次点击菜单/分类跳转失败，第二次才成功」
