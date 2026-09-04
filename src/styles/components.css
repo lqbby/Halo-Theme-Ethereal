@@ -1193,22 +1193,33 @@
 }
 
 /* 朋友圈动态列表 - JS 手动两列瀑布流（桌面两列 / 移动单列）。
-   ⚠️ 不用 CSS columns 的 balance：它按 DOM 顺序「连续分段」，加载更多时
-   新增内容（DOM 顺序靠后）会全部堆到右列、左列不动，观感差（用户反馈
-   「只加载右边的」）。改用两列 flex + JS「最短列优先」瀑布流（friends.bundle.js，
-   对齐首页 post-list-layout 的 masonry 算法）：每张卡片追加到当前较矮列，
-   高度不一的卡片自然均衡、两列齐平。
-   无 JS 兜底：.friends-timeline 单列（flex column），group 平铺按时间倒序。 */
+   ⚠️ 不用 CSS columns 的 balance 做最终方案：它按 DOM 顺序「连续分段」，
+   加载更多时新增内容（DOM 顺序靠后）会全部堆到右列、左列不动（用户反馈
+   「只加载右边的」）。columns 仅作「首帧无闪烁兜底」——JS 执行前首帧即按
+   columns 双栏渲染（避免「先单栏后双栏」的 FOUC），JS 就绪后加 .masonry-active
+   切换为 flex 两列 + 「最短列优先」瀑布流（friends.bundle.js，对齐首页
+   post-list-layout 的 masonry 算法），加载更多时新内容增量分散两列、不重排。 */
 .friends-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  column-count: 1;
+  column-gap: 1rem;
+}
+@media (min-width: 768px) {
+  .friends-timeline {
+    column-count: 2;
+  }
+}
+/* columns 布局下每组（日期头 + 卡片）不可被分到两列（首帧兜底用） */
+.friends-timeline-group {
+  display: block;
+  break-inside: avoid;
 }
 
-/* JS 启用双栏后：两列并排 */
+/* JS 双栏瀑布流：display:flex 覆盖 columns 多列布局 */
 .friends-timeline.masonry-active {
+  display: flex;
   flex-direction: row;
   align-items: flex-start;
+  gap: 1rem;
 }
 
 .friends-timeline-column {
@@ -1224,11 +1235,6 @@
   .friends-timeline.masonry-active {
     flex-direction: column;
   }
-}
-
-/* 每组（日期头 + 卡片）一个 masonry item */
-.friends-timeline-group {
-  display: block;
 }
 
 /* 日期分组头：左色条 + 日历图标 + 日期，列内紧凑样式 */

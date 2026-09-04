@@ -2,6 +2,18 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.30] - 2026-09-04
+
+### 修复：朋友圈加载瞬间「先渲染单栏，再渲染双栏」闪烁（FOUC）
+
+- **现象（用户「观感不流畅，加载的瞬间先渲染单栏，再渲染双栏」）**：1.3.29 的 `.friends-timeline` 默认是 `flex-direction: column`（单栏），双栏由 `friends.bundle.js`（defer 脚本）在首帧渲染后才加 `.masonry-active` 切换，导致首帧先显示「30 张卡片竖排单栏」、再跳成两栏，观感闪烁。
+
+- **根因**：defer 脚本执行晚于浏览器首帧渲染；首帧时 CSS 还是单栏，双栏结构尚未建立。
+
+- **修复**（`src/styles/components.css`）：`.friends-timeline` 默认改用 **CSS columns 双栏兜底**——`column-count: 1`（移动）/ `2`（≥768px）+ `.friends-timeline-group { break-inside: avoid }`，让**首帧即按 columns 双栏渲染**（消除「单栏→双栏」跳变）；JS 就绪后 `rebuildMasonry` 加 `.masonry-active`（`display: flex` 覆盖 columns）切回 flex 两列 + 最短列优先瀑布流。因首帧 columns balance 与 JS 最短列优先在朋友圈卡片高度差异小的场景下分配结果接近，「columns 双栏→flex 双栏」的切换几乎无感；「加载更多」仍走 flex 增量追加、不重排。
+
+- **JS 无需改动**：`rebuildMasonry` 天然兼容——首帧无 `.friends-timeline-column`，它先空摘旧列、再加 `.masonry-active` 切 flex、按最短列优先重建。
+
 ## [v1.3.29] - 2026-09-04
 
 ### 朋友圈双栏改为「最短列优先」瀑布流（对齐首页文章卡片）
