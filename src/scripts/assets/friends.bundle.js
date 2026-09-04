@@ -188,23 +188,79 @@
   // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
 })();
 
-// 朋友圈 - 分批加载（"加载更多"按钮）
+// 朋友圈 - 分批加载（"加载更多"按钮）+ JS 双栏 masonry 分配
+// ⚠️ 布局不用 CSS columns 的 balance：它按 DOM 顺序「连续分段」，加载更多时
+// 新增内容（DOM 顺序靠后）会全部堆到右列、左列不动（用户反馈「只加载右边的」）。
+// 改为 flex 两列 + JS 按原始索引奇偶交替分配：新内容自然分散两列。
 (function () {
-  // 1.3.24+ 改为隐藏整组（date+card），避免日期头孤儿；
-  // 计数取「含 row 的 group」（与分组脚本后的可见卡片一一对应）。
-  function init() {
+  // 取「含 row 的 group」（与分组脚本后的可见卡片一一对应），保持原始 DOM 顺序
+  function getGroups(timeline) {
+    return Array.from(
+      timeline.querySelectorAll(".friends-timeline-group"),
+    ).filter(function (g) {
+      return !!g.querySelector(".friends-timeline-row");
+    });
+  }
+
+  // 按原始顺序重建布局：<768px 单列铺平；否则可见 group 奇偶交替进左右列。
+  // groups 是 init 时捕获的原始顺序引用数组，重建不依赖当前 DOM 顺序（可反复调用）。
+  function rebuildMasonry(timeline, groups, current) {
+    // 摘除旧列容器（其内 group 随容器一并移出 DOM，但 groups 数组仍持有引用）
+    Array.from(timeline.querySelectorAll(".friends-timeline-column")).forEach(
+      function (col) {
+        col.remove();
+      },
+    );
+    timeline.classList.remove("masonry-active");
+
+    var desktop = window.innerWidth >= 768;
+    var visible = groups.slice(0, current);
+
+    if (!desktop || visible.length < 2) {
+      // 单列：按原始顺序全部铺回 timeline（隐藏组 display:none 不占位）
+      groups.forEach(function (g) {
+        timeline.appendChild(g);
+      });
+      return;
+    }
+
+    var left = document.createElement("div");
+    left.className = "friends-timeline-column";
+    var right = document.createElement("div");
+    right.className = "friends-timeline-column";
+    timeline.appendChild(left);
+    timeline.appendChild(right);
+    timeline.classList.add("masonry-active");
+
+    groups.forEach(function (g, i) {
+      if (i < current) {
+        (i % 2 === 0 ? left : right).appendChild(g);
+      } else {
+        timeline.appendChild(g); // 隐藏组留在 timeline 直接子级（display:none）
+      }
+    });
+  }
+
+  function updateDisplay(timeline, groups, current) {
+    var btn = document.getElementById("friends-load-more");
+    groups.forEach(function (g, i) {
+      g.style.display = i < current ? "" : "none";
+    });
+    timeline.dataset.friendsLoaded = current;
+    if (btn) {
+      btn.style.display = current < groups.length ? "flex" : "none";
+    }
+    rebuildMasonry(timeline, groups, current);
+  }
+
+  function setup() {
     try {
       var timeline = document.getElementById("friends-timeline");
       var btn = document.getElementById("friends-load-more");
       if (!timeline || !btn) return;
 
       var batchSize = parseInt(timeline.getAttribute("data-batch-size")) || 30;
-
-      var allGroups = Array.from(
-        timeline.querySelectorAll(".friends-timeline-group"),
-      ).filter(function (g) {
-        return !!g.querySelector(".friends-timeline-row");
-      });
+      var allGroups = getGroups(timeline);
 
       // 移除之前可能绑定的 data 状态
       var current = parseInt(timeline.dataset.friendsLoaded) || batchSize;
@@ -217,34 +273,34 @@
 
       updateDisplay(timeline, allGroups, current);
 
-      btn.addEventListener("click", function () {
-        current += batchSize;
-        if (current > allGroups.length) current = allGroups.length;
-        updateDisplay(timeline, allGroups, current);
-      });
+      if (!btn.dataset.friendsMasonryBound) {
+        btn.dataset.friendsMasonryBound = "true";
+        btn.addEventListener("click", function () {
+          var c = parseInt(timeline.dataset.friendsLoaded) || batchSize;
+          c += batchSize;
+          if (c > allGroups.length) c = allGroups.length;
+          updateDisplay(timeline, allGroups, c);
+        });
+      }
     } catch (e) {
       // 静默失败，不阻断页面渲染
     }
   }
 
-  function updateDisplay(timeline, groups, current) {
-    var btn = document.getElementById("friends-load-more");
-    groups.forEach(function (g, i) {
-      g.style.display = i < current ? "" : "none";
-    });
-    timeline.dataset.friendsLoaded = current;
-    if (btn) {
-      btn.style.display = current < groups.length ? "flex" : "none";
-    }
-  }
-
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", setup);
   } else {
-    init();
+    setup();
   }
 
-  // Swup 页面切换后重新初始化
-  // 换页后重新初始化由 SwupScriptsPlugin 重执行覆盖；
-  // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
+  // resize 跨 768 断点重建：resize 监听全局只注册一次（Swup 换页重执行本脚本时
+  // 不重复绑定）；setup 每次重查 DOM，避免闭包引用旧页面元素。
+  if (!window.__etherealFriendsMasonryResizeBound) {
+    window.__etherealFriendsMasonryResizeBound = true;
+    var resizeTimer = null;
+    window.addEventListener("resize", function () {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(setup, 150);
+    });
+  }
 })();

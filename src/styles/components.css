@@ -1192,31 +1192,45 @@
   display: none;
 }
 
-/* 朋友圈动态列表 - CSS columns 双栏 masonry（桌面两列 / 移动单列）
-   用 columns 不用 grid：grid 在日期头 grid-column:1/-1 强制满宽断行下，
-   单条日期组会让右列全空，看似单列布局「碎了」；masonry 天然平衡变高卡片。
-   每 (date + row) 包成 .friends-timeline-group，break-inside:avoid 保日期与卡片同列。 */
+/* 朋友圈动态列表 - JS 手动两列 masonry（桌面两列 / 移动单列）。
+   ⚠️ 不用 CSS columns 的 balance：它按 DOM 顺序「连续分段」，加载更多时
+   新增内容（DOM 顺序靠后）会全部堆到右列、左列不动，观感差（用户反馈
+   「只加载右边的」）。改用两列 flex + JS 奇偶交替分配（friends.bundle.js），
+   新内容自然分散到两列。
+   无 JS 兜底：.friends-timeline 单列（flex column），group 平铺按时间倒序。 */
 .friends-timeline {
-  column-count: 1;
-  column-gap: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 }
 
-@media (min-width: 768px) {
-  .friends-timeline {
-    column-count: 2;
+/* JS 启用双栏后：两列并排 */
+.friends-timeline.masonry-active {
+  flex-direction: row;
+  align-items: flex-start;
+}
+
+.friends-timeline-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* 移动端：即使 JS 启用双栏也保持单列 */
+@media (max-width: 767px) {
+  .friends-timeline.masonry-active {
+    flex-direction: column;
   }
 }
 
-/* 每组（日期头 + 卡片）一个 masonry item：不被分到两列 */
+/* 每组（日期头 + 卡片）一个 masonry item */
 .friends-timeline-group {
-  break-inside: avoid;
-  -webkit-column-break-inside: avoid;
-  page-break-inside: avoid;
   display: block;
-  margin-bottom: 1rem;
 }
 
-/* 日期分组头：左色条 + 日历图标 + 日期，列内紧凑样式（不再 grid-column 满宽） */
+/* 日期分组头：左色条 + 日历图标 + 日期，列内紧凑样式 */
 .friends-timeline-date {
   display: flex;
   align-items: center;
@@ -1229,9 +1243,6 @@
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1.2;
-  /* 日期紧跟其下卡片，避免日期后立即断列 */
-  break-after: avoid;
-  -webkit-column-break-after: avoid;
 }
 
 /* 卡片容器：masonry item 子层，块级即可；卡片自身撑满列宽 */

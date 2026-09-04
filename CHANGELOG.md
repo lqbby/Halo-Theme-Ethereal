@@ -2,6 +2,21 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.28] - 2026-09-04
+
+### 修复：朋友圈双栏布局「加载更多」只加载右边一列
+
+- **现象（用户反馈「朋友圈页面加载不合理，双栏布局。只加载右边的，观感不好。」）**
+  - 首批可见 30 条在左右两列分布均衡（左 13 / 右 17），但点击「加载更多」后第二批 23 条**全部堆到右列、左列纹丝不动**（实测 `batch2Left:0, batch2Right:23`）。
+
+- **根因**：`.friends-timeline` 原先用 CSS `columns: 2` 的 masonry（`column-count`），浏览器的**列平衡（column balancing）按 DOM 顺序「连续分段」**分配多列——首批 30 个 group 恰好填满第一段后被两列平衡；「加载更多」新增的第二批 group 在 DOM 顺序上靠后，被列平衡算法整体续排到右列末尾，左列不补位。
+
+- **修复**（`src/scripts/assets/friends.bundle.js` + `src/styles/components.css`）：
+  - 弃用 CSS columns，改为 **flex 两列 + JS 手动按原始索引奇偶交替分配**：`.friends-timeline` 默认单列（无 JS 兜底），桌面（`window.innerWidth >= 768`）加 `.masonry-active` 并创建左右两个 `.friends-timeline-column`，把可见 group 按 `i % 2` 交替 append 进两列——新增内容自然分散左右，不再「只加载右边」。
+  - `rebuildMasonry` 以 init 时捕获的原始顺序 `groups` 数组为准重建（不依赖当前 DOM 顺序），可反复调用；`<768px` 时单列铺平恢复原始顺序。
+  - `updateDisplay`（分批隐藏/显示）末尾统一调用 `rebuildMasonry`，加载更多、resize 跨断点都会正确重建。
+  - resize 监听用 `window.__etherealFriendsMasonryResizeBound` 全局守卫只注册一次，避免 Swup 换页重执行脚本时监听累积；`setup` 每次重查 DOM 防闭包引用旧页面元素。
+
 ## [v1.3.27] - 2026-09-04
 
 ### 修复：刷新后「首次点击菜单/分类失效，约 4 秒后恢复」的真正根因
