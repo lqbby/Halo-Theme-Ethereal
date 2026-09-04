@@ -548,7 +548,7 @@ const {
       门控条件与原先完全一致：总开关 mods.enable 且 enable_random_fish 未显式关闭 */
   }
   <script
-    th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && (theme.config?.extendPages?.friends?.enable_random_fish == null || theme.config?.extendPages?.friends?.enable_random_fish)}"
+    th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && ((theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish) == null || (theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish))}"
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${ASSET_VERSION}`}
     defer></script>
 </Layout>

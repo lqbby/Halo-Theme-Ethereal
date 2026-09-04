@@ -1698,11 +1698,11 @@ spec:
             - $formkit: number
               name: fetchLimit
               label: 拉取总条数
-              value: 20
+              value: 60
               min: 10
               max: 100
               step: 10
-              help: "从链接管理插件拉取的动态总条数，最大100条。建议设置大于「每次加载数量」"
+              help: "从链接管理插件拉取的动态总条数，最大100条。必须大于「每次加载数量」，否则「加载更多」按钮不会显示"
             - $formkit: switch
               name: enable_random_fish
               label: 显示随机钓鱼按钮

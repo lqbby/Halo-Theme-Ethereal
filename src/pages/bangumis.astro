@@ -248,38 +248,18 @@ const stats = [
   </div>
 
   <style is:global>
-    /* 番剧页局部 PJAX 列表切换过渡：复用主题 --dur-swup 变量。
-       1.3.24 优化响应感：移除 200ms 退场淡出（让内容「消失再出现」是按钮慢的根因），
-       改用轻量 loading 态（内容保持可见，只轻微变透明），点击即激活 tab 给即时反馈。 */
-    #bangumi-list {
-      transition-property: opacity;
-      transition-duration: 150ms;
-      transition-timing-function: var(
-        --default-transition-timing-function,
-        cubic-bezier(0.4, 0, 0.2, 1)
-      );
-    }
-
-    /* loading 态：fetch 期间内容半透明 + 禁止点击，不退场、不下沉 */
-    #bangumi-list.bangumi-list-loading {
-      opacity: 0.55;
-      pointer-events: none;
-    }
-
-    /* 入场：新内容 150ms 淡入上移 */
-    #bangumi-list.bangumi-list-enter {
-      opacity: 0;
-      animation: 150ms fade-in-up;
-      animation-fill-mode: forwards;
-    }
+    /* 番剧页局部 PJAX：1.3.25 彻底移除 opacity/translate 过渡动画。
+       此前 bangumi-list-enter{opacity:0}+fade-in-up(translate 2rem) 会在切换瞬间
+       让整个 #bangumi-list 变白并下移，再淡入 —— 用户反馈「番剧图先变白再跳转」。
+       现在点击即 setActiveTab+pushState 给反馈，fetch 完成后直接替换内容，无任何
+       透明度/位移动画，杜绝白屏闪烁（图片自身加载期由 bg-(--btn-regular-bg) 兜底）。 */
   </style>
 
   <!-- 局部 PJAX：筛选菜单点击只刷新框三 #bangumi-list，框一/框二保持不动。
-       1.3.24 优化响应感：点击即 setActiveTab+pushState 激活新 tab 给即时反馈，
-       fetch 期间内容保持可见只轻微变透明（bangumi-list-loading），不再做 200ms
-       退场淡出+下沉（让内容「消失再出现」是按钮慢的根因）；fetch 完成后换 innerHTML
-       并重播 150ms fade-in-up。剥离卡片/分页自带的 onload-animation 与错峰延迟，
-       避免每次筛选重播「过度动画」。 -->
+       1.3.25：点击即 setActiveTab+pushState 激活新 tab 给即时反馈；fetch 期间内容
+       保持原样（不加 loading 半透明、不做退场）；fetch 完成后直接 innerHTML 替换，
+       剥离卡片/分页自带的 onload-animation 与错峰延迟，避免每次筛选重播「过度动画」。
+       目标页无 #bangumi-list（如后退到非番剧页）则整页跳转兜底。 -->
   <script is:inline>
     // @ts-nocheck 浏览器运行时脚本
     (function () {
@@ -320,9 +300,7 @@ const stats = [
       }
 
       // 局部加载：点击即 setActiveTab+pushState 激活新 tab 给即时反馈；
-      // fetch 期间内容保持可见只轻微变透明（bangumi-list-loading），不整块退场。
-      // fetch 完成 → 换 innerHTML → 重播 150ms fade-in-up 入场。
-      // 目标页无 #bangumi-list（如后退到非番剧页）则整页跳转兜底。
+      // fetch 完成后直接替换 #bangumi-list 内容（无 opacity/translate 动画，避免白屏闪烁）。
       function loadArchive(url) {
         if (loading) return;
         loading = true;
@@ -337,9 +315,6 @@ const stats = [
         // 即时反馈：激活态 + URL 同步，不等网络
         setActiveTab(url);
         history.pushState({ bangumiFilter: true }, "", url);
-        // 轻量 loading 态（内容半透明 + 禁点击，150ms 平滑过渡）
-        current.classList.remove("bangumi-list-enter");
-        current.classList.add("bangumi-list-loading");
 
         fetch(url, { cache: "no-store" })
           .then(function (r) {
@@ -351,29 +326,21 @@ const stats = [
             var incoming = doc.getElementById("bangumi-list");
             if (!incoming) {
               loading = false;
-              current.classList.remove("bangumi-list-loading");
               window.location.href = url;
               return;
             }
-            // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
+            // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器直接替换。
             incoming
               .querySelectorAll(".onload-animation")
               .forEach(function (el) {
                 el.classList.remove("onload-animation");
                 el.style.removeProperty("animation-delay");
               });
-            // 先移除 loading 再换内容，避免新内容短暂继承半透明
-            current.classList.remove("bangumi-list-loading");
             current.innerHTML = incoming.innerHTML;
-            // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
-            current.classList.remove("bangumi-list-enter");
-            void current.offsetWidth;
-            current.classList.add("bangumi-list-enter");
             loading = false;
           })
           .catch(function () {
             loading = false;
-            current.classList.remove("bangumi-list-loading");
             window.location.href = url;
           });
       }

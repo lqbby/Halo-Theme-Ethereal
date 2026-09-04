@@ -2,6 +2,26 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.25] - 2026-09-04
+
+### 修复：番剧 tab 切换「先变白」+ 朋友圈「加载更多」按钮消失
+
+- **番剧页白屏闪烁（用户反馈「点击按钮跳转，下面的番剧图先变白然后跳转」）**
+  - **现象**：tab 切换瞬间，框三整块番剧网格先变白（透明度降到 0）+ 下沉 2rem，再淡入新内容
+  - **根因**：1.3.24 引入的入场动画 `bangumi-list-enter{opacity:0} + fade-in-up(translate:0 2rem)`——切换时整个 `#bangumi-list` 先变纯白再下移淡入，被感知为「先变白再跳转」
+  - **修复**（`src/pages/bangumis.astro`）：彻底删除所有 opacity/translate 过渡动画类（`bangumi-list-loading` / `bangumi-list-enter` 及对应 keyframes），点击即 `setActiveTab + pushState` 即时反馈，fetch 完成直接 `innerHTML` 替换，无任何退场/入场动画；图片加载期由 `bg-(--btn-regular-bg)` 兜底，不再整块白
+
+- **朋友圈「加载更多」按钮消失（用户反馈「页面最下方没有加载更多按钮」）**
+  - **现象**：朋友圈底部没有「加载更多」按钮，动态只显示前 20 条
+  - **根因**（两层）：
+    1. **配置默认值自相矛盾**：`settings.yaml` 里 `fetchLimit`（拉取总条数）默认 20，`pageSize`（每次加载数量）默认 30，`fetchLimit(20) < pageSize(30)` → 只拉 20 条 → load-more 显示条件 `current < groups.length`（20 < 20）永不成立 → 按钮隐藏
+    2. **旧配置结构未迁移**：`ac8bf5f`（v1.3.0 起）把 `friends` 设置从顶层 Tab 合并进 `extendPages` 分组后，`friends.astro` 只读 `theme.config.extendPages.friends.*`，但存量 configMap 仍是顶层 `friends` 键（`extendPages` 为空 `{}`），导致 `extendPages.friends` 恒为 null、回落硬编码 `limit: 20`
+  - **修复**：
+    - `settings.yaml`：`fetchLimit` 默认 `20 → 60`，help 注明「必须大于每次加载数量，否则按钮不显示」
+    - `src/pages/friends.astro`：配置读取改为向后兼容——`friendsCfg = extendPages.friends ?: friends`，`fetchLimit`/`pageSize`/`blacklist`/`enable_random_fish` 统一从 `friendsCfg` 读，且 fetchLimit 硬编码回落从 `20` 改为 `60`（与 settings.yaml 默认对齐）
+    - `src/layouts/MainGridLayout.astro`：随机钓鱼按钮门控的 `enable_random_fish` 同样改为向后兼容读取
+  - **结果**：朋友圈渲染 60 条动态，60 组 > pageSize 30 → 「加载更多」按钮正常显示，点击分批展开剩余 30 条
+
 ## [v1.3.24] - 2026-09-04
 
 ### 修复：朋友圈两栏布局「单列右空」+ 番剧页 tab 按钮响应慢
