@@ -188,10 +188,12 @@
   // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
 })();
 
-// 朋友圈 - 分批加载（"加载更多"按钮）+ JS 双栏 masonry 分配
+// 朋友圈 - 分批加载（"加载更多"按钮）+ JS 双栏瀑布流分配
 // ⚠️ 布局不用 CSS columns 的 balance：它按 DOM 顺序「连续分段」，加载更多时
 // 新增内容（DOM 顺序靠后）会全部堆到右列、左列不动（用户反馈「只加载右边的」）。
-// 改为 flex 两列 + JS 按原始索引奇偶交替分配：新内容自然分散两列。
+// 改用 flex 两列 + JS「最短列优先」瀑布流（对齐首页 post-list-layout 的 masonry
+// 算法）：每个 group 追加到当前累计高度较小的列，高度不一的卡片（摘要/标题行数/
+// 日期头差异）自然均衡到两列，视觉两列齐平、更像首页文章卡片瀑布流。
 (function () {
   // 取「含 row 的 group」（与分组脚本后的可见卡片一一对应），保持原始 DOM 顺序
   function getGroups(timeline) {
@@ -202,8 +204,9 @@
     });
   }
 
-  // 按原始顺序重建布局：<768px 单列铺平；否则可见 group 奇偶交替进左右列。
-  // groups 是 init 时捕获的原始顺序引用数组，重建不依赖当前 DOM 顺序（可反复调用）。
+  // 按原始顺序重建布局：<768px 单列铺平；否则可见 group 按「最短列优先」瀑布流
+  // 进左右列（对齐首页文章卡片的 masonry）。groups 是 init 时捕获的原始顺序引用
+  // 数组，重建不依赖当前 DOM 顺序（可反复调用）。
   function rebuildMasonry(timeline, groups, current) {
     // 摘除旧列容器（其内 group 随容器一并移出 DOM，但 groups 数组仍持有引用）
     Array.from(timeline.querySelectorAll(".friends-timeline-column")).forEach(
@@ -232,9 +235,11 @@
     timeline.appendChild(right);
     timeline.classList.add("masonry-active");
 
+    // 最短列优先：offsetHeight 已含列内子元素与 gap，append 后即时更新，
+    // 下一张卡片据此落到较矮列，两列高度自然齐平（瀑布流观感）
     groups.forEach(function (g, i) {
       if (i < current) {
-        (i % 2 === 0 ? left : right).appendChild(g);
+        (left.offsetHeight <= right.offsetHeight ? left : right).appendChild(g);
       } else {
         timeline.appendChild(g); // 隐藏组留在 timeline 直接子级（display:none）
       }

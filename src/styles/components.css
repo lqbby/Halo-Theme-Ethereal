@@ -1192,11 +1192,12 @@
   display: none;
 }
 
-/* 朋友圈动态列表 - JS 手动两列 masonry（桌面两列 / 移动单列）。
+/* 朋友圈动态列表 - JS 手动两列瀑布流（桌面两列 / 移动单列）。
    ⚠️ 不用 CSS columns 的 balance：它按 DOM 顺序「连续分段」，加载更多时
    新增内容（DOM 顺序靠后）会全部堆到右列、左列不动，观感差（用户反馈
-   「只加载右边的」）。改用两列 flex + JS 奇偶交替分配（friends.bundle.js），
-   新内容自然分散到两列。
+   「只加载右边的」）。改用两列 flex + JS「最短列优先」瀑布流（friends.bundle.js，
+   对齐首页 post-list-layout 的 masonry 算法）：每张卡片追加到当前较矮列，
+   高度不一的卡片自然均衡、两列齐平。
    无 JS 兜底：.friends-timeline 单列（flex column），group 平铺按时间倒序。 */
 .friends-timeline {
   display: flex;
