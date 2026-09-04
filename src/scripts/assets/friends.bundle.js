@@ -64,7 +64,13 @@
           return author.indexOf(p) >= 0;
         });
         if (matched) {
-          row.remove();
+          // 移除整组（含日期头），避免日期孤儿；1.3.24+ 引入 .friends-timeline-group 包裹
+          var group = row.closest(".friends-timeline-group");
+          if (group && group.parentNode) {
+            group.parentNode.removeChild(group);
+          } else {
+            row.remove();
+          }
         }
       });
     } catch (e) {
@@ -152,7 +158,19 @@
           firstContent.appendChild(sep);
           firstContent.appendChild(article);
 
+          // 1.3.24+ 引入 .friends-timeline-group 包裹 (date + row)：
+          // row 被合并到 firstRow 后，其所在 group 变空（无 row、无 date），
+          // 移除以免在 masonry 里留下空白占位。
+          var srcGroup = row.parentElement;
           row.remove();
+          if (
+            srcGroup &&
+            srcGroup.classList &&
+            srcGroup.classList.contains("friends-timeline-group") &&
+            !srcGroup.querySelector(".friends-timeline-row")
+          ) {
+            srcGroup.remove();
+          }
         }
       });
     } catch (e) {
@@ -172,6 +190,8 @@
 
 // 朋友圈 - 分批加载（"加载更多"按钮）
 (function () {
+  // 1.3.24+ 改为隐藏整组（date+card），避免日期头孤儿；
+  // 计数取「含 row 的 group」（与分组脚本后的可见卡片一一对应）。
   function init() {
     try {
       var timeline = document.getElementById("friends-timeline");
@@ -180,40 +200,41 @@
 
       var batchSize = parseInt(timeline.getAttribute("data-batch-size")) || 30;
 
-      // 先取消隐藏（分组脚本可能已隐藏/删除了部分行）
-      var allRows = Array.from(
-        timeline.querySelectorAll(".friends-timeline-row"),
-      );
+      var allGroups = Array.from(
+        timeline.querySelectorAll(".friends-timeline-group"),
+      ).filter(function (g) {
+        return !!g.querySelector(".friends-timeline-row");
+      });
 
       // 移除之前可能绑定的 data 状态
       var current = parseInt(timeline.dataset.friendsLoaded) || batchSize;
-      if (current > allRows.length) current = allRows.length;
+      if (current > allGroups.length) current = allGroups.length;
 
       // 首次加载用 batchSize
       if (!timeline.dataset.friendsLoaded) {
-        current = Math.min(batchSize, allRows.length);
+        current = Math.min(batchSize, allGroups.length);
       }
 
-      updateDisplay(timeline, allRows, current);
+      updateDisplay(timeline, allGroups, current);
 
       btn.addEventListener("click", function () {
         current += batchSize;
-        if (current > allRows.length) current = allRows.length;
-        updateDisplay(timeline, allRows, current);
+        if (current > allGroups.length) current = allGroups.length;
+        updateDisplay(timeline, allGroups, current);
       });
     } catch (e) {
       // 静默失败，不阻断页面渲染
     }
   }
 
-  function updateDisplay(timeline, rows, current) {
+  function updateDisplay(timeline, groups, current) {
     var btn = document.getElementById("friends-load-more");
-    rows.forEach(function (row, i) {
-      row.style.display = i < current ? "" : "none";
+    groups.forEach(function (g, i) {
+      g.style.display = i < current ? "" : "none";
     });
     timeline.dataset.friendsLoaded = current;
     if (btn) {
-      btn.style.display = current < rows.length ? "flex" : "none";
+      btn.style.display = current < groups.length ? "flex" : "none";
     }
   }
 

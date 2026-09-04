@@ -1192,38 +1192,51 @@
   display: none;
 }
 
-/* 朋友圈动态列表 - 双栏网格布局（桌面两列 / 移动单列） */
+/* 朋友圈动态列表 - CSS columns 双栏 masonry（桌面两列 / 移动单列）
+   用 columns 不用 grid：grid 在日期头 grid-column:1/-1 强制满宽断行下，
+   单条日期组会让右列全空，看似单列布局「碎了」；masonry 天然平衡变高卡片。
+   每 (date + row) 包成 .friends-timeline-group，break-inside:avoid 保日期与卡片同列。 */
 .friends-timeline {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
+  column-count: 1;
+  column-gap: 1rem;
 }
 
 @media (min-width: 768px) {
   .friends-timeline {
-    grid-template-columns: repeat(2, 1fr);
+    column-count: 2;
   }
 }
 
-/* 日期分组标题：跨两列，日期变更时才渲染（friends.astro th:if） */
+/* 每组（日期头 + 卡片）一个 masonry item：不被分到两列 */
+.friends-timeline-group {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+/* 日期分组头：左色条 + 日历图标 + 日期，列内紧凑样式（不再 grid-column 满宽） */
 .friends-timeline-date {
-  grid-column: 1 / -1;
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--primary);
-  line-height: 1;
-  padding-top: 0.5rem;
-  letter-spacing: 0.02em;
-}
-
-/* 卡片容器：grid 项，卡片 flex 撑满等高 */
-.friends-timeline-row {
   display: flex;
-  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--primary);
+  color: var(--primary);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  /* 日期紧跟其下卡片，避免日期后立即断列 */
+  break-after: avoid;
+  -webkit-column-break-after: avoid;
 }
 
-.friends-timeline-row .friends-card {
-  flex: 1;
+/* 卡片容器：masonry item 子层，块级即可；卡片自身撑满列宽 */
+.friends-timeline-row {
+  display: block;
 }
 
 /* 卡片悬浮上移 + 主题色阴影（受样式开关控制）。

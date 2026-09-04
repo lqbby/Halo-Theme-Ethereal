@@ -2,7 +2,27 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
-## [v1.3.10] - 2026-09-03
+## [v1.3.24] - 2026-09-04
+
+### 修复：朋友圈两栏布局「单列右空」+ 番剧页 tab 按钮响应慢
+
+- **朋友圈布局（用户反馈「布局都乱了」）**
+  - **现象**：1.3.23 改 grid 双栏后，日期头 `grid-column:1/-1` 强制满宽断行 + 大多数日期组只有 1 条动态，导致右列 100% 空，整页看似单列布局「碎了」
+  - **根因**：CSS Grid 的满宽日期头与稀疏单条日期组在「双栏视觉」上本质矛盾——断行后每组只填左列、右列空，无法靠 grid 的 align-items:stretch 掩盖
+  - **修复**（`src/pages/friends.astro` + `src/styles/components.css` + `src/scripts/assets/friends.bundle.js`）：改用 **CSS columns 双栏 masonry**——`column-count:2`（≥768px）天然平衡变高卡片；每 (date + row) 包成 `.friends-timeline-group` 配 `break-inside:avoid`，保证日期与卡片不被分到两列；日期头改为左色条 + 日历图标的列内紧凑分组头；load-more 改为隐藏整组（`group.style.display`），避免日期孤儿；group/blacklist 脚本在 row 被合并/移除后清理空 group
+  - **结构变化**：`friends.astro` 的内层 `th:with` div 去掉 `th:remove="tag"`、加 `class="friends-timeline-group"`（每条动态一个真实包裹）
+
+- **番剧页按钮响应（用户反馈「按钮响应很慢」）**
+  - **现象**：tab 点击后内容「消失再出现」，整体感知约 400-500ms，按钮发滞
+  - **根因**：`loadArchive` 串行做了 200ms 退场淡出+下沉（`bangumi-list-exit`）+ 200ms 入场（`bangumi-list-enter`），让 ~280ms 的 fetch 夹在两段动画中间显得很慢；点击到首次视觉变化虽然即时开始退场，但用户主观把「200ms 整块淡出」算成响应耗时
+  - **修复**（`src/pages/bangumis.astro`）：改为**点击即 `setActiveTab + pushState` 给即时反馈**（tab 高亮 + URL 同步瞬时完成），fetch 期间内容保持可见只轻微变透明（`bangumi-list-loading` 透明度 0.55，150ms 平滑过渡，禁点击），不再整块退场；fetch 完成后换 innerHTML + 重播 150ms `fade-in-up` 入场；移除 `transitionend` + 400ms 兜底定时器（已不需要等退场）。fetch 是硬下限（~280ms）无法压缩，但点击到「有反馈」从 ~200ms（等退场结束）压到 0ms，主观响应感显著提升
+
+## [v1.3.23] - 2026-09-04
+
+### 优化：番剧页计数行移至框三 + 朋友圈改双栏网格布局
+
+- **番剧页计数行下移（参考 Firefly bilibili 页）**：框一 PageHeader 改回静态（无计数/筛选徽章），把「共 N 部」+「已筛选」徽章移到框三顶部（`#bangumi-list` 内），随局部 PJAX 整体替换自动更新；删除 `syncHeader()` 跨框同步逻辑
+- **朋友圈改双栏**：`flex` 纵向时间轴（带虚线/圆点）改为 `display:grid; grid-template-columns:repeat(2,1fr)` 桌面双栏、移动单列；日期头 `grid-column:1/-1` 跨两列；卡片直接作为 grid item（去掉 col-line/col-card 包裹层）
 
 ### 修复：overlayscrollbars 挂载兜底改固定延迟，彻底移出 TBT 窗口
 

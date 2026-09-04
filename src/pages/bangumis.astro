@@ -248,34 +248,38 @@ const stats = [
   </div>
 
   <style is:global>
-    /* 番剧页局部 PJAX 列表切换过渡：复用主题 --dur-swup/--dur-entry 变量，
-       退场淡出+下沉，入场重播 fade-in-up（独立类名，避免被
-       html.swup-visited .bangumi-page .onload-animation 抑制）。 */
+    /* 番剧页局部 PJAX 列表切换过渡：复用主题 --dur-swup 变量。
+       1.3.24 优化响应感：移除 200ms 退场淡出（让内容「消失再出现」是按钮慢的根因），
+       改用轻量 loading 态（内容保持可见，只轻微变透明），点击即激活 tab 给即时反馈。 */
     #bangumi-list {
-      transition-property: opacity, translate;
-      transition-duration: var(--dur-swup, 200ms);
+      transition-property: opacity;
+      transition-duration: 150ms;
       transition-timing-function: var(
         --default-transition-timing-function,
         cubic-bezier(0.4, 0, 0.2, 1)
       );
     }
 
-    #bangumi-list.bangumi-list-exit {
-      opacity: 0;
-      translate: 0 1rem;
+    /* loading 态：fetch 期间内容半透明 + 禁止点击，不退场、不下沉 */
+    #bangumi-list.bangumi-list-loading {
+      opacity: 0.55;
+      pointer-events: none;
     }
 
+    /* 入场：新内容 150ms 淡入上移 */
     #bangumi-list.bangumi-list-enter {
       opacity: 0;
-      animation: var(--dur-swup, 200ms) fade-in-up;
+      animation: 150ms fade-in-up;
       animation-fill-mode: forwards;
     }
   </style>
 
   <!-- 局部 PJAX：筛选菜单点击只刷新框三 #bangumi-list，框一/框二保持不动。
-       流程：阻止 Swup 整页换页 → fetch 目标页 → DOMParser 提取 #bangumi-list →
-       替换 innerHTML → pushState → 同步框一副标题/已筛选徽章 → 切换激活态。
-       激活态分 type/status 两个独立维度，各按对应 URL 参数匹配。 -->
+       1.3.24 优化响应感：点击即 setActiveTab+pushState 激活新 tab 给即时反馈，
+       fetch 期间内容保持可见只轻微变透明（bangumi-list-loading），不再做 200ms
+       退场淡出+下沉（让内容「消失再出现」是按钮慢的根因）；fetch 完成后换 innerHTML
+       并重播 150ms fade-in-up。剥离卡片/分页自带的 onload-animation 与错峰延迟，
+       避免每次筛选重播「过度动画」。 -->
   <script is:inline>
     // @ts-nocheck 浏览器运行时脚本
     (function () {
@@ -284,9 +288,8 @@ const stats = [
         "text-white",
         "dark:text-black/70",
       ];
-      // 局部加载进行中标记：退场过渡/拉取期间忽略重复点击，避免重叠切换。
+      // 局部加载进行中标记：避免重复点击叠加。
       var loading = false;
-      var exitTimer = null;
 
       // 激活态切换：分 type/status 两个维度，各按目标 URL 的对应参数匹配
       // （缺省 typeNum=1 / status=0，与插件默认一致，保证后退到无参数页时正确高亮）。
@@ -316,11 +319,10 @@ const stats = [
           });
       }
 
-      // 局部加载：fetch 目标页完整 HTML → 提取 #bangumi-list → 替换当前容器。
+      // 局部加载：点击即 setActiveTab+pushState 激活新 tab 给即时反馈；
+      // fetch 期间内容保持可见只轻微变透明（bangumi-list-loading），不整块退场。
+      // fetch 完成 → 换 innerHTML → 重播 150ms fade-in-up 入场。
       // 目标页无 #bangumi-list（如后退到非番剧页）则整页跳转兜底。
-      // 过渡：点击立即退场淡出（与 fetch 并行，对齐 Swup 点击即反馈），fetch 完成
-      // 且退场结束即换入新内容并重播 fade-in-up；换入前剥离卡片/分页自带的
-      // onload-animation 与错峰延迟，避免每次筛选重播「过度动画」，统一由容器入场。
       function loadArchive(url) {
         if (loading) return;
         loading = true;
@@ -332,47 +334,12 @@ const stats = [
           return;
         }
 
-        var incoming = null;
-        var exitDone = false;
-
-        function swap() {
-          if (!incoming || !exitDone) return;
-          loading = false;
-          // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
-          incoming.querySelectorAll(".onload-animation").forEach(function (el) {
-            el.classList.remove("onload-animation");
-            el.style.removeProperty("animation-delay");
-          });
-          // 禁用 transition 移除退场类，避免反向淡入；换入后恢复并重播入场动画。
-          current.style.transition = "none";
-          current.classList.remove("bangumi-list-exit");
-          current.innerHTML = incoming.innerHTML;
-          void current.offsetWidth;
-          current.style.transition = "";
-          history.pushState({ bangumiFilter: true }, "", url);
-          setActiveTab(url);
-          // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
-          current.classList.remove("bangumi-list-enter");
-          void current.offsetWidth;
-          current.classList.add("bangumi-list-enter");
-        }
-
-        function onExit() {
-          if (exitDone) return;
-          exitDone = true;
-          current.removeEventListener("transitionend", onExit);
-          if (exitTimer) {
-            clearTimeout(exitTimer);
-            exitTimer = null;
-          }
-          swap();
-        }
-
-        // 退场立即开始，与 fetch 并行：点击即有视觉反馈，不干等网络。
-        current.addEventListener("transitionend", onExit);
-        // 兜底：transitionend 未触发（如 prefers-reduced-motion）时强制完成。
-        exitTimer = setTimeout(onExit, 400);
-        current.classList.add("bangumi-list-exit");
+        // 即时反馈：激活态 + URL 同步，不等网络
+        setActiveTab(url);
+        history.pushState({ bangumiFilter: true }, "", url);
+        // 轻量 loading 态（内容半透明 + 禁点击，150ms 平滑过渡）
+        current.classList.remove("bangumi-list-enter");
+        current.classList.add("bangumi-list-loading");
 
         fetch(url, { cache: "no-store" })
           .then(function (r) {
@@ -381,16 +348,32 @@ const stats = [
           })
           .then(function (html) {
             var doc = new DOMParser().parseFromString(html, "text/html");
-            incoming = doc.getElementById("bangumi-list");
+            var incoming = doc.getElementById("bangumi-list");
             if (!incoming) {
               loading = false;
+              current.classList.remove("bangumi-list-loading");
               window.location.href = url;
               return;
             }
-            swap();
+            // 剥离目标内容里卡片/分页的入场动画与错峰延迟，交给容器统一入场。
+            incoming
+              .querySelectorAll(".onload-animation")
+              .forEach(function (el) {
+                el.classList.remove("onload-animation");
+                el.style.removeProperty("animation-delay");
+              });
+            // 先移除 loading 再换内容，避免新内容短暂继承半透明
+            current.classList.remove("bangumi-list-loading");
+            current.innerHTML = incoming.innerHTML;
+            // 重播容器入场 fade-in-up：移除→强制重排→加回，确保每次切换都触发。
+            current.classList.remove("bangumi-list-enter");
+            void current.offsetWidth;
+            current.classList.add("bangumi-list-enter");
+            loading = false;
           })
           .catch(function () {
             loading = false;
+            current.classList.remove("bangumi-list-loading");
             window.location.href = url;
           });
       }

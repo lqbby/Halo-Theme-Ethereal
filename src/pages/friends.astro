@@ -82,18 +82,22 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         class="friends-timeline"
         th:attr="data-batch-size=${theme.config?.extendPages?.friends?.pageSize ?: 30}, data-blacklist=${theme.config?.extendPages?.friends?.blacklist ?: ''}"
       >
+        <!-- 每条 (date + row) 包成 group：CSS columns 2 栏 masonry 下，break-inside:avoid
+             保证日期头与卡片不被分到两列；load-more 隐藏整组避免日期孤儿。 -->
         <div th:remove="tag" th:each="item, iterStat : ${allItems.items}">
           <div
-            th:remove="tag"
+            class="friends-timeline-group"
             th:with="curDate = ${item.publishedAt != null ? #dates.format(item.publishedAt, 'yyyy-MM-dd') : ''}, prevItem = ${iterStat.index > 0 ? allItems.items[iterStat.index - 1] : null}, prevDate = ${prevItem != null && prevItem.publishedAt != null ? #dates.format(prevItem.publishedAt, 'yyyy-MM-dd') : ''}"
           >
-            <!-- 日期标题（跨两列，日期变更时才显示） -->
+            <!-- 日期分组头：左色条 + 日历图标 + 日期，日期变更时才显示 -->
             <div
               class="friends-timeline-date"
               th:if="${iterStat.index == 0 || curDate != prevDate}"
-              th:text="${curDate}"
             >
-              2025-07-26
+              <span
+                class="icon-[material-symbols--calendar-today-rounded] text-sm"
+                aria-hidden="true"></span>
+              <span th:text="${curDate}">2025-07-26</span>
             </div>
 
             <!-- 卡片 -->
