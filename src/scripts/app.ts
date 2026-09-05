@@ -47,9 +47,16 @@ function initCustomScrollbar() {
   if (!bodyElement) return;
   import("overlayscrollbars").then(({ OverlayScrollbars }) => {
     let mounted = false;
-    const mount = () => {
+    const mount = (fromInteraction: boolean) => {
       if (mounted) return; // 防重入：Promise.all 与 setTimeout 兜底可能双调
       mounted = true;
+      // 挂载会同步 appendChild 重组 body 子元素（一次全量重排长任务），扰动滚动
+      // 几何，导致「刷新后浏览器已把滚动位置恢复到底部」时挂载瞬间页面跳动。
+      // 仅自动兜底（用户未交互，如 3.5s 定时器）触发时保护滚动位置：挂载前记录
+      // scrollY，挂载完成后下一帧（等 OS 完成初始布局）若有偏差则恢复；用户主动
+      // 滚动（wheel/touchmove/keydown）触发时不恢复——wheel 的默认滚动发生在事件
+      // 处理返回后，此刻恢复会把用户刚滚到的位置拉回滚动前。
+      const scrollYBefore = fromInteraction ? null : window.scrollY;
       OverlayScrollbars(
         { target: bodyElement, cancel: { nativeScrollbarsOverlaid: true } },
         {
@@ -73,6 +80,13 @@ function initCustomScrollbar() {
           },
         },
       );
+      if (scrollYBefore !== null) {
+        requestAnimationFrame(() => {
+          if (Math.abs(window.scrollY - scrollYBefore) > 1) {
+            window.scrollTo({ top: scrollYBefore });
+          }
+        });
+      }
     };
     // OverlayScrollbars 初始化会把 body 内容包裹进滚动容器（appendChild 移动全部
     // 元素），Chrome 对被移动且动画未结束的元素会重建 CSS 动画对象，导致入场动画
@@ -86,12 +100,12 @@ function initCustomScrollbar() {
     // （实测 1.65s/2.68s 都落在 FCP→TTI 的 TBT 窗口内，长任务依旧）。3.5s 远在
     // TTI(~1.7s) 之后，且 Lighthouse 不模拟交互，故该长任务在报告中彻底消失。
     // 等待期间原生滚动条正常工作，切换不可感知。
-    const runWhenIdle = (task: () => void): void => {
+    const runWhenIdle = (task: (fromInteraction: boolean) => void): void => {
       let ran = false;
-      const run = () => {
+      const run = (fromInteraction: boolean) => {
         if (ran) return;
         ran = true;
-        task();
+        task(fromInteraction);
       };
       const opts = { once: true, passive: true } as const;
       // ⚠️ 勿用 pointerdown / touchstart 触发：它们会在「点击 / 触摸」时触发 mount，
@@ -100,10 +114,10 @@ function initCustomScrollbar() {
       // 即用户观察到的「约 4 秒后首次点击才成功」）。wheel（桌面滚轮）/ touchmove
       // （移动端触摸滚动）/ keydown（键盘）都不直接对应「点击」，触发 mount 不会
       // 干扰正在进行的点击。
-      window.addEventListener("wheel", run, opts);
-      window.addEventListener("touchmove", run, opts);
-      window.addEventListener("keydown", run, opts);
-      setTimeout(run, 3500);
+      window.addEventListener("wheel", () => run(true), opts);
+      window.addEventListener("touchmove", () => run(true), opts);
+      window.addEventListener("keydown", () => run(true), opts);
+      setTimeout(() => run(false), 3500);
     };
     const running = document
       .getAnimations()
