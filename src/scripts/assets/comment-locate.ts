@@ -136,14 +136,13 @@ import { onPageView } from "../../utils/once";
     else idleTimer = setTimeout(finish, MAX_WAIT);
   }
 
-  // ⭐ 等评论区内容稳定 + 滚动停稳后，校正落点到理想位置（紧贴 navbar 下方）。
-  // 解决：comment-next 插件的 scrollIntoView 在评论区内容（头像/嵌套评论等）
-  // 尚未加载完时就触发了，等内容加载完插件已滚到的位置已经偏低——移动端尤其
-  // 明显（评论区 input + tabs 占大量纵向空间，加载完后首条评论被推下），落点
-  // 离 navbar 几十到几百像素（实测移动端 402px 而非理想 77px）。在此用
-  // ResizeObserver 等 comment-widget 尺寸稳定 240ms 后，按当前真实位置重新
-  // 算落点并 window.scrollTo 校正，再交给 flashWhenSettled 闪高亮。
-  function settleAndCorrectScroll(el) {
+  // ⭐ 一次滚到位：等内容稳定后按真实位置 window.scrollTo（替代「插件先滚偏 + 主题
+  //   再校正」的两段式观感）。前提：精准模式已先把 location.hash 临时改成 #comment，
+  //   让 comment-next 插件挂载时**不触发它自己的 scrollIntoView**（插件的滚动发生在
+  //   评论区 input/tabs/头像等异步内容尚未加载完时，位置是暂态的，会滚偏几十~几百
+  //   像素）。这里等 <comment-widget> 尺寸稳定 240ms（头像/嵌套评论加载完）后，按
+  //   当前真实位置一次性 window.scrollTo 到位，再交给 flashWhenSettled 闪高亮。
+  function settleAndScrollOnce(el) {
     return new Promise(function (resolve) {
       var scrollEndOnce = function (handler, fallbackMs) {
         var done = false;
@@ -160,7 +159,7 @@ import { onPageView } from "../../utils/once";
         var fb = setTimeout(fire, fallbackMs);
       };
 
-      var doCorrect = function () {
+      var doScroll = function () {
         var rect = el.getBoundingClientRect();
         var absTop = window.scrollY + rect.top;
         var navEl = document.getElementById("navbar-wrapper");
@@ -172,45 +171,42 @@ import { onPageView } from "../../utils/once";
         var desired = Math.max(0, absTop - desiredOffset);
         var target = Math.min(desired, maxScroll);
         if (Math.abs(target - window.scrollY) > 20) {
-          scrollEndOnce(resolve, 1400);
+          scrollEndOnce(resolve, 1500);
           window.scrollTo({ top: target, behavior: "smooth" });
         } else {
           resolve();
         }
       };
 
-      // 1) 等插件自身的平滑滚动结束
-      scrollEndOnce(function () {
-        // 2) 等 comment-widget 内容稳定（头像/嵌套评论加载完尺寸不再变化）
-        var widget = null;
-        try {
-          widget = el.closest && el.closest("comment-widget");
-        } catch (e) {}
-        if (!widget) {
-          var root = el.getRootNode && el.getRootNode();
-          if (root && root.host) widget = root.host;
-        }
-        if (!widget) widget = document.querySelector("comment-widget");
+      // 等 comment-widget 内容稳定（头像/嵌套评论加载完，尺寸不再变化）
+      var widget = null;
+      try {
+        widget = el.closest && el.closest("comment-widget");
+      } catch (e) {}
+      if (!widget) {
+        var root = el.getRootNode && el.getRootNode();
+        if (root && root.host) widget = root.host;
+      }
+      if (!widget) widget = document.querySelector("comment-widget");
 
-        if (widget && typeof ResizeObserver !== "undefined") {
-          var settleTimer, maxTimer;
-          var ro = new ResizeObserver(function () {
-            clearTimeout(settleTimer);
-            settleTimer = setTimeout(function () {
-              clearTimeout(maxTimer);
-              ro.disconnect();
-              doCorrect();
-            }, 240);
-          });
-          ro.observe(widget);
-          maxTimer = setTimeout(function () {
+      if (widget && typeof ResizeObserver !== "undefined") {
+        var settleTimer, maxTimer;
+        var ro = new ResizeObserver(function () {
+          clearTimeout(settleTimer);
+          settleTimer = setTimeout(function () {
+            clearTimeout(maxTimer);
             ro.disconnect();
-            doCorrect();
-          }, 3500);
-        } else {
-          setTimeout(doCorrect, 500);
-        }
-      }, 2000);
+            doScroll();
+          }, 240);
+        });
+        ro.observe(widget);
+        maxTimer = setTimeout(function () {
+          ro.disconnect();
+          doScroll();
+        }, 3500);
+      } else {
+        setTimeout(doScroll, 500);
+      }
     });
   }
 
@@ -239,13 +235,27 @@ import { onPageView } from "../../utils/once";
     //   本身；找不到时退回高亮整个评论区，不至于毫无反馈。
     if (m) {
       box.classList.add("comment-locating");
+      // ⭐ 一次到位：先把 hash 临时改成 #comment——保留 wantsComment（评论区照常
+      //   激活），但不再匹配 comment-next 插件对单条评论 id 的检查，插件挂载时就
+      //   不会触发它自己的 scrollIntoView（其滚动发生在评论区 input/tabs/头像等
+      //   异步内容未加载完时，位置是暂态的，会滚偏）。等内容稳定后由本脚本自己
+      //   window.scrollTo 一次滚到位，消除「插件先滚偏 + 主题再校正」的两段式/
+      //   上下拉扯观感（1.3.44 教训：不要与插件滚动竞争，也不要事后二次校正）。
+      var originalHash = location.hash;
+      if (history.replaceState) {
+        try {
+          history.replaceState(null, "", "#comment");
+        } catch (e) {}
+      }
       waitForTarget(m, function (el) {
         box.classList.remove("comment-locating");
-        // 滚动完全交给插件（comment-next 挂载时读 location.hash 自己 scrollIntoView），
-        // 但插件触发滚动时评论区内容（头像/嵌套评论等）尚未加载完，落点会偏低
-        // ——移动端尤其明显，实测落点离 navbar 几百像素。先 settleAndCorrectScroll
-        // 等 widget 尺寸稳定 + 按真实位置校正落点，再 flashWhenSettled 闪高亮。
-        settleAndCorrectScroll(el || box).then(function () {
+        // 恢复 hash（replaceState 不触发 hashchange / 原生锚点滚动）
+        if (history.replaceState) {
+          try {
+            history.replaceState(null, "", originalHash);
+          } catch (e) {}
+        }
+        settleAndScrollOnce(el || box).then(function () {
           flashWhenSettled(el || box);
         });
       });

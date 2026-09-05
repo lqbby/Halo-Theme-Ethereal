@@ -2,6 +2,23 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.48] - 2026-09-05
+
+### 优化：精准跳转评论「一次到位」（消除插件先滚偏 + 主题再校正的两段式观感）
+
+- **现象**：1.3.47 虽把落点校正到正确位置，但实现是「插件先 `scrollIntoView` 滚到偏低位置 → 主题等稳定后 `window.scrollTo` 再往上校正一次」——用户仍能感知到两段式滚动（先下后上，间隔约 0.5-1s 的停顿），观感仍未「一步到位」。
+
+- **根因**：`comment-next` 插件在**挂载时**读 `location.hash` 立即滚动，而此时评论区 input/tabs/头像等异步内容还没加载完，它滚向的是「暂态位置」。主题侧无论怎么事后校正，都绕不开「插件先滚了一次」这个既成事实。
+
+- **改动**（`src/scripts/assets/comment-locate.ts` 精准模式）：
+  1. 在评论区激活前，用 `history.replaceState(null, "", "#comment")` 把 hash 临时改成 `#comment`——保留 `wantsComment`（评论区照常激活），但不再匹配插件对单条评论 id 的检查 → **插件挂载时不触发它自己的滚动**。
+  2. `settleAndCorrectScroll` 重写为 `settleAndScrollOnce`：不再「等插件 scrollend + 校正」，而是等 `<comment-widget>` 尺寸稳定 240ms 后，按当前真实位置**一次性 `window.scrollTo` 到位**。
+  3. 滚动完成后 `history.replaceState` 恢复原 hash（replaceState 不触发 `hashchange`、不触发原生锚点滚动，插件不会二次滚动）。
+
+- **结果**：从点击到落位只有**一次平滑滚动**（紧贴 navbar 下方 16px），中间无停顿、无方向反转。桌面端目标仍受 `maxScroll` 限制落在文档极限（282px，无法再高），但不再有「先滚下去再回一点」的拉扯。
+
+- **影响范围**：仅精准跳转（`#comment-next-*`）；普通 `#comment` 跳转行为不变。
+
 ## [v1.3.47] - 2026-09-05
 
 ### 修复：精准跳转到单条评论时落点偏低（评论区内容加载未完插件就触发滚动）
