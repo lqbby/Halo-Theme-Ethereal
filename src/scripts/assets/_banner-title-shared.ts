@@ -34,6 +34,11 @@ export function initBannerSubtitle(instanceKey, createEffect, onElementReady) {
   var el = document.getElementById("banner-subtitle");
   if (!el) return;
   if (isBannerTextHidden(el)) return;
+  // 移动端（<768px）副标题由 CSS 隐藏（#banner-subtitle-wrapper 的 hidden md:flex），
+  // 此处必须同步跳过：骨架只判「文字隐藏开关」、不判元素可见性，
+  // 否则不可见的打字链（setTimeout 递归）与光标闪烁（setInterval 530ms）
+  // 仍会持续占用主线程。断点须与上面的 Tailwind md 断点（768px）保持一致。
+  if (window.matchMedia("(max-width: 767.98px)").matches) return;
   if (el[instanceKey]) {
     el[instanceKey].destroy();
     delete el[instanceKey];

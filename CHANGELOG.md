@@ -2,6 +2,18 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.38] - 2026-09-05
+
+### 优化：移动端不显示 banner 副标题（并停止其打字机/光标动画）
+
+- **动机（Lighthouse 移动端无痕报告实锤）**：banner 副标题的打字机效果是**持续**的 `setTimeout` 打字链（80ms/字）+ 光标 `setInterval(530ms)` 闪烁，在移动端持续占用主线程（主线程 "Other" 1384ms 的一部分）。
+
+- **改动**：
+  - `src/layouts/MainGridLayout.astro`：`#banner-subtitle-wrapper` 加 `hidden md:flex`（<768px 隐藏），移动端不显示副标题；桌面端（≥768px）完全不变。
+  - `src/scripts/assets/_banner-title-shared.ts`：骨架 `initBannerSubtitle` 加移动端守卫（`matchMedia("(max-width: 767.98px)")` 命中直接 return）。**关键点**：骨架原本只判「背景文字隐藏开关」、**不判元素可见性**——若不加此守卫，副标题被 CSS 隐藏后打字链与光标闪烁仍会在隐藏元素上持续运行、继续占用主线程。
+
+- **影响范围**：移动端不显示 banner 副标题（含光标），打字机 / drop 两种副标题效果均不再初始化；**桌面端观感与行为零变化**。
+
 ## [v1.3.37] - 2026-09-05
 
 ### 优化：波浪背景动画改用 CSS transform（移除 JS rAF 改 viewBox）
