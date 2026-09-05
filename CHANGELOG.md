@@ -2,6 +2,20 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.42] - 2026-09-05
+
+### 修复：侧栏「最近评论」精准跳转失败（SwupScrollPlugin 滚动冲突）
+
+- **现象**：1.3.41 上线后侧栏评论跳转失败/滚动异常。
+
+- **根因**：1.3.41 把侧栏链接从 `#comment`（评论区容器，元素换页瞬间**已存在**）改成了 `#comment-next-comment-<name>`（单条评论，元素要等评论区懒加载渲染后**才存在**）。SwupScrollPlugin 在 `content:scroll` 时检测到 `visit.to.hash`，用其 **scrl 引擎**滚动到锚点：
+  - 1.3.40（`#comment`）：锚点元素存在 → 引擎滚到容器，与 `comment-locate.ts` 的 `scrollIntoView` 目标一致，即使竞争也停在评论区，看起来正常；
+  - 1.3.41（`#comment-next-comment-<name>`）：锚点元素**不存在** → 引擎找不到目标，其每帧强制 `scrollTop` 覆盖了 `comment-locate.ts` 的原生 `scrollIntoView` → 互相打架、跳转失败。
+
+- **改动**（`src/scripts/app.ts` 的 `content:scroll` 钩子）：评论区锚点（hash 以 `comment` 开头，含 `#comment` 与 `#comment-next-*`）时**直接跳过 SwupScrollPlugin 的滚动**（不调 `defaultHandler`、不回顶），滚动完全交给 `comment-locate.ts`（原生 `smooth`，等评论区渲染后精准落位）。同页目录锚点走 `linkToAnchor` 路径，不受影响。
+
+- **影响范围**：仅修正侧栏评论跳转与 `#comment` / `#comment-next-*` 锚点进入文章页的滚动；目录点击、回顶、popstate 等滚动行为不变。
+
 ## [v1.3.41] - 2026-09-05
 
 ### 优化：侧栏「最近评论」精准定位到具体那条评论并高亮

@@ -447,6 +447,15 @@ function setupSwup() {
       _args: unknown,
       defaultHandler?: (visit: unknown, args: unknown) => void,
     ) => {
+      // 评论区锚点（#comment / #comment-next-*）：滚动由 comment-locate.ts 在
+      // 评论区懒加载渲染后接管（原生 smooth）。SwupScrollPlugin 的锚点滚动走
+      // scrl 引擎，在单条评论元素尚未渲染时找不到锚点、且每帧强制 scrollTop
+      // 会覆盖原生 scrollIntoView → 跳转失败/互相打架。这里直接跳过，让它
+      // 完全退出评论区场景的滚动（同页目录锚点走 linkToAnchor 路径，不受影响）。
+      const hash = visit?.to?.hash || "";
+      if (hash.indexOf("comment") === 0) {
+        return;
+      }
       if (!visit?.history?.popstate && !visit?.to?.hash) {
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
