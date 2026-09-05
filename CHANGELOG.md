@@ -2,6 +2,32 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.47] - 2026-09-05
+
+### 修复：精准跳转到单条评论时落点偏低（评论区内容加载未完插件就触发滚动）
+
+- **现象**：1.3.46 后高亮时序/动画正常，但「跳转评论定位不准确，观感不好」——
+  agent-browser 实测：跳转后首条评论落在视口 282px（桌面 1440×900）/ **402px**（移动 390×844），
+  远偏离理想落点（紧贴 72px 桌面 navbar 下方 16px = 88px / 紧贴 63px 移动 navbar 下方 16px = 77px）。
+  移动端尤其明显：首条评论离 navbar 400+ px，input + tabs 占据上方大半视口，视觉上像「只滚到评论区」而非「精准跳到这条评论」。
+
+- **根因**：`comment-next` 插件在挂载时读 `location.hash` 立即 `scrollIntoView({block:"start"})`，
+  但此时评论区内容（输入框 tabs / 头像 / 嵌套评论等）还在异步加载，插件用的是**加载前的暂态位置**。
+  等内容真正渲染完，目标元素已被上方新加载的内容推下，原落点就偏了。
+  - 桌面端：`scrollIntoView` 目标位置超出文档底部，被 maxScroll 卡住，落点 ≈ 282px（已是文档极限，无法再高）；
+  - 移动端：文档更高（6664px），maxScroll 还有富余（5820），但插件滚到的是加载前的位置（4250），
+    内容加载完后目标被推下到 402px，**有 325px 的校正空间但没做**。
+
+- **改动**（`src/scripts/assets/comment-locate.ts` 精准模式）：
+  1. 新增 `settleAndCorrectScroll(el)`：先等插件自身的 `scrollend`（平滑滚动结束），
+     再用 `ResizeObserver` 监听 `<comment-widget>` 尺寸，等 240ms 未变化视为「评论区内容稳定」，
+     然后按当前真实位置重新算理想落点 = `min(itemAbsTop - (navH + 16), maxScroll)`，
+     用 `window.scrollTo({behavior:"smooth"})` 校正到位，最后再交给 `flashWhenSettled` 闪高亮。
+  2. 桌面端：插件已到 maxScroll，校正 diff < 20px 跳过 → 行为不变（落点 282px 已是文档极限）。
+  3. 移动端：校正后落点 → 77px（紧贴 63px navbar 下方 16px），即用户期望的「精准落在评论条」。
+
+- **影响范围**：仅精准跳转（`#comment-next-*`）的最终落点；普通 `#comment` 跳转（滚到评论区卡片顶部）行为不变。
+
 ## [v1.3.46] - 2026-09-05
 
 ### 优化：评论跳转高亮的时序与视觉效果（长文章高亮看不见）

@@ -136,6 +136,84 @@ import { onPageView } from "../../utils/once";
     else idleTimer = setTimeout(finish, MAX_WAIT);
   }
 
+  // ⭐ 等评论区内容稳定 + 滚动停稳后，校正落点到理想位置（紧贴 navbar 下方）。
+  // 解决：comment-next 插件的 scrollIntoView 在评论区内容（头像/嵌套评论等）
+  // 尚未加载完时就触发了，等内容加载完插件已滚到的位置已经偏低——移动端尤其
+  // 明显（评论区 input + tabs 占大量纵向空间，加载完后首条评论被推下），落点
+  // 离 navbar 几十到几百像素（实测移动端 402px 而非理想 77px）。在此用
+  // ResizeObserver 等 comment-widget 尺寸稳定 240ms 后，按当前真实位置重新
+  // 算落点并 window.scrollTo 校正，再交给 flashWhenSettled 闪高亮。
+  function settleAndCorrectScroll(el) {
+    return new Promise(function (resolve) {
+      var scrollEndOnce = function (handler, fallbackMs) {
+        var done = false;
+        var fire = function () {
+          if (done) return;
+          done = true;
+          window.removeEventListener("scrollend", fire);
+          document.removeEventListener("scrollend", fire);
+          clearTimeout(fb);
+          handler();
+        };
+        window.addEventListener("scrollend", fire, { passive: true });
+        document.addEventListener("scrollend", fire, { passive: true });
+        var fb = setTimeout(fire, fallbackMs);
+      };
+
+      var doCorrect = function () {
+        var rect = el.getBoundingClientRect();
+        var absTop = window.scrollY + rect.top;
+        var navEl = document.getElementById("navbar-wrapper");
+        var navH = navEl ? navEl.getBoundingClientRect().height : 72;
+        var gap = 16;
+        var desiredOffset = navH + gap;
+        var docH = document.documentElement.scrollHeight;
+        var maxScroll = Math.max(0, docH - window.innerHeight);
+        var desired = Math.max(0, absTop - desiredOffset);
+        var target = Math.min(desired, maxScroll);
+        if (Math.abs(target - window.scrollY) > 20) {
+          scrollEndOnce(resolve, 1400);
+          window.scrollTo({ top: target, behavior: "smooth" });
+        } else {
+          resolve();
+        }
+      };
+
+      // 1) 等插件自身的平滑滚动结束
+      scrollEndOnce(function () {
+        // 2) 等 comment-widget 内容稳定（头像/嵌套评论加载完尺寸不再变化）
+        var widget = null;
+        try {
+          widget = el.closest && el.closest("comment-widget");
+        } catch (e) {}
+        if (!widget) {
+          var root = el.getRootNode && el.getRootNode();
+          if (root && root.host) widget = root.host;
+        }
+        if (!widget) widget = document.querySelector("comment-widget");
+
+        if (widget && typeof ResizeObserver !== "undefined") {
+          var settleTimer, maxTimer;
+          var ro = new ResizeObserver(function () {
+            clearTimeout(settleTimer);
+            settleTimer = setTimeout(function () {
+              clearTimeout(maxTimer);
+              ro.disconnect();
+              doCorrect();
+            }, 240);
+          });
+          ro.observe(widget);
+          maxTimer = setTimeout(function () {
+            ro.disconnect();
+            doCorrect();
+          }, 3500);
+        } else {
+          setTimeout(doCorrect, 500);
+        }
+      }, 2000);
+    });
+  }
+
   function locateComment() {
     var hash = location.hash || "";
     if (hash.indexOf("#comment") !== 0) return;
@@ -163,12 +241,13 @@ import { onPageView } from "../../utils/once";
       box.classList.add("comment-locating");
       waitForTarget(m, function (el) {
         box.classList.remove("comment-locating");
-        // ⭐ 滚动完全交给插件：comment-next 挂载时读 location.hash 自己 scrollIntoView
-        //   （已实测精确落位，target 顶部落到视口顶部）。主题这里只补高亮——若再滚一次
-        //   会与插件竞争（两个 smooth scroll 几乎同时启动、互相取消），产生「上下拉扯」。
-        //   findTarget 命中时插件的平滑滚动通常才刚开始（长文要 1s+），立即 flash 会在
-        //   滚动途中就播完；改等滚动停稳 + 目标进视口后再闪（flashWhenSettled）。
-        flashWhenSettled(el || box);
+        // 滚动完全交给插件（comment-next 挂载时读 location.hash 自己 scrollIntoView），
+        // 但插件触发滚动时评论区内容（头像/嵌套评论等）尚未加载完，落点会偏低
+        // ——移动端尤其明显，实测落点离 navbar 几百像素。先 settleAndCorrectScroll
+        // 等 widget 尺寸稳定 + 按真实位置校正落点，再 flashWhenSettled 闪高亮。
+        settleAndCorrectScroll(el || box).then(function () {
+          flashWhenSettled(el || box);
+        });
       });
       return;
     }
