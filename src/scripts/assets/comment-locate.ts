@@ -132,7 +132,10 @@ import { onPageView, onceBound } from "../../utils/once";
         var fb = setTimeout(fire, fallbackMs);
       };
 
+      var scrolled = false; // settle/maxTimer 两条路径都可能触发 doScroll，守卫保证只滚一次
       var doScroll = function () {
+        if (scrolled) return;
+        scrolled = true;
         var rect = el.getBoundingClientRect();
         var absTop = window.scrollY + rect.top;
         var navEl = document.getElementById("navbar-wrapper");
