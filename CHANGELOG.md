@@ -2,6 +2,14 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.34] - 2026-09-05
+
+### 优化：朋友圈「加载更多」新卡片立即入场
+
+- **现象**：朋友圈「加载更多」点击后，新卡片继承首屏 SSR 的错峰延迟 `min(calc(var(--content-delay) + index * var(--dur-entry-step)), var(--dur-entry-max, 400ms))`——加载更多批次里 `index` 已是 30+，延迟全被 `--dur-entry-max` 截断到 400ms，导致「点击后空等 400ms，再整批一起淡入」，对用户主动操作响应迟钝。
+
+- **修复**（`src/scripts/assets/friends.bundle.js` 的 `updateDisplay`）：加载更多（`prev > 0 && current > prev`）时，把新增 group 内 `.friends-card` 的 `animationDelay` 归零，让新卡片立即播放 fade-in-up 入场；首屏（`prev=0`）保持 SSR 的错峰演出不变。
+
 ## [v1.3.33] - 2026-09-05
 
 ### 修复：首页瞬间栏刷新时"抢跑可见"闪烁

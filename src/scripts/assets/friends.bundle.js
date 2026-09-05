@@ -248,6 +248,16 @@
 
   function updateDisplay(timeline, groups, current) {
     var btn = document.getElementById("friends-load-more");
+    var prev = parseInt(timeline.dataset.friendsLoaded) || 0;
+    // 加载更多（非首屏）：新增卡片立即入场——清除 SSR 首屏错峰延迟，避免
+    // 「点击后空等 400ms 再整批一起出现」；首屏（prev=0）保持 SSR 的错峰演出。
+    if (prev > 0 && current > prev) {
+      groups.forEach(function (g, i) {
+        if (i < prev || i >= current) return;
+        var card = g.querySelector(".friends-card");
+        if (card) card.style.animationDelay = "0ms";
+      });
+    }
     groups.forEach(function (g, i) {
       g.style.display = i < current ? "" : "none";
     });
