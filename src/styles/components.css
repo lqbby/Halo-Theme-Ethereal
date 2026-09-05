@@ -1364,9 +1364,16 @@
    用 outline 环 + 背景淡色脉冲，不破坏 .card-base 原有 box-shadow。 */
 #comment {
   scroll-margin-top: calc(var(--navbar-height, 4rem) + 1rem);
+  /* comment-next 1.0.6+ 的单条评论锚点用它做 scroll-margin-top（默认 5rem），
+     这里对齐评论区自身的偏移，避免 navbar 盖住目标评论。变量可继承到内部
+     的 .comment-next-comment-item，故设在 #comment 上即可。 */
+  --comment-next-anchor-offset: calc(var(--navbar-height, 4rem) + 1rem);
 }
-#comment.comment-locate-flash {
+/* 不限定 #comment：精准锚点时高亮的是单条评论元素（.comment-next-comment-item），
+   插件只负责滚动、不做高亮，由 comment-locate.ts 补上这个 class。 */
+.comment-locate-flash {
   outline-offset: 2px;
+  border-radius: 0.5rem;
   animation: comment-locate-flash 0.9s ease-out;
 }
 @keyframes comment-locate-flash {

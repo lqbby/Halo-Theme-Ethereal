@@ -2,6 +2,31 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.41] - 2026-09-05
+
+### 优化：侧栏「最近评论」精准定位到具体那条评论并高亮
+
+- **背景**：1.3.40 只把所有跳转都定位到评论区顶部。实测 comment-next **1.0.6 起已内置单条锚点**（从 `PluginCommentNext-1.0.13.jar` 的 `comment-next.iife.js` 挖出）：
+  - 元素 id：`comment-next-comment-<name>`（顶层评论）/ `comment-next-reply-<name>`（回复）
+  - 链接格式：`#comment-next-comment-<name>`（URL 编码）
+  - 插件自带 `scrollIntoView`（尊重 `prefers-reduced-motion`）+ `scroll-margin-top: var(--comment-next-anchor-offset, 5rem)`
+  - **但它不做高亮**（产物里 `flash` / `highlight` 均 0 处）
+
+  所以主题侧只需两件事：把链接换成精准锚点、补上高亮。
+
+- **改动**（3 个文件）：
+  - `src/components/widget/RecentComments.astro`：跳转链接由 `permalink + "#comment"` 改为 `permalink + "#comment-next-comment-" + encodeURIComponent(评论名)`；拿不到评论名时退回原评论区锚点。
+  - `src/scripts/assets/comment-locate.ts`：
+    - 新增精准模式：解析 `#comment-next-(comment|reply)-<name>`，轮询等目标元素进入 DOM（120ms 间隔、3.5s 超时）后**高亮它本身**。
+    - **两种前缀都试**（`comment-next-comment-` / `comment-next-reply-`）：侧栏接口返回的顶层字段只有 `name/displayName/emailHash/content/creationTime/subjectRef/subjectTitle/permalink`，**不区分顶层评论与回复**，容错成本极低。
+    - 兜底再滚一次：插件只在组件初始化时定位一次，若评论区本次导航前已激活（`initCommentLazyLoad` 幂等 return），插件不会重跑，这里补一次 `scrollIntoView`；元素上已有插件设的 `scroll-margin-top`，偏移自适应。
+    - 找不到目标元素时退回高亮整个评论区，不至于毫无反馈。
+  - `src/styles/components.css`：
+    - `.comment-locate-flash` 去掉 `#comment` 限定（精准锚点时高亮的是单条评论元素），并补 `border-radius` 让 outline 贴合卡片。
+    - 新增 `--comment-next-anchor-offset: calc(var(--navbar-height, 4rem) + 1rem)`，让插件的单条锚点偏移与评论区自身对齐（默认 5rem 会被 navbar 盖住）。
+
+- **影响范围**：仅影响侧栏「最近评论」的跳转；直接访问 `...#comment` 或从邮件/通知链接进入的行为完全不变。需要 comment-next ≥ 1.0.6，旧版本会自动退回「定位到评论区顶部 + 高亮整个评论区」。
+
 ## [v1.3.40] - 2026-09-05
 
 ### 优化：侧栏「最近评论」跳转落位与评论区懒加载对齐时序

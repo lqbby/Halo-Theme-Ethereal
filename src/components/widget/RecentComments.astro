@@ -217,7 +217,15 @@ const COLLAPSED_HEIGHT = "7.5rem";
         // 评论所属文章链接：优先用 load 阶段预解析的 permalink（缓存命中时走 c.__permalink），
         // 都拿不到则保持 #（点击放行默认行为，不跳转）。
         var permalink = c.__permalink || permalinkOf(spec.subjectRef);
-        if (permalink) a.href = permalink + "#comment";
+        if (permalink) {
+          // 精准锚点：comment-next 1.0.6+ 支持 #comment-next-comment-<name>，
+          // 它会自己 scrollIntoView 到那条评论并处理偏移（--comment-next-anchor-offset）。
+          // 拿不到评论名时退回评论区锚点（只定位到评论区顶部）。
+          var cname = c.metadata && c.metadata.name;
+          a.href = cname
+            ? permalink + "#comment-next-comment-" + encodeURIComponent(cname)
+            : permalink + "#comment";
+        }
       });
     }
 
