@@ -2,6 +2,25 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.49] - 2026-09-05
+
+### 修复：评论跳转高亮/精准落位只在文章页生效，其它页面评论区缺失
+
+- **现象**：`comment-locate.js`（评论锚点落位高亮 + 一次滚到位）只在 `post.astro` 加载，
+  但 `links`（友情链接）/ `moment`（动态）/ `page`（独立页面）/ `photo`（照片）四个页面
+  同样渲染 `<halo:comment>` 评论区，跳转到这些页面的评论时既无高亮、也无精准落位。
+
+- **根因**：四个页面的评论区结构（`#comment` + `comment-lazy-template` + `comment-lazy-placeholder`）
+  与文章页一致，但漏挂了 `comment-locate.js` 脚本。`comment-locate.ts` 本身是页面无关的
+  （`document.getElementById("comment")` + 穿透 `<comment-widget>` shadow root 搜评论锚点，
+  均与 group/kind 无关）。
+
+- **改动**：在 `links.astro` / `moment.astro` / `page.astro` / `photo.astro` 的评论区末尾补挂
+  `<script src="comment-locate.js" defer>`，`th:if` 条件与各自评论区的显示条件一致
+  （避免评论区被关时仍加载无用脚本）。
+
+- **影响范围**：仅补全四个非文章页面的评论跳转高亮/落位；文章页行为不变。
+
 ## [v1.3.48] - 2026-09-05
 
 ### 优化：精准跳转评论「一次到位」（消除插件先滚偏 + 主题再校正的两段式观感）

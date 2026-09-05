@@ -278,4 +278,9 @@ const exifHasData =
     </template>
     <div id="comment-lazy-placeholder"></div>
   </div>
+  <!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro 同源） -->
+  <script
+    th:if="${haloCommentEnabled}"
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    defer></script>
 </MainGridLayout>

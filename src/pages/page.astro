@@ -43,4 +43,9 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     </template>
     <div id="comment-lazy-placeholder"></div>
   </div>
+  <!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro 同源） -->
+  <script
+    th:if="${haloCommentEnabled && (singlePage.spec.allowComment != false)}"
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    defer></script>
 </MainGridLayout>
