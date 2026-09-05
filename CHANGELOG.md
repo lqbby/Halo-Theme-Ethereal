@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.33] - 2026-09-05
+
+### 修复：首页瞬间栏刷新时"抢跑可见"闪烁
+
+- **现象（用户截图实锤）**：刷新后零点几秒内，`#home-moments`（瞬间走马灯 + 标签筛选）已显示，而 banner 区与内容卡片区仍为空白（banner 图加载 + onload-animation opacity:0 阶段），造成"下半先出现、上半还黑"的时序闪烁。
+
+- **根因**：`#home-moments` 挂了 `onload-animation` 但**没有任何 `animation-delay` 规则**（`delay=0`），而内容卡片区 `#content-wrapper` 延迟 `--content-delay`（150ms）、banner 标题/副标题延迟 50/130ms。于是瞬间栏 300ms 就完成入场，比其他区块早 100~200ms 可见，产生"抢跑"。
+
+- **修复**（`src/styles/transition.css`）：给 `#home-moments` 补 `animation-delay: min(calc(var(--content-delay) + 100ms), var(--dur-entry-max, 400ms))`，让它对齐内容区、随内容卡片一起入场，不再抢跑；疾速档 `--dur-entry-max:0` 时错峰清零、立即入场（本就不闪烁）。
+
 ## [v1.3.32] - 2026-09-05
 
 ### 新增：瞬间走马灯滚动速度纳入动画速度档位（可自定义）

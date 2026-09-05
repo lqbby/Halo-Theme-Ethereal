@@ -91,6 +91,15 @@ html.swup-visited .bangumi-page .onload-animation {
   animation-delay: min(var(--content-delay), var(--dur-entry-max, 400ms));
 }
 
+/* 首页瞬间栏：视觉上位于内容卡片下方，延迟对齐「内容区 + 100ms」，避免刷新瞬间
+   抢跑可见（先于 banner/内容卡片完成入场）；疾速档 --dur-entry-max:0 → 错峰清零立即入场 */
+#home-moments {
+  animation-delay: min(
+    calc(var(--content-delay) + 100ms),
+    var(--dur-entry-max, 400ms)
+  );
+}
+
 .footer {
   animation-delay: min(250ms, var(--dur-entry-max, 400ms));
 }
