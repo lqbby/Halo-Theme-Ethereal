@@ -2,6 +2,23 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.50] - 2026-09-05
+
+### 修复：评论跳转高光脉冲播两遍（同一条评论亮两次）
+
+- **现象**：从侧栏「最近评论」等入口跳到某条评论时，高光脉冲播放两遍（亮一次→淡掉→又亮一次）。
+
+- **根因**：`comment-locate.js` 是 `defer` 外部脚本，会被 SwupScriptsPlugin 在每次换页时
+  **克隆重执行**。脚本顶层原本裸调 `bind()`（→ `locateComment()`），加上 `onPageView("comment-locate", bind)`
+  在 `page:view` 每次换页也会调一次 `bind()`，于是换页到评论锚点时 `locateComment()` 被调用
+  **两次**（一次来自重执行脚本的顶层 `bind`，一次来自 `page:view` handler），同一 hash 被定位
+  两次 → `flash()` 播两遍。
+
+- **改动**：顶层首次判定 hash 的 `bind()` 用 `onceBound("comment-locate:init", …)` 去重——
+  首次整页加载时执行一次，SwupScriptsPlugin 换页重执行脚本时跳过；换页后的 hash 判定完全交给
+  `onPageView` 的 handler（每次换页恰好触发一次），与其它脚本（navbar / banner 系列）的
+  「顶层初始化 once 去重 + onPageView 换页驱动」范式保持一致。
+
 ## [v1.3.49] - 2026-09-05
 
 ### 修复：评论跳转高亮/精准落位只在文章页生效，其它页面评论区缺失

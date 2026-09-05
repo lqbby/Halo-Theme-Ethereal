@@ -6,7 +6,7 @@
 //    permalink + "#comment"，其注释明确期望「文章页有 #comment hash 处理脚本」）。
 // 行为：滚动到评论区（#comment 的 scroll-margin-top 已处理 navbar 偏移）并脉冲高亮，
 // 明确标示落点。2.5 曾删除原触发脚本导致该高亮失效，本文件恢复之。
-import { onPageView } from "../../utils/once";
+import { onPageView, onceBound } from "../../utils/once";
 (function () {
   // 等评论区内容就绪的兜底时长。评论区由 app.ts 懒加载（1.3.3 起），从 adopt()
   // 到评论列表渲染要下载 comment-next（~120KB）再拉评论接口；锚点进入时虽然已
@@ -301,11 +301,18 @@ import { onPageView } from "../../utils/once";
     locateComment();
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", bind);
-  } else {
-    bind();
-  }
+  // 首次整页加载（非 Swup 换页）时判定一次 hash。⭐ 用 onceBound 去重：
+  // SwupScriptsPlugin 在每次换页会克隆重执行本脚本，顶层 bind() 若不加守卫，
+  // 会与下方 onPageView 的 handler（page:view 每次换页触发）各执行一次
+  // locateComment → 同一 hash 被定位两次 → 高光脉冲播两遍（「高光亮两次」根因）。
+  // 换页后的 hash 判定完全交给 onPageView（其 handler 每次换页恰好触发一次）。
+  onceBound("comment-locate:init", function () {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", bind);
+    } else {
+      bind();
+    }
+  });
 
   // Swup v4 钩子（navbar.ts 同范式）：SPA 换页后重新判定 hash。
   // 用共享 once() 去重注册：SwupScriptsPlugin 换页重执行脚本，不加守卫会重复注册
