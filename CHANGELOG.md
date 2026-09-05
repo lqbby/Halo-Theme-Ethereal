@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.36] - 2026-09-05
+
+### 修复：标签页 Top 10 首次加载显示「请启用 JavaScript」、刷新才正常
+
+- **现象（用户实锤）**：首次经 Swup 链接进入 `/tags` 页时，Top 10 卡片区一直显示降级文案「请启用 JavaScript 以查看 Top 10 标签。」，手动刷新一次后才正常渲染条形排行。
+
+- **根因**：`tags.astro` 的 Top 10 `<script>` 内使用了 `import { onPageView, guardOnce } from "../utils/once"`，Astro 因此把它打包成独立的 `type="module"` 脚本（`tags.astro_..._lang.<hash>.js`）并**提升到 `</html>` 之后**（`#swup-container` 之外）。Swup 换页只替换容器、不会加载/执行容器外的 module 脚本（SwupScriptsPlugin 只重执行当前 document 里已有的脚本），于是首次导航进入本页时 `renderTop10` 从未运行 → fallback 常驻；刷新走全量加载、浏览器自然加载并执行该 module → 正常。同类交互页（如分类页 `categories.astro`）用 `<script is:inline>` 内联在容器内，故不受影响。
+
+- **修复**（`src/pages/tags.astro`）：Top 10 渲染脚本改为 `<script is:inline>`（去掉 once 依赖与 import），自包含 `renderTop10` 并直接同步执行——脚本本就位于 `#all-tags-data`/`#top-tags-list` 之后，且每次 Swup 换页由 SwupScriptsPlugin 重执行（容器已替换），故无需 `onPageView`/`guardOnce` 守卫，全量加载与换页两条路径均能正确渲染。
+
 ## [v1.3.35] - 2026-09-05
 
 ### 修复：Banner 标题/副标题 + 分类导航栏刷新抢跑闪烁

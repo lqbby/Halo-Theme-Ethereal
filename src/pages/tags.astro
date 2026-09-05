@@ -72,102 +72,90 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       </div>
     </div>
   </div>
-</MainGridLayout>
 
-<script>
-  // @ts-nocheck
-  import { onPageView, guardOnce } from "../utils/once";
-  (function () {
-    if (guardOnce("tags-top10")) return;
-
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, function (c) {
-        return (
-          {
-            "&": "&amp;",
-            "<": "&lt;",
-            ">": "&gt;",
-            '"': "&quot;",
-            "'": "&#39;",
-          }[c] || c
-        );
-      });
-    }
-
-    function escapeAttr(s) {
-      return escapeHtml(s);
-    }
-
-    function renderTop10() {
-      const el = document.getElementById("top-tags-list");
-      const dataEl = document.getElementById("all-tags-data");
-      if (!el || !dataEl) return;
-      const data = Array.from(dataEl.querySelectorAll("span")).map(
-        function (s) {
-          return {
-            name: s.dataset.name || "",
-            url: s.dataset.url || "",
-            count: parseInt(s.dataset.count, 10) || 0,
-          };
-        },
-      );
-      const sorted = data
-        .filter(function (t) {
-          return t && t.count > 0;
-        })
-        .sort(function (a, b) {
-          return b.count - a.count;
-        })
-        .slice(0, 10);
-      if (!sorted.length) {
-        el.innerHTML = '<div class="text-30 text-sm py-4">暂无标签</div>';
-        return;
-      }
-      const max = sorted[0].count || 1;
-      el.innerHTML = sorted
-        .map(function (t, i) {
-          const w = (t.count / max) * 100;
+  <script is:inline>
+    // Top 10 渲染脚本必须内联（is:inline）并置于 #swup-container 之内：
+    // 若用带 import 的 <script>，Astro 会打包成 type="module" 并提升到 </html> 之后，
+    // Swup 换页（首次经链接进入本页）只替换容器、不会加载容器外的 module 脚本，
+    // 导致 fallback「请启用 JavaScript」常驻，刷新（全量加载）才正常。
+    (function () {
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
           return (
-            '<a href="' +
-            escapeAttr(t.url) +
-            '" class="flex items-center gap-3 group hover:bg-(--btn-card-bg-hover) rounded-lg px-3 py-2 -mx-3 transition-colors">' +
-            '<span class="text-sm font-bold text-(--primary) w-5 text-right shrink-0">' +
-            (i + 1) +
-            "</span>" +
-            '<div class="flex-1 min-w-0">' +
-            '<div class="flex items-center justify-between mb-1">' +
-            '<span class="text-sm font-medium text-50 truncate group-hover:text-(--primary) transition-colors">#' +
-            escapeHtml(t.name) +
-            "</span>" +
-            '<span class="text-xs text-(--primary) ml-2 shrink-0">' +
-            t.count +
-            " 篇文章</span>" +
-            "</div>" +
-            '<div class="h-2 rounded-full bg-(--primary)/10 overflow-hidden">' +
-            '<div class="h-full rounded-full bg-(--primary) transition-all duration-500" style="width: ' +
-            w +
-            '%"></div>' +
-            "</div>" +
-            "</div>" +
-            "</a>"
+            {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c] || c
           );
-        })
-        .join("");
-    }
+        });
+      }
 
-    // 初始：DOM 就绪后渲染
-    function init() {
+      function renderTop10() {
+        const el = document.getElementById("top-tags-list");
+        const dataEl = document.getElementById("all-tags-data");
+        if (!el || !dataEl) return;
+        const data = Array.from(dataEl.querySelectorAll("span")).map(
+          function (s) {
+            return {
+              name: s.dataset.name || "",
+              url: s.dataset.url || "",
+              count: parseInt(s.dataset.count, 10) || 0,
+            };
+          },
+        );
+        const sorted = data
+          .filter(function (t) {
+            return t && t.count > 0;
+          })
+          .sort(function (a, b) {
+            return b.count - a.count;
+          })
+          .slice(0, 10);
+        if (!sorted.length) {
+          el.innerHTML = '<div class="text-30 text-sm py-4">暂无标签</div>';
+          return;
+        }
+        const max = sorted[0].count || 1;
+        el.innerHTML = sorted
+          .map(function (t, i) {
+            const w = (t.count / max) * 100;
+            return (
+              '<a href="' +
+              escapeHtml(t.url) +
+              '" class="flex items-center gap-3 group hover:bg-(--btn-card-bg-hover) rounded-lg px-3 py-2 -mx-3 transition-colors">' +
+              '<span class="text-sm font-bold text-(--primary) w-5 text-right shrink-0">' +
+              (i + 1) +
+              "</span>" +
+              '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-center justify-between mb-1">' +
+              '<span class="text-sm font-medium text-50 truncate group-hover:text-(--primary) transition-colors">#' +
+              escapeHtml(t.name) +
+              "</span>" +
+              '<span class="text-xs text-(--primary) ml-2 shrink-0">' +
+              t.count +
+              " 篇文章</span>" +
+              "</div>" +
+              '<div class="h-2 rounded-full bg-(--primary)/10 overflow-hidden">' +
+              '<div class="h-full rounded-full bg-(--primary) transition-all duration-500" style="width: ' +
+              w +
+              '%"></div>' +
+              "</div>" +
+              "</div>" +
+              "</a>"
+            );
+          })
+          .join("");
+      }
+
+      // 内联脚本位于 #all-tags-data / #top-tags-list 之后，且每次 Swup 换页
+      // 由 SwupScriptsPlugin 重执行（容器已替换），故直接同步渲染即可。
       renderTop10();
-    }
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
-    } else {
-      init();
-    }
-    // 换页（Swup 容器替换后重渲染）
-    onPageView("tags-top10", renderTop10);
-  })();
-</script>
+    })();
+  </script>
+</MainGridLayout>
 
 <style is:global>
   /* 标签云配色：按 --tag-depth (0~1) 渐深，对应文章数 0~6 档
