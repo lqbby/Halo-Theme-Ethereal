@@ -1,7 +1,7 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // Banner 多图轮播：切换动画（淡入淡出/滑动）、可点击指示点、停留定时器、
 // 预加载、屏幕外暂停。配置来自 #theme-config JSON（public/ 静态资产读不到
-// theme.config，同 wave.js）。切换动画时长 --dur-banner-transition 由动画档位
+// theme.config，同 banner-src-switch.js）。切换动画时长 --dur-banner-transition 由动画档位
 // /custom 档注入 <html>；停留时长独立配置 style.bannerStyle.carousel.dwellMs 直接读 JSON，
 // 不随档位变化。切换动画时长交给 CSS transition。
 // 移动端独立来源开启时存在双容器（#banner / #banner-mobile）：两个容器各自
@@ -22,7 +22,7 @@ import { guardOnce } from "../../utils/once";
   }
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
   // Layout（Swup 容器外）跨页面持久——不守卫则每次换页叠加一套定时器链 +
-  // IO 观察器 + 监听器（N 次换页 = N 倍开销），与 wave.js 同模式。
+  // IO 观察器 + 监听器（N 次换页 = N 倍开销），与各 banner-*.js 同模式。
   if (guardOnce("banner-carousel")) return;
 
   var containers = [];

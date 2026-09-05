@@ -7,7 +7,7 @@ import { guardOnce } from "../../utils/once";
 // 配置来自 #theme-config JSON（同 banner-carousel.js）；未启用移动端独立
 // 来源或移动端无有效来源（空值回退）时早退，保持现状行为。
 // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
-// Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（同 wave.js）。
+// Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（与各 banner-*.js 同模式）。
 // 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
 // #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，Vite 侧共用）
 // #6：bannerStyle 下钻收敛到 getBannerConfig()

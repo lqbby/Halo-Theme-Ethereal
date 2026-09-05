@@ -114,7 +114,7 @@ import { guardOnce } from "../../utils/once";
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
   if (!guardOnce("banner-drop")) {
     // I24：后台标签页暂停（showNext 循环链；当前行状态保留，回前台继续循环。
-    // 对照 wave.js visibilitychange 守卫，动画本体不变）
+    // 对照 banner-typewriter.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {
       var subtitle = document.getElementById("banner-subtitle");
       var inst = subtitle && subtitle.__dropInstance;

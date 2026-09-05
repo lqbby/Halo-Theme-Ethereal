@@ -2,6 +2,23 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.39] - 2026-09-05
+
+### 清理：修正注释中已失效的 `wave.js` 引用 + 移动端入场动画兜底收紧
+
+无功能性变更，纯维护性清理：
+
+- **注释清理**（6 个文件 8 处）：1.3.37 删除 `src/scripts/assets/wave.ts` 后，多处注释仍在拿已不存在的 `wave.js` 当范式参照，改为引用现存同模式文件：
+  - `banner-carousel.ts`：`#theme-config` 读取参照改 `banner-src-switch.js`；`guardOnce` 跨页守卫改「与各 `banner-*.js` 同模式」。
+  - `banner-media.ts`：屏幕外暂停改「与 `banner-carousel.js` 同构」；`guardOnce` 同上。
+  - `banner-src-switch.ts`：`guardOnce` 同上。
+  - `banner-drop.ts` / `banner-typewriter.ts`：`visibilitychange` 守卫互相参照（原本都参照 `wave.js`）。
+  - `wallpaper.ts`：`desktop_only` 档的移动端隐藏**已改为纯 CSS**（`@media(pointer:coarse)` + `#wave-container[data-wave-mode]`），原注释仍描述为「`wave.js` 的运行时守卫」，一并更正。
+
+- **移动端入场动画兜底收紧**（`src/utils/settings/wallpaper.ts`）：`applyBannerTitle()` 的 `animationend` 监听等待 `#banner-subtitle-wrapper` 的动画结束才移除 `banner-title-enter`。1.3.38 起移动端副标题被 CSS 隐藏，**`display:none` 的元素不跑动画、`animationend` 永不触发**，该监听在移动端形同虚设，只能等 800ms 兜底。现按副标题实际可见性（`getComputedStyle(display !== "none")`）区分：可见 800ms，隐藏 500ms（标题动画 delay 130ms + 300ms + 余量），避免 class 在移动端多挂约 300ms 影响下次重新入场。
+
+- **影响范围**：无渲染输出变化；桌面端零变化（副标题可见时仍走原 800ms 路径）。
+
 ## [v1.3.38] - 2026-09-05
 
 ### 优化：移动端不显示 banner 副标题（并停止其打字机/光标动画）

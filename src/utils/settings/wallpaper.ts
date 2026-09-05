@@ -161,7 +161,9 @@ export function getStoredWave(): boolean {
 }
 
 /** 应用波浪开关：关闭时给 body 加 wave-disabled（CSS 隐藏容器）；
- *  开启时移除，由后台默认（wave.js 的 desktop_only 守卫等）决定显示 */
+ *  开启时移除，由后台默认档位决定显示。desktop_only 档位的移动端隐藏是
+ *  纯 CSS（@media(pointer:coarse) + #wave-container[data-wave-mode]），
+ *  无运行时脚本（1.3.37 起 wave.ts 已删除） */
 export function applyWave(enabled: boolean): void {
   document.body.classList.toggle("wave-disabled", !enabled);
 }
@@ -220,7 +222,13 @@ export function applyBannerTitle(enabled: boolean): void {
           doRemove();
         }
       });
-      setTimeout(doRemove, 800);
+      // ⚠️ 移动端（<768px）副标题由 CSS 隐藏（#banner-subtitle-wrapper 的
+      // hidden md:flex），display:none 的元素不跑动画、animationend 永不触发，
+      // 上面的监听形同虚设 → 兜底时长按标题动画收尾（delay 130ms + 300ms + 余量）
+      // 收紧到 500ms，避免 class 在移动端多挂 300ms 影响下次重新入场。
+      const subVisible =
+        !!sub && window.getComputedStyle(sub).display !== "none";
+      setTimeout(doRemove, subVisible ? 800 : 500);
     }
   }
 }

@@ -120,7 +120,7 @@ import { guardOnce } from "../../utils/once";
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
   if (!guardOnce("banner-tw")) {
     // I24：后台标签页暂停（打字链 + 光标闪烁；状态保留在实例字段，回前台继续。
-    // 对照 wave.js visibilitychange 守卫，动画本体不变）
+    // 对照 banner-drop.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {
       var subtitle = document.getElementById("banner-subtitle");
       var cursor = document.getElementById("banner-cursor");
