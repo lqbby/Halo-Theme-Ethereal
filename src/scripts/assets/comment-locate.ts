@@ -111,9 +111,10 @@ import { onPageView, onceBound } from "../../utils/once";
     else idleTimer = setTimeout(finish, MAX_WAIT);
   }
 
-  // 一次滚到位：等 <comment-widget> 尺寸稳定（头像/嵌套评论加载完）后按真实位置
-  // window.scrollTo。前提：精准模式已先把 hash 改成 #comment，插件挂载时不触发自己的
-  // scrollIntoView（其滚动发生在异步内容加载完前，位置是暂态的会滚偏）。
+  // 一次滚到位：等 <comment-widget> 尺寸稳定（头像/嵌套评论加载完）后，把目标评论
+  // 垂直居中（元素中心对齐视口中心）window.scrollTo。前提：精准模式已先把 hash 改成
+  // #comment，插件挂载时不触发自己的 scrollIntoView（其滚动发生在异步内容加载完前，
+  // 位置是暂态的会滚偏）。
   function settleAndScrollOnce(el) {
     return new Promise(function (resolve) {
       var scrollEndOnce = function (handler, fallbackMs) {
@@ -136,10 +137,13 @@ import { onPageView, onceBound } from "../../utils/once";
         var absTop = window.scrollY + rect.top;
         var navEl = document.getElementById("navbar-wrapper");
         var navH = navEl ? navEl.getBoundingClientRect().height : 72;
-        var desiredOffset = navH + 16;
+        var viewportH = window.innerHeight;
+        // 居中：元素中心对齐视口中心（顶部偏移 = (视口高 - 元素高) / 2）；
+        // 元素高于视口时退化为贴 navbar 下方，避免顶部被固定导航栏遮挡。
+        var desiredOffset = Math.max(navH, (viewportH - rect.height) / 2);
         var maxScroll = Math.max(
           0,
-          document.documentElement.scrollHeight - window.innerHeight,
+          document.documentElement.scrollHeight - viewportH,
         );
         var target = Math.min(Math.max(0, absTop - desiredOffset), maxScroll);
         if (Math.abs(target - window.scrollY) > 20) {
