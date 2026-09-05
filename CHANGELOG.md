@@ -2,6 +2,19 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.37] - 2026-09-05
+
+### 优化：波浪背景动画改用 CSS transform（移除 JS rAF 改 viewBox）
+
+- **动机（Lighthouse 移动端实锤）**：`wave.js` 每帧 `setAttribute("viewBox")` 触发主线程 layout/paint，是移动端 TBT 最大单项（bootup ~2.2s 主线程 + Style & Layout ~2.1s）。performance 0.49 的三大元凶之首。
+
+- **改动**（`src/components/WaveEffect.astro`，删除 `src/scripts/assets/wave.ts`）：
+  - 3 层 SVG 统一 `viewBox="0 0 2880 200"` + `width:200%`，各画 2/3/4 个重复周期（2880 = 2×1440 = 3×960 = 4×720 公倍数）；用 CSS `@keyframes` 的 `translateX` 平移一个周期无缝循环（50% / 33.333% / 25%）。
+  - 周期密度与原版一致：三层周期 1440/960/720 逻辑 px（对应 1 / 0.667 / 0.5 视口宽），时长 9s/4s/2s 与原 `speeds[18,12,8]` 的周期频率一致，视觉几乎无差。
+  - `desktop_only` 移动端隐藏改 `@media(pointer:coarse) #wave-container[data-wave-mode="desktop_only"]`（替代原 wave.js 的 `matchMedia("(pointer:coarse)")` 运行时守卫）。
+
+- **收益**：`transform` 走合成器线程、不占主线程，桌面端与移动端均更流畅，移动端 TBT 显著下降。视觉观感不变。
+
 ## [v1.3.36] - 2026-09-05
 
 ### 修复：标签页 Top 10 首次加载显示「请启用 JavaScript」、刷新才正常
