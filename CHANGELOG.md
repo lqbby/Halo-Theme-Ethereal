@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.51] - 2026-09-05
+
+### 重构：comment-locate.ts 代码清理（无功能变化）
+
+- 精简冗余注释（历史排查叙述压缩为单行关键机制说明），去掉 `flashWhenSettled` 里
+  `onScrollEnd` 纯包装函数（scrollend 监听直接绑定 `finish`），合并 `settleAndScrollOnce`
+  里 `doScroll` 的中间变量（`gap`/`docH`/`desired` 内联）。
+- 行为不变：findTarget / waitForTarget / flash / flashWhenSettled / settleAndScrollOnce /
+  locateComment 的时序逻辑与原版完全一致。
+
 ## [v1.3.50] - 2026-09-05
 
 ### 修复：评论跳转高光脉冲播两遍（同一条评论亮两次）

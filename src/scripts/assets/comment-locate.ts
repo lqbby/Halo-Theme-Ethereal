@@ -1,31 +1,18 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
-// 评论区锚点落位高亮（配合 src/styles/components.css 的 #comment.comment-locate-flash）
-// 触发场景：
-//  - 从通知/邮件链接带 #comment（或 #comment-xxx）进入文章页；
-//  - 侧栏「最近评论」点击跳转到 文章页#comment（RecentComments.astro 的跳转链接即
-//    permalink + "#comment"，其注释明确期望「文章页有 #comment hash 处理脚本」）。
-// 行为：滚动到评论区（#comment 的 scroll-margin-top 已处理 navbar 偏移）并脉冲高亮，
-// 明确标示落点。2.5 曾删除原触发脚本导致该高亮失效，本文件恢复之。
+// 评论区锚点落位 + 高亮：处理 #comment 与 #comment-next-<comment|reply>-<name> 两种 hash，
+// 滚动到位后脉冲高亮落点（2.5 曾删原触发脚本导致失效，本文件恢复之）。
 import { onPageView, onceBound } from "../../utils/once";
 (function () {
-  // 等评论区内容就绪的兜底时长。评论区由 app.ts 懒加载（1.3.3 起），从 adopt()
-  // 到评论列表渲染要下载 comment-next（~120KB）再拉评论接口；锚点进入时虽然已
-  // 跳过 IO 立即激活，仍可能要 1-2s。超时后照常落位，避免高亮永远不播。
-  var READY_TIMEOUT = 3500;
-  // 查找单条评论的轮询间隔
-  var POLL_INTERVAL = 120;
+  var READY_TIMEOUT = 3500; // 评论区内容就绪兜底（app.ts 懒加载 comment-next ~120KB）
+  var POLL_INTERVAL = 120; // 查找单条评论的轮询间隔
 
-  // comment-next 1.0.6+ 的单条锚点：元素 id 为
-  //   comment-next-comment-<name>（顶层评论）/ comment-next-reply-<name>（回复）
-  // 插件自带 scrollIntoView + scroll-margin-top，但**不做高亮**——本脚本补上。
-  // 匹配后两种前缀都试：侧栏数据不区分顶层/回复，容错成本极低。
+  // comment-next 单条评论锚点 id：comment-next-comment-<name> / comment-next-reply-<name>。
+  // 插件自带 scrollIntoView 但不做高亮，本脚本补高亮；两种前缀都试（侧栏数据不区分顶层/回复）。
   var ANCHOR_RE = /^comment-next-(comment|reply)-(.+)$/;
 
   function findTarget(m) {
     var ids = ["comment-next-comment-" + m[2], "comment-next-reply-" + m[2]];
-    // 先搜 light DOM（旧版插件/兼容），再穿透 <comment-widget> 的 shadow root。
-    // ⭐ comment-next 1.0.13 把评论渲染在 Svelte web component 的 Shadow DOM 里，
-    //   document.getElementById 搜不到——必须用 widget.shadowRoot.getElementById。
+    // 先搜 light DOM，再穿透 <comment-widget> 的 shadow root（1.0.13 起评论渲染在 Shadow DOM 内）。
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
       if (el) return el;
@@ -42,7 +29,7 @@ import { onPageView, onceBound } from "../../utils/once";
     return null;
   }
 
-  // 单条评论由 comment-next 异步渲染，出现时间不确定，轮询等它进 DOM
+  // 单条评论由 comment-next 异步渲染，轮询等它进 DOM；超时后照常落位。
   function waitForTarget(m, cb) {
     var t0 = Date.now();
     (function poll() {
@@ -53,9 +40,8 @@ import { onPageView, onceBound } from "../../utils/once";
     })();
   }
 
-  // 往 shadow root 注入一份与 light DOM .comment-locate-flash 等价的样式。
-  // ⭐ light DOM 的 CSS 规则穿透不进 Shadow DOM（样式封装）；但 CSS 自定义属性
-  //   （--primary）会从 host 沿树继承穿透进来，所以 shadow 内直接写 var(--primary) 即可。
+  // Shadow DOM 样式封装：light DOM CSS 穿透不进，但 CSS 变量（--primary）会沿树继承穿透，
+  // 故往 shadow root 注入一份等价 <style>（shadow 内直接 var(--primary)）。
   function ensureFlashStyle(root) {
     if (root.__etherealFlashStyle) return;
     var st = document.createElement("style");
@@ -71,10 +57,9 @@ import { onPageView, onceBound } from "../../utils/once";
   }
 
   function flash(el) {
-    // 目标在 shadow root 内时，light DOM 样式不生效，先注入等价样式。
     var root = el.getRootNode && el.getRootNode();
     if (root && root.nodeType === 11) ensureFlashStyle(root);
-    // 先移除再强制 reflow，确保重复进入（SPA 换页/再次点击）可重新触发动画
+    // 先移除再强制 reflow，确保重复进入（SPA 换页/再次点击）可重新触发动画。
     el.classList.remove("comment-locate-flash");
     void el.offsetWidth;
     el.classList.add("comment-locate-flash");
@@ -83,19 +68,14 @@ import { onPageView, onceBound } from "../../utils/once";
       el.removeEventListener("animationend", done);
     };
     el.addEventListener("animationend", done);
-    // 兜底：动画被中断（元素重渲染 / display 切换）时 animationend 可能不触发，
-    // 用一个略长于动画时长的定时器强制清理 class，避免残留。
-    setTimeout(done, 1800);
+    setTimeout(done, 1800); // 兜底：动画被中断时 animationend 不触发，避免 class 残留
   }
 
-  // ⭐ 等目标真正进入视口且滚动停稳后再闪高亮。长文平滑滚动可能持续 1s+，若在
-  //   滚动进行中就把高亮播完，用户滚到位时早就看不见——这是「长文章高亮看不见」
-  //   的根因（此前 findTarget 一命中就立即 flash，滚动才刚开始）。
-  //   双信号：scrollend（现代浏览器，滚动结束的权威信号）+ scroll 空闲 debounce
-  //   （旧浏览器 / 无滚动场景兜底）。加视口判据：目标还没滚进视口时绝不闪。
+  // 等目标进视口 + 滚动停稳后再闪（长文平滑滚动可 1s+，滚动途中闪完就看不见）。
+  // 双信号：scrollend（权威）+ scroll 空闲 debounce（旧浏览器兜底）。
   function flashWhenSettled(el) {
     var t0 = Date.now();
-    var IDLE = 160; // scroll 停止这么久视为停稳
+    var IDLE = 160; // scroll 停这么久视为停稳
     var MAX_WAIT = 4000; // 绝对兜底，避免任何异常下永不闪
     var settled = false;
     var idleTimer = null;
@@ -110,38 +90,30 @@ import { onPageView, onceBound } from "../../utils/once";
       if (idleTimer) clearTimeout(idleTimer);
       window.removeEventListener("scroll", onScroll);
       document.removeEventListener("scroll", onScroll);
-      window.removeEventListener("scrollend", onScrollEnd);
-      document.removeEventListener("scrollend", onScrollEnd);
+      window.removeEventListener("scrollend", finish);
+      document.removeEventListener("scrollend", finish);
     }
     function inView() {
       var r = el.getBoundingClientRect();
       var vh = window.innerHeight || document.documentElement.clientHeight;
       return r.top < vh && r.bottom > 0;
     }
-    function onScrollEnd() {
-      finish();
-    }
     function onScroll() {
       if (Date.now() - t0 > MAX_WAIT) return finish();
       if (idleTimer) clearTimeout(idleTimer);
       if (inView()) idleTimer = setTimeout(finish, IDLE);
     }
-    window.addEventListener("scrollend", onScrollEnd, { passive: true });
-    document.addEventListener("scrollend", onScrollEnd, { passive: true });
+    window.addEventListener("scrollend", finish, { passive: true });
+    document.addEventListener("scrollend", finish, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("scroll", onScroll, { passive: true });
-    // 目标本就在视口（无需滚动）或滚动早已结束：短暂延迟后立即闪；
-    // 否则（滚动尚未开始/目标还在下方）等 scroll 事件带它进视口再闪。
     if (inView()) idleTimer = setTimeout(finish, IDLE);
     else idleTimer = setTimeout(finish, MAX_WAIT);
   }
 
-  // ⭐ 一次滚到位：等内容稳定后按真实位置 window.scrollTo（替代「插件先滚偏 + 主题
-  //   再校正」的两段式观感）。前提：精准模式已先把 location.hash 临时改成 #comment，
-  //   让 comment-next 插件挂载时**不触发它自己的 scrollIntoView**（插件的滚动发生在
-  //   评论区 input/tabs/头像等异步内容尚未加载完时，位置是暂态的，会滚偏几十~几百
-  //   像素）。这里等 <comment-widget> 尺寸稳定 240ms（头像/嵌套评论加载完）后，按
-  //   当前真实位置一次性 window.scrollTo 到位，再交给 flashWhenSettled 闪高亮。
+  // 一次滚到位：等 <comment-widget> 尺寸稳定（头像/嵌套评论加载完）后按真实位置
+  // window.scrollTo。前提：精准模式已先把 hash 改成 #comment，插件挂载时不触发自己的
+  // scrollIntoView（其滚动发生在异步内容加载完前，位置是暂态的会滚偏）。
   function settleAndScrollOnce(el) {
     return new Promise(function (resolve) {
       var scrollEndOnce = function (handler, fallbackMs) {
@@ -164,12 +136,12 @@ import { onPageView, onceBound } from "../../utils/once";
         var absTop = window.scrollY + rect.top;
         var navEl = document.getElementById("navbar-wrapper");
         var navH = navEl ? navEl.getBoundingClientRect().height : 72;
-        var gap = 16;
-        var desiredOffset = navH + gap;
-        var docH = document.documentElement.scrollHeight;
-        var maxScroll = Math.max(0, docH - window.innerHeight);
-        var desired = Math.max(0, absTop - desiredOffset);
-        var target = Math.min(desired, maxScroll);
+        var desiredOffset = navH + 16;
+        var maxScroll = Math.max(
+          0,
+          document.documentElement.scrollHeight - window.innerHeight,
+        );
+        var target = Math.min(Math.max(0, absTop - desiredOffset), maxScroll);
         if (Math.abs(target - window.scrollY) > 20) {
           scrollEndOnce(resolve, 1500);
           window.scrollTo({ top: target, behavior: "smooth" });
@@ -178,7 +150,6 @@ import { onPageView, onceBound } from "../../utils/once";
         }
       };
 
-      // 等 comment-widget 内容稳定（头像/嵌套评论加载完，尺寸不再变化）
       var widget = null;
       try {
         widget = el.closest && el.closest("comment-widget");
@@ -220,7 +191,6 @@ import { onPageView, onceBound } from "../../utils/once";
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-    // 先解析 hash：区分「精准单条评论」与「普通评论区」。
     var raw;
     try {
       raw = decodeURIComponent(hash.slice(1));
@@ -229,18 +199,13 @@ import { onPageView, onceBound } from "../../utils/once";
     }
     var m = ANCHOR_RE.exec(raw);
 
-    // ⭐ 精准模式（#comment-next-comment-<name>）：不先滚 #comment 顶——插件挂载后会
-    //   自己精确 scrollIntoView 到那条评论，我们先滚会与它竞争（两个 smooth 滚动打架，
-    //   即用户看到的「有冲突」）。这里只等目标进入 DOM（穿透 shadow root）后高亮它
-    //   本身；找不到时退回高亮整个评论区，不至于毫无反馈。
+    // 精准模式（#comment-next-*）：不先滚 #comment 顶（会与插件竞争），等目标进 DOM 后
+    // 高亮它本身；找不到退回高亮整个评论区。
     if (m) {
       box.classList.add("comment-locating");
-      // ⭐ 一次到位：先把 hash 临时改成 #comment——保留 wantsComment（评论区照常
-      //   激活），但不再匹配 comment-next 插件对单条评论 id 的检查，插件挂载时就
-      //   不会触发它自己的 scrollIntoView（其滚动发生在评论区 input/tabs/头像等
-      //   异步内容未加载完时，位置是暂态的，会滚偏）。等内容稳定后由本脚本自己
-      //   window.scrollTo 一次滚到位，消除「插件先滚偏 + 主题再校正」的两段式/
-      //   上下拉扯观感（1.3.44 教训：不要与插件滚动竞争，也不要事后二次校正）。
+      // replaceState 临时改 #comment：保留 wantsComment（评论区照常激活），但不再匹配插件
+      // 对单条 id 的检查 → 插件挂载不滚；内容稳定后本脚本一次滚到位，再恢复 hash（replaceState
+      // 不触发 hashchange / 原生锚点滚动）。
       var originalHash = location.hash;
       if (history.replaceState) {
         try {
@@ -249,7 +214,6 @@ import { onPageView, onceBound } from "../../utils/once";
       }
       waitForTarget(m, function (el) {
         box.classList.remove("comment-locating");
-        // 恢复 hash（replaceState 不触发 hashchange / 原生锚点滚动）
         if (history.replaceState) {
           try {
             history.replaceState(null, "", originalHash);
@@ -262,22 +226,18 @@ import { onPageView, onceBound } from "../../utils/once";
       return;
     }
 
-    // 普通 #comment：滚动立即执行，不等评论区渲染。#comment 的顶边位置由上方正文
-    // 决定，评论区内容撑开只增加自身高度、不改变顶边，所以此刻滚动的落点本来就
-    // 准确，延后只会让用户多等 1-2s 且没有任何即时反馈。
+    // 普通 #comment：立即滚。#comment 顶边由上方正文决定，内容撑开只增自身高度不改变顶边，
+    // 此刻滚动落点本就准确，延后只会让用户多等。
     box.scrollIntoView({
       behavior: reduce ? "auto" : "smooth",
       block: "start",
     });
 
-    // 高亮延后到内容就绪再播：0.9s 脉冲在空壳上播完等于白播——用户看不到任何
-    // 落点提示。等评论真正渲染出来再闪，指示才有意义。且等滚动停稳 + 目标进视口
-    // 再闪（长文滚动途中闪完就看不见）。
+    // 高亮延后到内容就绪再播（在空壳上播等于白播），且等滚动停稳 + 目标进视口。
     if (box.dataset.commentReady) {
       flashWhenSettled(box);
       return;
     }
-    // 等待期间显示加载提示（components.css 的 .comment-locating）
     box.classList.add("comment-locating");
     var settled = false;
     var timer = setTimeout(finish, READY_TIMEOUT);
@@ -301,10 +261,8 @@ import { onPageView, onceBound } from "../../utils/once";
     locateComment();
   }
 
-  // 首次整页加载（非 Swup 换页）时判定一次 hash。⭐ 用 onceBound 去重：
-  // SwupScriptsPlugin 在每次换页会克隆重执行本脚本，顶层 bind() 若不加守卫，
-  // 会与下方 onPageView 的 handler（page:view 每次换页触发）各执行一次
-  // locateComment → 同一 hash 被定位两次 → 高光脉冲播两遍（「高光亮两次」根因）。
+  // 首次整页加载判定一次 hash。onceBound 去重：SwupScriptsPlugin 换页克隆重执行本脚本时，
+  // 顶层 bind 若裸调会与 onPageView 的 page:view handler 各执行一次 → 高光亮两遍。
   // 换页后的 hash 判定完全交给 onPageView（其 handler 每次换页恰好触发一次）。
   onceBound("comment-locate:init", function () {
     if (document.readyState === "loading") {
@@ -314,8 +272,6 @@ import { onPageView, onceBound } from "../../utils/once";
     }
   });
 
-  // Swup v4 钩子（navbar.ts 同范式）：SPA 换页后重新判定 hash。
-  // 用共享 once() 去重注册：SwupScriptsPlugin 换页重执行脚本，不加守卫会重复注册
-  // page:view 监听（每次导航多挂一个 bind → handler 泄漏，原 __commentLocateBound 守卫）。
+  // Swup 换页后重新判定 hash；once 去重注册（重执行脚本不加守卫会重复注册 page:view）。
   onPageView("comment-locate", bind);
 })();
