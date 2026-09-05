@@ -2,6 +2,20 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.35] - 2026-09-05
+
+### 修复：Banner 标题/副标题 + 分类导航栏刷新抢跑闪烁
+
+- **现象（用户截图实锤）**：刷新后零点几秒内，`#banner-title`/`#banner-subtitle-wrapper`（Banner 中央标题/副标题）与 `#category-bar`（分类导航栏）先行浮现，而 banner 图与内容卡片仍为空白，造成"文字漂浮在黑底/空白上"的时序闪烁——与 1.3.33 修复 `#home-moments` 同类，但当时未覆盖这两处。
+
+- **根因**：
+  - Banner 标题/副标题：各自跑 `300ms fade-in-up`（50/130ms 延迟），而 banner **图**走的是 `showBanner()` 绑定 `img.onload` 的 `700ms` 渐显——两者时序脱钩，图片尚黑（`opacity:0`）时标题已淡入完成。
+  - `#category-bar`：挂了 `onload-animation` 但 transition.css 无对应 `animation-delay`（`delay=0`），比内容区（`--content-delay`）早约 150ms 完成入场。
+
+- **修复**（`src/styles/transition.css`）：
+  - Banner 标题/副标题改为**随图同刻渐显**：静态 `opacity:0`，待 `.banner-reveal` 图片 onload 移除 `opacity-0`（`showBanner()`，或 Layout 1.5s 兜底 `revealBanner`）后，用 `--dur-banner`（700ms）过渡与图片同一节奏淡入，副标题再错峰 120ms。疾速档 `opacity:1` 覆盖 + `slide-in-up` 不受影响。
+  - `#category-bar` 补 `animation-delay: min(var(--content-delay), var(--dur-entry-max, 400ms))`，对齐内容区、随内容卡片一起入场。
+
 ## [v1.3.34] - 2026-09-05
 
 ### 优化：朋友圈「加载更多」新卡片立即入场
