@@ -1370,20 +1370,26 @@
   --comment-next-anchor-offset: calc(var(--navbar-height, 4rem) + 1rem);
 }
 /* 不限定 #comment：精准锚点时高亮的是单条评论元素（.comment-next-comment-item），
-   插件只负责滚动、不做高亮，由 comment-locate.ts 补上这个 class。 */
+   插件只负责滚动、不做高亮，由 comment-locate.ts 补上这个 class。
+   1.3.46：动画改为「快速出现 → 保持 → 淡出」的 1.6s hold 脉冲（原 0.9s 单次
+   outline 脉冲在长文滚动途中就播完，用户滚到位时看不见），环色/底色适度加强。 */
 .comment-locate-flash {
   outline-offset: 2px;
   border-radius: 0.5rem;
-  animation: comment-locate-flash 0.9s ease-out;
+  animation: comment-locate-flash 1.6s ease-out;
 }
 @keyframes comment-locate-flash {
   0% {
     outline: 0 solid transparent;
-    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    background-color: transparent;
   }
-  14% {
-    outline: 3px solid color-mix(in oklab, var(--primary) 55%, transparent);
-    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+  12% {
+    outline: 3px solid color-mix(in oklab, var(--primary) 60%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+  }
+  70% {
+    outline: 3px solid color-mix(in oklab, var(--primary) 60%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
   }
   100% {
     outline: 0 solid transparent;

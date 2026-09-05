@@ -60,10 +60,11 @@ import { onPageView } from "../../utils/once";
     if (root.__etherealFlashStyle) return;
     var st = document.createElement("style");
     st.textContent =
-      ".comment-locate-flash{outline-offset:2px;border-radius:0.5rem;animation:comment-locate-flash .9s ease-out}" +
+      ".comment-locate-flash{outline-offset:2px;border-radius:0.5rem;animation:comment-locate-flash 1.6s ease-out}" +
       "@keyframes comment-locate-flash{" +
-      "0%{outline:0 solid transparent;background-color:color-mix(in oklab,var(--primary) 16%,transparent)}" +
-      "14%{outline:3px solid color-mix(in oklab,var(--primary) 55%,transparent);background-color:color-mix(in oklab,var(--primary) 16%,transparent)}" +
+      "0%{outline:0 solid transparent;background-color:transparent}" +
+      "12%{outline:3px solid color-mix(in oklab,var(--primary) 60%,transparent);background-color:color-mix(in oklab,var(--primary) 18%,transparent)}" +
+      "70%{outline:3px solid color-mix(in oklab,var(--primary) 60%,transparent);background-color:color-mix(in oklab,var(--primary) 18%,transparent)}" +
       "100%{outline:0 solid transparent;background-color:transparent}}";
     root.appendChild(st);
     root.__etherealFlashStyle = true;
@@ -82,6 +83,57 @@ import { onPageView } from "../../utils/once";
       el.removeEventListener("animationend", done);
     };
     el.addEventListener("animationend", done);
+    // 兜底：动画被中断（元素重渲染 / display 切换）时 animationend 可能不触发，
+    // 用一个略长于动画时长的定时器强制清理 class，避免残留。
+    setTimeout(done, 1800);
+  }
+
+  // ⭐ 等目标真正进入视口且滚动停稳后再闪高亮。长文平滑滚动可能持续 1s+，若在
+  //   滚动进行中就把高亮播完，用户滚到位时早就看不见——这是「长文章高亮看不见」
+  //   的根因（此前 findTarget 一命中就立即 flash，滚动才刚开始）。
+  //   双信号：scrollend（现代浏览器，滚动结束的权威信号）+ scroll 空闲 debounce
+  //   （旧浏览器 / 无滚动场景兜底）。加视口判据：目标还没滚进视口时绝不闪。
+  function flashWhenSettled(el) {
+    var t0 = Date.now();
+    var IDLE = 160; // scroll 停止这么久视为停稳
+    var MAX_WAIT = 4000; // 绝对兜底，避免任何异常下永不闪
+    var settled = false;
+    var idleTimer = null;
+
+    function finish() {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      flash(el);
+    }
+    function cleanup() {
+      if (idleTimer) clearTimeout(idleTimer);
+      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scrollend", onScrollEnd);
+      document.removeEventListener("scrollend", onScrollEnd);
+    }
+    function inView() {
+      var r = el.getBoundingClientRect();
+      var vh = window.innerHeight || document.documentElement.clientHeight;
+      return r.top < vh && r.bottom > 0;
+    }
+    function onScrollEnd() {
+      finish();
+    }
+    function onScroll() {
+      if (Date.now() - t0 > MAX_WAIT) return finish();
+      if (idleTimer) clearTimeout(idleTimer);
+      if (inView()) idleTimer = setTimeout(finish, IDLE);
+    }
+    window.addEventListener("scrollend", onScrollEnd, { passive: true });
+    document.addEventListener("scrollend", onScrollEnd, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("scroll", onScroll, { passive: true });
+    // 目标本就在视口（无需滚动）或滚动早已结束：短暂延迟后立即闪；
+    // 否则（滚动尚未开始/目标还在下方）等 scroll 事件带它进视口再闪。
+    if (inView()) idleTimer = setTimeout(finish, IDLE);
+    else idleTimer = setTimeout(finish, MAX_WAIT);
   }
 
   function locateComment() {
@@ -114,7 +166,9 @@ import { onPageView } from "../../utils/once";
         // ⭐ 滚动完全交给插件：comment-next 挂载时读 location.hash 自己 scrollIntoView
         //   （已实测精确落位，target 顶部落到视口顶部）。主题这里只补高亮——若再滚一次
         //   会与插件竞争（两个 smooth scroll 几乎同时启动、互相取消），产生「上下拉扯」。
-        flash(el || box);
+        //   findTarget 命中时插件的平滑滚动通常才刚开始（长文要 1s+），立即 flash 会在
+        //   滚动途中就播完；改等滚动停稳 + 目标进视口后再闪（flashWhenSettled）。
+        flashWhenSettled(el || box);
       });
       return;
     }
@@ -128,9 +182,10 @@ import { onPageView } from "../../utils/once";
     });
 
     // 高亮延后到内容就绪再播：0.9s 脉冲在空壳上播完等于白播——用户看不到任何
-    // 落点提示。等评论真正渲染出来再闪，指示才有意义。
+    // 落点提示。等评论真正渲染出来再闪，指示才有意义。且等滚动停稳 + 目标进视口
+    // 再闪（长文滚动途中闪完就看不见）。
     if (box.dataset.commentReady) {
-      flash(box);
+      flashWhenSettled(box);
       return;
     }
     // 等待期间显示加载提示（components.css 的 .comment-locating）
@@ -147,7 +202,7 @@ import { onPageView } from "../../utils/once";
       document.removeEventListener("comment:ready", onReady);
       box.classList.remove("comment-locating");
       requestAnimationFrame(function () {
-        flash(box);
+        flashWhenSettled(box);
       });
     }
     document.addEventListener("comment:ready", onReady);

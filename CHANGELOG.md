@@ -2,6 +2,21 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.46] - 2026-09-05
+
+### 优化：评论跳转高亮的时序与视觉效果（长文章高亮看不见）
+
+- **现象**：1.3.45 后评论跳转已能精确落位，但高亮只在目标元素一进 DOM 时播一次 0.9s 脉冲——而 comment-next 的平滑滚动此时才刚开始。长文平滑滚动要 1s+，脉冲在滚动途中就播完，用户滚到位时高亮早已消失（「文章过长可能高亮效果看不见」）。
+
+- **根因**：`comment-locate.ts` 的 `findTarget` 命中（目标进入 DOM）≠ 滚动到位（插件 `scrollIntoView` 才刚起步）。高亮触发点与滚动完成点解耦，0.9s 动画不足以跨过长文的滚动窗口。
+
+- **改动**：
+  1. `src/scripts/assets/comment-locate.ts`：新增 `flashWhenSettled()`，高亮改在「目标进入视口 + 滚动停稳」后触发——`scrollend`（现代浏览器权威信号）+ `scroll` 空闲 debounce（旧浏览器/无滚动兜底）+ 视口判据（`getBoundingClientRect`，目标没滚进视口绝不闪）+ 4s 绝对兜底。精准模式与普通 `#comment` 均接入。
+  2. `src/styles/components.css` + shadow root 注入样式同步：高亮动画由 0.9s 单次 outline 脉冲改为 **1.6s「快速出现 → 保持 → 淡出」hold 脉冲**，环色 55%→60%、底色 16%→18%，视觉存在感更强。
+  3. `flash()` 加 `setTimeout` 兜底清理（动画被中断时 `animationend` 可能不触发，避免 class 残留）。
+
+- **影响范围**：仅评论落位高亮（`.comment-locate-flash`）的触发时机与动画参数；跳转滚动路径（插件负责精准滚动）不变。
+
 ## [v1.3.45] - 2026-09-05
 
 ### 修复：侧栏「最近评论」直接点击仍不跳转（`to.hash` 带 `#` 前缀，回顶判断失效）
