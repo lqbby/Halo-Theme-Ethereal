@@ -2,6 +2,29 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.32] - 2026-09-05
+
+### 新增：瞬间走马灯滚动速度纳入动画速度档位（可自定义）
+
+- **诉求**：首页「瞬间」走马灯的滚动速度此前由 JS 硬编码（约 48px/s），完全不受「动画速度」档位控制——疾速档下其他入场动画都已加快，走马灯却仍慢悠悠滚动，观感割裂；后台「自定义动画时长」里也没有对应项，无法单独调节。
+
+- **改动**：
+  - 新增全局变量 `--marquee-speed`（走马灯滚动速度，px/s，无单位），四档速度：均衡 48（原值，零回归）/ 舒缓 36 / 最优 60 / 疾速 80。
+  - `src/components/HomeMoments.astro`：走马灯内联脚本改为读取 `getComputedStyle(document.documentElement).getPropertyValue("--marquee-speed")` 计算滚动时长（`duration = max(20, groupWidth / speed)`），fallback 48。
+  - `src/styles/speed.css`：四档各补 `--marquee-speed`。
+  - `src/utils/speed-style.ts`：`SPEED_CUSTOM_DEFAULTS` 增 `marqueeSpeed: 48`，th:style 拼接 `--marquee-speed`（无 ms 后缀）。
+  - `settings.yaml`：「自定义动画时长」组新增 `marqueeSpeed`（瞬间走马灯速度，px/s，20–200，默认 48）。
+  - `src/types/config.ts`：`speedCustom` 增 `marqueeSpeed`，并补上此前遗漏的 `speedTier` 档位 `"optimal"`。
+
+### 统一：导航抽屉交互动画接入速度档位
+
+- 移动端抽屉菜单的展开/淡入动画此前硬编码，疾速档下不随档位加快。现将以下动画统一改用 `--dur-*` 变量：
+  - `#nav-menu-overlay` 遮罩淡入 `250ms` → `--dur-swup`；
+  - `#nav-menu-panel` 抽屉滑入 `250ms` → `--dur-swup`；
+  - `.nav-drawer-link` 菜单项错峰入场 `300ms` → `--dur-entry`；
+  - `.floating-controls` 浮动按钮淡出 `200ms` → `--dur-swup`。
+  - 均衡档下基本无感（250→200ms 微调、300→300ms 零变），疾速/舒缓档下随档位统一变化。
+
 ## [v1.3.31] - 2026-09-05
 
 ### 修复：刷新后滚到底部，滚动条挂载瞬间页面跳动

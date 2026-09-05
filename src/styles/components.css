@@ -850,7 +850,7 @@
     backdrop-filter: blur(8px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   body.nav-menu-open #nav-menu-overlay {
@@ -878,8 +878,8 @@
     opacity: 0;
     pointer-events: none;
     transition:
-      translate 250ms cubic-bezier(0.4, 0, 0.2, 1),
-      opacity 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      translate var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1),
+      opacity var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   :root.dark #nav-menu-root #nav-menu-panel {
@@ -931,7 +931,8 @@
   }
 
   body.nav-menu-open #nav-menu-root #nav-menu-panel .nav-drawer-link {
-    animation: nav-menu-link-in 300ms cubic-bezier(0.4, 0, 0.2, 1) backwards;
+    animation: nav-menu-link-in var(--dur-entry, 300ms)
+      cubic-bezier(0.4, 0, 0.2, 1) backwards;
   }
 
   /* 组间分割线：仅在抽屉内生效 */
@@ -977,7 +978,7 @@
   body.nav-menu-open .floating-controls {
     opacity: 0;
     pointer-events: none;
-    transition: opacity 200ms ease;
+    transition: opacity var(--dur-swup, 200ms) ease;
   }
 
   /* 桌面端（≥1024px / lg）不使用抽屉，防止跨断点残留；

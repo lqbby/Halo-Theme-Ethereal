@@ -209,9 +209,9 @@ export interface ThemeLanguage {
 
 /** 动画速度 */
 export interface AnimationSpeed {
-  /** 速度档位：relaxed 舒缓 / balanced 均衡 / snappy 疾速 / custom 自定义 */
-  speedTier?: "relaxed" | "balanced" | "snappy" | "custom";
-  /** 自定义档时长（ms），仅 speedTier == 'custom' 时生效 */
+  /** 速度档位：relaxed 舒缓 / balanced 均衡 / optimal 最优 / snappy 疾速 / custom 自定义 */
+  speedTier?: "relaxed" | "balanced" | "optimal" | "snappy" | "custom";
+  /** 自定义档时长（ms），仅 speedTier == 'custom' 时生效；marqueeSpeed 为走马灯滚动速度（px/s，无单位） */
   speedCustom?: {
     swup?: number;
     entry?: number;
@@ -222,6 +222,7 @@ export interface AnimationSpeed {
     float?: number;
     banner?: number;
     carouselTransition?: number;
+    marqueeSpeed?: number;
   };
 }
 

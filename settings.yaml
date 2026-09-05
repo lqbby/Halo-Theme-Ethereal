@@ -898,6 +898,7 @@ spec:
                 float: 350
                 banner: 700
                 carouselTransition: 700
+                marqueeSpeed: 48
               children:
                 - $formkit: number
                   name: swup
@@ -971,6 +972,14 @@ spec:
                   step: 10
                   value: 700
                   help: "轮播图切换动画时长（原 700ms），随动画速度档位变化"
+                - $formkit: number
+                  name: marqueeSpeed
+                  label: 瞬间走马灯速度（px/s）
+                  min: 20
+                  max: 200
+                  step: 4
+                  value: 48
+                  help: "首页「瞬间」走马灯滚动速度（像素/秒），数值越大滚动越快，默认 48；随动画速度档位变化"
         - $formkit: group
           name: externalFont
           label: 外部字体

@@ -278,8 +278,16 @@
             });
             track.appendChild(clone);
             track.classList.add("home-moments-track--animate");
-            // 速度 ~48px/s，最小 20s，避免内容少时转太快
-            var duration = Math.max(20, Math.round(groupWidth / 48));
+            // 速度读取全局 --marquee-speed（px/s，随动画速度档位变化），fallback 48
+            var speed =
+              parseInt(
+                getComputedStyle(document.documentElement).getPropertyValue(
+                  "--marquee-speed",
+                ),
+                10,
+              ) || 48;
+            // 最小 20s，避免内容少时转太快
+            var duration = Math.max(20, Math.round(groupWidth / speed));
             track.style.setProperty("--home-moments-duration", duration + "s");
           }
         };

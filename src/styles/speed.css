@@ -20,6 +20,7 @@ html[data-speed="balanced"] {
   --dur-float: 350ms; /* 浮动按钮位移动画（原 bottom 0.35s） */
   --dur-banner: 700ms; /* banner 载入（原 duration-700） */
   --dur-banner-transition: 700ms; /* 轮播切换动画（原 700ms，随档位） */
+  --marquee-speed: 48; /* 瞬间走马灯滚动速度（px/s，无单位，JS 读取，原 48） */
 }
 
 html[data-speed="relaxed"] {
@@ -32,6 +33,7 @@ html[data-speed="relaxed"] {
   --dur-float: 450ms;
   --dur-banner: 800ms;
   --dur-banner-transition: 1000ms;
+  --marquee-speed: 36; /* 走马灯更慢 */
 }
 
 /* 最优 optimal —— 轻快：比均衡快约 45%，保留错峰层次与过渡，内容近立即可见 */
@@ -45,6 +47,7 @@ html[data-speed="optimal"] {
   --dur-float: 240ms; /* 浮动按钮位移动画 */
   --dur-banner: 400ms; /* banner 载入 */
   --dur-banner-transition: 450ms; /* 轮播切换动画 */
+  --marquee-speed: 60; /* 走马灯更快 */
 }
 
 html[data-speed="snappy"] {
@@ -57,4 +60,5 @@ html[data-speed="snappy"] {
   --dur-float: 200ms;
   --dur-banner: 500ms;
   --dur-banner-transition: 400ms;
+  --marquee-speed: 80; /* 走马灯最快 */
 }
