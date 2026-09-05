@@ -111,15 +111,9 @@ import { onPageView } from "../../utils/once";
       box.classList.add("comment-locating");
       waitForTarget(m, function (el) {
         box.classList.remove("comment-locating");
-        if (el) {
-          // 兜底精确滚一次：插件只在组件初始化时滚，若评论区本次导航前已激活过
-          // （initCommentLazyLoad 幂等 return），插件不会重跑。元素上已有插件设的
-          // scroll-margin-top，偏移自适应。
-          el.scrollIntoView({
-            behavior: reduce ? "auto" : "smooth",
-            block: "start",
-          });
-        }
+        // ⭐ 滚动完全交给插件：comment-next 挂载时读 location.hash 自己 scrollIntoView
+        //   （已实测精确落位，target 顶部落到视口顶部）。主题这里只补高亮——若再滚一次
+        //   会与插件竞争（两个 smooth scroll 几乎同时启动、互相取消），产生「上下拉扯」。
         flash(el || box);
       });
       return;
