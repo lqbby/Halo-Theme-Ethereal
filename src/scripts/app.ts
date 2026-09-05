@@ -453,7 +453,11 @@ function setupSwup() {
       // 会覆盖原生 scrollIntoView → 跳转失败/互相打架。这里直接跳过，让它
       // 完全退出评论区场景的滚动（同页目录锚点走 linkToAnchor 路径，不受影响）。
       const hash = visit?.to?.hash || "";
-      if (hash.indexOf("comment") === 0) {
+      // ⚠️ Swup 的 to.hash 带 "#" 前缀（如 "#comment-next-comment-<name>"）：直接
+      //    indexOf("comment") 命中位置是 1（# 占 0 位）→ 判断恒为 false、return 永不
+      //    生效 → SwupScrollPlugin 找不到 shadow DOM 里的评论锚点后 fall through 回顶
+      //    （scrl 引擎每帧 scrollTo(0)），覆盖插件自己的 scrollIntoView。先去掉 # 再判。
+      if (hash.replace(/^#/, "").indexOf("comment") === 0) {
         return;
       }
       if (!visit?.history?.popstate && !visit?.to?.hash) {

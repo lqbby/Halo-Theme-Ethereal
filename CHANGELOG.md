@@ -2,6 +2,18 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.45] - 2026-09-05
+
+### 修复：侧栏「最近评论」直接点击仍不跳转（`to.hash` 带 `#` 前缀，回顶判断失效）
+
+- **现象**：1.3.44 后「上下拉扯」消失，但直接点击评论仍不跳转到那条评论；右键「新标签页打开」则正常。
+
+- **根因（真实点击 + `scrollTo` 打桩抓调用栈定位）**：1.3.42 在 `content:scroll` 里加的「评论区锚点跳过 SwupScrollPlugin 滚动」判断写成了 `hash.indexOf("comment") === 0`，但 Swup 的 `visit.to.hash` **带 `#` 前缀**（`#comment-next-comment-<name>`），`#` 占 0 位导致 `indexOf("comment")` 返回 **1**，判断恒为 false、`return` 从未生效。于是 SwupScrollPlugin 的 `doScrollingBetweenPages` 照常执行：`maybeScrollToAnchor` 在 light DOM 里找不到 shadow DOM 内的评论锚点 → fall through 到 `scrollTo(0)` **回顶**（scrl 引擎每帧强制 `scrollTo(0)`，实测 2304–2912ms 约 50 次），覆盖了插件的 `scrollIntoView`。冷加载（新标签）无 Swup 回顶，所以正常；从 scrollY=0 点击时回顶无位移，所以此前合成点击复现不出。
+
+- **改动**（`src/scripts/app.ts` 的 `content:scroll`）：判断改为 `hash.replace(/^#/, "").indexOf("comment") === 0`，先去掉 `#` 前缀再判断，让 comment 锚点场景真正 `return`、退出 SwupScrollPlugin 滚动。
+
+- **影响范围**：仅评论区锚点（`#comment` / `#comment-next-*`）的 Swup 滚动；目录锚点、回顶、popstate 等行为不变。
+
 ## [v1.3.44] - 2026-09-05
 
 ### 修复：侧栏「最近评论」跳转仍有上下拉扯感（主题与插件双 scrollIntoView 竞争）
