@@ -2,6 +2,25 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.43] - 2026-09-05
+
+### 修复：侧栏「最近评论」精准跳转仍失败（评论渲染在 Shadow DOM 内，主题高亮永远找不到目标）
+
+- **现象**：1.3.42 上线后侧栏评论跳转仍「跳不到那条评论 / 有冲突」。
+
+- **根因（真实浏览器复现定位）**：comment-next **1.0.13** 把评论列表渲染在 `<comment-widget>`（Svelte web component）的 **Shadow DOM** 里，而非 light DOM：
+  - `document.querySelectorAll('comment-widget')[0].shadowRoot` 里才有 `comment-next-comment-<name>`（实测 shadow 内 3 条、light DOM 0 条）。
+  - 主题 `comment-locate.ts` 的 `findTarget()` 用 `document.getElementById()` **只搜 light DOM**，永远找不到目标 → 每次等满 3.5s 超时 → 高亮退化成整块闪（且 `.comment-locate-flash` 是 light DOM CSS，穿透不进 shadow root，加了类也不生效）。
+  - 真正的「有冲突」：`locateComment()` 之前**无条件先 `box.scrollIntoView(smooth)` 滚到 `#comment` 顶**，紧接着插件挂载后自己又 `scrollIntoView` 到具体评论——两个平滑滚动竞争。
+  - （插件自身的精确滚动是正常的：实测目标评论落在视口顶部，Swup 换页与冷加载两种路径都 OK；缺的只是主题的高亮，以及先滚 #comment 顶造成的打架。）
+
+- **改动**（`src/scripts/assets/comment-locate.ts`）：
+  1. `findTarget()` 穿透 shadow root：先搜 light DOM（兼容旧版），再遍历 `querySelectorAll('comment-widget')` → `widget.shadowRoot.getElementById(...)`。
+  2. `flash()` 支持 shadow 元素：目标在 shadow root 内时，往该 shadow root 注入一份与 light DOM `.comment-locate-flash` 等价的 `<style>`（CSS 自定义属性 `--primary`/`--hue` 会从 host 沿树继承穿透，shadow 内直接 `var(--primary)` 即可）。
+  3. `locateComment()` 精准模式（`#comment-next-*`）**不再先滚 `#comment` 顶**，滚动交给插件（找到元素后兜底精确滚一次）；普通 `#comment` 才保留「滚到评论区顶」。
+
+- **影响范围**：仅修正侧栏评论精准跳转/高亮；`#comment`（从邮件/通知进入）、目录锚点、回顶等行为不变。
+
 ## [v1.3.42] - 2026-09-05
 
 ### 修复：侧栏「最近评论」精准跳转失败（SwupScrollPlugin 滚动冲突）

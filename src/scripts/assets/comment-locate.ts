@@ -23,9 +23,21 @@ import { onPageView } from "../../utils/once";
 
   function findTarget(m) {
     var ids = ["comment-next-comment-" + m[2], "comment-next-reply-" + m[2]];
+    // 先搜 light DOM（旧版插件/兼容），再穿透 <comment-widget> 的 shadow root。
+    // ⭐ comment-next 1.0.13 把评论渲染在 Svelte web component 的 Shadow DOM 里，
+    //   document.getElementById 搜不到——必须用 widget.shadowRoot.getElementById。
     for (var i = 0; i < ids.length; i++) {
       var el = document.getElementById(ids[i]);
       if (el) return el;
+    }
+    var widgets = document.querySelectorAll("comment-widget");
+    for (var w = 0; w < widgets.length; w++) {
+      var sr = widgets[w].shadowRoot;
+      if (!sr) continue;
+      for (var i = 0; i < ids.length; i++) {
+        var el2 = sr.getElementById(ids[i]);
+        if (el2) return el2;
+      }
     }
     return null;
   }
@@ -41,16 +53,35 @@ import { onPageView } from "../../utils/once";
     })();
   }
 
-  function flash(box) {
+  // 往 shadow root 注入一份与 light DOM .comment-locate-flash 等价的样式。
+  // ⭐ light DOM 的 CSS 规则穿透不进 Shadow DOM（样式封装）；但 CSS 自定义属性
+  //   （--primary）会从 host 沿树继承穿透进来，所以 shadow 内直接写 var(--primary) 即可。
+  function ensureFlashStyle(root) {
+    if (root.__etherealFlashStyle) return;
+    var st = document.createElement("style");
+    st.textContent =
+      ".comment-locate-flash{outline-offset:2px;border-radius:0.5rem;animation:comment-locate-flash .9s ease-out}" +
+      "@keyframes comment-locate-flash{" +
+      "0%{outline:0 solid transparent;background-color:color-mix(in oklab,var(--primary) 16%,transparent)}" +
+      "14%{outline:3px solid color-mix(in oklab,var(--primary) 55%,transparent);background-color:color-mix(in oklab,var(--primary) 16%,transparent)}" +
+      "100%{outline:0 solid transparent;background-color:transparent}}";
+    root.appendChild(st);
+    root.__etherealFlashStyle = true;
+  }
+
+  function flash(el) {
+    // 目标在 shadow root 内时，light DOM 样式不生效，先注入等价样式。
+    var root = el.getRootNode && el.getRootNode();
+    if (root && root.nodeType === 11) ensureFlashStyle(root);
     // 先移除再强制 reflow，确保重复进入（SPA 换页/再次点击）可重新触发动画
-    box.classList.remove("comment-locate-flash");
-    void box.offsetWidth;
-    box.classList.add("comment-locate-flash");
+    el.classList.remove("comment-locate-flash");
+    void el.offsetWidth;
+    el.classList.add("comment-locate-flash");
     var done = function () {
-      box.classList.remove("comment-locate-flash");
-      box.removeEventListener("animationend", done);
+      el.classList.remove("comment-locate-flash");
+      el.removeEventListener("animationend", done);
     };
-    box.addEventListener("animationend", done);
+    el.addEventListener("animationend", done);
   }
 
   function locateComment() {
@@ -59,19 +90,11 @@ import { onPageView } from "../../utils/once";
     var box = document.getElementById("comment");
     if (!box) return;
 
-    // 滚动立即执行，不等评论区渲染：#comment 的顶边位置由上方正文决定，评论区
-    // 内容撑开只增加自身高度、不改变顶边，所以此刻滚动的落点本来就是准确的，
-    // 延后只会让用户多等 1-2s 且没有任何即时反馈。
     var reduce =
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    box.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
-      block: "start",
-    });
 
-    // 精准模式：#comment-next-comment-<name> —— 等那条评论进入 DOM 后高亮它本身
-    // （滚动由插件自己做）。找不到时退回高亮整个评论区，不至于毫无反馈。
+    // 先解析 hash：区分「精准单条评论」与「普通评论区」。
     var raw;
     try {
       raw = decodeURIComponent(hash.slice(1));
@@ -79,14 +102,19 @@ import { onPageView } from "../../utils/once";
       raw = hash.slice(1);
     }
     var m = ANCHOR_RE.exec(raw);
+
+    // ⭐ 精准模式（#comment-next-comment-<name>）：不先滚 #comment 顶——插件挂载后会
+    //   自己精确 scrollIntoView 到那条评论，我们先滚会与它竞争（两个 smooth 滚动打架，
+    //   即用户看到的「有冲突」）。这里只等目标进入 DOM（穿透 shadow root）后高亮它
+    //   本身；找不到时退回高亮整个评论区，不至于毫无反馈。
     if (m) {
       box.classList.add("comment-locating");
       waitForTarget(m, function (el) {
         box.classList.remove("comment-locating");
         if (el) {
-          // 插件在组件初始化时会自己滚一次，但评论区若已激活过（本次导航内
-          // initCommentLazyLoad 因幂等直接 return），它不会重跑 —— 这里兜底
-          // 再滚一次。元素上已有插件设的 scroll-margin-top，偏移是自适应的。
+          // 兜底精确滚一次：插件只在组件初始化时滚，若评论区本次导航前已激活过
+          // （initCommentLazyLoad 幂等 return），插件不会重跑。元素上已有插件设的
+          // scroll-margin-top，偏移自适应。
           el.scrollIntoView({
             behavior: reduce ? "auto" : "smooth",
             block: "start",
@@ -96,6 +124,14 @@ import { onPageView } from "../../utils/once";
       });
       return;
     }
+
+    // 普通 #comment：滚动立即执行，不等评论区渲染。#comment 的顶边位置由上方正文
+    // 决定，评论区内容撑开只增加自身高度、不改变顶边，所以此刻滚动的落点本来就
+    // 准确，延后只会让用户多等 1-2s 且没有任何即时反馈。
+    box.scrollIntoView({
+      behavior: reduce ? "auto" : "smooth",
+      block: "start",
+    });
 
     // 高亮延后到内容就绪再播：0.9s 脉冲在空壳上播完等于白播——用户看不到任何
     // 落点提示。等评论真正渲染出来再闪，指示才有意义。
