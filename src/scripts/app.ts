@@ -507,6 +507,51 @@ function updateTocBtnVisibility() {
 // <template id="comment-lazy-template">（内容惰性：脚本不下载、web component 不
 // 升级），这里在评论区接近视口（提前 400px）时把内容搬到占位节点激活。
 // Swup 换页后新 DOM 的占位为空，page:view 重新绑定即可覆盖 SPA 场景。
+// 评论区「内容已渲染」的判定常量（供 comment-locate.ts 对齐落位高亮时机）：
+//   MIN_READY_HEIGHT —— 低于此高度说明还只是「评论」标题壳子（约 80px）
+//   STABLE_FRAMES    —— ResizeObserver 连续几次回调高度不变才算稳定
+//   READY_TIMEOUT    —— 硬超时，接口失败时也要把落位动画放出来
+const COMMENT_MIN_READY_HEIGHT = 160;
+const COMMENT_STABLE_FRAMES = 2;
+const COMMENT_READY_TIMEOUT = 4000;
+/**
+ * 标记评论区内容已渲染：高度超过空壳阈值且连续 N 帧不变后，打上
+ * data-comment-ready 并派发 comment:ready，供 comment-locate.ts 把落位高亮
+ * 延后到内容出现之后再播（否则 0.9s 脉冲在空壳上播完，用户看不到任何提示）。
+ */
+function trackCommentReady(box: HTMLElement) {
+  if (box.dataset.commentReady) return;
+  let settled = false;
+  let ro: ResizeObserver | null = null;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (ro) ro.disconnect();
+    box.dataset.commentReady = "1";
+    document.dispatchEvent(new CustomEvent("comment:ready"));
+  };
+  let lastH = -1;
+  let stable = 0;
+  if ("ResizeObserver" in window) {
+    ro = new ResizeObserver(() => {
+      const h = box.offsetHeight;
+      if (h === lastH) stable += 1;
+      else {
+        stable = 0;
+        lastH = h;
+      }
+      // 高度够高（不是空壳）且连续两帧不变 → 认为首屏评论已渲染
+      if (stable >= COMMENT_STABLE_FRAMES && h >= COMMENT_MIN_READY_HEIGHT)
+        finish();
+    });
+    ro.observe(box);
+  } else {
+    setTimeout(finish, 1200);
+  }
+  // 硬超时兜底：评论接口失败/长耗时时也要让落位动画播出来，不能一直悬着
+  setTimeout(finish, COMMENT_READY_TIMEOUT);
+}
+
 function initCommentLazyLoad() {
   const box = document.getElementById("comment");
   const tpl = document.getElementById(
@@ -520,8 +565,13 @@ function initCommentLazyLoad() {
     while (tpl.content.firstChild) {
       slot.appendChild(tpl.content.firstChild);
     }
+    trackCommentReady(box);
   };
-  if (!("IntersectionObserver" in window)) {
+  // 带 #comment 锚点进入（侧栏「最近评论」跳转 / 通知邮件链接）时立即激活：
+  // 用户意图明确就是看评论，不必等 IO 判定接近视口（省掉 400px 预滚动 + 一次
+  // IO 回调的延迟），让 ~120KB 的 comment-next 尽早开始下载。
+  const wantsComment = (location.hash || "").indexOf("#comment") === 0;
+  if (wantsComment || !("IntersectionObserver" in window)) {
     adopt();
     return;
   }

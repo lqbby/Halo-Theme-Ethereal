@@ -2,6 +2,25 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.40] - 2026-09-05
+
+### 优化：侧栏「最近评论」跳转落位与评论区懒加载对齐时序
+
+- **问题**：1.3.3 把评论区改成懒加载（`<template>` + IntersectionObserver）后，从侧栏「最近评论」点进文章页时，`comment-locate.ts` 在 `page:view` 时**立刻**播放 0.9s 的 `comment-locate-flash` 高亮脉冲。但此刻评论区还只是个约 80px 的标题壳子，`comment-next`（~120KB）尚未下载、评论列表尚未渲染 —— **高亮在内容出现前就播完了，用户实际看不到任何落点提示**；同时 IO 要等评论区接近视口（提前 400px）才激活，点击后还要白白等 1-2 秒空白。
+
+- **改动**（3 个文件）：
+  - `src/scripts/app.ts`：
+    - 带 `#comment` 锚点进入时**跳过 IntersectionObserver 立即激活**评论区（用户意图明确，省掉 400px 预滚动 + 一次 IO 回调的延迟）。
+    - 新增 `trackCommentReady()`：用 `ResizeObserver` 观察 `#comment` 高度，超过空壳阈值（160px）且连续 2 帧不变即判定内容已渲染，打上 `data-comment-ready` 并派发 `comment:ready` 事件；无 `ResizeObserver` 或 4s 硬超时时兜底放行。
+  - `src/scripts/assets/comment-locate.ts`：
+    - **滚动保持立即执行**（不再延后）—— `#comment` 的顶边位置由上方正文决定，评论区内容撑开只增加自身高度、不改变顶边，所以此刻滚动的落点本来就是准确的，延后反而让用户多等 1-2 秒且毫无反馈。
+    - **高亮延后到 `comment:ready` 之后**再播（3.5s 兜底），让 0.9s 脉冲真正落在评论内容上。
+    - 等待期间给 `#comment` 加 `comment-locating`，显示加载提示。
+    - 尊重 `prefers-reduced-motion`：命中时滚动改用 `auto`（瞬时），不播平滑滚动动画。
+  - `src/styles/components.css`：新增 `.comment-locating` 的「评论加载中…」提示样式。
+
+- **影响范围**：仅影响带 `#comment` 锚点进入文章页的路径（侧栏最近评论 / 通知邮件链接）。正常滚动到评论区的行为完全不变（仍由 IO 懒加载，且不会显示加载提示）。桌面端与移动端一致。
+
 ## [v1.3.39] - 2026-09-05
 
 ### 清理：修正注释中已失效的 `wave.js` 引用 + 移动端入场动画兜底收紧

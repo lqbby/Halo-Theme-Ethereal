@@ -1383,3 +1383,16 @@
     background-color: transparent;
   }
 }
+
+/* 落位等待期的加载提示：评论区是懒加载的，锚点进入后从激活到评论渲染可能要
+   1-2 秒。这期间只滚到一个「评论」标题壳子上会很像卡住了，给个低调提示。
+   class 由 comment-locate.ts 临时加，内容就绪（comment:ready）后自动移除。 */
+#comment.comment-locating #comment-lazy-placeholder::before {
+  content: "评论加载中…";
+  display: block;
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #9ca3af;
+}
