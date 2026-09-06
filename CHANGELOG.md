@@ -2,6 +2,25 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.56] - 2026-09-06
+
+### 疾速档 banner 文字抢跑于 banner 图修复
+
+`src/styles/transition.css` 的 snappy 段（v1.2.1 `287fa34` 引入）原本把 `#banner-title` /
+`#banner-subtitle-wrapper` 与 `.onload-animation` 一并强制 `opacity:1` + `slide-in-up`——
+当时 banner 文字走 onload-animation 路径，"立即可见"语义成立。
+
+v1.3.33 重构后，banner 文字改为 `opacity:0` + 等 `.banner-reveal` 触发（与 banner 图同节奏渐显），
+但 **snappy 段未同步更新**——仍强制 `opacity:1`。结果：snappy 档下 banner 文字在 banner 图
+未加载时立即可见，文字悬浮在空 banner 上（用户报告截图）。
+
+修复：snappy 段只覆盖 `.onload-animation` 类元素（保持 120ms slide-in-up），banner 文字
+不再纳入此组，沿用默认 `.banner-reveal` 触发 + `--dur-banner: 350ms` 同步渐显。
+
+- 副标题失去 slide-in-up 是可接受代价：副标题已有 120ms 错峰 fade-in（沿用 balanced/optimal）
+- 与其他档位行为一致：snappy 档 banner 元素组与图同节奏渐显
+- 顶部 navbar 不受影响：navbar 本身无入场动画，本来就是立即可见
+
 ## [v1.3.55] - 2026-09-06
 
 ### 动画速度档位梯度修正（疾速档 banner 时长倒挂）

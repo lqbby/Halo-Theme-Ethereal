@@ -156,7 +156,11 @@ html.swup-visited .bangumi-page .onload-animation {
 
 /* —— 疾速档（data-speed="snappy"）——
    入场只做纯位移（slide-in-up）、不透明门控：内容立即可读，
-   只保留一瞬"进场"运动感。错峰延迟已由上方 min(--dur-entry-max) 归零。 */
+   只保留一瞬"进场"运动感。错峰延迟已由上方 min(--dur-entry-max) 归零。
+   注：banner-title/subtitle 不纳入此组——它们由 v1.3.33 重构改为跟随
+   .banner-reveal（图加载完成）触发，snappy 强制 opacity:1 会让文字抢跑于
+   banner 图（刷新瞬间文字悬浮空 banner 上），仅靠默认 banner-reveal 触发
+   + --dur-banner 过渡与图片同步渐显（350ms snappy）即可。 */
 @keyframes slide-in-up {
   from {
     translate: 0 8px;
@@ -167,9 +171,7 @@ html.swup-visited .bangumi-page .onload-animation {
   }
 }
 
-html[data-speed="snappy"] .onload-animation,
-html[data-speed="snappy"] #banner-title,
-html[data-speed="snappy"] #banner-subtitle-wrapper {
+html[data-speed="snappy"] .onload-animation {
   opacity: 1;
   animation-name: slide-in-up;
   animation-duration: var(--dur-entry, 120ms);
