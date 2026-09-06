@@ -48,7 +48,7 @@ import { t } from "../../utils/i18n";
     // 卡片
     var card = document.createElement("div");
     card.style.cssText =
-      "position:fixed;z-index:99999;background:var(--card-bg,#fff);border-radius:var(--radius-large,20px);max-width:420px;width:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:ps-slide-up 0.3s ease;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--deep-text,#333);overflow:hidden";
+      "position:fixed;z-index:99999;background:var(--card-bg,#fff);border-radius:var(--radius-large,16px);max-width:420px;width:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:ps-slide-up 0.3s ease;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--deep-text,#333);overflow:hidden";
 
     // 内容区
     var body = document.createElement("div");
@@ -72,7 +72,7 @@ import { t } from "../../utils/i18n";
     // 自定义文案
     var desc = document.createElement("p");
     desc.style.cssText =
-      "margin:0;font-size:0.875rem;line-height:1.7;color:var(--text-75,#666);text-align:center;white-space:pre-line;word-break:break-word";
+      "margin:0;font-size:0.875rem;line-height:1.7;color:var(--deep-text,#666);text-align:center;white-space:pre-line;word-break:break-word";
     desc.textContent = title;
 
     // 二维码行（微信 + 支付宝，1:1 正方形）
@@ -90,6 +90,10 @@ import { t } from "../../utils/i18n";
       var img = document.createElement("img");
       img.src = src;
       img.alt = label;
+      img.onerror = function () {
+        img.onerror = null;
+        img.style.display = "none";
+      };
       img.style.cssText =
         "width:100%;aspect-ratio:1/1;object-fit:contain;border-radius:8px;background:#fff";
       var labelEl = document.createElement("div");
@@ -128,7 +132,7 @@ import { t } from "../../utils/i18n";
     // 关闭按钮（右上角，无阴影；hover 图标旋转 90° + 变主题色）
     var closeBtn = document.createElement("button");
     closeBtn.style.cssText =
-      "position:absolute;top:12px;right:12px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:0.5rem;background:transparent;color:var(--text-50,#999);cursor:pointer;transition:transform 0.25s ease,color 0.25s ease,background 0.25s ease;z-index:2";
+      "position:absolute;top:12px;right:12px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:0.5rem;background:transparent;color:var(--deep-text,#333);cursor:pointer;transition:transform 0.25s ease,color 0.25s ease,background 0.25s ease;z-index:2";
     closeBtn.setAttribute("aria-label", t("common.close", "关闭"));
     closeBtn.innerHTML =
       '<span class="icon-[material-symbols--close-rounded] text-xl leading-none"></span>';
@@ -139,7 +143,7 @@ import { t } from "../../utils/i18n";
     };
     closeBtn.onmouseleave = function () {
       closeBtn.style.transform = "";
-      closeBtn.style.color = "var(--text-50,#999)";
+      closeBtn.style.color = "var(--deep-text,#333)";
       closeBtn.style.background = "transparent";
     };
 

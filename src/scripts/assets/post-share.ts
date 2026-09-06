@@ -236,8 +236,9 @@ import { t } from "../../utils/i18n";
 
     // 卡片
     var card = document.createElement("div");
+    card.id = "post-share-modal";
     card.style.cssText =
-      "position:fixed;z-index:99999;background:var(--card-bg,#fff);border-radius:var(--radius-large,20px);max-width:440px;width:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:ps-slide-up 0.3s ease;padding:0;overflow:hidden;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--deep-text,#333)";
+      "position:fixed;z-index:99999;background:var(--card-bg,#fff);border-radius:var(--radius-large,16px);max-width:440px;width:calc(100% - 32px);box-shadow:0 20px 60px rgba(0,0,0,0.15);animation:ps-slide-up 0.3s ease;padding:0;overflow:hidden;left:50%;top:50%;transform:translate(-50%,-50%);color:var(--deep-text,#333)";
 
     // 标题：居中标题 + 主题色横线
     var header = document.createElement("div");
@@ -307,7 +308,7 @@ import { t } from "../../utils/i18n";
     // 保存图片按钮（主要按钮，参考 .ext-btn-go 样式）
     var saveBtn = document.createElement("button");
     saveBtn.style.cssText =
-      "flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;border:none;border-radius:0.75rem;font-size:0.8125rem;font-weight:500;cursor:pointer;color:#fff;background:var(--primary,oklch(0.7 0.14 250));user-select:none;transition:filter 0.2s";
+      "flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;border:none;border-radius:0.75rem;font-size:0.8125rem;font-weight:500;cursor:pointer;color:var(--on-primary,#fff);background:var(--primary,oklch(0.7 0.14 250));user-select:none;transition:filter 0.2s";
     saveBtn.onmouseenter = function () {
       saveBtn.style.filter = "brightness(1.1)";
       zoomIcon(saveBtn, true);
@@ -325,7 +326,7 @@ import { t } from "../../utils/i18n";
     // 关闭按钮（右上角，无阴影；hover 图标旋转 90° + 变主题色）
     var closeBtn = document.createElement("button");
     closeBtn.style.cssText =
-      "position:absolute;top:12px;right:12px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:0.5rem;background:transparent;color:var(--text-50,#999);cursor:pointer;transition:transform 0.25s ease,color 0.25s ease,background 0.25s ease;z-index:2";
+      "position:absolute;top:12px;right:12px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:0.5rem;background:transparent;color:var(--deep-text,#333);cursor:pointer;transition:transform 0.25s ease,color 0.25s ease,background 0.25s ease;z-index:2";
     closeBtn.setAttribute("aria-label", t("common.close", "关闭"));
     closeBtn.innerHTML =
       '<span class="icon-[material-symbols--close-rounded] text-xl leading-none"></span>';
@@ -336,7 +337,7 @@ import { t } from "../../utils/i18n";
     };
     closeBtn.onmouseleave = function () {
       closeBtn.style.transform = "";
-      closeBtn.style.color = "var(--text-50,#999)";
+      closeBtn.style.color = "var(--deep-text,#333)";
       closeBtn.style.background = "transparent";
     };
     card.appendChild(closeBtn);

@@ -55,7 +55,7 @@ const exifHasData =
           class="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase text-30"
         >
           <span th:text="#{page.photos.collection}">Collection</span>
-          <span class="text-20">/</span>
+          <span class="text-30">/</span>
           <span th:text="#{page.photos.position(${position}, ${total})}"
             >1 / 1</span
           >
@@ -111,7 +111,7 @@ const exifHasData =
         >
           <span
             th:each="tag : ${photo.spec.tags}"
-            class="rounded-lg bg-(--primary)/10 px-2.5 py-1 text-xs font-bold text-(--primary)"
+            class="rounded-md bg-(--primary)/10 px-2.5 py-1 text-xs font-bold text-(--primary)"
             th:text="${'#' + tag}"
           >
             #tag

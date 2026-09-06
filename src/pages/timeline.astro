@@ -77,8 +77,8 @@ import PageHeader from "../components/control/PageHeader.astro";
         }
         50% {
           box-shadow:
-            0 0 0 2px #22c55e,
-            0 0 8px rgba(34, 197, 94, 0.3);
+            0 0 0 2px var(--timeline-current),
+            0 0 8px color-mix(in srgb, var(--timeline-current) 30%, transparent);
         }
       }
     </style>
@@ -176,13 +176,13 @@ import PageHeader from "../components/control/PageHeader.astro";
           <div
             class="timeline-node"
             th:classappend="${#strings.isEmpty(item.endDate) ? ' timeline-node-current' : ''}"
-            th:style="${#strings.isEmpty(item.endDate) ? 'background-color:#22c55e' : (#strings.isEmpty(item.color) ? 'background-color:var(--primary)' : 'background-color:' + item.color)}"
+            th:style="${#strings.isEmpty(item.endDate) ? 'background-color:var(--timeline-current)' : (#strings.isEmpty(item.color) ? 'background-color:var(--primary)' : 'background-color:' + item.color)}"
           >
           </div>
 
           <!-- 卡片（悬浮效果接入主题 card-hover-lift，由后台样式开关控制） -->
           <div
-            class="timeline-card group relative overflow-hidden rounded-xl border border-black/10 transition-all duration-300 dark:border-white/10 card-hover-lift"
+            class="timeline-card group relative overflow-hidden rounded-xl btn-card-outline transition-all duration-300 card-hover-lift"
           >
             <div class="p-5 sm:p-6">
               <!-- 头部：图标 + 标题/组织 + 徽章 -->
@@ -330,12 +330,9 @@ import PageHeader from "../components/control/PageHeader.astro";
         class="py-16 text-center"
       >
         <span
-          class="icon-[material-symbols--search-off-rounded] mb-4 text-5xl text-black/15 dark:text-white/15"
+          class="icon-[material-symbols--search-off-rounded] mb-4 text-5xl text-30"
         ></span>
-        <p
-          class="text-lg text-black/40 dark:text-white/40"
-          th:text="#{page.timeline.noResults}"
-        >
+        <p class="text-lg text-50" th:text="#{page.timeline.noResults}">
           该类型下暂无内容
         </p>
       </div>

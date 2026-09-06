@@ -1019,10 +1019,6 @@
     @apply pt-1;
   }
 
-  :root.dark .summary-content {
-    color: rgba(255, 255, 255, 0.75);
-  }
-
   /* 打字机光标 */
   .summary-caret {
     @apply font-bold;

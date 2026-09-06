@@ -2,7 +2,7 @@
 .link-apply-modal {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 99999;
   display: none;
   align-items: center;
   justify-content: center;
@@ -73,7 +73,7 @@
   border-radius: 0.5rem;
   cursor: pointer;
   font-size: 1.25rem;
-  color: var(--text-50, #999);
+  color: var(--deep-text, #333);
   background: transparent;
   transition:
     transform 0.25s ease,
@@ -284,7 +284,7 @@
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
-  color: #fff;
+  color: var(--on-primary, #fff);
   background: var(--primary, #8b5cf6);
   box-shadow: 0 2px 10px color-mix(in oklab, var(--primary) 28%, transparent);
   transition:

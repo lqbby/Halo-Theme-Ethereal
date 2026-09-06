@@ -107,6 +107,9 @@
 
   /* 点赞失败提示色（upvote-failed 闪烁），约 Tailwind red-400，与文章页点赞红心一致 */
   --upvote-error: oklch(0.7 0.19 22);
+  /* 时间轴「进行中」节点绿（timeline-node-current），约 Tailwind green-500；
+     亮暗同值（语义状态色，两种模式均可用） */
+  --timeline-current: oklch(0.72 0.19 150);
 }
 
 :root.dark {

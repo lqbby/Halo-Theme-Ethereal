@@ -206,7 +206,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 
       <!-- 空状态 -->
       <div th:if="${#lists.isEmpty(allItems.items)}" class="py-16 text-center">
-        <span class="icon-[material-symbols--inbox-rounded] text-5xl text-20"
+        <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
         ></span>
         <p class="mt-4 text-sm text-50" th:text="#{page.friends.empty}">
           暂无朋友圈动态

@@ -55,6 +55,15 @@ import { onPageView } from "../../utils/once";
         // srcset 清空，避免浏览器按 srcset 覆盖我们指定的 src
         if (img.hasAttribute("srcset")) img.removeAttribute("srcset");
         img.setAttribute("src", next);
+        // 暗色壁纸加载失败时回退亮色，避免主题切换后 banner 裂图
+        if (dark && lightSrc) {
+          img.onerror = function () {
+            img.onerror = null;
+            img.setAttribute("src", lightSrc);
+          };
+        } else {
+          img.onerror = null;
+        }
       }
       // 暗色壁纸独立位置（object-position）：配置了 data-theme-position 时覆盖，
       // 否则沿用亮色位置

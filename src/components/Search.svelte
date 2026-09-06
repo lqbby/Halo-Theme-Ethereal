@@ -203,7 +203,7 @@
     />
   </div>
 
-  <div class="overflow-y-auto" style="max-height: calc(100vh - 132px)">
+  <div class="overflow-y-auto" style="max-height: calc(100dvh - 132px)">
     {#if isSearching}
       <!-- 状态消息是真实内容而非装饰，用更高对比度的 text-50 -->
       <div class="px-3 py-3 text-sm text-50">{t("search.loading", "搜索中...")}</div>

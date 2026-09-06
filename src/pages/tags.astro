@@ -35,7 +35,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
           th:each="tag : ${tags}"
           th:href="@{${tag.status.permalink}}"
           th:style="|--tag-depth: ${(tag.postCount ?: 0) >= 6 ? 1 : (tag.postCount ?: 0) * 0.2}|"
-          class="tag-item group inline-flex items-center gap-1.5 rounded-lg h-8 text-sm px-3 transition-all duration-200 hover:scale-105 hover:shadow-md"
+          class="tag-item tag-chip group inline-flex items-center gap-1.5 rounded-lg h-8 text-sm px-3 transition-all duration-200"
         >
           <span class="font-medium"
             ><span class="opacity-50">#</span><span
@@ -47,6 +47,12 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
             th:text="${tag.postCount ?: 0}">0</span
           >
         </a>
+        <p
+          th:if="${#lists.isEmpty(tags)}"
+          class="w-full py-6 text-center text-30 text-sm"
+        >
+          暂无标签
+        </p>
       </div>
     </div>
   </div>
@@ -181,6 +187,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       var(--primary) calc(var(--tag-depth, 0) * 30% + 15%),
       transparent
     );
-    color: #fff;
+    color: var(--on-primary);
   }
 </style>

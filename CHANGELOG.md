@@ -2,6 +2,54 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.60] - 2026-09-06
+
+### 魔改组件设计语言对齐修复（暗色对比度 / 无效变量 / 硬编码）
+
+对魔改新增的弹窗、卡片、空状态与标签组件做交叉对比，找出脱离原设计语言处并做对齐修复（复用现有 token，不新增样式）：
+
+1. **主色底白字暗色反色**（`--primary` 恒为中亮色，白字亮暗均不达标，统一改用项目已有的 `--on-primary` 深色前景）：
+   - `post-share.ts` 分享弹窗「保存图片」、`external-link-modal.css` 外链「继续访问」、`link-apply-modal.css` 友链「提交」，`color:#fff` → `color:var(--on-primary)`。
+   - `tags.astro` 标签云数字徽章、`categories.astro` 分类胶囊 hover 态同样接入 `--on-primary`（分类胶囊亮色保留白字、暗色 `:root.dark` 反色）。
+2. **无效 `var(--text-50)` 修正**（`--text-50` 非 CSS 变量，恒回退 #999）：弹窗关闭按钮 ×4（`post-share.ts` / `post-reward.ts` / `link-apply-modal.css` / `profile-status.css`）→ `var(--deep-text)`；`portfolio-detail.astro` 引用块无回退声明 → `color-mix(var(--deep-text) 60%)`。
+3. **无效 `text-20` 类修正**（类不存在）：`friends.astro` / `photo.astro` / `schedule-calendar.astro` → `text-30`。
+4. **空状态对齐**：`timeline.astro` / `skills.astro` 筛选空状态硬编码黑/白 → `text-30`/`text-50`（与同页未配置空状态一致）；`moments.astro` 空状态补图标 + `py-16`。
+5. **卡片描边对齐**：`timeline.astro` / `skills.astro` 卡片 `border-black/10` → `btn-card-outline`（对齐朋友圈/说说主色描边）；`PostCard.astro` 分隔线 `dark:border-white/15` → `/10`。
+6. **弹窗层级/圆角对齐**：`external-link-modal.css` / `link-apply-modal.css` z-index `9999` → `99999`（对齐分享/打赏弹窗）；`post-share.ts` / `post-reward.ts` 弹窗 `--radius-large` 回退值 `20px` → `16px`。
+7. **标签交互对齐**：`tags.astro` 标签云 hover `scale+shadow` → 复用全局 `.tag-chip`（上浮+光晕）；`photo.astro` 标签 chip `rounded-lg` → `rounded-md`。
+
+## [v1.3.59] - 2026-09-06
+
+### UI/UX 专项审查修复：暗色对比度 + 硬编码 token 对齐 + 空状态
+
+对主题做全站 UI/UX 专项审查后，修复一批「暗色对比度崩坏 / 硬编码偏离 token / 空状态缺失」问题（均一两行局部对齐，复用现有 CSS 变量，不动架构）：
+
+1. **暗色对比度**（`--primary` 底色徽章漏 `dark:` 适配，暗色下白字几乎不可见）：
+   - `links.astro` 申请步骤序号、`bangumis.astro` 番剧状态徽章、`PopularPosts.astro` Top3 序号，统一补 `dark:text-black/70`（对齐 Pagination/FilterTab 的标准写法）。
+2. `post-reward.ts` 打赏文案 `var(--text-75,#666)` 引用了**不存在的变量**（只有 `.text-75` 类）→ 改 `var(--deep-text,#666)`。
+3. **空状态缺失**：`categories.astro` / `tags.astro` 分类胶囊墙/标签云为空时渲染空白卡片 → 补「暂无分类/暂无标签」提示（对齐 archives/bangumis 硬编码先例）。
+4. **硬编码 token 对齐**：
+   - `timeline.astro` 进行中绿色 `#22c55e` → 抽成语义变量 `--timeline-current`（variables.css，沿用 `--upvote-error` 先例）。
+   - `components.css` 摘要 `.summary-content` 暗色 `rgba(255,255,255,0.75)` 硬编码覆盖删除，统一走 `--deep-text`。
+   - `MusicPlayer.astro` 加载遮罩 `dark:bg-[#1e1e1e]/60` → `dark:bg-(--card-bg)/60`。
+   - `FilterTab.astro` 筛选 tab `rounded-[10px]` 硬编码 → `rounded-xl`（对齐 CategoryBar）。
+   - `Search.svelte` 结果面板 `100vh` → `100dvh`（移动端地址栏展开时不被遮挡）。
+
+## [v1.3.58] - 2026-09-06
+
+### 代码审计修复：暗色壁纸裂图回退 / 分享弹窗残留 / 收款码裂图
+
+对主题源码做全量审计后，修复三处局部问题（均为一两行，不动架构）：
+
+1. `banner-theme-switch.ts`：切暗色主题时 `img.src` 直接赋暗色壁纸 URL，无 `onerror`
+   回退。暗色壁纸图失效（图床挂 / URL 改 / 未配暗色图）时 banner 会裂图。修复：切暗色
+   且存在亮色 `data-light-src` 时挂 `onerror`，失败回退亮色并置空 handler 防循环。
+2. `post-share.ts`：`createModal` 开头的 `getElementById("post-share-modal")` 清理是
+   死代码（`card` 从未设 `id`）。修复：创建 `card` 后补 `card.id = "post-share-modal"`，
+   让既有清理逻辑生效。
+3. `post-reward.ts`：收款码 `img.src` 无 `onerror` 兜底，附件被删后弹窗裂图。修复：
+   `img.onerror` 隐藏裂图并置空 handler。
+
 ## [v1.3.57] - 2026-09-06
 
 ### 疾速档入场位移归零，消除「拉到底部刷新」时的元素跳动

@@ -233,9 +233,11 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 
     <div
       th:if="${#lists.isEmpty(moments.items)}"
-      class="py-12 text-center text-50"
+      class="py-16 text-center text-50"
     >
-      <span th:text="#{page.moments.empty}">暂无瞬间</span>
+      <span class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
+      ></span>
+      <p class="mt-4 text-sm" th:text="#{page.moments.empty}">暂无瞬间</p>
     </div>
   </section>
 

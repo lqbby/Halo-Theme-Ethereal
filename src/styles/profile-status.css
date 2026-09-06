@@ -141,7 +141,7 @@
   border-radius: 0.5rem;
   cursor: pointer;
   font-size: 1.25rem;
-  color: var(--text-50, #999);
+  color: var(--deep-text, #333);
   background: transparent;
   transition:
     transform 0.25s ease,

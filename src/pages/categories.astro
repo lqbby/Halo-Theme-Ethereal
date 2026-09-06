@@ -48,6 +48,12 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         th:text="${category.postCount ?: 0}">0</span
       >
     </a>
+    <p
+      th:if="${#lists.isEmpty(categories)}"
+      class="w-full py-6 text-center text-30 text-sm"
+    >
+      暂无分类
+    </p>
   </div>
 
   <!-- 互动脚本：文章数数字滚动 -->
@@ -157,6 +163,13 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     .cat-pill:hover .cat-pill-count {
       background: rgb(255 255 255 / 0.22);
       color: #fff;
+    }
+    /* 暗色反色：暗色下主色渐变底变浅，白字对比不足，改用深色前景 */
+    :root.dark .cat-pill:hover {
+      color: var(--on-primary);
+    }
+    :root.dark .cat-pill:hover .cat-pill-count {
+      color: var(--on-primary);
     }
     /* 可访问性 */
     .cat-pill:focus-visible {
