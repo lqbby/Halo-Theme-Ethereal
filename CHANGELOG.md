@@ -2,6 +2,56 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.54] - 2026-09-06
+
+### 代码审计整改：修复 13 项真实问题、清理 1 项调试遗留（基线 30f60b6 两轮审计）
+
+按「合并去误报版审计报告」逐条整改。已修复的中/低危问题：
+
+**中危（4）**
+
+- **暗色首访免重复下载 banner 大图**：桌面单图与轮播首帧原为「SSR 固定亮色 `th:src` +
+  `loading=eager`，暗色图只放 `data-theme-src` 由脚本换」→ 暗色访客每次首访多拉一张亮色图。
+  改为 `<picture>` + `<source media="(prefers-color-scheme: dark)">`，浏览器解析期直接按 OS
+  偏好选暗色图；`banner-theme-switch.ts` 首次接管时移除 source，交还 `img.src` 控制权
+  （手动切换/显式主题仍以 `html.dark` 为准）。`display:contents` 保持原布局不变。
+- **一言 `AbortSignal.timeout` 老内核兼容**：旧内核（QQ/X5/TBS，Chromium <103）无该方法，
+  直接调用会在 `fetch` 前同步抛 TypeError（不被 `.catch` 捕获）→ 卡片永久「加载中」。
+  改用 `AbortController + setTimeout`，落定后清定时器。
+- **音乐播放器歌单请求超时**：`fetchMetingData` 无超时，弱网/代理挂起时 Promise 永不落定、
+  加载态一直转。加 `AbortController` 15s 超时（`finally` 清定时器）。
+- **归档/番剧页 popstate 监听累积**：内联脚本位于 Swup 容器内、每次换页克隆重执行，
+  `addEventListener("popstate")` 随导航次数累积 N 份 → 后退一次并发 N 份 `loadArchive`。
+  改全局守卫只绑一次，经 `window.__etherealArchiveLoad` / `__etherealBangumiLoad` 转发到
+  最新一次执行的 `loadArchive`。
+
+**低危（9）**
+
+- `RecentComments` 的 `__themeSafeFetch` 全仓库未定义（超时设计从未落地）→ 改为自包含
+  `AbortController + setTimeout`（默认 8s），并移除同样未定义的 `renderWidgetError` 分支。
+- `PopularPosts` 未走视口懒加载（与 Weather/Hitokoto/RecentComments/SiteStats 不一致）→
+  改 `window.__themeLazyInit("popular-posts-list", loadPopularPosts)`。
+- `post.astro` 点赞块对 `post.stats` 判空不一致（顶部有 `!= null` 守卫、点赞块无）→
+  `post.stats?.upvote ?: 0` 补空安全。
+- `random-fish` 抓朋友圈页无超时 → 连接挂起时按钮卡「正在钓」，加 8s 超时。
+- `upvote` 对 `localStorage` 无 try/catch → 隐私模式/禁存储下 SecurityError 中断初始化，
+  加 `storageGet/Set/Remove` 安全包装。
+- 换肤/语言兜底以文案正则猜模式（`/亮|Light/` 等）→ 非拉丁/自定义 i18n 文案即失效。
+  `LightDarkSwitch.svelte` / `LanguageSwitch.svelte` 加 `data-mode` / `data-lang` 属性，
+  兜底直接读属性。
+- `#comment` 懒加载 IO 换页未 disconnect → 每篇「没滚到评论区就离开」的文章滞留一个 IO +
+  旧 DOM 引用。`commentLazyIo` 提升到模块级，每次 `initCommentLazyLoad` 开头先断开上一次。
+- 归档/番剧局部加载无超时中止 → 弱网 `loading` 恒 true、tab 点击被丢弃、后退 URL 与 UI
+  不一致。`loadArchive` 的 fetch 加 10s 超时，超时走整页跳转兜底。
+- 诊断探针（QQ/X5 兼容调试遗留，`?ethereal-diag=1` 弹浮条）已整体删除。
+
+**暂缓/不修复（2，架构性高代价低收益）**
+
+- `theme.config` 全量下发冗余：仅自用主题、非漏洞（Key 已降级为低），改为按页白名单注入
+  会牵动所有客户端 `#theme-config` 消费方，风险高于收益。
+- 站内 i18n 经 `[(...)]`（Thymeleaf JS inlining，已转义）注入，`</script>` 闭合风险极低
+  （仅站长可控翻译源）；补 `</` 转义会触发 attoparser 解析期 500（`Layout.astro` 内已注释）。
+
 ## [v1.3.53] - 2026-09-05
 
 ### 修复：定位落点可能被重复滚动（settle/maxTimer 双重触发 doScroll）

@@ -385,12 +385,20 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         exitTimer = setTimeout(onExit, 400);
         current.classList.add("archive-list-exit");
 
-        fetch(url, { cache: "no-store" })
+        // 请求超时兜底：弱网 fetch 挂起时 loading 恒 true，后续 tab 点击被丢弃、
+        // 后退 URL 与 UI 不一致；超时后 abort → catch 整页跳转兜底。
+        var controller = new AbortController();
+        var fetchTimer = setTimeout(function () {
+          controller.abort();
+        }, 10000);
+
+        fetch(url, { cache: "no-store", signal: controller.signal })
           .then(function (r) {
             if (!r.ok) throw new Error("HTTP " + r.status);
             return r.text();
           })
           .then(function (html) {
+            clearTimeout(fetchTimer);
             var doc = new DOMParser().parseFromString(html, "text/html");
             incoming = doc.getElementById("archive-list");
             if (!incoming) {
@@ -401,6 +409,7 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
             swap();
           })
           .catch(function () {
+            clearTimeout(fetchTimer);
             loading = false;
             window.location.href = url;
           });
@@ -431,13 +440,23 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       }
 
       // 浏览器前进/后退：仍在归档页则按当前 URL 局部恢复，否则整页刷新。
-      window.addEventListener("popstate", function () {
-        if (window.location.pathname.replace(/\/+$/, "") === "/archives") {
-          loadArchive(window.location.href);
-        } else {
-          window.location.reload();
-        }
-      });
+      // 本脚本位于 Swup 容器内、每次换页克隆重执行，若不加守卫会随导航次数
+      // 累积 N 份 popstate 监听 → 后退一次并发 N 份 loadArchive。守卫只绑一次，
+      // 但闭包里的 loading/exitTimer 属旧 IIFE，故经 window.__etherealArchiveLoad
+      // 转发到「最新一次执行」的 loadArchive（其 DOM 查询本就每次全新获取，
+      // 保证操作当前 #archive-list）。
+      window.__etherealArchiveLoad = loadArchive;
+      if (!window.__etherealArchivePopstateBound) {
+        window.__etherealArchivePopstateBound = true;
+        window.addEventListener("popstate", function () {
+          if (window.location.pathname.replace(/\/+$/, "") === "/archives") {
+            var load = window.__etherealArchiveLoad;
+            if (load) load(window.location.href);
+          } else {
+            window.location.reload();
+          }
+        });
+      }
     })();
   </script>
 </MainGridLayout>

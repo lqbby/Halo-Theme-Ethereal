@@ -54,10 +54,32 @@ const COLLAPSED_HEIGHT = "7.5rem";
     if (!listEl) return;
 
     function safeFetch(url, opts, timeout) {
-      var SF = window.__themeSafeFetch;
-      if (SF && SF.safeFetch)
-        return SF.safeFetch(url, opts || {}, timeout || 8000);
-      return fetch(url, opts);
+      // 自包含超时兜底：此前依赖 window.__themeSafeFetch.safeFetch，但该助手全仓库
+      // 从未定义，实际退化为无超时的裸 fetch —— 网络挂起时评论区永久「加载中」。
+      // 直接用 AbortController + setTimeout 实现超时（默认 8s），请求落定后清定时器。
+      var ms = timeout || 8000;
+      var controller = new AbortController();
+      var timer = setTimeout(function () {
+        controller.abort();
+      }, ms);
+      function clearTimer() {
+        clearTimeout(timer);
+      }
+      var merged = {};
+      for (var k in opts) {
+        if (Object.prototype.hasOwnProperty.call(opts, k)) merged[k] = opts[k];
+      }
+      merged.signal = controller.signal;
+      return fetch(url, merged).then(
+        function (res) {
+          clearTimer();
+          return res;
+        },
+        function (err) {
+          clearTimer();
+          throw err;
+        },
+      );
     }
 
     function fmtRelative(dateStr) {
@@ -261,12 +283,8 @@ const COLLAPSED_HEIGHT = "7.5rem";
     }
 
     function showError() {
-      var SF = window.__themeSafeFetch;
-      var box = document.getElementById("recent-comments");
-      if (SF && SF.renderWidgetError && box) {
-        SF.renderWidgetError(box, "评论加载失败");
-        return;
-      }
+      // 原依赖 window.__themeSafeFetch.renderWidgetError（全仓库未定义），直接落
+      // 内联兜底文案。
       listEl.innerHTML =
         '<div class="px-2 py-3 text-center text-xs text-neutral-400">评论加载失败</div>';
     }

@@ -11,6 +11,7 @@ import TOC from "../components/widget/TOC.astro";
 import {
   bannerMobileThWith,
   bannerThWith,
+  carouselDarkSrcsetAttrExpr,
   carouselImgSrcExpr,
   carouselMobileSlideAttrExpr,
   carouselSlideAttrExpr,
@@ -138,17 +139,31 @@ const {
           只能靠 banner-src-switch.js 运行时补救 → requestDiscoverable:false，
           resourceLoadDelay 高达 1.4s（Lighthouse 2026-09-02 实测）。
           隐藏端（移动端 #banner-mobile）本就有 display:none 天然不下载，
-          无需对桌面首图做 lazy 降级。 -->
-      <img
-        th:src="${srcX}"
-        th:alt="${site.title}"
-        th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
-        th:attr="loading=eager,fetchpriority=high,data-theme-src=${darkSrcX},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
-        decoding="async"
-        class="h-full w-full object-cover"
-        alt=""
-        draggable="false"
-      />
+          无需对桌面首图做 lazy 降级。
+          暗色首访免重复下载：<picture> 内 <source media="(prefers-color-scheme:
+          dark)"> 让浏览器解析期直接按 OS 偏好选暗色图（覆盖 AUTO 模式 + OS 暗色
+          的主流暗色场景），不再先拉亮色大图再由 JS 二次换成暗色；手动切换/显式
+          主题仍由 banner-theme-switch.js 接管（其首次运行时移除本 source，见
+          banner-theme-switch.ts）。display:contents 让 picture 不产生盒，img
+          保持原布局（h-full w-full 相对 #banner 解析）。 -->
+      <picture class="contents">
+        <source
+          th:if="${darkSrcX != ''}"
+          media="(prefers-color-scheme: dark)"
+          data-ethereal-theme-dark
+          th:attr="srcset=${darkSrcX}"
+        />
+        <img
+          th:src="${srcX}"
+          th:alt="${site.title}"
+          th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
+          th:attr="loading=eager,fetchpriority=high,data-theme-src=${darkSrcX},data-theme-position=${theme.config?.style?.bannerStyle?.darkPosition ?: 'center'}"
+          decoding="async"
+          class="h-full w-full object-cover"
+          alt=""
+          draggable="false"
+        />
+      </picture>
     </div>
     <div
       id="banner"
@@ -184,17 +199,32 @@ const {
       th:if="${mode == 'carousel'}"
       class="banner-reveal relative h-full w-full overflow-hidden opacity-0 scale-105 transition duration-[var(--dur-banner,700ms)]"
     >
-      <img
+      <!-- 轮播暗色首访免重复下载：<source media="(prefers-color-scheme: dark)">
+           解析期按 OS 偏好直接选暗色首帧；手动切换/显式主题由
+           banner-theme-switch.js 接管（首次运行时移除 source）。
+           th:each 置于 <picture> 上，循环变量 img/imgStat 对 source 与 img
+           子元素均可见（与 imgStat.index 判断首帧 eager 保持一致）。 -->
+      <picture
         th:each="img, imgStat : ${theme.config?.style?.bannerStyle?.carousel?.images}"
-        th:src={carouselImgSrcExpr()}
-        th:alt="${site.title}"
-        th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
-        th:classappend="${imgStat.index == 0 ? 'active' : ''}"
-        th:attr={carouselSlideAttrExpr()}
-        decoding="async"
-        class="banner-slide absolute inset-0 h-full w-full object-cover"
-        draggable="false"
-      />
+        class="contents"
+      >
+        <source
+          th:if="${#lists.size(theme.config?.style?.bannerStyle?.carousel?.darkImages) > imgStat.index}"
+          media="(prefers-color-scheme: dark)"
+          data-ethereal-theme-dark
+          th:attr={carouselDarkSrcsetAttrExpr()}
+        />
+        <img
+          th:src={carouselImgSrcExpr()}
+          th:alt="${site.title}"
+          th:style="|object-position: ${theme.config?.style?.bannerStyle?.position ?: 'center'}|"
+          th:classappend="${imgStat.index == 0 ? 'active' : ''}"
+          th:attr={carouselSlideAttrExpr()}
+          decoding="async"
+          class="banner-slide absolute inset-0 h-full w-full object-cover"
+          draggable="false"
+        />
+      </picture>
     </div>
     <div
       id="banner-mobile"

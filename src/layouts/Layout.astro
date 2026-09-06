@@ -292,69 +292,6 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         };
       })();
     </script>
-    <!-- QQ/X5 内核兼容诊断探针：捕获模块解析/运行时错误并浮层显示，
-         用于定位老内核（如 QQ 内置浏览器 TBS）不执行 JS 的真实报错。
-         正常环境不弹条；确认根因后可整体删除本块。 -->
-    <script is:inline>
-      (function () {
-        if (window.__etherealDiagBound) return;
-        window.__etherealDiagBound = true;
-        function show(msg) {
-          // 仅当显式开启诊断时才弹浮层，避免干扰正常访客。
-          // 开启方式：URL 追加 ?ethereal-diag=1，或 console 执行 localStorage.setItem("ethereal-diag","1")
-          try {
-            var __diagOn =
-              /[?&]ethereal-diag=1\b/.test(location.search) ||
-              (window.localStorage &&
-                localStorage.getItem("ethereal-diag") === "1");
-            if (!__diagOn) return;
-          } catch (e) {}
-          if (window.__etherealDiagShown) return;
-          window.__etherealDiagShown = true;
-          var bar = document.createElement("div");
-          bar.id = "ethereal-diag-bar";
-          bar.style.cssText =
-            "position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;max-height:42vh;overflow:auto;background:#b91c1c;color:#fff;font:12px/1.5 ui-monospace,monospace;padding:10px 12px;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.45)";
-          bar.textContent =
-            "[Ethereal 诊断] " + msg + "  | UA: " + navigator.userAgent;
-          (document.body || document.documentElement).appendChild(bar);
-        }
-        window.addEventListener(
-          "error",
-          function (e) {
-            // 资源（img/script/link）加载失败不弹条，仅打 console
-            if (
-              e &&
-              e.target &&
-              e.target.tagName &&
-              (e.target.tagName === "IMG" ||
-                e.target.tagName === "SCRIPT" ||
-                e.target.tagName === "LINK")
-            ) {
-              console.warn(
-                "[Ethereal diag] resource failed:",
-                e.target.src || e.target.href,
-              );
-              return;
-            }
-            var m = e && e.message ? e.message : "unknown error";
-            if (e && e.filename)
-              m += "  @ " + e.filename + ":" + (e.lineno || "?");
-            console.error("[Ethereal diag]", m, e);
-            show(m);
-          },
-          true,
-        );
-        window.addEventListener("unhandledrejection", function (e) {
-          var r =
-            e && e.reason
-              ? e.reason.stack || e.reason.message || e.reason
-              : "unhandledrejection";
-          console.error("[Ethereal diag]", r);
-          show(String(r));
-        });
-      })();
-    </script>
     <script th:inline="javascript">
       // Thymeleaf 运行时注入后台配色配置（Elvis 操作符同时覆盖两种可能的路径）
       var __ecs =
@@ -943,10 +880,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           schemePanel.querySelectorAll("button").forEach(function (btn) {
             btn.addEventListener("click", function (e) {
               e.stopPropagation();
-              var txt = btn.textContent.trim();
-              var mode = "auto";
-              if (/亮|Light/i.test(txt)) mode = "light";
-              else if (/暗|Dark/i.test(txt)) mode = "dark";
+              // 直接读 data-mode（由 LightDarkSwitch.svelte 注入），不再用文案正则猜
+              // —— 非拉丁/自定义 i18n 文案下正则失效会误判为 auto。
+              var mode = btn.getAttribute("data-mode") || "auto";
               try {
                 localStorage.setItem("theme", mode);
                 localStorage.setItem("__user_chose_theme", "1");
@@ -974,10 +910,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           langPanel.querySelectorAll("button").forEach(function (btn) {
             btn.addEventListener("click", function (e) {
               e.stopPropagation();
-              var txt = btn.textContent.trim();
-              var code = "zh-CN";
-              if (/繁|TW/i.test(txt)) code = "zh-TW";
-              else if (/English|英/i.test(txt)) code = "en";
+              // 直接读 data-lang（由 LanguageSwitch.svelte 注入），不再用文案正则猜
+              // —— 非拉丁/自定义 i18n 文案下正则失效会误判为 zh-CN。
+              var code = btn.getAttribute("data-lang") || "zh-CN";
               try {
                 if (window.__etherealSetLanguage)
                   window.__etherealSetLanguage(code);

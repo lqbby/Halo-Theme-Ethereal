@@ -222,7 +222,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
                 class="btn-card group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg active:scale-95"
                 th:classappend="${theme.config?.post?.actionBar?.like == false ? ' pointer-events-none' : ''}"
                 th:attr="data-post=${post.metadata.name}"
-                th:data-count="${post.stats.upvote}"
+                th:data-count="${post.stats?.upvote ?: 0}"
                 aria-label="点赞"
                 th:aria-label="#{post.like}"
               >
@@ -233,7 +233,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
                 <span
                   id="post-like-count"
                   class="absolute -top-1 -right-1 hidden min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[0.65rem] font-bold leading-4 text-white group-[.liked]:flex"
-                  th:text="${post.stats.upvote > 0 ? post.stats.upvote : ''}"
+                  th:text="${(post.stats?.upvote ?: 0) > 0 ? post.stats?.upvote : ''}"
                 ></span>
               </button>
               <div class="flex-1 min-w-0">

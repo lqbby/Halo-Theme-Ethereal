@@ -202,6 +202,8 @@ const MAX_POSTS = 5;
         });
     }
 
-    loadPopularPosts();
+    // 视口懒加载：与 Weather/Hitokoto/RecentComments/SiteStats 一致，容器进入
+    // 可视区（提前 300px）才发列表请求，首屏外不再无条件拉取。
+    window.__themeLazyInit("popular-posts-list", loadPopularPosts);
   })();
 </script>

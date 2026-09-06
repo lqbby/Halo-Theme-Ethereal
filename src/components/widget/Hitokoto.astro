@@ -167,8 +167,20 @@ const className = Astro.props.class;
       var CACHE_KEY = "hitokoto_cache_" + encodeURIComponent(API);
 
       function fetchHitokoto() {
-        return fetch(API, { signal: AbortSignal.timeout(5000) })
+        // AbortSignal.timeout 在旧内核（QQ/X5/TBS，Chromium <103）不存在，
+        // 直接调用会在 fetch 前同步抛 TypeError、且不被下方 .catch 捕获，
+        // 卡片永久卡「加载中」；改用 AbortController + setTimeout 兜底
+        // （AbortController 全内核可用），请求落定后清理定时器避免泄漏。
+        var controller = new AbortController();
+        var timer = setTimeout(function () {
+          controller.abort();
+        }, 5000);
+        function clearTimer() {
+          clearTimeout(timer);
+        }
+        return fetch(API, { signal: controller.signal })
           .then(function (resp) {
+            clearTimer();
             if (!resp.ok) throw new Error("Network response was not ok.");
             var contentType = resp.headers.get("content-type") || "";
             // JSON 响应：兼容 hitokoto 标准字段与常见自定义字段
@@ -196,6 +208,7 @@ const className = Astro.props.class;
             });
           })
           .catch(function (e) {
+            clearTimer();
             console.warn("一言获取失败，使用默认句子", e.message);
             return {
               content: fallbackText,

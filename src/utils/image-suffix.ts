@@ -211,6 +211,19 @@ export function carouselDarkImgSrcExpr(
 }
 
 /**
+ * 生成轮播幻灯片 <picture> 内暗色 <source> 的 srcset th:attr 串。
+ * 用于暗色首访免重复下载（见 MainGridLayout.astro 轮播）：<source
+ * media="(prefers-color-scheme: dark)"> 让浏览器解析期直接按 OS 偏好选
+ * 暗色图，避免先拉亮色首帧再由 JS 换成暗色。同样必须用无引号花括号
+ * `th:attr={carouselDarkSrcsetAttrExpr()}` 输出，理由见 carouselSlideAttrExpr。
+ */
+export function carouselDarkSrcsetAttrExpr(
+  listExpr = "theme.config?.style?.bannerStyle?.carousel?.darkImages",
+): string {
+  return "srcset=" + carouselDarkImgSrcExpr(listExpr);
+}
+
+/**
  * 轮播幻灯片 <img> 的完整 th:attr 串（桌面端）。
  *
  * ⚠️ 必须整体由 JS 生成、用「无引号花括号」`th:attr={carouselSlideAttrExpr()}` 输出：

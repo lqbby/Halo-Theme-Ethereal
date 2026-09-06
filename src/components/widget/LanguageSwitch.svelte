@@ -101,6 +101,7 @@
         role="menuitem"
         class="flex transition whitespace-nowrap items-center !justify-start w-full btn-plain scale-animation rounded-lg h-9 px-3 font-medium active:scale-95 {i < LANGS.length - 1 ? 'mb-0.5' : ''}"
         class:current-theme-btn={currentLang === lang.code}
+        data-lang={lang.code}
         onclick={() => switchLang(lang.code)}
       >
         <div class="{lang.icon} text-[1.25rem] mr-3"></div>

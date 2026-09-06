@@ -565,7 +565,18 @@ function trackCommentReady(box: HTMLElement) {
   setTimeout(finish, COMMENT_READY_TIMEOUT);
 }
 
+// 评论懒加载 IO 跨页共享引用：未滚到评论区就离开时，旧页 IO 仍观察着已被
+// Swup 替换掉的旧 #comment 节点，每篇滞留一个 IO + 旧 DOM 引用。故提升到
+// 模块级，每次 initCommentLazyLoad 开头先断开上一次的 IO 再创建新的。
+let commentLazyIo: IntersectionObserver | null = null;
+
 function initCommentLazyLoad() {
+  // 换页清理：断开上一次（上一页）的 IO，避免滞留旧 DOM。须放在早退判断之前，
+  // 保证新页无 #comment（如首页/归档）时也能清掉上一篇遗留的 IO。
+  if (commentLazyIo) {
+    commentLazyIo.disconnect();
+    commentLazyIo = null;
+  }
   const box = document.getElementById("comment");
   const tpl = document.getElementById(
     "comment-lazy-template",
@@ -588,16 +599,17 @@ function initCommentLazyLoad() {
     adopt();
     return;
   }
-  const io = new IntersectionObserver(
+  commentLazyIo = new IntersectionObserver(
     (entries) => {
       if (entries.some((e) => e.isIntersecting)) {
-        io.disconnect();
+        commentLazyIo?.disconnect();
+        commentLazyIo = null;
         adopt();
       }
     },
     { rootMargin: "400px" },
   );
-  io.observe(box);
+  commentLazyIo.observe(box);
 }
 
 // ── 初始化 ──

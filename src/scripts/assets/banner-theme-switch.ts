@@ -18,6 +18,23 @@ import { onPageView } from "../../utils/once";
   // 对应的那份。首次切换前记录亮色 src（data-light-src）与位置
   // （data-light-position），恢复时无需依赖 SSR 原值。
   function swap() {
+    // 移除 <picture> 内的暗色 <source>：source 只在解析期按 prefers-color-scheme
+    // 帮暗色访客少拉一张亮色图（AUTO 模式 + OS 暗色）；本脚本是 defer，运行到
+    // 此时 html.dark 已由 <head> 内联脚本确定，此后主题状态（手动切换/显式主题）
+    // 一律以 html.dark 为准，故移除 source 交还 img.src 控制权，避免浏览器按
+    // OS 偏好覆盖 JS 设的 src。带 data-ethereal-theme-dark 标记的才是主题暗色
+    // source，避免误删其它 source。
+    if (!window.__etherealBannerThemeSourceDisabled) {
+      window.__etherealBannerThemeSourceDisabled = true;
+      var sources = document.querySelectorAll(
+        "#banner picture > source[data-ethereal-theme-dark], #banner-mobile picture > source[data-ethereal-theme-dark]",
+      );
+      for (var s = 0; s < sources.length; s++) {
+        if (sources[s].parentNode) {
+          sources[s].parentNode.removeChild(sources[s]);
+        }
+      }
+    }
     var dark = isDark();
     var imgs = document.querySelectorAll(
       "#banner img[data-theme-src], #banner-mobile img[data-theme-src]",

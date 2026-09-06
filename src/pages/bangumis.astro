@@ -316,12 +316,20 @@ const stats = [
         setActiveTab(url);
         history.pushState({ bangumiFilter: true }, "", url);
 
-        fetch(url, { cache: "no-store" })
+        // 请求超时兜底：弱网 fetch 挂起时 loading 恒 true，后续 tab 点击被丢弃、
+        // 后退 URL 与 UI 不一致；超时后 abort → catch 整页跳转兜底。
+        var controller = new AbortController();
+        var fetchTimer = setTimeout(function () {
+          controller.abort();
+        }, 10000);
+
+        fetch(url, { cache: "no-store", signal: controller.signal })
           .then(function (r) {
             if (!r.ok) throw new Error("HTTP " + r.status);
             return r.text();
           })
           .then(function (html) {
+            clearTimeout(fetchTimer);
             var doc = new DOMParser().parseFromString(html, "text/html");
             var incoming = doc.getElementById("bangumi-list");
             if (!incoming) {
@@ -340,6 +348,7 @@ const stats = [
             loading = false;
           })
           .catch(function () {
+            clearTimeout(fetchTimer);
             loading = false;
             window.location.href = url;
           });
@@ -369,13 +378,22 @@ const stats = [
       }
 
       // 浏览器前进/后退：仍在番剧页则按当前 URL 局部恢复，否则整页刷新。
-      window.addEventListener("popstate", function () {
-        if (window.location.pathname.replace(/\/+$/, "") === "/bangumis") {
-          loadArchive(window.location.href);
-        } else {
-          window.location.reload();
-        }
-      });
+      // 本脚本位于 Swup 容器内、每次换页克隆重执行，若不加守卫会随导航次数
+      // 累积 N 份 popstate 监听 → 后退一次并发 N 份 loadArchive。守卫只绑一次，
+      // 闭包里的 loading 属旧 IIFE，故经 window.__etherealBangumiLoad 转发到
+      // 「最新一次执行」的 loadArchive（其 DOM 查询每次全新获取，操作当前 #bangumi-list）。
+      window.__etherealBangumiLoad = loadArchive;
+      if (!window.__etherealBangumiPopstateBound) {
+        window.__etherealBangumiPopstateBound = true;
+        window.addEventListener("popstate", function () {
+          if (window.location.pathname.replace(/\/+$/, "") === "/bangumis") {
+            var load = window.__etherealBangumiLoad;
+            if (load) load(window.location.href);
+          } else {
+            window.location.reload();
+          }
+        });
+      }
     })();
   </script>
 </MainGridLayout>

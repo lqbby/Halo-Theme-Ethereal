@@ -99,6 +99,7 @@
          菜单的直接子项需为 menuitem，否则触发 aria-required-children 违规） -->
     <button role="menuitem" class="flex transition whitespace-nowrap items-center !justify-start w-full btn-plain scale-animation rounded-lg h-9 px-3 font-medium active:scale-95 mb-0.5"
             class:current-theme-btn={mode === LIGHT_MODE}
+            data-mode={LIGHT_MODE}
             onclick={() => switchScheme(LIGHT_MODE)}
     >
       <div class="icon-[material-symbols--wb-sunny-outline-rounded] text-[1.25rem] mr-3"></div>
@@ -106,6 +107,7 @@
     </button>
     <button role="menuitem" class="flex transition whitespace-nowrap items-center !justify-start w-full btn-plain scale-animation rounded-lg h-9 px-3 font-medium active:scale-95 mb-0.5"
             class:current-theme-btn={mode === DARK_MODE}
+            data-mode={DARK_MODE}
             onclick={() => switchScheme(DARK_MODE)}
     >
       <div class="icon-[material-symbols--dark-mode-outline-rounded] text-[1.25rem] mr-3"></div>
@@ -113,6 +115,7 @@
     </button>
     <button role="menuitem" class="flex transition whitespace-nowrap items-center !justify-start w-full btn-plain scale-animation rounded-lg h-9 px-3 font-medium active:scale-95"
             class:current-theme-btn={mode === AUTO_MODE}
+            data-mode={AUTO_MODE}
             onclick={() => switchScheme(AUTO_MODE)}
     >
       <div class="icon-[material-symbols--radio-button-partial] text-[1.25rem] mr-3"></div>

@@ -103,8 +103,18 @@ import { t } from "../../utils/i18n";
   // 当前页无朋友圈文章（不在朋友圈页）时：抓取朋友圈页 HTML 解析文章链接，
   // 保证首页等任意页面点击钩子都能直接随机到一篇朋友圈文章（无需先跳转页面）
   function fetchFriendUrls(btn) {
-    fetch("/peng-you-quan?t=" + Date.now())
+    // 请求超时兜底：连接挂起时 fetch 永不落定，按钮会一直卡「正在钓」旋转态；
+    // AbortController + setTimeout（8s）保证超时后进 catch → stopSwing 恢复按钮。
+    var controller = new AbortController();
+    var timer = setTimeout(function () {
+      controller.abort();
+    }, 8000);
+    function clearTimer() {
+      clearTimeout(timer);
+    }
+    fetch("/peng-you-quan?t=" + Date.now(), { signal: controller.signal })
       .then(function (r) {
+        clearTimer();
         if (!r.ok) throw new Error("http " + r.status);
         return r.text();
       })
@@ -126,6 +136,7 @@ import { t } from "../../utils/i18n";
         openRandom(urls, btn, false); // 异步回调后：同标签导航，避免弹窗拦截
       })
       .catch(function (err) {
+        clearTimer();
         console.warn("[random-fish] fetch friends page failed:", err);
         alert("获取朋友圈文章失败，请稍后重试");
         stopSwing(btn);

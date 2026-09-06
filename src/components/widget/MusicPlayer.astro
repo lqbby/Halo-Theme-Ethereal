@@ -856,19 +856,28 @@ const layoutId = `${widgetId}-layout`;
         .replace(":type", encodeURIComponent(cfg.type))
         .replace(":id", encodeURIComponent(cfg.id))
         .replace(":r", String(Math.random()));
-      const response = await fetch(
-        api + (api.includes("?") ? "&" : "?") + "_t=" + Date.now(),
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      if (!Array.isArray(data) || !data.length) return [];
-      return data.map((item) => ({
-        name: item.title || item.name || "Unknown",
-        artist: item.author || item.artist || "Unknown",
-        url: item.url,
-        pic: item.pic || item.cover || "",
-        lrc: item.lrc,
-      }));
+      // 请求超时兜底：弱网/代理挂起时 fetch 永不落定，加载态会一直转；
+      // 用 AbortController（非 AbortSignal.timeout）保证旧内核可用，finally 清定时器。
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
+      try {
+        const response = await fetch(
+          api + (api.includes("?") ? "&" : "?") + "_t=" + Date.now(),
+          { signal: controller.signal },
+        );
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data) || !data.length) return [];
+        return data.map((item) => ({
+          name: item.title || item.name || "Unknown",
+          artist: item.author || item.artist || "Unknown",
+          url: item.url,
+          pic: item.pic || item.cover || "",
+          lrc: item.lrc,
+        }));
+      } finally {
+        clearTimeout(timer);
+      }
     };
 
     ui.btnPlay.addEventListener("click", togglePlay);
