@@ -155,15 +155,19 @@ html.swup-visited .bangumi-page .onload-animation {
 }
 
 /* —— 疾速档（data-speed="snappy"）——
-   入场只做纯位移（slide-in-up）、不透明门控：内容立即可读，
-   只保留一瞬"进场"运动感。错峰延迟已由上方 min(--dur-entry-max) 归零。
+   内容立即可读、完全静止显示：opacity 恒为 1（关闭透明门控），入场位移归零——
+   原 8px 位移在「拉到底部刷新」时会让底部视口内的元素（footer/卡片）做一次
+   8px 跳动，被感知为「刷新瞬间看到其他东西」。错峰延迟已由上方
+   min(--dur-entry-max) 归零。保留 slide-in-up 动画结构（位移 0 的 no-op 动画）
+   仅为触发 animationend → removeOnloadAnimation 移除 .onload-animation 类，
+   避免切档位时残留类重播 fade-in-up。
    注：banner-title/subtitle 不纳入此组——它们由 v1.3.33 重构改为跟随
    .banner-reveal（图加载完成）触发，snappy 强制 opacity:1 会让文字抢跑于
    banner 图（刷新瞬间文字悬浮空 banner 上），仅靠默认 banner-reveal 触发
    + --dur-banner 过渡与图片同步渐显（350ms snappy）即可。 */
 @keyframes slide-in-up {
   from {
-    translate: 0 8px;
+    translate: 0 0;
   }
 
   to {

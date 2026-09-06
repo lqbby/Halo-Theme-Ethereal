@@ -2,6 +2,22 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.57] - 2026-09-06
+
+### 疾速档入场位移归零，消除「拉到底部刷新」时的元素跳动
+
+snappy 档入场动画原为 `slide-in-up`（`translate: 0 8px → 0`）。「拉到底部刷新」时，
+浏览器恢复滚动位置到底部，底部视口内的 `.onload-animation` 元素（footer/文章卡片）
+会播放一次 8px 位移——被感知为「刷新瞬间看到其他东西」。
+
+修复：`slide-in-up` 的 `from` 位移由 `8px` 归零（`translate: 0 0 → 0 0`）。snappy 档
+内容完全静止、立即可读（opacity 恒 1 + 无位移）。保留 slide-in-up 动画结构（位移 0 的
+no-op 动画）仅为触发 `animationend` → `removeOnloadAnimation` 移除 `.onload-animation`
+类，避免切档位时残留类重播 `fade-in-up`。
+
+- 不影响 balanced/optimal 档（它们仍用 `fade-in-up` 位移入场）
+- banner-title/subtitle 维持 v1.3.56 的「跟随 banner 图」行为
+
 ## [v1.3.56] - 2026-09-06
 
 ### 疾速档 banner 文字抢跑于 banner 图修复
