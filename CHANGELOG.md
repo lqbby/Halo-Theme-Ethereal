@@ -2,6 +2,29 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.68] - 2026-09-07
+
+### 修复文章刷新瞬间代码块"黑闪"（1.3.67 的 :not(:defined) 选择器失效）
+
+**1.3.67 的 bug**：用 `.custom-md shiki-code:not(:defined) > pre { visibility: hidden }` 想在 halo shiki 升级前隐藏外部 `<pre>`。但实测（Playwright 抓 lqbby.com 文章页 `domcontentloaded` 后立即读 DOM）发现：
+
+- `customElements.get('shiki-code')` 已返回 class、`<shiki-code>.matches(':defined')` = **true**——**halo 的 `shiki-code.js` 是 `<script type="module">`（deferred），在 DOMContentLoaded 之前就执行了 `customElements.define("shiki-code")`**。
+- 因此首帧渲染时 `<shiki-code>` 已经是 `:defined`，`:not(:defined)` 选择器**永远匹配不到**，`visibility: hidden` 永不生效，外部 `<pre>` 仍以主题深色 `oklch(0.17)` 背景显示 = "黑闪"仍在。
+
+**真正的黑闪窗口**：`customElements.define` 同步完成后，Lit 的 render 是异步的——还要等 shiki 主题（github-light）fetch、高亮 token、渲染 shadow DOM，最后才 `setAttribute("style","display: none !important;")` 到外部 `<pre>`。这段 fetch 窗口里外部 pre 是 `display:block` + 深色 bg。
+
+**修法**：去掉 `:not(:defined)`，**无条件隐藏外部 `<pre>`**：
+
+```css
+.custom-md shiki-code > pre {
+  visibility: hidden;
+}
+```
+
+- halo render 完成后用 `display: none !important` 覆盖、shadow DOM 接管显示多色 token（外部 pre 本就该丢弃）
+- 用 `visibility: hidden`（非 `display: none`）让 pre 仍占布局，避免首帧代码块高度塌陷造成 layout shift
+- halo 升级失败时外部 pre 永久不可见——坏状态，权衡可接受
+
 ## [v1.3.67] - 2026-09-07
 
 ### 修复文章刷新瞬间代码块"黑闪"（1.3.66 修法错误，本次重新定位）
