@@ -166,6 +166,33 @@
   --admonitions-color-caution: oklch(0.65 0.2 25);
 }
 
+/* content-widgets 插件（acanyo）暗色适配补丁。
+   插件自带暗色用 `:where(.dark,[data-color-scheme=dark],[data-theme=dark])` 定义，
+   :where() 优先级为 0，被其 `:root`(0,1,0) 的亮色变量压过 → 主题 html.dark 下组件
+   仍渲染成白底深字，落深色背景看不清。这里用 `:root.dark`(0,2,0) 高优先级重新
+   声明暗色值（照搬插件官方暗色配色），让组件在暗色模式正常显示。
+   仅覆盖 --xhhao-com-base-* 基础变量即可，其余 --xhhao-com-* 均 alias 到 base。 */
+:root.dark {
+  --xhhao-com-base-text: #e5e7eb;
+  --xhhao-com-base-text-strong: #f9fafb;
+  --xhhao-com-base-text-muted: #a1a1aa;
+  --xhhao-com-base-text-subtle: #71717a;
+  --xhhao-com-base-bg: #0f172a;
+  --xhhao-com-base-bg-soft: #27272a;
+  --xhhao-com-base-bg-card: #18181b;
+  --xhhao-com-base-bg-panel: #1f2937;
+  --xhhao-com-base-border: #3f3f46;
+  --xhhao-com-base-primary: #60a5fa;
+  --xhhao-com-base-shadow: rgb(0 0 0 / 0.28);
+}
+
+/* content-widgets 插件 note 便签组件暗色滤镜（照搬插件 :where(.dark) 规则，
+   同上高优先级覆盖，避免暗色下彩色便签过亮刺眼） */
+:root.dark .xhhao-com-note {
+  --xhhao-com-note-shadow: rgba(0, 0, 0, 0.3);
+  filter: brightness(0.85) saturate(0.9);
+}
+
 /* 全屏模式：首页 banner 占满整屏（100vh），其余机制（延伸/平移）随
    --banner-height-home 自动推导。数值与 src/constants/constants.ts 的
    BANNER_HEIGHT_HOME_FULLSCREEN / BANNER_HEIGHT_EXTEND_FULLSCREEN 对应

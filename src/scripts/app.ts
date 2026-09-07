@@ -628,7 +628,11 @@ function init() {
   initCustomScrollbar();
   alignBannerTheme();
   showBanner();
-  initLegacyAdmonitions();
+  // init() 跑在模块执行期（deferred），早于 post.astro 内联 processAndInsert 注册的
+  // DOMContentLoaded；直接同步调用时 .custom-md 还没从模板克隆到占位符，blockquote
+  // 全找不到。挂到 DOMContentLoaded 让 processAndInsert 先插入正文，转换器再扫。
+  // Swup 换页路径的 page:view 钩子不受影响（新内容已在 DOM 后才触发）。
+  document.addEventListener("DOMContentLoaded", initLegacyAdmonitions);
   updateTocBtnVisibility();
   initCommentLazyLoad();
 }

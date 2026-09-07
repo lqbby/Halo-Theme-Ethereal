@@ -2,6 +2,24 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.62] - 2026-09-07
+
+### 修复 CDN 图片处理模式下提示块不转换（直接访问文章页失效）
+
+修复「直接访问文章页时，`> [!NOTE]` / `[!TIP]` / `[!WARNING]` / `[!CAUTION]` 块引用不转换为彩色提示块、仍显示原始 `[!XXX]` 文本」的问题。
+
+根因：主题 `app.ts` 是 deferred module（`init()` 在 `DOMContentLoaded` 之前执行），而 `post.astro` 的内联 `processAndInsert()` 绑在 `DOMContentLoaded`，CDN 图像处理模式下文章内容要等 `DOMContentLoaded` 才从 `<template>` 克隆进占位符。于是 `initLegacyAdmonitions()` 同步执行时 `.custom-md` 还没进 DOM，块引用全找不到。Swup 换页路径不受影响（`page:view` 在新内容插入后才触发）。
+
+- `app.ts` init() 里的 `initLegacyAdmonitions()` 改为 `document.addEventListener("DOMContentLoaded", initLegacyAdmonitions)`，与 `processAndInsert` 同事件、注册晚于它，故内容先克隆、转换器后扫描。
+
+### content-widgets 插件暗色适配补丁
+
+修复 content-widgets（acanyo）插件组件在暗色模式下文字看不清（白底深字落深色背景）的问题。
+
+根因：插件自带暗色变量用 `:where(.dark,[data-color-scheme=dark],[data-theme=dark])` 定义，`:where()` 优先级为 0，被插件自己的 `:root`(0,1,0) 亮色变量压过，导致主题 `html.dark` 下组件仍用亮色配色。
+
+- `variables.css` 新增 `:root.dark` 高优先级（0,2,0）覆盖 `--xhhao-com-base-*` 暗色值（照搬插件官方暗色配色），并补 note 便签组件的暗色滤镜 `filter: brightness(.85) saturate(.9)`。其余 `--xhhao-com-*` 均 alias 到 base，自动跟随。
+
 ## [v1.3.61] - 2026-09-06
 
 ### 瞬间页图片网格统一为正方形
