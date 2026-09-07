@@ -556,6 +556,48 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     <link rel="preconnect" href="https://tc.lqbby.com" />
     <link rel="preconnect" href="https://m801.music.126.net" />
     <slot name="head" />
+    <!-- halo shiki 代码高亮预热：halo 的 shiki-code.js 是 <script type="module">，
+         其高亮核心（highlighter 183KB）+ 语言语法 + 主题都是运行时 import("...")
+         懒加载，要等 <shiki-code> 元素升级渲染时才触发下载，导致文章代码块比正文
+         晚 400~600ms 才出现。这里 fetch 一份 shiki-code.js 源码（命中浏览器缓存，
+         几乎零成本），正则提取 import("...") 的模块 URL，用 <link
+         rel="modulepreload"> 提前下载，让懒加载命中缓存。脚本自适应：非文章页无
+         shiki-code.js 时直接 return，零副作用。 -->
+    <script is:inline>
+      (function () {
+        try {
+          var shikiSrc = null;
+          var scripts = document.querySelectorAll('script[type="module"]');
+          for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].src || "";
+            if (src.indexOf("shiki-code.js") !== -1) {
+              shikiSrc = src;
+              break;
+            }
+          }
+          if (!shikiSrc) return;
+          fetch(shikiSrc, { credentials: "same-origin" })
+            .then(function (r) {
+              return r.ok ? r.text() : Promise.reject();
+            })
+            .then(function (code) {
+              var re = /import\(["']([^"']+)["']\)/g;
+              var m;
+              var seen = {};
+              while ((m = re.exec(code)) !== null) {
+                var abs = new URL(m[1], shikiSrc).href;
+                if (seen[abs]) continue;
+                seen[abs] = true;
+                var link = document.createElement("link");
+                link.rel = "modulepreload";
+                link.href = abs;
+                document.head.appendChild(link);
+              }
+            })
+            .catch(function () {});
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <!-- is-home 服务端初值仅作首帧兜底（避免 JS 运行前无 FOUC 感知）；运行期以
        客户端 isHomePath（utils/banner-sync.ts）为权威，换页时由 syncHomeClass 纠正 -->

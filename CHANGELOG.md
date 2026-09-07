@@ -2,6 +2,28 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.69] - 2026-09-07
+
+### 预热 halo shiki 高亮模块，加速文章代码块渲染
+
+用户反馈「文章其他地方都渲染完，代码块渲染最慢」。实地测量（Playwright Performance Resource Timing）发现根因是 **halo shiki 插件的懒加载链**：
+
+| 资源                                         | 大小          | 开始下载时间   | 说明                                                                |
+| -------------------------------------------- | ------------- | -------------- | ------------------------------------------------------------------- |
+| `shiki-code.js`                              | 52KB          | 224ms          | `<script type="module">`（deferred），DOMContentLoaded 前 define    |
+| `highlighter-*.js`                           | **183KB**     | **803ms**      | 动态 `import("...")` 懒加载——**DOMContentLoaded(804ms) 之后才触发** |
+| `dist-*.js` / `transformer-*.js`             | 4.9KB / 2.7KB | 966ms / 1047ms | 动态 import 链                                                      |
+| `shellscript-*.js` / `yaml-*.js`（语言语法） | ~50KB / ~94KB | 1127ms         | 运行时按代码块语言加载                                              |
+| `material-theme-*.js`（主题）                | ~120KB        | 1126ms         | 运行时加载高亮主题                                                  |
+
+即：halo 后端 SSR 只输出 `<shiki-code><pre><code>纯文本</code></pre></shiki-code>`（无 token），高亮全在客户端异步跑，且高亮核心（highlighter 183KB）是**懒加载**——要等 `<shiki-code>` 元素升级渲染时才 `import("highlighter-*.js")`，导致代码块比正文晚 400~600ms 出现。
+
+**修法**（`src/layouts/Layout.astro` head 末尾）：加一段自适应内联脚本——找到 halo 注入的 `shiki-code.js` module script，`fetch` 其源码（命中浏览器缓存，几乎零成本），正则提取所有 `import("...")` 动态模块 URL，用 `<link rel="modulepreload">` 提前下载，让懒加载命中缓存。
+
+- 自适应：非文章页无 `shiki-code.js` 时直接 `return`，零副作用
+- 降级安全：正则不匹配（halo 升级改构建格式）/ fetch 失败时静默跳过，仅回退到原有懒加载行为
+- 预热范围含 highlighter + dist + transformer + 语言语法 + 主题，覆盖整条懒加载链
+
 ## [v1.3.68] - 2026-09-07
 
 ### 修复文章刷新瞬间代码块"黑闪"（1.3.67 的 :not(:defined) 选择器失效）
