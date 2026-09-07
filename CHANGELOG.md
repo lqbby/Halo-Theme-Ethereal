@@ -2,6 +2,25 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.70] - 2026-09-07
+
+### 代码块骨架屏：加载期间显示占位骨架，消除「空白等待」观感
+
+前两版（1.3.68/1.3.69）已分别解决「黑闪」（`:not(:defined)` 失效改无条件隐藏）与「渲染慢」（预热 shiki 懒加载链）。但实测发现：halo 高亮完成前，外部 `<pre>` 被 `visibility:hidden` 后留下的是**空白块**——正文已渲染完、代码块区域却是一块透明占位，观感上仍是「代码块渲染最慢」。
+
+**方案**（`src/styles/markdown.css`）：把外部 `<pre>` 直接当骨架占位——
+
+| 手段                                                                                              | 作用                                                                              |
+| ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| 覆盖 `.custom-md pre` 深色 `--codeblock-bg` 为中性骨架底色 `color-mix(codeblock-bg 16%, card-bg)` | 消除黑闪，亮色≈浅灰（贴近 github-light 终态）、暗色≈深灰（贴近 github-dark 终态） |
+| `background-image` 加 `linear-gradient` + `background-position` 扫光动画                          | shimmer 骨架扫光，明确「加载中」信号                                              |
+| `visibility:hidden` 藏掉 `pre > code` 原始文本                                                    | 文字不可见但保留占位高度，不塌布局                                                |
+
+**为何不用 `:has()`/JS 判「完成」**：halo 在 `process()` 的 `finally` 块（成功/失败都执行）会把外部 pre 设 `display:none !important`——pre 自身的 `display:none` 就自动让骨架消失、shadow DOM 高亮内容同帧接管，天然「骨架 → 内容」平滑过渡，无需额外检测逻辑。
+
+- pre 的 `rounded-xl` 自动给骨架裁出圆角，无需额外 radius/overflow
+- 加载完成 pre 变 `display:none` → 骨架动画随元素停止，零 CPU 残留
+
 ## [v1.3.69] - 2026-09-07
 
 ### 预热 halo shiki 高亮模块，加速文章代码块渲染

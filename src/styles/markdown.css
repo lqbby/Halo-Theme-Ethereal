@@ -56,22 +56,52 @@
 
 /* halo shiki-code（@halo-dev/richtext-editor 的 web component）渲染时序：
    1. halo 后端输出 <shiki-code variant="mac" ...><pre><code>原始文本</code></pre>
-      </shiki-code>，外部 <pre> 走主题 .custom-md pre 样式（深色 --codeblock-bg
-      + 白字无 token）。
+      </shiki-code>，外部 <pre> 默认走主题 .custom-md pre 样式（深色 --codeblock-bg
+      + 白字无 token）—— 这就是「刷新瞬间黑闪」的来源。
    2. halo 的 shiki-code.js 是 <script type="module">（deferred），在 DOMContentLoaded
-      *之前*就执行 customElements.define("shiki-code") → 首帧渲染时 <shiki-code>
-      已经是 :defined。
-   3. Lit 的 render 是异步的：define 后还要等 shiki 主题（github-light）fetch 完成、
-      高亮 token、渲染 shadow DOM，最后才 setAttribute("style","display:none
-      !important") 到外部 pre。这段 fetch 窗口（几十~几百 ms）里外部 pre 仍是
-      display:block + 深色 bg → "黑底白字"黑闪。
-   ⚠️ 之前用 :not(:defined) 试图只在"未升级"时隐藏 pre，但第 2 步已证明 define 在
-   首帧前完成，:not(:defined) 永远匹配不到（1.3.67 的 bug）。正确做法是无条件隐藏
-   外部 pre：halo render 完成后用 display:none !important 覆盖、shadow DOM 接管显示；
-   用 visibility:hidden（而非 display:none）让 pre 仍占布局，避免首帧代码块高度塌陷
-   造成 layout shift。halo 升级失败时外部 pre 永久不可见——坏状态，权衡可接受。 */
+      *之前*就 customElements.define("shiki-code")；随后 Lit 异步 render：先 fetch shiki
+      主题（github-light）+ 语言语法，高亮完成后在 process() 的 finally 块把外部 pre 设
+      display:none !important 并 this.loading=false，shadow DOM 渲染 <shiki-code-mac-variant>
+      高亮结果接管显示。
+   3. 「高亮完成」的可靠信号 = 外部 pre 被 halo 设 display:none（finally 块成功/失败都
+      执行）。此前用 :not(:defined) 判「未升级」是错的（define 在首帧前就完成，1.3.67 bug）。
+   【1.3.70 骨架屏】不再让 pre 干等（visibility:hidden 会留下「空白块」观感，观感等同
+   「代码块渲染最慢」），而是把外部 pre 直接当骨架占位：覆盖深色 bg 为中性骨架色 +
+   shimmer 扫光，原始文本用 visibility:hidden 藏掉（pre 仍占布局、高度不塌）。halo
+   完成把 pre 设 display:none → 骨架自动消失、shadow DOM 高亮同帧接管，实现「骨架 →
+   内容」平滑过渡，既消除黑闪又消除空白等待。 */
 .custom-md shiki-code > pre {
+  /* 覆盖 .custom-md pre 的深色 --codeblock-bg（消除黑闪），换成中性骨架底色：
+     亮色 ≈ 浅灰（贴近 github-light 终态），暗色 ≈ 深灰（贴近 github-dark 终态） */
+  background-color: color-mix(
+    in oklab,
+    var(--codeblock-bg) 16%,
+    var(--card-bg)
+  );
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, var(--primary) 20%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shiki-skeleton-shimmer 1.6s linear infinite;
+}
+
+/* 原始文本藏掉（visibility:hidden 让文字不可见但保留占位高度；pre 的 rounded-xl
+   自动给骨架裁出圆角，无需额外 radius/overflow） */
+.custom-md shiki-code > pre > code {
   visibility: hidden;
+}
+
+@keyframes shiki-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 
 .custom-md blockquote {
