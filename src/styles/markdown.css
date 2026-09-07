@@ -54,6 +54,17 @@
   @apply rounded-xl bg-(--codeblock-bg) text-white;
 }
 
+/* halo shiki-code（@halo-dev/richtext-editor 的 web component）未升级为 custom
+   element 之前，外部 <pre> 走主题 .custom-md pre 样式（深色 bg + 白字无 token），
+   升级完成后由 halo 客户端设 display:none 接管、shadow DOM 内部用 github-light
+   渲染（白底多色）。F5 刷新瞬间 200-500ms 时间窗里"黑底白字无 token"会泄露——
+   用 :not(:defined) 选中未升级的 shiki-code，把内部 pre 设为不可见，避免"黑闪"。
+   halo 升级后 :not(:defined) 不再匹配，本规则自动失效；halo 升级失败时永久不可见
+   —— 但那本来就是坏状态，权衡可接受。 */
+.custom-md shiki-code:not(:defined) > pre {
+  visibility: hidden;
+}
+
 .custom-md blockquote {
   @apply not-italic border-transparent relative;
   font-weight: inherit;

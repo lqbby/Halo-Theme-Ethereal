@@ -2,6 +2,30 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.67] - 2026-09-07
+
+### 修复文章刷新瞬间代码块"黑闪"（1.3.66 修法错误，本次重新定位）
+
+**1.3.66 错诊断**：1.3.66 改的是 `.custom-md` / `#content-wrapper` 的 `onload-animation` opacity 渐显——但**真正根因不是这个**。
+
+**真正的根因**：halo 的 markdown 渲染器用 `<shiki-code>`（@halo-dev/richtext-editor 的 web component）包裹代码块。**halo 后端 SSR 直接输出 `<shiki-code>`**（curl 抓 HTML 确认 16 个 shiki-code 元素），**但 shiki 高亮在客户端异步跑**——F5 刷新时序：
+
+| 阶段               | `<shiki-code>` 状态                                                                                                   | 外部 `<pre>` 样式                                                                                                      | 视觉                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
+| t=0（HTML 解析完） | unknown element（halo shiki JS 还没加载）                                                                             | 主题 CSS 生效：`.custom-md pre { bg: --codeblock-bg: oklch(0.17); color: white }`——**深色背景 + 白字 + 无 token 颜色** | **「黑底白字模糊」**——这就是"黑闪"  |
+| t=200-500ms        | halo shiki JS 加载完，`<shiki-code>` 升级为 custom element，shadow DOM 接管，halo 客户端设 `display: none` 到外部 pre | shadow DOM 内部用 `light-theme="github-light"` 渲染：白底 + 多色 token                                                 | 稳态（`github-light` 白底黑字高亮） |
+
+**修法**（`src/styles/markdown.css` 末尾新增）：用 `:not(:defined)` 选中未升级的 `<shiki-code>`，把内部 `<pre>` 设为 `visibility: hidden`——彻底避开那段"黑底白字无 token"泄露窗口：
+
+```css
+.custom-md shiki-code:not(:defined) > pre {
+  visibility: hidden;
+}
+```
+
+- `shiki-code` 升级为 `:defined` 后，规则自动失效（halo 客户端设 `display: none` 接管）
+- halo 升级失败时本规则永久生效（pre 占布局但不可见——比"黑闪"温和）
+
 ## [v1.3.66] - 2026-09-07
 
 ### 修复文章刷新瞬间代码块"黑闪"
