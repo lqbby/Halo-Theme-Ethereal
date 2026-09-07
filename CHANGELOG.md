@@ -2,6 +2,17 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.65] - 2026-09-07
+
+### 合并上游 v1.2.3 特性
+
+从上游 `AloneNanNan/Halo-Theme-Ethereal` v1.2.3 cherry-pick 4 个功能提交（保留本地 167 个定制提交，冲突点已按「本地定制优先 + 吸收上游新特性」原则手工解决）：
+
+- **正文表格适配主题样式并暴露 CSS 变量**（#67）：`markdown.css` 新增表格样式（本地从未改动该文件，干净落地），`variables.css` 暴露表格相关 CSS 变量。
+- **瞬间图片改朋友圈式布局**（#66）：新增 `MomentMedia.astro` 组件 + `moment-media-badge.ts` + `thumb-crop.ts`，单图等比展示（高度上限 18rem）、多图 1:1 方形宫格；修复非竖图裁切与灯箱过渡。**冲突解决**：删除本地 v1.3.61 的旧 `moments.astro` 内联正方形网格 `<style>`（模板已改用 `<MomentMedia />`，旧样式会覆盖上游朋友圈式布局），朋友圈式 CSS 统一收编进 `components.css`，保留本地「朋友圈瀑布流 JS 两列」的详细注释。
+- **菜单栏新增「显示网站名」开关**（#65）：`settings.yaml` 新增 `mobileMenu.showTitle`（默认开启），`SiteLogo`/`Navbar`/`config.ts` 联动，关闭后菜单栏只显示 Logo。
+- **项目集详情外链按钮统一为元信息链接样式与按压反馈**：`portfolio-detail.astro`、`PostMeta.astro`、`post-share.ts`。
+
 ## [v1.3.64] - 2026-09-07
 
 ### 优化 Halo 评论组件（comment-next）亮/暗色可见度
