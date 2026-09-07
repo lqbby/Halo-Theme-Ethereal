@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.66] - 2026-09-07
+
+### 修复文章刷新瞬间代码块"黑闪"
+
+修复「按 F5 / Ctrl+F5 直接刷新文章页时，代码块（`<pre>`）会从无到有闪一下黑底」的问题。
+
+**根因**：`.custom-md` 内容根带 `onload-animation`（`opacity: 0` + `fade-in-up` 300ms），其外层 `#content-wrapper` 也带 `onload-animation`。刷新瞬间正文从 `<template id="content-template">` 克隆入 DOM 后，整个内容树（连同深色代码块 `--codeblock-bg: oklch(0.17)`）做 300ms 的 opacity 渐显——深色背景从全透明渐显到 1，与亮色页面背景形成强烈对比，视觉上像一闪。
+
+**修法**（`src/styles/transition.css` 末尾新增）：对含 `.custom-md` 的 `#content-wrapper` 和 `.custom-md.onload-animation` 本身改用 `slide-in-up` 关键帧（在本主题里是 `0 0 → 0 0` 的 no-op）配合 `opacity: 1`，等价于"立即出现"——深色代码块不再做渐显，直接可见，消除"暗块从无到有"的视觉冲击。`#content-wrapper:has(.custom-md)` 只命中文章页，首页/归档页等其他页面的入场动画不受影响。
+
 ## [v1.3.65] - 2026-09-07
 
 ### 合并上游 v1.2.3 特性

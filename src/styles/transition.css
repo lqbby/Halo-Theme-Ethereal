@@ -183,6 +183,21 @@ html[data-speed="snappy"] .onload-animation {
   animation-fill-mode: forwards;
 }
 
+/* 文章正文区域：去除 opacity fade-in，避免深色代码块在亮色页面
+   fade-in 时出现"黑闪"——dark bg (--codeblock-bg = oklch(0.17)) 从
+   opacity 0 渐显到 1，与亮色卡片背景形成强烈对比，视觉上像一闪而过。
+   正文直接可见即可，无需渐进（slide-in-up 在本主题里是 0→0 no-op，
+   配合 opacity:1 等价于"立即出现"）。只对含 .custom-md 的 #content-wrapper
+   生效（文章页），首页/归档页等不受影响。 */
+#content-wrapper:has(.custom-md) {
+  opacity: 1;
+  animation-name: slide-in-up;
+}
+.custom-md.onload-animation {
+  opacity: 1;
+  animation-name: slide-in-up;
+}
+
 /* —— 首页↔其他页换页（home-switch，is-home 变化时由 app.ts 挂载）——
    换入瞬间横幅/网格/波浪 700ms 平滑上升/下沉，两侧组件随网格一起滑动；
    主内容淡入与位移同速（--dur-banner），完全显示时位移恰好结束，
