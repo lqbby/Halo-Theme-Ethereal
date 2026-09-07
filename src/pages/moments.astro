@@ -252,8 +252,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       overflow: hidden;
       border-radius: 0.75rem;
       background: var(--btn-regular-bg);
-      aspect-ratio: 3 / 4;
-      max-height: 18rem;
+      aspect-ratio: 1 / 1;
     }
 
     .moment-media-item img {
@@ -261,6 +260,11 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       height: 100%;
       object-fit: cover;
       background: var(--btn-regular-bg);
+    }
+
+    /* 视频保持 16:9，避免被统一成正方形 */
+    video.moment-media-item {
+      aspect-ratio: 16 / 9;
     }
 
     .moment-media-count-1 {

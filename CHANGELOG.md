@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.61] - 2026-09-06
+
+### 瞬间页图片网格统一为正方形
+
+修复瞬间（moments）页图片网格「图片大小不一」：`.moment-media-item` 同时设 `aspect-ratio: 3/4` 与 `max-height: 18rem`，导致 3/6 张图（span 2，占 1/3 宽）呈竖长 3:4、而 2/4/5 张图（span 3，占 1/2 宽）被 `max-height` 压成近正方形，同一瞬间内比例不一致。
+
+- `.moment-media-item` 统一 `aspect-ratio: 1/1`（微博九宫格正方形），去掉 `max-height: 18rem`。
+- `video.moment-media-item` 单独保持 `aspect-ratio: 16/9`，不被统一成正方形。
+- 单图（count-1）仍由 `max-height: 24rem` 限制，观感不变。
+
 ## [v1.3.60] - 2026-09-06
 
 ### 魔改组件设计语言对齐修复（暗色对比度 / 无效变量 / 硬编码）
