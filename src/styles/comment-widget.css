@@ -4,16 +4,22 @@
   --halo-cw-primary-3-color: #6d4ae6;
   --halo-cw-text-1-color: rgb(0 0 0 / 0.9);
   --halo-cw-text-2-color: rgb(0 0 0 / 0.75);
-  --halo-cw-text-3-color: rgb(0 0 0 / 0.5);
-  --halo-cw-muted-1-color: #f2f0f8;
-  --halo-cw-muted-2-color: #e4e0f5;
-  --halo-cw-muted-3-color: #d3cef0;
+  /* 加深：占位符/弱文字在淡 input bg 上太淡看不清，0.5→0.62 */
+  --halo-cw-text-3-color: rgb(0 0 0 / 0.62);
+  /* Halo comment-next web component 在初始化时把这些 muted-* 映射到
+     --comment-next-border-color / bg-color / 等。原 muted-1 是极淡背景
+     (oklch .96)，被当 border 在白卡片上几乎看不见；muted-3 作 box bg。
+     重新校准：muted-1 加深作 border，muted-3 保持浅作柔和 bg。 */
+  --halo-cw-muted-1-color: #d4c8ed;
+  --halo-cw-muted-2-color: #bcaedf;
+  --halo-cw-muted-3-color: #ebe4f5;
   --halo-cw-emoji-picker-rgb-color: 31, 41, 55;
   --halo-cw-emoji-picker-rgb-accent: 99, 102, 241;
   --halo-cw-emoji-picker-rgb-background: 255, 255, 255;
   --halo-cw-emoji-picker-rgb-input: 249, 250, 251;
-  --halo-cw-emoji-picker-color-border: rgb(0 0 0 / 0.1);
-  --halo-cw-emoji-picker-color-border-over: rgb(0 0 0 / 0.2);
+  /* 加深：emoji 面板/输入框边框 0.1→0.2 */
+  --halo-cw-emoji-picker-color-border: rgb(0 0 0 / 0.2);
+  --halo-cw-emoji-picker-color-border-over: rgb(0 0 0 / 0.3);
   /* 视觉统一：让评论组件的圆角/头像跟随 Ethereal 设计令牌，
      而非插件默认的 .875rem（否则评论区圆角比站点卡片小一圈） */
   --halo-cw-base-rounded: var(--radius-large);
@@ -24,9 +30,11 @@
   :root {
     --halo-cw-primary-2-color: oklch(0.62 0.13 var(--hue));
     --halo-cw-primary-3-color: oklch(0.55 0.12 var(--hue));
-    --halo-cw-muted-1-color: oklch(0.96 0.012 var(--hue));
-    --halo-cw-muted-2-color: oklch(0.92 0.018 var(--hue));
-    --halo-cw-muted-3-color: oklch(0.86 0.024 var(--hue));
+    /* muted-1 → border：0.96→0.78（白卡片上对比 0.22，清晰可见） */
+    --halo-cw-muted-1-color: oklch(0.78 0.025 var(--hue));
+    --halo-cw-muted-2-color: oklch(0.68 0.03 var(--hue));
+    /* muted-3 → box bg：保持柔和（0.93 极浅紫白，与白卡几乎融合） */
+    --halo-cw-muted-3-color: oklch(0.93 0.015 var(--hue));
   }
 }
 
@@ -36,24 +44,27 @@
   --halo-cw-primary-3-color: #7d64ec;
   --halo-cw-text-1-color: rgb(255 255 255 / 0.9);
   --halo-cw-text-2-color: rgb(255 255 255 / 0.75);
-  --halo-cw-text-3-color: rgb(255 255 255 / 0.5);
-  --halo-cw-muted-1-color: #4e4e6a;
-  --halo-cw-muted-2-color: #3f3f5a;
-  --halo-cw-muted-3-color: #343450;
+  --halo-cw-text-3-color: rgb(255 255 255 / 0.62);
+  /* 暗色：muted-1 → border，需与暗 card (oklch 0.23) 有清晰对比；
+     原 #4e4e6a 亮度~0.32 vs 0.23 仅 0.09 偏淡，加深到亮度~0.38。
+     muted-3 → box bg，介于 card 与 muted-2 之间。 */
+  --halo-cw-muted-1-color: #5a5a78;
+  --halo-cw-muted-2-color: #484866;
+  --halo-cw-muted-3-color: #2e2e48;
   --halo-cw-emoji-picker-rgb-color: 229, 231, 235;
   --halo-cw-emoji-picker-rgb-accent: 129, 140, 248;
   --halo-cw-emoji-picker-rgb-background: 24, 24, 27;
   --halo-cw-emoji-picker-rgb-input: 0, 0, 0;
-  --halo-cw-emoji-picker-color-border: rgb(255 255 255 / 0.1);
-  --halo-cw-emoji-picker-color-border-over: rgb(255 255 255 / 0.2);
+  --halo-cw-emoji-picker-color-border: rgb(255 255 255 / 0.18);
+  --halo-cw-emoji-picker-color-border-over: rgb(255 255 255 / 0.28);
 }
 
 @supports (color: oklch(0 0 0)) {
   :root.dark {
     --halo-cw-primary-2-color: oklch(0.68 0.13 var(--hue));
     --halo-cw-primary-3-color: oklch(0.61 0.12 var(--hue));
-    --halo-cw-muted-1-color: oklch(0.42 0.03 var(--hue));
-    --halo-cw-muted-2-color: oklch(0.36 0.028 var(--hue));
-    --halo-cw-muted-3-color: oklch(0.3 0.026 var(--hue));
+    --halo-cw-muted-1-color: oklch(0.38 0.03 var(--hue));
+    --halo-cw-muted-2-color: oklch(0.32 0.028 var(--hue));
+    --halo-cw-muted-3-color: oklch(0.27 0.026 var(--hue));
   }
 }

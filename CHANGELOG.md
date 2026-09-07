@@ -2,6 +2,21 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.64] - 2026-09-07
+
+### 优化 Halo 评论组件（comment-next）亮/暗色可见度
+
+修复「亮色模式下评论框（输入框）边框几乎看不见、`输入QQ邮箱自动获取昵称` 提示和表情反应计数等弱文字也偏淡」的问题。暗色同步校准避免边框过淡。
+
+根因：Halo comment-next web component 在初始化时把主题的 `--halo-cw-muted-1-color` 映射为评论框 `--comment-next-border-color`、把 `--halo-cw-muted-3-color` 映射为评论区 box 背景、把 `--halo-cw-text-3-color` 映射为占位符/弱文字。原 `--halo-cw-muted-1-color` 主题定义为极淡 muted 背景（`oklch(0.96 0.012)`），被当 border 在白卡片上亮度差仅 0.01、几乎不可见；`--halo-cw-text-3-color: rgb(0 0 0 / 0.5)` 在淡 input bg 上也偏淡。
+
+`src/styles/comment-widget.css`：
+
+- 亮色 oklch 块：`--halo-cw-muted-1-color: 0.96→0.78`（作 border，对比白卡 0.22 清晰）；`--halo-cw-muted-2-color: 0.92→0.68`（次级/hover）；`--halo-cw-muted-3-color: 0.86→0.93`（box bg 改浅更柔和）。
+- 暗色 `:root.dark` 块：muted-1 `#4e4e6a→#5a5a78`（暗卡亮度 0.23 vs 0.32 偏淡，加深到 0.38）；muted-3 改浅使 box bg 与 card-bg 有层次。
+- `:root` 块：`--halo-cw-text-3-color: 0.5→0.62`（占位符/弱文字可见度）；`--halo-cw-emoji-picker-color-border: 0.1→0.2`（emoji 面板与 input 边框）；fallback hex 同步。
+- 暗色 oklch 块 muted 数值与 hex 块对应调整，保持两套机制一致。
+
 ## [v1.3.63] - 2026-09-07
 
 ### 修复 content-widgets 组件在直接访问（刷新）文章页时不渲染、样式丢失
