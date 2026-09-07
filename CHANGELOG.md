@@ -2,6 +2,16 @@
 
 本文件按版本记录 Ethereal 主题的变更历史。
 
+## [v1.3.63] - 2026-09-07
+
+### 修复 content-widgets 组件在直接访问（刷新）文章页时不渲染、样式丢失
+
+修复「用 content-widgets 插件（acanyo，`xhhao-com-*` 标签）写的文章，Swup 换页进去样式正常，但直接访问 / 刷新文章页时组件不挂载、只显示原始文本」的问题。
+
+根因：插件在 `<head>` 注册 `DOMContentLoaded` 挂载（`querySelectorAll` 扫 `xhhao-com-*`），而主题 `post.astro` 的 `processAndInsert()` 同为 `DOMContentLoaded` 但注册更晚。CDN 图片处理模式下文章内容要等 `processAndInsert` 从 `<template id="content-template">` 克隆进占位符，故插件挂载先跑时正文还在模板里、扫不到任何组件。Swup 换页路径因插件脚本随容器重执行而正常。
+
+- `post.astro` `processAndInsert()` 在 `placeholder.replaceWith(contentEl); template.remove();` 之后补调 `window.XhhaoComContentWidgets.mount()`（有 `typeof` 守卫，插件未装/未就绪时安全跳过；插件 mount 幂等，已挂载元素带 `data-xhhao-com-mounted` 标记会跳过，不重复挂载）。
+
 ## [v1.3.62] - 2026-09-07
 
 ### 修复 CDN 图片处理模式下提示块不转换（直接访问文章页失效）

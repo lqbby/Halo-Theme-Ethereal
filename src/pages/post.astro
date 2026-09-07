@@ -633,6 +633,19 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
         placeholder.replaceWith(contentEl);
         template.remove();
+
+        // content-widgets 插件（acanyo）时序适配：插件在 <head> 注册
+        // DOMContentLoaded 挂载（querySelectorAll 扫 xhhao-com-*），本脚本同
+        // 事件但注册更晚——插件挂载先跑、此刻正文还在 <template> 里未克隆入
+        // DOM，扫不到组件 → 刷新（直接访问）时组件不渲染、样式丢失（Swup 换页
+        // 因插件脚本重执行而正常）。正文克隆入 DOM 后补一次 mount 即可；插件
+        // mount 幂等（已挂载的带 data-xhhao-com-mounted 标记会跳过），安全。
+        if (
+          window.XhhaoComContentWidgets &&
+          typeof window.XhhaoComContentWidgets.mount === "function"
+        ) {
+          window.XhhaoComContentWidgets.mount();
+        }
       }
 
       if (document.readyState === "loading") {
