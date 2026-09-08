@@ -26,9 +26,12 @@ spec:
       - name: "技能"
         description: "个人技能展示页面（在主题设置的「技能」Tab 中配置数据）"
         file: "skills.html"
+      - name: "系列"
+        description: "文章系列聚合页（需安装 Ethereal 配套插件；文章填 series/seriesOrder 注解）"
+        file: "series.html"
   settingName: "Ethereal-setting"
   configMapName: "Ethereal-configMap"
-  version: "1.3.75"
+  version: "1.3.78"
   requires: ">=2.25.0"
   license:
     - name: "MIT"
