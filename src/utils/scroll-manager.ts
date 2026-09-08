@@ -99,6 +99,11 @@ function scrollFunction() {
   } else if (delta > 0 && scrollY > threshold) {
     navbar.classList.add("navbar-hidden");
   }
+  // 导航栏隐藏时给 body 加类，供侧边栏吸顶位置回退（Layout.astro 消费）
+  document.body.classList.toggle(
+    "dynamic-navbar-hidden",
+    navbar.classList.contains("navbar-hidden"),
+  );
 }
 
 // 全屏首页向下箭头（#scroll-down-indicator）点击目标：手算平滑滚动到内容区。
