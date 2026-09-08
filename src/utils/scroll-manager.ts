@@ -22,6 +22,8 @@ let _backToTopBtn: HTMLElement | null = null;
 let _toc: HTMLElement | null = null;
 let _navbar: HTMLElement | null = null;
 let _grid: HTMLElement | null = null;
+// 上次滚动位置，用于导航栏滚动方向感知显隐（delta = scrollY - lastScrollY）
+let lastScrollY = window.scrollY;
 
 function getBackToTopBtn() {
   if (!_backToTopBtn?.isConnected)
@@ -88,7 +90,15 @@ function scrollFunction() {
     NAVBAR_HEIGHT_PX -
     MAIN_PANEL_OVERLAPS_BANNER_HEIGHT * BASE_SPACING_PX -
     BASE_SPACING_PX;
-  navbar.classList.toggle("navbar-hidden", scrollY >= threshold);
+  // 滚动方向感知：上滑（delta<0）或仍在顶部（scrollY<=threshold）显示，
+  // 下滑且离开顶部（delta>0 && scrollY>threshold）隐藏（对齐 firefly dynamic 模式）
+  const delta = scrollY - lastScrollY;
+  lastScrollY = scrollY;
+  if (delta < 0 || scrollY <= threshold) {
+    navbar.classList.remove("navbar-hidden");
+  } else if (delta > 0 && scrollY > threshold) {
+    navbar.classList.add("navbar-hidden");
+  }
 }
 
 // 全屏首页向下箭头（#scroll-down-indicator）点击目标：手算平滑滚动到内容区。
