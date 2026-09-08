@@ -760,6 +760,13 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         #top-row {
           height: var(--navbar-height) !important;
         }
+        /* iOS 地址栏收起/展开时 fixed 导航栏上下跳动：移动端禁用 backdrop-filter，
+           高级材质降级为纯色卡片背景（blur 在移动端视觉收益低、抖动成本高） */
+        #navbar-wrapper .navbar-blur {
+          -webkit-backdrop-filter: none !important;
+          backdrop-filter: none !important;
+          background-color: var(--card-bg) !important;
+        }
       }
 
       /* 固定导航栏宽度跟随内容区：fixed 脱离文档流后若不显式收窄，
