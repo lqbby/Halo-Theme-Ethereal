@@ -4,14 +4,22 @@ interface Props {
   hideTagsForMobile?: boolean;
   hideUpdateDate?: boolean;
   hideDate?: boolean;
+  hideTags?: boolean;
 }
 
 const {
   hideTagsForMobile = false,
   hideUpdateDate = false,
   hideDate = false,
+  hideTags = false,
 } = Astro.props;
 const className = Astro.props.class;
+// 标签可见性：完全隐藏 / 仅桌面端显示 / 始终显示
+const tagWrapClass = hideTags
+  ? "hidden"
+  : hideTagsForMobile
+    ? "hidden md:flex"
+    : "flex";
 ---
 
 <div
@@ -83,10 +91,7 @@ const className = Astro.props.class;
   </div>
 
   <div
-    class:list={[
-      "items-center",
-      { "hidden md:flex": hideTagsForMobile, flex: !hideTagsForMobile },
-    ]}
+    class:list={["items-center", tagWrapClass]}
     th:if="${not #lists.isEmpty(post.tags)}"
   >
     <div class="meta-icon">

@@ -45,8 +45,59 @@ const { pagination = "posts" } = Astro.props;
 <script
   src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-list-layout.js?v=${ASSET_VERSION}`}
   defer></script>
+<!-- 卡片点赞：经典脚本，点击卡片点赞胶囊调 Halo upvote API；与详情页 post-like.js
+     共用 localStorage key 状态互通；Swup 换页由 SwupScriptsPlugin 按序重执行 -->
+<script
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-card-like.js?v=${ASSET_VERSION}`}
+  defer></script>
 
 <style is:global>
+  /* ===== 卡片底部标签：firefly 同款药丸 chip（# 前缀 + 主色 8% 底）===== */
+  #post-list-container .post-card-tag {
+    background: color-mix(in srgb, var(--btn-content) 8%, transparent);
+    color: var(--btn-content);
+  }
+  /* 仅可点击的 <a> 标签响应 hover；+N 合并项是 <span>，保持静态（同 firefly tag-item-static） */
+  #post-list-container a.post-card-tag:hover {
+    background: color-mix(in srgb, var(--btn-content) 18%, transparent);
+    color: var(--primary);
+  }
+
+  /* ===== 卡片底部统计胶囊（浏览/评论/点赞）：图标+数字合一，中性 hue 底 +
+        主题色前景（对齐 meta-icon 惯例） ===== */
+  #post-list-container .post-card-stats .post-card-stat {
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
+  }
+  /* 可点击的评论项：hover 底加深 + 前景变主色 */
+  #post-list-container a.post-card-stat:hover {
+    background: var(--btn-regular-bg-hover);
+    color: var(--primary);
+  }
+  /* 点赞为可点击按钮：显示手型指针（其余胶囊是展示/链接） */
+  #post-list-container .post-card-stat-like {
+    cursor: pointer;
+  }
+  /* 点赞 hover 实心：描边→实心图标切换（实心用主色点亮） */
+  #post-list-container .post-card-stat-like .stat-heart-outline,
+  #post-list-container .post-card-stat-like .stat-heart-filled {
+    transition: opacity 0.15s ease;
+  }
+  #post-list-container .post-card-stat-like .stat-heart-filled {
+    color: var(--primary);
+  }
+  #post-list-container .post-card-stat-like:hover .stat-heart-outline,
+  #post-list-container .post-card-stat-like.liked .stat-heart-outline {
+    opacity: 0;
+  }
+  #post-list-container .post-card-stat-like:hover .stat-heart-filled,
+  #post-list-container .post-card-stat-like.liked .stat-heart-filled {
+    opacity: 1;
+  }
+
   /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）===== */
   #post-list-container .post-card.is-pinned {
     outline: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);

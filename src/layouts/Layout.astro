@@ -62,6 +62,7 @@ const i18nInlineScript = `<script th:inline="javascript">
     "display.navbarBlur": \`[(#{display.navbarBlur})]\`,
     "display.pageWide": \`[(#{display.pageWide})]\`,
     "display.pageWideDesc": \`[(#{display.pageWideDesc})]\`,
+    "display.cardPattern": \`[(#{display.cardPattern})]\`,
     "display.masonry": \`[(#{display.masonry})]\`,
     "display.wallpaper": \`[(#{display.wallpaper})]\`,
     "display.wallpaperOpacity": \`[(#{display.wallpaperOpacity})]\`,
@@ -646,6 +647,15 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           document.documentElement.classList.toggle(
             "mods-page-wide",
             pw === "true",
+          );
+        }
+
+        // 卡片纹理：访客偏好覆盖服务端 th:classappend（同宽屏，独立于卡片样式）。
+        var cp = localStorage.getItem("cardPattern");
+        if (cp != null) {
+          document.documentElement.classList.toggle(
+            "mods-card-pattern",
+            cp === "true",
           );
         }
 

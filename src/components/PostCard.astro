@@ -1,14 +1,6 @@
 ---
 import PostMeta from "./PostMeta.astro";
 import { imageSuffixThWith } from "../utils/image-suffix";
-
-/**
- * 底部统计图标块的圆角灰底样式（四项共用）。
- * 注意：仅可提取普通类名；含 Tailwind 特殊语法的类（如 w-[calc(...)]、
- * md:w-(--var)）无法被 Tailwind 扫描器从常量中识别，必须直接写在 class 中。
- */
-const statIconClass =
-  "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-black/5 dark:bg-white/10";
 ---
 
 <article
@@ -29,12 +21,7 @@ const statIconClass =
       ></span>
     </a>
 
-    <PostMeta
-      hideTagsForMobile={true}
-      hideUpdateDate={true}
-      hideDate={true}
-      class="post-meta mb-4"
-    />
+    <PostMeta hideTags={true} hideUpdateDate={true} class="post-meta mb-4" />
 
     <div
       class="post-card-excerpt grow mb-3.5 pr-4 text-75 transition"
@@ -44,63 +31,76 @@ const statIconClass =
       Excerpt
     </div>
 
-    <!-- 底部统计：发布日期 + 浏览量 + 评论数 + 点赞（图标外有圆角灰色背景） -->
+    <!-- 底部标签：firefly 同款药丸 chip + # 前缀，超出 3 个折叠为 +N -->
     <div
-      class="post-card-stats mt-auto flex items-center gap-3 text-sm text-black/50 transition dark:text-white/50"
+      class="post-card-bottom-tags mb-3 flex flex-wrap items-center gap-1.5"
+      th:if="${not #lists.isEmpty(post.tags)}"
     >
-      <div class="inline-flex items-center gap-1.5">
-        <span class={statIconClass}>
+      <a
+        th:each="tag, tagStat : ${post.tags}"
+        th:if="${tagStat.index < 3}"
+        th:href="@{${tag.status.permalink}}"
+        th:aria-label="${tag.spec.displayName}"
+        class="post-card-tag inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+      >
+        <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
+      </a>
+      <span
+        th:if="${#lists.size(post.tags) > 3}"
+        th:title="|还有 ${#lists.size(post.tags) - 3} 个标签|"
+        class="post-card-tag post-card-tag-more inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+      >
+        +<span th:text="${#lists.size(post.tags) - 3}">2</span>
+      </span>
+    </div>
+
+    <!-- 底部统计：浏览/评论/点赞（轻量胶囊：图标+数字合一，去竖线用 gap；
+         主题化配色走 PostList.astro 的 .post-card-stat 全局样式） -->
+    <div
+      class="post-card-stats mt-auto flex flex-wrap items-center gap-2 text-sm transition"
+    >
+      <span
+        th:if="${post.stats != null}"
+        class="post-card-stat inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
+      >
+        <span
+          class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
+        ></span>
+        <span class="leading-none" th:text="${post.stats.visit}">0</span>
+      </span>
+      <a
+        th:if="${post.stats != null}"
+        th:href="${post.status.permalink + '#comment'}"
+        th:aria-label="评论"
+        class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
+      >
+        <span class="icon-[mdi--comment-text-outline] text-base leading-none"
+        ></span>
+        <span class="leading-none" th:text="${post.stats.comment}">0</span>
+      </a>
+      <!-- 点赞：真实点赞按钮（调 Halo upvote API，见 post-card-like.js）；跟随后台
+           文章操作栏"启用点赞"开关；hover 描边→实心，liked 态由脚本实心点亮 -->
+      <button
+        type="button"
+        th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
+        th:attr="data-post=${post.metadata.name}"
+        th:data-count="${post.stats.upvote}"
+        aria-label="点赞"
+        class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none px-2.5 py-1 text-sm"
+      >
+        <span class="relative inline-flex text-base leading-none">
           <span
-            class="icon-[material-symbols--calendar-today-outline-rounded] text-base leading-none"
+            class="stat-heart-outline icon-[material-symbols--favorite-outline-rounded]"
+          ></span>
+          <span
+            class="stat-heart-filled icon-[material-symbols--favorite-rounded] absolute inset-0 opacity-0"
           ></span>
         </span>
         <span
-          class="leading-none"
-          th:text="${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
-          >2026-01-01</span
+          class="post-card-like-count leading-none"
+          th:text="${post.stats.upvote}">0</span
         >
-      </div>
-      <div class="leading-none" th:if="${post.stats != null}">|</div>
-      <div
-        th:if="${post.stats != null}"
-        class="inline-flex items-center gap-1.5"
-      >
-        <span class={statIconClass}>
-          <span
-            class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
-          ></span>
-        </span>
-        <span class="leading-none" th:text="${post.stats.visit}">0</span>
-      </div>
-      <div class="leading-none" th:if="${post.stats != null}">|</div>
-      <div
-        th:if="${post.stats != null}"
-        class="inline-flex items-center gap-1.5"
-      >
-        <span class={statIconClass}>
-          <span class="icon-[mdi--comment-text-outline] text-base leading-none"
-          ></span>
-        </span>
-        <span class="leading-none" th:text="${post.stats.comment}">0</span>
-      </div>
-      <!-- 点赞：跟随后台文章操作栏"启用点赞"开关 -->
-      <div
-        class="leading-none"
-        th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
-      >
-        |
-      </div>
-      <div
-        th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
-        class="inline-flex items-center gap-1.5"
-      >
-        <span class={statIconClass}>
-          <span
-            class="icon-[material-symbols--favorite-outline-rounded] text-base leading-none"
-          ></span>
-        </span>
-        <span class="leading-none" th:text="${post.stats.upvote}">0</span>
-      </div>
+      </button>
     </div>
   </div>
 

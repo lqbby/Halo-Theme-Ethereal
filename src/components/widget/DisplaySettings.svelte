@@ -17,6 +17,10 @@
     getStoredPageWide,
     setPageWide,
     resetPageWide,
+    getDefaultCardPattern,
+    getStoredCardPattern,
+    setCardPattern,
+    resetCardPattern,
     getDefaultPostListMasonry,
     getStoredPostListMasonry,
     setPostListMasonry,
@@ -121,6 +125,7 @@
   let cardHoverLift = $state(getStoredCardHoverLift());
   let navbarBlur = $state(getStoredNavbarBlur());
   let pageWide = $state(getStoredPageWide());
+  let cardPattern = $state(getStoredCardPattern());
   let postListMasonry = $state(getStoredPostListMasonry());
   // 面板里透明度类参数以百分比展示（存储为 0–1）
   const storedWallpaper = getStoredWallpaperParams();
@@ -133,6 +138,7 @@
   const defaultCardHoverLift = getDefaultCardHoverLift();
   const defaultNavbarBlur = getDefaultNavbarBlur();
   const defaultPageWide = getDefaultPageWide();
+  const defaultCardPattern = getDefaultCardPattern();
   const defaultPostListMasonry = getDefaultPostListMasonry();
   const defaultWallpaper = getDefaultWallpaperParams();
   const dirtyLayout = $derived(layout !== defaultLayout);
@@ -140,6 +146,7 @@
     cardHoverLift !== defaultCardHoverLift ||
       navbarBlur !== defaultNavbarBlur ||
       pageWide !== defaultPageWide ||
+      cardPattern !== defaultCardPattern ||
       postListMasonry !== defaultPostListMasonry,
   );
   const showMasonry = $derived(showCardStyle && layout === "grid");
@@ -233,6 +240,11 @@
     setPageWide(pageWide);
   }
 
+  function toggleCardPattern() {
+    cardPattern = !cardPattern;
+    setCardPattern(cardPattern);
+  }
+
   function toggleMasonry() {
     postListMasonry = !postListMasonry;
     setPostListMasonry(postListMasonry);
@@ -244,6 +256,8 @@
     navbarBlur = getDefaultNavbarBlur();
     resetPageWide();
     pageWide = getDefaultPageWide();
+    resetCardPattern();
+    cardPattern = getDefaultCardPattern();
     postListMasonry = getDefaultPostListMasonry();
   }
 
@@ -361,6 +375,11 @@
           <span class="icon-[material-symbols--width-wide-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.pageWide", "宽屏布局")}</span>
           <span class="toggle" class:toggle-on={pageWide}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={cardPattern} role="switch" aria-checked={cardPattern} on:click={toggleCardPattern}>
+          <span class="icon-[material-symbols--texture-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.cardPattern", "卡片纹理")}</span>
+          <span class="toggle" class:toggle-on={cardPattern}><span class="toggle-knob"></span></span>
         </button>
         {#if showMasonry}
           <button type="button" class="toggle-row" class:toggle-on={postListMasonry} role="switch" aria-checked={postListMasonry} on:click={toggleMasonry}>
