@@ -1,0 +1,200 @@
+---
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import PageHeader from "../components/control/PageHeader.astro";
+---
+
+<!--
+  数据看板页面模板（Halo 自定义页面「数据看板」）。
+  依赖插件 acanyo/plugin-data-statistics（displayName「数据看板」）：
+  页面只放空容器 div，插件前台 JS 自动拉 REST API 渲染图表
+  （与 content-widgets 的挂载方式同类，非 Finder / 非插件页面路由）。
+
+  四类模块（各模块显隐由主题设置「扩展页面 → 数据看板」开关控制，
+  默认全开；Umami / Uptime Kuma / GitHub 需在插件后台配置外部服务，
+  未配置时对应容器会显示「加载失败 / 暂无数据」，关掉开关即可隐藏）：
+  1. 站内统计图表（标签/分类分布、文章发布热力图、评论排行、热门文章）——
+     siteCharts.min.js + Chart.js，容器 .xhhaocom-chartboard
+  2. Umami 流量（历史访问统计 + 近30分钟实时活动）——
+     dataStatistics.min.js，容器 .xhhaocom-dataStatistics-v2-traffic / -activity
+  3. Uptime Kuma 服务状态——容器 .xhhaocom-dataStatistics-v2-uptime-kuma
+  4. GitHub 活跃度（贡献图/统计卡/语言分布）——容器 .github-statistics-container
+
+  静态资源（chart.umd.min.js / siteCharts.min.js|css / dataStatistics.min.js|css）
+  由插件自身的 TemplateHeadProcessor（DataStatisticsProcess）在**全站每个页面**
+  head 里统一注入，且带 ?version=<插件版本> 缓存戳。因此本模板**不得再手动
+  引这些资源**——否则会二次加载，且无版本戳的 URL 命中 EdgeOne CDN 旧缓存，
+  导致换版后仍加载旧 CSS/JS（曾致「亮色不适配」）。脚本在 head 全局持久 +
+  插件内部 MutationObserver 兜底，Swup 换页后新容器也能渲染。
+-->
+<MainGridLayout
+  title="${singlePage.spec.title + ' - ' + site.title}"
+  description="#{page.statistics.description(${site.title})}"
+>
+  <!-- 作用域根容器：id 供 statistics.css 用高优先级选择器覆盖插件 CSS 变量
+       （--chartboard-* / --halo-data-statistics-* 映射到 Ethereal token），
+       实现数据看板深度主题化。不能 th:remove="tag"（否则 id 被移除）。 -->
+  <div
+    id="statistics-dashboard"
+    th:with="
+    siteCharts=${theme.config?.extendPages?.statistics?.siteCharts == null ? true : theme.config?.extendPages?.statistics?.siteCharts},
+    umami=${theme.config?.extendPages?.statistics?.umami == null ? true : theme.config?.extendPages?.statistics?.umami},
+    uptimeKuma=${theme.config?.extendPages?.statistics?.uptimeKuma == null ? true : theme.config?.extendPages?.statistics?.uptimeKuma},
+    github=${theme.config?.extendPages?.statistics?.github == null ? true : theme.config?.extendPages?.statistics?.github}"
+  >
+    <!-- 页头 -->
+    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+      <PageHeader
+        containerClass="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+        titleExpr="${singlePage.spec.title}"
+        title="数据看板"
+        iconClass="icon-[material-symbols--monitoring]"
+        labelExpr="#{page.statistics.title}"
+        label="数据看板"
+        subExpr="#{page.statistics.subtitle}"
+        sub="站点数据统计"
+      />
+    </section>
+
+    <!-- Umami 流量统计（历史访问 + 近30分钟实时活动） -->
+    <section
+      th:if="${umami}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+    >
+      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
+        <span
+          class="icon-[material-symbols--visibility-outline-rounded] text-(--primary)"
+        ></span>
+        <span th:text="#{page.statistics.umami}">访问统计</span>
+      </h2>
+      <div class="xhhaocom-dataStatistics-v2-traffic" data-type="weekly"></div>
+      <div class="xhhaocom-dataStatistics-v2-activity"></div>
+    </section>
+
+    <!-- 站内统计图表（标签/分类/文章热力图/评论排行/热门文章） -->
+    <section
+      th:if="${siteCharts}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+    >
+      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
+        <span
+          class="icon-[material-symbols--waterfall-chart-rounded] text-(--primary)"
+        ></span>
+        <span th:text="#{page.statistics.siteCharts}">站点统计</span>
+      </h2>
+      <div
+        class="xhhaocom-chartboard"
+        data-types="tags,categories,articles,comments,topArticles"
+      >
+      </div>
+    </section>
+
+    <!-- Uptime Kuma 服务状态 -->
+    <section
+      th:if="${uptimeKuma}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+    >
+      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
+        <span
+          class="icon-[material-symbols--monitor-heart-rounded] text-(--primary)"
+        ></span>
+        <span th:text="#{page.statistics.uptime}">服务状态</span>
+      </h2>
+      <div class="xhhaocom-dataStatistics-v2-uptime-kuma"></div>
+    </section>
+
+    <!-- GitHub 活跃度（贡献图/统计卡/语言分布） -->
+    <section
+      th:if="${github}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+    >
+      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
+        <span class="icon-[fa6-brands--github] text-(--primary)"></span>
+        <span th:text="#{page.statistics.github}">GitHub</span>
+      </h2>
+      <div
+        class="github-statistics-container"
+        data-types="graph,stats,top-langs"
+        data-stats-locale="cn"
+        data-stats-show-icons="true"
+        data-graph-theme="minimal"
+        data-top-langs-layout="donut"
+      >
+      </div>
+    </section>
+
+    <!-- 亮暗适配：GitHub 图片 theme 跟随 html.dark 切换。
+         容器/文字层已被插件 CSS 的 html.dark 选择器自动适配，无需处理；
+         但 GitHub 贡献图/统计卡是外部服务生成的图片，theme 由 data-* 属性
+         决定（插件 JS 硬编码默认 minimal 亮色），CSS 管不到，故主题侧用
+         MutationObserver 动态改 data-graph-theme / data-stats-theme 并触发
+         插件重渲染。脚本放 #swup-container 内、容器之后：首次直刷立即执行时
+         容器已解析而插件 defer 脚本尚未渲染，先设好 theme 避免「亮色闪一下」；
+         Swup 换页后本内联脚本不重执行，靠 body MutationObserver 兜底扫新容器。 -->
+    <script is:inline>
+      (function () {
+        var GRAPH_LIGHT = "minimal";
+        var GRAPH_DARK = "react-dark";
+        var STATS_DARK = "dark";
+
+        function isDark() {
+          return document.documentElement.classList.contains("dark");
+        }
+
+        // 幂等：仅当 theme 需要变化才改属性；已渲染过则重渲染，避免与插件自身
+        // MutationObserver 互相触发造成死循环
+        function applyTheme(container) {
+          if (!container) return;
+          var dark = isDark();
+          var wantGraph = dark ? GRAPH_DARK : GRAPH_LIGHT;
+          var curGraph = container.getAttribute("data-graph-theme");
+          var curStats = container.getAttribute("data-stats-theme");
+          var needGraph = curGraph !== wantGraph;
+          var needStats = dark ? curStats !== STATS_DARK : curStats !== null;
+
+          if (needGraph) container.setAttribute("data-graph-theme", wantGraph);
+          if (dark) container.setAttribute("data-stats-theme", STATS_DARK);
+          else container.removeAttribute("data-stats-theme");
+
+          if (
+            (needGraph || needStats) &&
+            container.hasAttribute("data-initialized")
+          ) {
+            container.removeAttribute("data-initialized");
+            container.innerHTML = "";
+            if (window.xhhaocomDataStatisticsV2Init) {
+              window.xhhaocomDataStatisticsV2Init();
+            }
+          }
+        }
+
+        function scan() {
+          document
+            .querySelectorAll(".github-statistics-container")
+            .forEach(applyTheme);
+        }
+
+        // 首次直刷：容器已解析、插件 defer 尚未渲染，立即设 theme 避免闪烁
+        scan();
+
+        // 只绑一次：明暗切换 + Swup 换页/动态容器（避免换页后 N 份 observer 累积）
+        if (!window.__etherealStatsThemeBound) {
+          window.__etherealStatsThemeBound = true;
+          new MutationObserver(function (muts) {
+            for (var i = 0; i < muts.length; i++) {
+              if (muts[i].attributeName === "class") {
+                scan();
+                break;
+              }
+            }
+          }).observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["class"],
+          });
+          new MutationObserver(function () {
+            scan();
+          }).observe(document.body, { childList: true, subtree: true });
+        }
+      })();
+    </script>
+  </div>
+</MainGridLayout>

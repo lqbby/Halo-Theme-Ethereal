@@ -1,0 +1,246 @@
+@reference "./global.css";
+
+/* ============================================================================
+   数据看板（statistics.html）深度主题化
+   ----------------------------------------------------------------------------
+   依赖插件 acanyo/plugin-data-statistics 的前台组件（站点图表 / Umami / Uptime
+   Kuma / GitHub）。插件自带一套蓝色系配色（--chartboard-* 定义在 siteCharts.css、
+   --halo-data-statistics-* 定义在 dataStatistics.css 的 :root / html.dark）。
+
+   本文件用 `#statistics-dashboard`（id 优先级 100，稳压插件的 :root/html.dark 的
+   10/11）把这些变量**全部重映射到 Ethereal 语义 token**：
+     - 卡片底     → var(--card-bg)
+     - 主色/强调  → var(--primary)（跟随后台「主题色」色相，亮暗自动切换）
+     - 文字       → var(--deep-text) 及其 color-mix 淡化变体
+     - 网格线/边框 → color-mix(in oklab, var(--primary) N%, transparent)
+   token 本身在 :root / :root.dark 各有一份，故此处**只需一套映射**，明暗自动跟随，
+   无需重复写 html.dark 分支（少数「热力图色阶 / 阴影」用 color-mix 让深浅也自适应）。
+
+   另给插件渲染出的卡片补 Ethereal 玻璃拟态（backdrop-filter，透明/壁纸模式下
+   自然生效）与圆角对齐 --radius-large，视觉与全站卡片统一。
+   ============================================================================ */
+
+#statistics-dashboard {
+  /* ---- 站点图表 siteCharts.css 的 --chartboard-* ---- */
+  --chartboard-surface: var(--card-bg);
+  --chartboard-border: color-mix(in oklab, var(--primary) 16%, transparent);
+  --chartboard-shadow: none;
+  --chartboard-title-color: var(--deep-text);
+  --chartboard-subtitle-color: color-mix(
+    in oklab,
+    var(--deep-text) 55%,
+    transparent
+  );
+  /* 图表小卡：卡片底色向主色轻轻靠拢，区分于外层分区卡 */
+  --chartboard-card-bg: color-mix(in oklab, var(--card-bg) 92%, var(--primary));
+  --chartboard-card-border: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --chartboard-card-shadow: none;
+  --chartboard-card-hover-shadow: 0 14px 30px -18px
+    color-mix(in oklab, var(--primary) 48%, transparent);
+  --chartboard-text-primary: var(--deep-text);
+  --chartboard-text-secondary: color-mix(
+    in oklab,
+    var(--deep-text) 72%,
+    transparent
+  );
+  --chartboard-text-muted: color-mix(
+    in oklab,
+    var(--deep-text) 52%,
+    transparent
+  );
+  --chartboard-loading-bg: var(--btn-regular-bg);
+  --chartboard-loading-border: var(--line-color);
+  --chartboard-error-bg: color-mix(
+    in oklab,
+    var(--upvote-error) 12%,
+    transparent
+  );
+  --chartboard-error-border: color-mix(
+    in oklab,
+    var(--upvote-error) 38%,
+    transparent
+  );
+  --chartboard-error-color: var(--upvote-error);
+  /* 热力图：空位淡色 + 色阶从 card-bg 渐变到主色（明暗自适应） */
+  --chartboard-heatmap-cell-bg: color-mix(
+    in oklab,
+    var(--deep-text) 10%,
+    transparent
+  );
+  --chartboard-heatmap-level-1: color-mix(
+    in oklab,
+    var(--primary) 22%,
+    var(--card-bg)
+  );
+  --chartboard-heatmap-level-2: color-mix(
+    in oklab,
+    var(--primary) 45%,
+    var(--card-bg)
+  );
+  --chartboard-heatmap-level-3: color-mix(
+    in oklab,
+    var(--primary) 70%,
+    var(--card-bg)
+  );
+  --chartboard-heatmap-level-4: var(--primary);
+  --chartboard-heatmap-hover-shadow: color-mix(
+    in oklab,
+    var(--primary) 45%,
+    transparent
+  );
+  --chartboard-heatmap-tooltip-bg: var(--float-panel-bg);
+  --chartboard-heatmap-tooltip-border: var(--line-color);
+  --chartboard-heatmap-tooltip-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.3);
+  --chartboard-heatmap-tooltip-text: var(--deep-text);
+  --chartboard-heatmap-tooltip-strong: var(--deep-text);
+  --chartboard-heatmap-tooltip-span: color-mix(
+    in oklab,
+    var(--deep-text) 70%,
+    transparent
+  );
+  --chartboard-legend-color: color-mix(
+    in oklab,
+    var(--deep-text) 80%,
+    transparent
+  );
+  --chartboard-legend-value-color: color-mix(
+    in oklab,
+    var(--deep-text) 55%,
+    transparent
+  );
+  --chartboard-grid: var(--line-color);
+  /* 图表主色（siteCharts.js 的 cssVar 读取，驱动折线/主数据色） */
+  --chartboard-accent: var(--primary);
+  --chartboard-accent-soft: color-mix(
+    in oklab,
+    var(--primary) 15%,
+    transparent
+  );
+
+  /* ---- 流量/状态/GitHub dataStatistics.css 的 --halo-data-statistics-* ---- */
+  --halo-data-statistics-section-surface: var(--card-bg);
+  --halo-data-statistics-section-border: color-mix(
+    in oklab,
+    var(--primary) 16%,
+    transparent
+  );
+  --halo-data-statistics-section-shadow: none;
+  --halo-data-statistics-title-color: var(--deep-text);
+  --halo-data-statistics-subtitle-color: color-mix(
+    in oklab,
+    var(--deep-text) 55%,
+    transparent
+  );
+  --halo-data-statistics-badge-bg: color-mix(
+    in oklab,
+    var(--primary) 15%,
+    transparent
+  );
+  --halo-data-statistics-badge-text: var(--primary);
+  --halo-data-statistics-card-surface: color-mix(
+    in oklab,
+    var(--card-bg) 92%,
+    var(--primary)
+  );
+  --halo-data-statistics-card-border: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --halo-data-statistics-card-shadow: none;
+  --halo-data-statistics-card-hover-border: color-mix(
+    in oklab,
+    var(--primary) 30%,
+    transparent
+  );
+  --halo-data-statistics-card-hover-shadow: 0 8px 18px -10px
+    color-mix(in oklab, var(--primary) 35%, transparent);
+  --halo-data-statistics-card-icon-bg: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --halo-data-statistics-card-icon-color: var(--primary);
+  --halo-data-statistics-number-color: var(--primary);
+  --halo-data-statistics-label-color: color-mix(
+    in oklab,
+    var(--deep-text) 70%,
+    transparent
+  );
+  --halo-data-statistics-activity-surface: var(--card-bg);
+  --halo-data-statistics-activity-border: color-mix(
+    in oklab,
+    var(--primary) 16%,
+    transparent
+  );
+  --halo-data-statistics-activity-shadow: none;
+  --halo-data-statistics-metric-surface: color-mix(
+    in oklab,
+    var(--card-bg) 92%,
+    var(--primary)
+  );
+  --halo-data-statistics-metric-border: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --halo-data-statistics-metric-icon-bg: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --halo-data-statistics-metric-icon-color: var(--primary);
+  --halo-data-statistics-metric-value-color: var(--primary);
+  --halo-data-statistics-metric-label-color: color-mix(
+    in oklab,
+    var(--deep-text) 70%,
+    transparent
+  );
+  --halo-data-statistics-list-item-border: var(--line-color);
+  --halo-data-statistics-text-primary: var(--deep-text);
+  --halo-data-statistics-text-secondary: color-mix(
+    in oklab,
+    var(--deep-text) 72%,
+    transparent
+  );
+  --halo-data-statistics-text-muted: color-mix(
+    in oklab,
+    var(--deep-text) 52%,
+    transparent
+  );
+  --halo-data-statistics-time-text: color-mix(
+    in oklab,
+    var(--deep-text) 70%,
+    transparent
+  );
+  --halo-data-statistics-scrollbar-thumb: color-mix(
+    in oklab,
+    var(--deep-text) 35%,
+    transparent
+  );
+  --halo-data-statistics-scrollbar-thumb-hover: color-mix(
+    in oklab,
+    var(--deep-text) 55%,
+    transparent
+  );
+  --halo-data-statistics-tooltip-bg: var(--float-panel-bg);
+  --halo-data-statistics-tooltip-text: var(--deep-text);
+}
+
+/* ---- 玻璃拟态 + 圆角对齐（插件渲染出的卡片跟随全站卡片的磨砂质感）----
+   插件卡片默认是纯色/渐变，这里补 backdrop-filter，在透明/壁纸模式下
+   与 .card-base 的磨砂一致；纯色背景下 backdrop-filter 无副作用。 */
+#statistics-dashboard .xhhaocom-chartboard-section,
+#statistics-dashboard .xhhaocom-chartboard-card,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-activity,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-uptime-kuma,
+#statistics-dashboard .github-statistics-container {
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-radius: var(--radius-large);
+}

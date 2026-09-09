@@ -21,6 +21,18 @@ spec:
           label: 卡片纹理
           value: true
           help: "卡片 / 浮窗叠加细纹理背景（魔改）。关闭则回到上游纯色卡片"
+        - $formkit: number
+          name: cardPatternOpacity
+          id: mods_cardPatternOpacity
+          key: mods_cardPatternOpacity
+          if: "$get(mods_cardPattern).value"
+          label: 纹理淡化程度
+          min: 0.01
+          max: 0.10
+          step: 0.01
+          value: 0.03
+          validation: "min:0.01|max:0.10"
+          help: "卡片纹理的显示强度（0.01~0.10，默认 0.03）。数值越小越淡、越大越明显：0.01 几乎不可见，0.03 若隐若现，0.10 明显可见。需总开关「启用魔改」与「卡片纹理」均开启才生效"
         - $formkit: switch
           name: pageWidth
           id: mods_pageWidth
@@ -1906,6 +1918,31 @@ spec:
                       label: 主题色
                       value: ""
                       help: "图标底色与进度条颜色，留空使用主题色"
+        - $formkit: group
+          name: statistics
+          label: 数据看板页面
+          help: "请先在「页面 → 自定义页面」中创建「数据看板」页面，然后在此开关各统计模块（需安装 data-statistics 插件）"
+          children:
+            - $formkit: switch
+              name: siteCharts
+              label: 站内统计图表
+              value: true
+              help: "标签/分类分布、文章发布热力图、评论排行、热门文章（无需外部配置）"
+            - $formkit: switch
+              name: umami
+              label: Umami 流量统计
+              value: true
+              help: "访问量/访客数 + 近30分钟实时活动（需在插件后台配置 Umami）"
+            - $formkit: switch
+              name: uptimeKuma
+              label: Uptime Kuma 服务状态
+              value: true
+              help: "服务在线状态（需在插件后台配置状态页）"
+            - $formkit: switch
+              name: github
+              label: GitHub 活跃度
+              value: true
+              help: "贡献图/统计卡/语言分布（需在插件后台配置 GitHub 用户名）"
     - group: footer
       label: 页脚
       formSchema:

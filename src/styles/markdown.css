@@ -14,39 +14,39 @@
   --tw-prose-invert-links: var(--primary);
 }
 
-.custom-md a:not(.no-styling) {
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]) {
   @apply relative z-0 -m-1 rounded-md bg-transparent p-1 font-medium text-(--primary) underline decoration-1 decoration-dashed underline-offset-4 transition;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
   text-decoration-color: var(--link-underline);
 }
 
-.custom-md a:not(.no-styling)::before {
+.custom-md a:not(.no-styling):not([class*="xhhao-com"])::before {
   @apply absolute inset-0 -z-10 scale-[0.85] rounded-[inherit] transition ease-out content-[''];
 }
 
-.custom-md a:not(.no-styling):hover::before {
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):hover::before {
   @apply scale-100 bg-(--btn-plain-bg-hover);
 }
 
-.custom-md a:not(.no-styling):active::before {
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):active::before {
   @apply scale-100 bg-(--btn-plain-bg-active);
 }
 
-.custom-md a:not(.no-styling):hover,
-.custom-md a:not(.no-styling):active {
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):hover,
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):active {
   @apply decoration-transparent;
   background: var(--btn-plain-bg-hover);
   border-bottom: 1px dashed var(--link-hover);
   text-decoration: none;
 }
 
-.custom-md code:not(pre code) {
+.custom-md code:not(pre code):not([class*="xhhao-com"]) {
   @apply rounded-md bg-(--inline-code-bg) px-1.5 py-0.5 text-(--inline-code-color);
 }
 
-.custom-md code:not(pre code)::before,
-.custom-md code:not(pre code)::after {
+.custom-md code:not(pre code):not([class*="xhhao-com"])::before,
+.custom-md code:not(pre code):not([class*="xhhao-com"])::after {
   content: none;
 }
 
@@ -234,6 +234,109 @@
   background: var(--admonitions-color-caution);
 }
 
+/* v1.3.80 提示块卡片化：浅色背景 + 圆角 + 主题色左边框，替代原 ::before 竖条
+   （竖条 position: absolute -left-1 凸出会被 border-radius 切掉，与 padding/圆角
+   自洽）。颜色由 --adm-color 传递（各 bdm-* 在下方注入），未匹配 bdm-* 时
+   退化为 btn-regular-bg 灰色，保持普通引用观感不破。
+   透明叠加用 color-mix in oklab 与 variables.css 表格/选区等深浅色观感一致。 */
+.custom-md :is(blockquote, ethereal-admonition).admonition {
+  background: color-mix(
+    in oklab,
+    var(--adm-color, var(--btn-regular-bg)) 10%,
+    var(--card-bg)
+  );
+  border: 1px solid
+    color-mix(
+      in oklab,
+      var(--adm-color, var(--btn-regular-bg)) 24%,
+      transparent
+    );
+  border-left: 3px solid var(--adm-color, var(--btn-regular-bg));
+  border-radius: 0.625rem;
+  padding: 0.85em 1.1em;
+}
+
+/* 用 border-left 替代原 ::before 竖条（保留 ::before 规则不动以防影响未来扩展） */
+.custom-md :is(blockquote, ethereal-admonition).admonition::before {
+  display: none;
+}
+
+/* 各类型注入主题色（只动 CSS 变量，不重写 bdm-title/图标规则，图标复用上方） */
+.custom-md .admonition.bdm-tip {
+  --adm-color: var(--admonitions-color-tip);
+}
+.custom-md .admonition.bdm-note {
+  --adm-color: var(--admonitions-color-note);
+}
+.custom-md .admonition.bdm-important {
+  --adm-color: var(--admonitions-color-important);
+}
+.custom-md .admonition.bdm-warning {
+  --adm-color: var(--admonitions-color-warning);
+}
+.custom-md .admonition.bdm-caution {
+  --adm-color: var(--admonitions-color-caution);
+}
+
+/* v1.3.81 Vditor callout 覆盖：与 admonition 卡片化风格统一
+   vditor-mde v1.10.3 用 Lute 渲染 `> [!TIP]` 为 <div class="callout"
+   data-subtype="TIP">，与主题 .admonition 并行（rawType=markdown 走 callout，
+   rawType=html/旧文章才走 admonition）。v1.3.80 只改 .admonition，导致 Vditor
+   文章（用户全部用 Vditor）完全没生效——这里补上 callout 覆盖让 5 种 subtype
+   卡片化外观与 admonition 完全一致（同一套主题色变量），保留 Vditor 自带的
+   emoji 图标 + 大写标题结构。优先级靠 unlayered CSS 覆盖 Vditor 注入的 style。 */
+.custom-md .callout {
+  background: color-mix(
+    in oklab,
+    var(--callout-color, var(--btn-regular-bg)) 10%,
+    var(--card-bg)
+  );
+  border: 1px solid
+    color-mix(
+      in oklab,
+      var(--callout-color, var(--btn-regular-bg)) 24%,
+      transparent
+    );
+  border-left: 3px solid var(--callout-color, var(--btn-regular-bg));
+  border-radius: 0.625rem;
+  padding: 0.85em 1.1em;
+  margin-block: 1.4em;
+}
+
+/* Vditor 原生 callout-info 标题行带边框/底色，融入新卡片 */
+.custom-md .callout > .callout-info {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 0.4em;
+}
+
+/* 标题颜色 + 字重与 admonition .bdm-title 对齐 */
+.custom-md .callout > .callout-info > .callout-title {
+  color: var(--callout-color, var(--btn-content));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 0.9em;
+}
+
+/* 5 种 subtype 注入主题色（GitHub admonition 同 5 种：大写 TIP/NOTE/IMPORTANT/
+   WARNING/CAUTION） */
+.custom-md .callout[data-subtype="TIP"] {
+  --callout-color: var(--admonitions-color-tip);
+}
+.custom-md .callout[data-subtype="NOTE"] {
+  --callout-color: var(--admonitions-color-note);
+}
+.custom-md .callout[data-subtype="IMPORTANT"] {
+  --callout-color: var(--admonitions-color-important);
+}
+.custom-md .callout[data-subtype="WARNING"] {
+  --callout-color: var(--admonitions-color-warning);
+}
+.custom-md .callout[data-subtype="CAUTION"] {
+  --callout-color: var(--admonitions-color-caution);
+}
+
 /* 正文表格（issue #67）：覆盖 typography 默认样式——其选择器在 :where() 内
    （权重 0）、本文件规则 unlayered（Tailwind v4 中优先级最高），故可直接盖掉。
    外观由 variables.css 的 --md-table-* 控制；表格 HTML 由 Halo 侧产出。 */
@@ -321,4 +424,395 @@
 
 .custom-md tfoot :is(th, td) {
   border-top: 1px solid var(--md-table-cell-rule);
+}
+
+/* 正文列表（ul/ol）：typography 默认列表朴素（圆点/数字继承正文色），
+   改成主题色 marker + 卡片化：无序=主题色实心圆点带光晕，有序=圆形 badge 数字。
+   用 list-style:none + ::before 才能给 marker 上背景/边框/光晕；
+   counter 让每个 ol 独立 reset、嵌套从 1 计数（契合 markdown 嵌套列表行为）。
+   color-mix 语言与 admonition/表格一致，亮暗色自动联动。 */
+
+/* content-widgets 插件（acanyo）在正文里也渲染 <ol>/<ul>/<li>（timeline /
+   stepper / task-list），它们是 light DOM 的 .xhhao-com-* 组件。下面的列表
+   marker 规则统一加 :not([class*="xhhao-com"])，避免主题的数字 badge / 圆点 /
+   padding-inline-start 泄漏进插件组件——否则 timeline 会凭空多出「1 2 3」序号
+   badge、marker 因 padding 错位跑到别的卡片下面。 */
+.custom-md :where(ul, ol):not([class*="xhhao-com"]) {
+  margin-block: 0.8em;
+}
+
+/* —— 无序列表：主题色圆点 + 柔和光晕 —— */
+.custom-md ul:not([class*="xhhao-com"]) {
+  list-style: none;
+  padding-inline-start: 1.5em;
+}
+
+.custom-md ul > li:not([class*="xhhao-com"]) {
+  position: relative;
+  margin-block: 0.4em;
+}
+
+.custom-md ul > li:not([class*="xhhao-com"])::before {
+  content: "";
+  position: absolute;
+  left: -1.08em;
+  top: 0.62em;
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+/* —— 有序列表：圆形 badge 数字 —— */
+.custom-md ol:not([class*="xhhao-com"]) {
+  list-style: none;
+  counter-reset: md-list;
+  padding-inline-start: 0;
+}
+
+.custom-md ol > li:not([class*="xhhao-com"]) {
+  counter-increment: md-list;
+  position: relative;
+  padding-inline-start: 2.35em;
+  margin-block: 0.45em;
+}
+
+.custom-md ol > li:not([class*="xhhao-com"])::before {
+  content: counter(md-list);
+  position: absolute;
+  left: 0;
+  top: 0.08em;
+  width: 1.7em;
+  height: 1.7em;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 14%, var(--card-bg));
+  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  color: var(--primary);
+  font-size: 0.82em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============ 二次元正文打磨（v1.3.83）============
+   标题/强调/高亮/分割线/引用/图片——这些正文高频元素此前全靠 typography
+   默认（纯色深灰），是「二次元感」最该补的空白。统一走蓝紫主色(250)+五色
+   糖果色体系（tip 青180 / important 粉紫310 / warning 黄60），渐变文字 +
+   装饰伪元素，亮暗两套由同一组变量自动联动，与已打磨的 admonition/表格/
+   列表卡片化语言一致。 */
+
+/* —— 标题系统：h2 渐变文字 + 渐变下划线，h3 渐变竖条，h4 圆点 —— */
+.custom-md h2 {
+  font-size: 1.55em;
+  line-height: 1.35;
+  margin: 2em 0 0.7em;
+  background: linear-gradient(
+    92deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.custom-md h2::after {
+  content: "";
+  display: block;
+  width: 2.6em;
+  height: 3px;
+  margin-top: 0.4em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--admonitions-color-important),
+    transparent
+  );
+}
+
+.custom-md h3 {
+  font-size: 1.25em;
+  margin: 1.6em 0 0.6em;
+  padding-left: 0.85em;
+  position: relative;
+}
+
+.custom-md h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  bottom: 0.2em;
+  width: 0.28em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    180deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+}
+
+.custom-md h4 {
+  font-size: 1.1em;
+  margin: 1.4em 0 0.5em;
+}
+
+.custom-md h4::before {
+  content: "";
+  display: inline-block;
+  width: 0.52em;
+  height: 0.52em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+  margin-right: 0.5em;
+  vertical-align: 0.06em;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+/* —— 强调：strong 主题色加粗 —— */
+.custom-md strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+/* —— 高亮 mark：糖果色渐变底（黄→青）—— */
+.custom-md mark {
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--admonitions-color-warning) 45%, transparent),
+    color-mix(in oklab, var(--admonitions-color-tip) 45%, transparent)
+  );
+  color: inherit;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  font-weight: 600;
+}
+
+/* —— 分割线 hr：主色→粉紫渐变 + ✦ 装饰 —— */
+.custom-md hr {
+  border: none;
+  height: 1px;
+  margin: 2.2em 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--primary) 35%, transparent) 30%,
+    color-mix(in oklab, var(--admonitions-color-important) 35%, transparent) 70%,
+    transparent
+  );
+  position: relative;
+}
+
+.custom-md hr::after {
+  content: "✦";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.9em;
+  color: var(--primary);
+  background: var(--card-bg);
+  padding: 0 0.6em;
+}
+
+/* —— 普通引用 blockquote（非 admonition）：主题色渐变竖条 + 浅色底 ——
+   特异性低于 .admonition 卡片化规则，不会干扰提示块 */
+.custom-md blockquote:not(.admonition) {
+  margin: 1.2em 0;
+  padding: 0.7em 1.1em 0.7em 1.3em;
+  border-radius: 0.7em;
+  background: color-mix(in oklab, var(--primary) 6%, var(--card-bg));
+  border-left: 3px solid var(--primary);
+  color: color-mix(in oklab, var(--deep-text) 82%, var(--primary));
+}
+
+.custom-md blockquote:not(.admonition)::before {
+  display: none;
+}
+
+/* —— 行内代码：主题色文字 + 主题色浅底（覆盖默认 btn-content 深色）—— */
+.custom-md code:not(pre code):not([class*="xhhao-com"]) {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card-bg));
+  color: var(--primary);
+  font-size: 0.9em;
+}
+
+/* —— 图片：圆角 + 细描边 + 柔和主题色阴影 —— */
+.custom-md img {
+  border-radius: 0.9em;
+  border: 1px solid color-mix(in oklab, var(--primary) 15%, transparent);
+  box-shadow: 0 6px 24px -8px
+    color-mix(in oklab, var(--primary) 35%, transparent);
+  max-width: 100%;
+}
+
+/* ============================================================
+   内容增强 L2/L3（content-enhance.ts / shortcode.ts 注入）
+   ============================================================ */
+
+/* —— 代码块：语言标签（pre[data-lang]::before）+ 复制按钮 —— */
+.custom-md pre[data-lang] {
+  position: relative;
+  padding-top: 2.5rem;
+}
+.custom-md pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.7rem;
+  left: 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", monospace);
+  color: color-mix(in oklab, var(--btn-content) 55%, var(--primary));
+  pointer-events: none;
+  user-select: none;
+}
+.custom-md .code-copy-btn {
+  position: absolute;
+  top: 0.42rem;
+  right: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklab, var(--btn-content) 9%, transparent);
+  color: color-mix(in oklab, var(--btn-content) 80%, transparent);
+  font-size: 0.75rem;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+.custom-md .code-copy-btn:hover {
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: var(--primary);
+}
+.custom-md .code-copy-btn.copied {
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+}
+
+/* —— 表格横滚容器（JS 包 wrapper）—— */
+.custom-md .md-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-block: var(--md-table-margin-y);
+}
+.custom-md .md-table-scroll table {
+  margin-block: 0;
+}
+
+/* —— 标题锚点（h2/h3 hover 显示 #）—— */
+.custom-md :is(h2, h3)[id] {
+  position: relative;
+}
+.custom-md :is(h2, h3)[id] .heading-anchor {
+  opacity: 0;
+  margin-left: 0.4em;
+  font-size: 0.8em;
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+  /* 覆盖 h2/h3 的渐变文字（background-clip:text）裁剪 */
+  -webkit-text-fill-color: var(--primary);
+  background: none !important;
+}
+.custom-md :is(h2, h3)[id]:hover .heading-anchor {
+  opacity: 1;
+}
+
+/* —— 任务列表（Lute 渲染 <li class="vditor-task"><input checkbox>）—— */
+.custom-md li.vditor-task {
+  list-style: none;
+}
+.custom-md li.vditor-task input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.5em;
+  border-radius: 0.32em;
+  border: 1.5px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  background: color-mix(in oklab, var(--primary) 7%, var(--card-bg));
+  vertical-align: -0.18em;
+  position: relative;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+.custom-md li.vditor-task input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.custom-md li.vditor-task input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 0.28em;
+  height: 0.5em;
+  border: solid var(--on-primary, #fff);
+  border-width: 0 0.14em 0.14em 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+.custom-md li.vditor-task--done {
+  opacity: 0.62;
+}
+
+/* —— 脚注（Lute 渲染 sup.footnotes-ref + div.footnotes-defs-div）—— */
+.custom-md sup.footnotes-ref {
+  font-size: 0.72em;
+  line-height: 1;
+  margin: 0 0.1em;
+}
+.custom-md sup.footnotes-ref a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3em;
+  height: 1.3em;
+  padding: 0 0.3em;
+  border-radius: 0.4em;
+  background: color-mix(in oklab, var(--primary) 12%, var(--card-bg));
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.2s ease;
+}
+.custom-md sup.footnotes-ref a:hover {
+  background: color-mix(in oklab, var(--primary) 22%, var(--card-bg));
+}
+.custom-md .footnotes-defs-div {
+  margin-top: 2em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--line-color);
+  font-size: 0.88em;
+  color: var(--deep-text);
+}
+.custom-md .footnotes-defs-hr {
+  display: none;
+}
+.custom-md ol.footnotes-defs-ol {
+  padding-inline-start: 1.6em;
+}
+.custom-md ol.footnotes-defs-ol li {
+  margin-block: 0.35em;
+}
+.custom-md a.vditor-footnotes__goto-ref {
+  color: var(--primary);
+  text-decoration: none;
+  margin-inline-start: 0.4em;
 }

@@ -37,6 +37,14 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       th:if="${not #strings.isEmpty(post.spec.cover)}"
       th:content="${post.spec.cover}"
     />
+    <!-- reading-time 服务端字数：extra-api 插件 getContentWordCount 统计正文纯文本字数
+         （CJK 逐字 + ASCII 按词，去标签/实体），前端回填阅读时间徽标；
+         插件不可用时前端数 DOM 兜底。 -->
+    <meta
+      name="post-word-count"
+      th:if="${pluginFinder.available('extra-api', '3.*')}"
+      th:content="${extraApiStatsFinder.getContentWordCount({htmlContent: post.content.content})}"
+    />
     <!-- 结构化数据：BlogPosting（支持富媒体摘要） -->
     <script type="application/ld+json" th:inline="javascript">
       {
@@ -680,6 +688,50 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       var TEMPLATE_ID = "content-template";
       var PLACEHOLDER_ID = "content-placeholder";
 
+      // reading-time 自动统计：插件组件只能统计「标签内文本」或「手动 words/minutes」，
+      // 数不了整篇正文。这里优先读取 extra-api 插件服务端算好的字数（meta[name=post-word-count]），
+      // 插件不可用时 fallback 到前端数 #content 纯文本字数（中文按字符、英文/数字按词）。
+      // 回填到 .xhhao-com-reading-time 的「分钟」「字」两格，让阅读时间真正跟随文章长度——
+      // 写作时写空标签 <xhhao-com-reading-time></xhhao-com-reading-time> 即可，无需手动 words="xxx"。
+      function readServerWordCount() {
+        var meta = document.querySelector('meta[name="post-word-count"]');
+        if (!meta) return null;
+        var v = meta.getAttribute("content");
+        if (!v || v === "") return null;
+        var n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      }
+
+      function autoFillReadingTime(contentEl, readingTimeEl) {
+        // 优先服务端字数（extra-api 插件，口径统一、不含组件运行时 UI 文本）
+        var words = readServerWordCount();
+        if (words === null) {
+          // fallback：前端数 DOM（去除徽标自身文字，避免把「阅读时间 7 分钟 7 字」算进正文）
+          var text = contentEl.textContent || "";
+          var selfText = readingTimeEl.textContent || "";
+          if (selfText && text.indexOf(selfText) !== -1) {
+            text = text.replace(selfText, "");
+          }
+          var cn = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+          var en = (text.match(/[A-Za-z0-9]+/g) || []).length;
+          words = cn + en;
+        }
+        // 口径与插件一致：÷400 向上取整、最小 1 分钟
+        var minutes = Math.max(1, Math.ceil(words / 400));
+        var minEl = readingTimeEl.querySelector("strong");
+        var wordEl = readingTimeEl.querySelector("em");
+        if (minEl) minEl.textContent = minutes + " 分钟";
+        if (wordEl) {
+          wordEl.textContent = words + " 字";
+        } else {
+          // 空标签时插件不渲染「字」格（words/content 均空 → 条件渲染跳过 <em>，
+          // 只留 <!----> 占位注释），这里动态补一个 <em> 对齐插件正常渲染结构。
+          wordEl = document.createElement("em");
+          wordEl.textContent = words + " 字";
+          readingTimeEl.appendChild(wordEl);
+        }
+      }
+
       function processAndInsert() {
         var template = document.getElementById(TEMPLATE_ID);
         var placeholder = document.getElementById(PLACEHOLDER_ID);
@@ -775,6 +827,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         ) {
           window.XhhaoComContentWidgets.mount();
         }
+
+        // reading-time 自动统计：等组件挂载渲染完成（下一帧）再统计正文，
+        // 避免 .xhhao-com-reading-time 尚未渲染时 querySelector 落空。
+        requestAnimationFrame(function () {
+          var readingTimeEl = contentEl.querySelector(
+            ".xhhao-com-reading-time",
+          );
+          if (readingTimeEl) {
+            autoFillReadingTime(contentEl, readingTimeEl);
+          }
+        });
       }
 
       if (document.readyState === "loading") {

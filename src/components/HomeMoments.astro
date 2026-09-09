@@ -11,6 +11,7 @@
  * 数据流：
  * - 跑马灯 SSR 渲染最近瞬间，content.raw 为富文本（可能含 HTML），
  *   由前端 JS 解析提取纯文本后回填（隐藏 span 传值，避免 HTML 转义外露）。
+ *   每条瞬间只显示「第一行」：去图片块、按 <br>/段落边界断行、取首个逻辑行。
  * - 标签同样用隐藏 span 传入，JS 去重 + 计数后渲染为胶囊链接。
  * - 无缝滚动：JS 克隆一份内容，内容超出一屏时才启用动画；hover 暂停；两端渐隐。
  * - 开关：theme.config.layout.postList.showHomeMoments
@@ -176,11 +177,15 @@
     animation-play-state: paused;
   }
 
-  /* 单条瞬间：保持自然宽度、不换行（跑马灯靠滚动展示完整内容，无需截断）。
+  /* 单条瞬间：只显示第一行——内容由 JS 截取首个逻辑行（去图片、按 br/段落断行），
+     此处再限宽单行省略兜底，防某条首行本身超长撑破轨道。
      inline-block 是关键：默认 span 是 inline，white-space 不生效。
      !important 防止被任何更高优先级的样式覆盖 */
   .home-moment-text {
     display: inline-block !important;
+    max-width: 40ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap !important;
     vertical-align: middle !important;
     transition: color 0.2s ease;
@@ -230,10 +235,25 @@
 
 <script is:inline>
   (function () {
-    function stripHtml(html) {
+    // 富文本 → 只保留「第一行」纯文本：
+    // 图片块在走马灯里无意义先移除；<br> 与块级元素边界视作换行，
+    // 取第一个逻辑行，其余（后续段落 / 换行后内容）全部丢弃。
+    function firstLineOf(html) {
       var div = document.createElement("div");
       div.innerHTML = html;
-      return (div.textContent || div.innerText || "").trim();
+      div.querySelectorAll("figure, img").forEach(function (n) {
+        n.remove();
+      });
+      div.querySelectorAll("br").forEach(function (b) {
+        b.parentNode.replaceChild(document.createTextNode("\n"), b);
+      });
+      var BLOCK = /^(P|DIV|LI|BLOCKQUOTE|H[1-6]|UL|OL|PRE|SECTION|ARTICLE)$/;
+      div.querySelectorAll("*").forEach(function (el) {
+        if (BLOCK.test(el.tagName))
+          el.appendChild(document.createTextNode("\n"));
+      });
+      var text = (div.textContent || "").trim();
+      return text.split("\n")[0].trim();
     }
 
     function initHomeMoments() {
@@ -246,7 +266,7 @@
       var textEls = track.querySelectorAll(".home-moment-text");
       textEls.forEach(function (el) {
         var raw = el.textContent || "";
-        var text = stripHtml(raw);
+        var text = firstLineOf(raw);
         el.textContent = text;
         if (!text) {
           var link = el.closest(".home-moment-link");

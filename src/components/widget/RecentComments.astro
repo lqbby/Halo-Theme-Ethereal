@@ -112,6 +112,116 @@ const COLLAPSED_HEIGHT = "7.5rem";
         .trim();
     }
 
+    // 表情包贴纸（OwO 等）在评论正文里是 <img>，toPlain 只剥 Markdown 不剥 HTML，
+    // 直接 textContent 会把整段 <img ...> 当代码文本显示。这里改白名单 DOM 渲染：
+    // DOMParser 只放行文本与 http(s) 贴纸图，其余标签/属性全部丢弃——既不显示代码，
+    // 也杜绝评论者原始 HTML 注入（全程无 innerHTML）。文本仍按 BODY_TEXT_LIMIT 截断，
+    // 贴纸是紧凑行内元素不占字数预算。
+    var BODY_TEXT_LIMIT = 48;
+    function renderBody(el, html) {
+      if (!html) {
+        el.textContent = "（无内容）";
+        return;
+      }
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var budget = BODY_TEXT_LIMIT;
+      var cut = false; // 文本预算耗尽（等价于原 48 字截断）
+
+      function lastIsSpace() {
+        var last = el.lastChild;
+        return (
+          !!last && last.nodeType === 3 && /\s$/.test(last.nodeValue || "")
+        );
+      }
+
+      function appendText(rawText) {
+        if (cut) return;
+        var t = toPlain(rawText);
+        if (!t) return;
+        if (budget <= 0) {
+          cut = true;
+          return;
+        }
+        // 跨块文本（如多个 <p>）自动补空格，避免「段1段2」粘连
+        if (el.lastChild && !lastIsSpace()) t = " " + t;
+        if (t.length > budget) {
+          t = t.slice(0, budget) + "…";
+          budget = 0;
+          cut = true;
+        } else {
+          budget -= t.length;
+        }
+        el.appendChild(document.createTextNode(t));
+      }
+
+      function appendSticker(src, alt) {
+        if (cut) return;
+        var img = document.createElement("img");
+        img.loading = "lazy";
+        img.alt = alt || "表情";
+        img.src = src;
+        // 行内小图：贴纸限高 1.5em 对齐文本，避免撑乱侧边栏两行布局。
+        // display:inline-block + max-width + object-fit 让贴纸成为原子行内盒：
+        // 宽贴纸（OwO 动图等）在窄屏不会撑破 line-clamp-2 容器 / 溢出被裁切，
+        // object-fit:contain 保证贴纸等比缩放、不变形、完整可见。
+        img.style.display = "inline-block";
+        img.style.height = "1.5em";
+        img.style.width = "auto";
+        img.style.maxWidth = "1.5em";
+        img.style.objectFit = "contain";
+        img.style.verticalAlign = "-0.35em";
+        img.style.margin = "0 1px";
+        // 贴纸后补一个空格与后续文字分隔；加载失败移除贴纸时只剩这个空格，
+        // 不会出现「文字  结尾」式双空格
+        img.onerror = function () {
+          if (img.parentNode) img.parentNode.removeChild(img);
+        };
+        el.appendChild(img);
+        el.appendChild(document.createTextNode(" "));
+      }
+
+      function walk(node) {
+        if (cut) return;
+        if (node.nodeType === 3) {
+          appendText(node.nodeValue);
+          return;
+        }
+        if (node.nodeType !== 1) return;
+        var tag = node.tagName.toLowerCase();
+        if (
+          tag === "script" ||
+          tag === "style" ||
+          tag === "iframe" ||
+          tag === "object" ||
+          tag === "embed" ||
+          tag === "link" ||
+          tag === "meta"
+        )
+          return;
+        if (tag === "img") {
+          var src = node.getAttribute("src") || "";
+          if (/^https?:\/\//i.test(src))
+            appendSticker(src, node.getAttribute("alt") || "");
+          return;
+        }
+        if (tag === "br") {
+          if (el.lastChild && !lastIsSpace())
+            el.appendChild(document.createTextNode(" "));
+          return;
+        }
+        var child = node.firstChild;
+        while (child) {
+          var next = child.nextSibling;
+          walk(child);
+          child = next;
+        }
+      }
+      walk(doc.body);
+      // 空评论兜底：正文既无文字也无图才算空（纯贴纸评论有图即有内容）
+      var bodyText = (el.textContent || "").replace(/\s/g, "");
+      if (!bodyText && !el.querySelector("img")) el.textContent = "（无内容）";
+    }
+
     // 无头像/头像加载失败时，用首字母色块兜底（列表项总显示头像）
     function makeInitialAvatar(initial, color) {
       var d = document.createElement("div");
@@ -152,8 +262,6 @@ const COLLAPSED_HEIGHT = "7.5rem";
         var spec = c.spec || {};
         var avatar = resolveAvatar(owner, spec);
         var name = owner.displayName || "匿名";
-        var raw = toPlain(spec.raw || spec.content || "");
-        if (raw.length > 48) raw = raw.slice(0, 48) + "…";
         var time = fmtRelative(
           spec.creationTime || (c.metadata && c.metadata.creationTimestamp),
         );
@@ -228,7 +336,8 @@ const COLLAPSED_HEIGHT = "7.5rem";
         var content = document.createElement("p");
         content.className =
           "mt-0.5 line-clamp-2 break-words text-xs leading-relaxed text-neutral-500 dark:text-neutral-400";
-        content.textContent = raw || "（无内容）";
+        // 优先取渲染后的 content（贴纸 <img> 只存在于 HTML 里），raw 仅作兜底
+        renderBody(content, spec.content || spec.raw || "");
 
         body.appendChild(meta);
         body.appendChild(content);

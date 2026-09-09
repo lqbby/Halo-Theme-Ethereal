@@ -4,10 +4,12 @@
 import "../styles/global.css";
 import "../styles/utilities.css";
 import "../styles/variables.css";
+import "../styles/content-widgets.css";
 import "../styles/comment-widget.css";
 import "../styles/base.css";
 import "../styles/theme-transition.css";
 import "../styles/components.css";
+import "../styles/statistics.css";
 import "../styles/markdown.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
@@ -30,6 +32,7 @@ import {
 import { scrollDownToContent, scrollFunction } from "../utils/scroll-manager";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
 import { initLegacyAdmonitions } from "../utils/legacy-admonitions";
+import { initContentEnhance } from "../utils/content-enhance";
 import { initExternalLinkRedirect } from "../utils/external-link-redirect";
 import { initProfileStatus } from "../utils/profile-status";
 import {
@@ -364,6 +367,11 @@ function setupSwup() {
     updateTocBtnVisibility();
   });
   window.swup.hooks.on("page:view", () => {
+    // L2 内容增强 + L3 短代码转译：Swup 换页后新 .custom-md 需重新执行
+    // （initContentEnhance 幂等，已打 data-content-enhanced 标记的会跳过）。
+    // 首刷走 DOMContentLoaded，换页走这里——缺了它 callout 短代码（7 种）
+    // 在换页后不转译、显示成原始 GitHub Alert 样式。
+    initContentEnhance();
     syncHomeClass();
     syncBannerOverlay();
     armLazyLightbox();
@@ -633,6 +641,7 @@ function init() {
   // 全找不到。挂到 DOMContentLoaded 让 processAndInsert 先插入正文，转换器再扫。
   // Swup 换页路径的 page:view 钩子不受影响（新内容已在 DOM 后才触发）。
   document.addEventListener("DOMContentLoaded", initLegacyAdmonitions);
+  document.addEventListener("DOMContentLoaded", initContentEnhance);
   updateTocBtnVisibility();
   initCommentLazyLoad();
 }
