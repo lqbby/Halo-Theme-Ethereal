@@ -47,11 +47,31 @@ import { t } from "../../utils/i18n";
     }, SPIN_DELAY);
   }
 
-  // 移除跳转遮罩
+  // 移除跳转遮罩（幂等：不存在时 no-op）
   function removeOverlay() {
     var ov = document.getElementById("random-fish-overlay");
     if (ov) ov.remove();
   }
+
+  // ─────────── 【1.4.64 修复】遮罩清理的三层保险 ───────────
+  // 症状：首页点鱼钩 → 遮罩「正在前往神秘区域」→ 跳到别处 → 返回，遮罩还在。
+  // 真机时间线（CDP + MutationObserver 实测，2026-09-11）：
+  //   +1777ms  OVERLAY_ADDED
+  //   +2280ms  NAVIGATE_CALLED https://www.nanzhiy.cn/archives/NVObtSwG   ← 跨域！
+  //   +2739ms  PAGEHIDE persisted=true      ← 带着遮罩进 bfcache（全程无 OVERLAY_REMOVED）
+  //   +12131ms PAGESHOW persisted=true      ← 返回时 bfcache 原样恢复 → 遮罩重现
+  // 根因两条（都不是 CDN 缓存，是**浏览器 bfcache**）：
+  //   ① 朋友圈插件聚合的是**外站** RSS 条目 —— 实测该站 59/59 条候选全是跨域 URL。
+  //      Swup 只接管同源导航，喂它跨域 URL 时连 visit:start 都不触发（实测），
+  //      浏览器直接整页跳转 ⇒ 原代码唯一清理点 visit:end **永不执行**。
+  //   ② 遮罩挂在 document.body 上，而 Swup 只替换 #swup-container ⇒ 一旦漏清就永久残留，
+  //      且会被 bfcache 连文档一起存档（pagehide 时 DOM 什么样，返回时就什么样）。
+  // 契约：**「页面即将隐藏」和「页面重新显示」两个时刻，文档内都必须没有遮罩。**
+  //   - pagehide：治本。在页面被冻进 bfcache 之前清掉，快照就是干净的。
+  //   - pageshow：兜底。万一快照已被存脏（旧版本遗留 / pagehide 未跑到），恢复时立刻抹掉。
+  // 两者都幂等，且对正常加载/导航是 no-op。
+  window.addEventListener("pagehide", removeOverlay);
+  window.addEventListener("pageshow", removeOverlay);
 
   // 显示「正在前往神秘区域」跳转遮罩（符合 Ethereal 空灵主题）
   function showGoOverlay() {
@@ -93,13 +113,31 @@ import { t } from "../../utils/i18n";
     } else {
       showGoOverlay();
       setTimeout(function () {
-        if (window.swup && window.swup.navigate) window.swup.navigate(chosen);
-        else window.location.href = chosen;
-        // 跳转动画在页面切换完成后移除（SPA）；整页回退则自然消失
-        // 跳转动画在页面切换完成后移除（SPA）；整页回退则自然消失。
-        // 用共享 onSwupHook 注册一次性处理器（SwupScriptsPlugin 重执行时重新注册，
-        // 但 { once: true } 保证 handler 触发一次后即解绑，不累积监听）。
-        onSwupHook("visit:end", "random-fish", removeOverlay, { once: true });
+        // 同源判定：只有同源目标才交给 Swup 做 SPA 导航。
+        // 跨域目标 Swup 接管不了（实测连 visit:start 都不触发就整页跳转），
+        // 喂给它毫无意义且会白挂一个永不消费的 visit:end 处理器（每次点击累积）。
+        var sameOrigin = true;
+        try {
+          sameOrigin =
+            new URL(chosen, location.href).origin === location.origin;
+        } catch (e) {
+          sameOrigin = false;
+        }
+
+        if (sameOrigin) {
+          // ⚠️ 注册必须在 navigate() **之前**：navigate() 里若走极速路径（预取命中），
+          //    visit:end 可能在返回值落定前就已派发，晚注册直接漏掉本次清理（时序竞态）。
+          onSwupHook("visit:end", "random-fish", removeOverlay, { once: true });
+          // 兜底：任何异常路径（visit 被中止 / 目标不可达 / 图片级失败）都不许把遮罩
+          // 永久留在文档里。3s 后无条件清理；正常路径下 handler 已先跑过，此处是幂等 no-op。
+          setTimeout(removeOverlay, 3000);
+          if (window.swup && window.swup.navigate) window.swup.navigate(chosen);
+          else window.location.href = chosen;
+        } else {
+          // 跨域：直接整页跳转。遮罩由 pagehide（跳转时）/ pageshow（返回恢复时）兜底清理，
+          // 不依赖 visit:end —— 跨域根本不会产生 Swup visit。
+          window.location.href = chosen;
+        }
       }, 500);
     }
     stopSwing(btn);
