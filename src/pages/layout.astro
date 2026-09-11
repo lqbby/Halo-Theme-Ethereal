@@ -30,6 +30,7 @@ import "../styles/theme-transition.css";
 import "../styles/components.css";
 import "../styles/statistics.css";
 import "../styles/markdown.css";
+import "../styles/portfolio-card.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
@@ -86,6 +87,16 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
       }}
     >
       (() => {
+        // localStorage 安全访问：禁存储环境（Safari 无痕 / 站点存储被浏览器或扩展拦截）
+        // 读取会抛 SecurityError，裸调会中断主题初始化、导致整站主题错乱。读取失败按未设置处理。
+        var lsGet = (k) => {
+          try {
+            return localStorage.getItem(k);
+          } catch (e) {
+            return null;
+          }
+        };
+
         const configHue = document.documentElement.dataset.hue || "250";
         const fixedHue = document.documentElement.dataset.hueFixed === "true";
 
@@ -100,8 +111,8 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
         var enableChange =
           typeof __eecs !== "undefined" && __eecs !== null ? __eecs : true;
         var storedTheme;
-        if (enableChange && localStorage.getItem("__user_chose_theme")) {
-          storedTheme = localStorage.getItem("theme") || defaultScheme;
+        if (enableChange && lsGet("__user_chose_theme")) {
+          storedTheme = lsGet("theme") || defaultScheme;
         } else {
           storedTheme = defaultScheme;
         }
@@ -119,9 +130,7 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
           document.documentElement.classList.remove("dark");
         }
 
-        const hue = fixedHue
-          ? configHue
-          : localStorage.getItem("hue") || configHue;
+        const hue = fixedHue ? configHue : lsGet("hue") || configHue;
         document.documentElement.style.setProperty("--hue", hue);
         document.documentElement.style.setProperty(
           "--page-width",

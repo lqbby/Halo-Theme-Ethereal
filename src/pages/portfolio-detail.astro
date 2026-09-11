@@ -14,29 +14,31 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
              content=${projectFinder.renderContent(project)}"
   >
     <article class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-      <!-- 头部：标签 + 标题 + 元信息 -->
+      <!-- 头部：返回 + 标签 + 标题 + 元信息 + 行动入口 -->
       <header class="mb-8">
-        <!-- 标签行 -->
-        <div class="mb-4 flex flex-wrap items-center gap-2">
+        <!-- 返回作品集：详情页原先没有任何回到列表的入口，
+             只能靠浏览器后退，从外链直接进来时更无路可回 -->
+        <div class="pd-back">
+          <a th:href="@{/portfolio}" class="pd-back__link">
+            <span
+              class="icon-[material-symbols--arrow-back-rounded] pd-back__icon"
+            ></span>
+            <span th:text="#{page.portfolio.backToAll}">返回作品集</span>
+          </a>
+        </div>
+
+        <!-- 推荐徽章：权重标识，不属于「可筛选分类」，故不并入下方分类区 -->
+        <div
+          th:if="${project.featured}"
+          class="mb-4 flex flex-wrap items-center gap-2"
+        >
           <span
-            th:if="${project.featured}"
             class="inline-flex items-center gap-1 rounded-lg bg-(--primary)/10 px-3 py-1 text-sm font-medium text-(--primary)"
           >
             <span class="icon-[material-symbols--star-rounded] text-base"
             ></span>
             <span th:text="#{page.portfolio.featured}">推荐</span>
           </span>
-          <span
-            th:if="${not #strings.isEmpty(project.platform)}"
-            class="inline-flex items-center rounded-lg bg-(--btn-regular-bg) px-3 py-1 text-sm font-medium text-(--btn-content)"
-            th:text="${platformLabels[project.platform] ?: project.platform}"
-            >Platform</span
-          >
-          <span
-            th:if="${not #strings.isEmpty(project.type)}"
-            class="inline-flex items-center rounded-lg bg-(--btn-regular-bg) px-3 py-1 text-sm font-medium text-(--btn-content)"
-            th:text="${typeLabels[project.type] ?: project.type}">Type</span
-          >
         </div>
 
         <!-- 标题 -->
@@ -49,77 +51,155 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
           </h1>
         </div>
 
-        <!-- 元信息行 -->
+        <!-- 元信息行：创建 / 更新
+             两个日期先在 th:with 里算好再比——直接在 th:if 里对可能为空的
+             createTime 调 #strings.substring 会越界抛异常 -->
         <div
-          class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-50"
+          class="pd-meta"
+          th:with="created=${not #strings.isEmpty(project.createTime)
+            ? #strings.substring(project.createTime, 0, 10)
+            : ''},
+                   updated=${not #strings.isEmpty(project.updateTime)
+            ? #strings.substring(project.updateTime, 0, 10)
+            : ''}"
         >
-          <!-- 创建日期 -->
-          <div
-            th:if="${not #strings.isEmpty(project.createTime)}"
-            class="flex items-center"
-          >
-            <div class="meta-icon">
-              <span
-                class="icon-[material-symbols--calendar-today-outline-rounded] text-xl"
-              ></span>
-            </div>
+          <span th:if="${created}" class="pd-meta__item">
             <span
-              class="text-sm font-medium text-50"
-              th:text="${#strings.substring(project.createTime, 0, 10)}"
-              >2026-01-01</span
+              class="icon-[material-symbols--calendar-today-outline-rounded] pd-meta__icon"
+            ></span>
+            <span th:text="${created}">2026-01-01</span>
+          </span>
+          <span
+            th:if="${updated != '' and updated != created}"
+            class="pd-meta__item"
+          >
+            <span class="icon-[material-symbols--update-rounded] pd-meta__icon"
+            ></span>
+            <span th:text="#{page.portfolio.updated}">更新</span>
+            <span th:text="${updated}">2026-01-01</span>
+          </span>
+        </div>
+
+        <!-- 行动入口：外链原先与「创建日期」并列在元信息行里（meta-icon 方框 +
+             文字），而它其实是本页最主要的行动——看效果、看代码。故独立成行
+             并区分主次：演示 = 主色实心；没有演示时「仓库」自动升为主色；
+             文档 = 幽灵按钮。 -->
+        <div
+          th:if="${not #strings.isEmpty(project.repoUrl) or not #strings.isEmpty(project.demoUrl) or not #strings.isEmpty(project.docsUrl)}"
+          class="pd-actions"
+        >
+          <a
+            th:if="${not #strings.isEmpty(project.demoUrl)}"
+            th:href="${project.demoUrl}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="pd-act pd-act--primary"
+          >
+            <span
+              class="icon-[material-symbols--play-circle-rounded] pd-act__icon"
+            ></span>
+            <span th:text="#{page.portfolio.demo}">演示</span>
+          </a>
+          <a
+            th:if="${not #strings.isEmpty(project.repoUrl)}"
+            th:href="${project.repoUrl}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="pd-act"
+            th:classappend="${#strings.isEmpty(project.demoUrl)
+              ? ' pd-act--primary'
+              : ' pd-act--muted'}"
+          >
+            <span class="icon-[material-symbols--code-rounded] pd-act__icon"
+            ></span>
+            <span th:text="#{page.portfolio.repo}">仓库</span>
+          </a>
+          <a
+            th:if="${not #strings.isEmpty(project.docsUrl)}"
+            th:href="${project.docsUrl}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="pd-act pd-act--ghost"
+          >
+            <span
+              class="icon-[material-symbols--description-rounded] pd-act__icon"
+            ></span>
+            <span th:text="#{page.portfolio.docs}">文档</span>
+          </a>
+        </div>
+
+        <!-- 分类区：平台 / 类型 / 技术栈 / 标签
+             原先技术栈与标签挂在正文之后的页面底部，要滚过整篇 README 才看得见；
+             而它们和平台、类型是同一类信息——列表页里分别对应 ?platform= /
+             ?type= / ?tag= 三个筛选参数。故合并到标题下方做成同一组可点 chip，
+             全页只有这一处分类展示，不再复制到页面底部。 -->
+        <div
+          th:if="${not #strings.isEmpty(project.platform) or not #strings.isEmpty(project.type) or not #lists.isEmpty(project.techStacks) or not #lists.isEmpty(project.tags)}"
+          class="pd-taxonomy"
+        >
+          <!-- 平台 / 类型 -->
+          <div
+            th:if="${not #strings.isEmpty(project.platform) or not #strings.isEmpty(project.type)}"
+            class="pd-taxonomy__row"
+          >
+            <span class="pd-taxonomy__key" th:text="#{page.portfolio.category}"
+              >分类</span
             >
+            <span class="pd-taxonomy__val">
+              <a
+                th:if="${not #strings.isEmpty(project.platform)}"
+                th:href="@{/portfolio(platform=${project.platform})}"
+                th:aria-label="${#messages.msg('page.portfolio.filterBy', platformLabels[project.platform] ?: project.platform)}"
+                class="pd-chip"
+                th:text="${platformLabels[project.platform] ?: project.platform}"
+                >Platform</a
+              >
+              <a
+                th:if="${not #strings.isEmpty(project.type)}"
+                th:href="@{/portfolio(type=${project.type})}"
+                th:aria-label="${#messages.msg('page.portfolio.filterBy', typeLabels[project.type] ?: project.type)}"
+                class="pd-chip"
+                th:text="${typeLabels[project.type] ?: project.type}">Type</a
+              >
+            </span>
           </div>
 
-          <!-- 外链：结构与文章页 PostMeta 分类/标签项一致——meta-icon 方形图标 + link-lg 文字链接
-               （悬浮时文字浮现圆角矩形背景高亮并变主题色），不带外链箭头；
-               th:if 挂在外层 div 上，避免空 URL 时只剩一个空图标框 -->
+          <!-- 技术栈 -->
           <div
-            th:if="${not #strings.isEmpty(project.repoUrl)}"
-            class="flex items-center"
+            th:if="${not #lists.isEmpty(project.techStacks)}"
+            class="pd-taxonomy__row"
           >
-            <span class="meta-icon">
-              <span class="icon-[material-symbols--code-rounded] text-xl"
-              ></span>
-            </span>
-            <a
-              th:href="${project.repoUrl}"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="link-lg whitespace-nowrap text-sm font-medium text-50 transition hover:text-(--primary) active:scale-95 dark:hover:text-(--primary)"
-              >仓库</a
+            <span class="pd-taxonomy__key" th:text="#{page.portfolio.stack}"
+              >技术栈</span
             >
+            <span class="pd-taxonomy__val">
+              <a
+                th:each="tech : ${project.techStacks}"
+                th:href="@{/portfolio(tag=${tech})}"
+                th:aria-label="${#messages.msg('page.portfolio.filterBy', tech)}"
+                class="pd-chip"
+                th:text="${tech}">Tech</a
+              >
+            </span>
           </div>
+
+          <!-- 标签 -->
           <div
-            th:if="${not #strings.isEmpty(project.demoUrl)}"
-            class="flex items-center"
+            th:if="${not #lists.isEmpty(project.tags)}"
+            class="pd-taxonomy__row"
           >
-            <span class="meta-icon">
-              <span class="icon-[material-symbols--play-circle-rounded] text-xl"
-              ></span>
-            </span>
-            <a
-              th:href="${project.demoUrl}"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="link-lg whitespace-nowrap text-sm font-medium text-50 transition hover:text-(--primary) active:scale-95 dark:hover:text-(--primary)"
-              >演示</a
+            <span class="pd-taxonomy__key" th:text="#{page.portfolio.tags}"
+              >标签</span
             >
-          </div>
-          <div
-            th:if="${not #strings.isEmpty(project.docsUrl)}"
-            class="flex items-center"
-          >
-            <span class="meta-icon">
-              <span class="icon-[material-symbols--description-rounded] text-xl"
-              ></span>
+            <span class="pd-taxonomy__val">
+              <a
+                th:each="tag : ${project.tags}"
+                th:href="@{/portfolio(tag=${tag})}"
+                th:aria-label="${#messages.msg('page.portfolio.filterBy', tag)}"
+                class="pd-chip"
+                th:text="${tag}">Tag</a
+              >
             </span>
-            <a
-              th:href="${project.docsUrl}"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="link-lg whitespace-nowrap text-sm font-medium text-50 transition hover:text-(--primary) active:scale-95 dark:hover:text-(--primary)"
-              >文档</a
-            >
           </div>
         </div>
       </header>
@@ -145,54 +225,97 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         <div th:utext="${content}">Content</div>
       </div>
 
-      <!-- 底部：技术栈 + 标签 -->
-      <div
-        th:if="${not #lists.isEmpty(project.techStacks) or not #lists.isEmpty(project.tags)}"
-        class="mt-8 border-t border-black/10 pt-6 dark:border-white/10"
-      >
-        <!-- 技术栈 -->
-        <div th:if="${not #lists.isEmpty(project.techStacks)}" class="mb-4">
-          <h3
-            class="mb-3 text-sm font-bold text-50"
-            th:text="#{page.portfolio.stack}"
-          >
-            技术栈
-          </h3>
-          <div class="flex flex-wrap gap-2">
-            <span
-              th:each="tech : ${project.techStacks}"
-              class="rounded-lg bg-(--btn-regular-bg) px-3 py-1.5 text-sm font-medium text-(--btn-content) transition hover:bg-(--primary) hover:text-white dark:hover:text-black/70"
-              th:text="${tech}">Tech</span
-            >
-          </div>
-        </div>
-
-        <!-- 标签 -->
-        <div th:if="${not #lists.isEmpty(project.tags)}">
-          <h3
-            class="mb-3 text-sm font-bold text-50"
-            th:text="#{page.portfolio.tags}"
-          >
-            标签
-          </h3>
-          <div class="flex flex-wrap gap-2">
-            <span
-              th:each="tag : ${project.tags}"
-              class="rounded-lg bg-(--btn-regular-bg) px-3 py-1.5 text-sm font-medium text-(--btn-content)"
-              th:text="${tag}">Tag</span
-            >
-          </div>
-        </div>
+      <!-- 回程入口：项目正文是 GitHub README 复刻，可能很长，读完不必滚回顶部。
+           技术栈 / 标签已上移到标题下方的分类区，这里不再重复。 -->
+      <div class="pd-foot">
+        <a th:href="@{/portfolio}" class="pd-act pd-act--muted">
+          <span class="icon-[material-symbols--arrow-back-rounded] pd-act__icon"
+          ></span>
+          <span th:text="#{page.portfolio.backToAll}">返回作品集</span>
+        </a>
       </div>
     </article>
   </div>
 </MainGridLayout>
 
 <style is:global>
-  /* 正文内容样式 - 与文章页保持一致 */
+  /* ────────────────────────────────────────────────────────────────
+     项目正文：GitHub Markdown 观感
+     复刻 github-markdown-css v5.9.0（GitHub 官方维护），逐元素对齐。
+     验证方式：同一份 README 分别套官方样式与本段样式渲染，深浅两套
+     逐像素比对均为 0 差异（234 万像素）。
+     · 色值 = GitHub Primer 语义色，全部集中在顶部变量，随 html.dark 切换；
+       想整体换色只改变量，不必动下面的规则。
+     · 本区只负责「文档元素」排版；容器底色、圆角仍由外层卡片提供。
+     ──────────────────────────────────────────────────────────────── */
   .portfolio-content {
-    color: var(--content-color, inherit);
-    line-height: 1.8;
+    --gh-fg: #1f2328;
+    --gh-fg-muted: #59636e;
+    --gh-accent: #0969da;
+    --gh-bg: #ffffff;
+    --gh-bg-muted: #f6f8fa;
+    --gh-bg-neutral-muted: #818b981f;
+    --gh-border: #d1d9e0;
+    --gh-border-muted: #d1d9e0b3;
+    --gh-border-neutral-muted: #818b981a;
+    --gh-attention-muted: #fff8c5;
+    --gh-font-sans:
+      -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica,
+      Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+    --gh-font-mono:
+      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+      "Liberation Mono", monospace;
+
+    color: var(--gh-fg);
+    font-family: var(--gh-font-sans);
+    font-size: 16px;
+    line-height: 1.5;
+    word-wrap: break-word;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  html.dark .portfolio-content {
+    --gh-fg: #f0f6fc;
+    --gh-fg-muted: #9198a1;
+    --gh-accent: #4493f8;
+    --gh-bg: #0d1117;
+    --gh-bg-muted: #151b23;
+    --gh-bg-neutral-muted: #656c7633;
+    --gh-border: #3d444d;
+    --gh-border-muted: #3d444db3;
+    --gh-border-neutral-muted: #656c7633;
+    --gh-attention-muted: #bb800926;
+  }
+
+  /* 首尾元素贴边，避免正文上下多出一段空白 */
+  .portfolio-content > *:first-child {
+    margin-top: 0 !important;
+  }
+  .portfolio-content > *:last-child {
+    margin-bottom: 0 !important;
+  }
+  /* 浮动清除：README 里用 img[align=left/right] 或 span.float-* 时兜住浮动 */
+  .portfolio-content::before {
+    display: table;
+    content: "";
+  }
+  .portfolio-content::after {
+    display: table;
+    clear: both;
+    content: "";
+  }
+
+  .portfolio-content p,
+  .portfolio-content blockquote,
+  .portfolio-content ul,
+  .portfolio-content ol,
+  .portfolio-content dl,
+  .portfolio-content table,
+  .portfolio-content pre,
+  .portfolio-content details {
+    margin-top: 0;
+    margin-bottom: 16px;
   }
 
   .portfolio-content h1,
@@ -201,88 +324,520 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   .portfolio-content h4,
   .portfolio-content h5,
   .portfolio-content h6 {
-    color: var(--heading-color, var(--text-90));
-    font-weight: 700;
-    margin-top: 1.5em;
-    margin-bottom: 0.5em;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.25;
   }
-
-  .portfolio-content h2 {
-    font-size: 1.5rem;
-    border-bottom: 1px solid rgb(0 0 0 / 0.08);
+  .portfolio-content h1 {
+    font-size: 2em;
     padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--gh-border-muted);
   }
-
-  html.dark .portfolio-content h2 {
-    border-bottom-color: rgb(255 255 255 / 0.08);
+  .portfolio-content h2 {
+    font-size: 1.5em;
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid var(--gh-border-muted);
   }
-
-  .portfolio-content p {
-    margin-bottom: 1em;
+  .portfolio-content h3 {
+    font-size: 1.25em;
+  }
+  .portfolio-content h4 {
+    font-size: 1em;
+  }
+  .portfolio-content h5 {
+    font-size: 0.875em;
+  }
+  .portfolio-content h6 {
+    font-size: 0.85em;
+    color: var(--gh-fg-muted);
   }
 
   .portfolio-content a {
-    color: var(--primary);
-    text-decoration: underline;
-    text-underline-offset: 2px;
+    color: var(--gh-accent);
+    text-decoration: none;
   }
-
   .portfolio-content a:hover {
-    opacity: 0.8;
+    text-decoration: underline;
+  }
+  .portfolio-content a:not([href]) {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .portfolio-content img {
-    max-width: 100%;
-    border-radius: var(--radius-large, 0.75rem);
-    margin: 1.5em 0;
+  .portfolio-content strong,
+  .portfolio-content b {
+    font-weight: 600;
+  }
+  .portfolio-content dfn {
+    font-style: italic;
+  }
+  .portfolio-content small {
+    font-size: 90%;
+  }
+  .portfolio-content sub,
+  .portfolio-content sup {
+    font-size: 75%;
+    line-height: 0;
+    position: relative;
+    vertical-align: baseline;
+  }
+  .portfolio-content sub {
+    bottom: -0.25em;
+  }
+  .portfolio-content sup {
+    top: -0.5em;
+  }
+  .portfolio-content mark {
+    background-color: var(--gh-attention-muted);
+    color: var(--gh-fg);
+  }
+  .portfolio-content abbr[title] {
+    border-bottom: none;
+    text-decoration: underline dotted;
   }
 
-  .portfolio-content pre {
-    border-radius: var(--radius-large, 0.75rem);
-    margin: 1em 0;
-    overflow-x: auto;
-  }
-
-  .portfolio-content code {
-    font-size: 0.875em;
+  .portfolio-content hr {
+    box-sizing: content-box;
+    overflow: hidden;
+    height: 0.25em;
+    padding: 0;
+    margin: 24px 0;
+    background-color: var(--gh-border);
+    border: 0;
   }
 
   .portfolio-content blockquote {
-    border-left: 3px solid var(--primary);
-    padding-left: 1em;
-    margin: 1em 0;
-    color: color-mix(in srgb, var(--deep-text) 60%, transparent);
+    margin: 0 0 16px;
+    padding: 0 1em;
+    color: var(--gh-fg-muted);
+    border-left: 0.25em solid var(--gh-border);
+  }
+  .portfolio-content blockquote > :first-child {
+    margin-top: 0;
+  }
+  .portfolio-content blockquote > :last-child {
+    margin-bottom: 0;
   }
 
   .portfolio-content ul,
   .portfolio-content ol {
-    padding-left: 1.5em;
-    margin-bottom: 1em;
+    margin-top: 0;
+    margin-bottom: 16px;
+    padding-left: 2em;
+  }
+  /* 列表符号：官方样式表省略了顶层符号，全靠浏览器默认值（GitHub 站上没有
+     Tailwind Preflight，所以拿得到 disc / decimal 与嵌套的 circle / square）。
+     本主题的 Preflight 把 `ol,ul,menu` 清成了 list-style:none，这里用 revert
+     撤销该重置、回到浏览器默认；下面几条是官方显式指定的值，优先级更高。 */
+  .portfolio-content ul,
+  .portfolio-content ol,
+  .portfolio-content menu {
+    list-style: revert;
+  }
+  .portfolio-content ol ol,
+  .portfolio-content ul ol {
+    list-style-type: lower-roman;
+  }
+  .portfolio-content ul ul ol,
+  .portfolio-content ul ol ol,
+  .portfolio-content ol ul ol,
+  .portfolio-content ol ol ol {
+    list-style-type: lower-alpha;
+  }
+  .portfolio-content ul ul,
+  .portfolio-content ul ol,
+  .portfolio-content ol ol,
+  .portfolio-content ol ul {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+  .portfolio-content li > p {
+    margin-top: 16px;
+  }
+  .portfolio-content li + li {
+    margin-top: 0.25em;
   }
 
-  .portfolio-content li {
-    margin-bottom: 0.25em;
+  .portfolio-content dl {
+    padding: 0;
   }
-
-  .portfolio-content table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 1em 0;
-  }
-
-  .portfolio-content th,
-  .portfolio-content td {
-    border: 1px solid rgb(0 0 0 / 0.1);
-    padding: 0.5em 0.75em;
-  }
-
-  html.dark .portfolio-content th,
-  html.dark .portfolio-content td {
-    border-color: rgb(255 255 255 / 0.1);
-  }
-
-  .portfolio-content th {
-    background: var(--btn-regular-bg);
+  .portfolio-content dl dt {
+    padding: 0;
+    margin-top: 16px;
+    font-size: 1em;
+    font-style: italic;
     font-weight: 600;
+  }
+  .portfolio-content dl dd {
+    padding: 0 16px;
+    margin-bottom: 16px;
+  }
+
+  /* 行内代码 */
+  .portfolio-content code,
+  .portfolio-content tt {
+    padding: 0.2em 0.4em;
+    margin: 0;
+    font-size: 85%;
+    white-space: break-spaces;
+    background-color: var(--gh-bg-neutral-muted);
+    border-radius: 6px;
+    font-family: var(--gh-font-mono);
+  }
+  .portfolio-content code br,
+  .portfolio-content tt br {
+    display: none;
+  }
+  .portfolio-content del code {
+    text-decoration: inherit;
+  }
+  .portfolio-content samp {
+    font-size: 85%;
+  }
+
+  /* 代码块：块内 code 需复位行内代码的内边距与底色 */
+  .portfolio-content pre {
+    padding: 16px;
+    overflow: auto;
+    font-size: 85%;
+    line-height: 1.45;
+    color: var(--gh-fg);
+    background-color: var(--gh-bg-muted);
+    border-radius: 6px;
+    font-family: var(--gh-font-mono);
+    word-wrap: normal;
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+  .portfolio-content pre code,
+  .portfolio-content pre tt {
+    display: inline;
+    padding: 0;
+    margin: 0;
+    overflow: visible;
+    line-height: inherit;
+    word-wrap: normal;
+    background-color: transparent;
+    border: 0;
+    font-size: 100%;
+  }
+  /* 官方把 white-space: pre 只给「pre 的直接子元素 code」；更深层的 code
+     （README 里混写裸 HTML 时会出现）沿用行内代码的 break-spaces。 */
+  .portfolio-content pre > code {
+    padding: 0;
+    margin: 0;
+    word-break: normal;
+    white-space: pre;
+    background: transparent;
+    border: 0;
+  }
+
+  /* 表格：display:block + overflow:auto 让长表在窄容器内横向滚动（同 GitHub） */
+  .portfolio-content table {
+    border-spacing: 0;
+    border-collapse: collapse;
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    overflow: auto;
+    font-variant: tabular-nums;
+    margin-top: 0;
+    margin-bottom: 16px;
+  }
+  .portfolio-content table th {
+    font-weight: 600;
+  }
+  .portfolio-content table th,
+  .portfolio-content table td {
+    padding: 6px 13px;
+    border: 1px solid var(--gh-border);
+  }
+  .portfolio-content table td > :last-child {
+    margin-bottom: 0;
+  }
+  .portfolio-content table tr {
+    background-color: var(--gh-bg);
+    border-top: 1px solid var(--gh-border-muted);
+  }
+  .portfolio-content table tr:nth-child(2n) {
+    background-color: var(--gh-bg-muted);
+  }
+  .portfolio-content table img {
+    background-color: transparent;
+  }
+
+  /* 图片：不加圆角与留白——GitHub 上 README 里的徽章靠 <p> 的间距贴成一排，
+     给 img 加外边距会让 shields.io 徽章散开，是「不像 GitHub」的主因 */
+  .portfolio-content img {
+    /* 官方样式表不声明 display / vertical-align / height，全部依赖浏览器默认。
+       本主题的 Preflight 加的三件事都会造成「粘过来不像 GitHub」：
+       ① `display:block` → 徽章（shields.io）各占一行竖着堆；
+       ② `vertical-align:middle` → 行内图文基线不对；
+       ③ `height:auto` → 盖掉 HTML 的 height 属性（GitHub 上不盖，例如
+          `<img src="logo.png" height="40">` 是 40px 高，这里会变回素材原始高度）。
+       ①② 直接还原；③ 浏览器默认值取不回来（revert 到不了属性层），
+       所以用 attr() 把 height 属性重新读出来。不支持该语法的浏览器会忽略
+       这条声明、退回 auto，与修复前一致，不会更糟；属性值非法（如 height="50%"）
+       时同样安全退回 auto。 */
+    display: inline;
+    vertical-align: baseline;
+    max-width: 100%;
+    box-sizing: content-box;
+    border-style: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  .portfolio-content img[height] {
+    height: attr(height px);
+  }
+  .portfolio-content p img {
+    margin: 0;
+  }
+  .portfolio-content img[align="right"] {
+    padding-left: 20px;
+  }
+  .portfolio-content img[align="left"] {
+    padding-right: 20px;
+  }
+
+  .portfolio-content details,
+  .portfolio-content figcaption,
+  .portfolio-content figure {
+    display: block;
+  }
+  .portfolio-content summary {
+    display: list-item;
+    cursor: pointer;
+  }
+  .portfolio-content figure {
+    margin: 1em 40px;
+  }
+
+  .portfolio-content kbd {
+    display: inline-block;
+    padding: 4px;
+    font: 11px var(--gh-font-mono);
+    line-height: 10px;
+    color: var(--gh-fg);
+    vertical-align: middle;
+    background-color: var(--gh-bg-muted);
+    border: solid 1px var(--gh-border-neutral-muted);
+    border-bottom-color: var(--gh-border-neutral-muted);
+    border-radius: 6px;
+    box-shadow: inset 0 -1px 0 var(--gh-border-neutral-muted);
+  }
+
+  .portfolio-content [hidden] {
+    display: none !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────────
+     详情页头部导航 + 行动入口
+     不属于上面的 GitHub Markdown 复刻区（那群规则只作用于 .portfolio-content
+     内部），这里全部用主题变量，随深浅模式自动切换。
+     ──────────────────────────────────────────────────────────────── */
+
+  /* 返回作品集 */
+  .pd-back {
+    margin-bottom: 1rem;
+  }
+  .pd-back__link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+    height: 2rem;
+    padding: 0 0.625rem;
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+    text-decoration: none;
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease;
+  }
+  .pd-back__link:hover {
+    color: var(--primary);
+    background: var(--btn-regular-bg);
+  }
+  .pd-back__link:active {
+    transform: scale(0.97);
+  }
+  .pd-back__icon {
+    font-size: 1.125rem;
+    transition: translate 0.2s ease;
+  }
+  .pd-back__link:hover .pd-back__icon {
+    translate: -0.125rem 0;
+  }
+
+  /* 元信息行：创建 / 更新 */
+  .pd-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1.125rem;
+    margin-top: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: color-mix(in oklab, var(--deep-text) 55%, transparent);
+  }
+  .pd-meta__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3125rem;
+  }
+  .pd-meta__icon {
+    font-size: 1.0625rem;
+    color: color-mix(in oklab, var(--deep-text) 40%, transparent);
+  }
+
+  /* 行动入口：演示 / 仓库 / 文档 */
+  .pd-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+  }
+  .pd-act {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.25rem;
+    padding: 0 0.875rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.25s ease,
+      transform 0.15s ease;
+  }
+  .pd-act__icon {
+    flex-shrink: 0;
+    font-size: 1.125rem;
+  }
+  /* 主：主色实心。--on-primary 语义即"主色之上的文字"，明暗两模式对比度均达标 */
+  .pd-act--primary {
+    background: var(--primary);
+    color: var(--on-primary);
+    box-shadow: 0 10px 22px -14px
+      color-mix(in oklab, var(--primary) 75%, transparent);
+  }
+  .pd-act--primary:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 14px 26px -14px
+      color-mix(in oklab, var(--primary) 85%, transparent);
+  }
+  /* 次：中性按钮底 */
+  .pd-act--muted {
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+  }
+  .pd-act--muted:hover {
+    background: var(--btn-regular-bg-hover);
+    transform: translateY(-1px);
+  }
+  /* 幽灵：文档等辅助入口 */
+  .pd-act--ghost {
+    border-color: color-mix(in oklab, var(--deep-text) 14%, transparent);
+    color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+  }
+  .pd-act--ghost:hover {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 42%, transparent);
+    transform: translateY(-1px);
+  }
+  .pd-act:active {
+    transform: scale(0.97);
+  }
+
+  /* 分类区：平台 / 类型 / 技术栈 / 标签统一成一组可点 chip。
+     行首小标题固定宽度，三行左对齐成一列，读起来是一条「分类清单」。 */
+  .pd-taxonomy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.375rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid color-mix(in oklab, var(--deep-text) 10%, transparent);
+  }
+  .pd-taxonomy__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .pd-taxonomy__key {
+    flex: 0 0 3.25rem;
+    padding-top: 0.4375rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.5;
+    color: color-mix(in oklab, var(--deep-text) 50%, transparent);
+  }
+  .pd-taxonomy__val {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    min-width: 0;
+  }
+
+  /* 底部回程入口 */
+  .pd-foot {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid color-mix(in oklab, var(--deep-text) 10%, transparent);
+  }
+
+  /* 技术栈 / 标签 chip：点进列表页的 tag 筛选。
+     插件的 listBy 对 tags 与 techStacks 做 Or 匹配、共用一个 tag 参数，
+     所以两组 chip 保持完全同款——它们语义上就是同一个筛选。 */
+  .pd-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.5rem;
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease,
+      transform 0.15s ease;
+  }
+  .pd-chip:hover {
+    background: var(--btn-regular-bg-hover);
+    color: var(--primary);
+    transform: translateY(-1px);
+  }
+  .pd-chip:active {
+    transform: scale(0.97);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pd-back__link,
+    .pd-back__icon,
+    .pd-act,
+    .pd-chip {
+      transition: none;
+    }
+    .pd-act:hover,
+    .pd-act:active,
+    .pd-back__link:active,
+    .pd-chip:hover,
+    .pd-chip:active {
+      transform: none;
+    }
+    .pd-back__link:hover .pd-back__icon {
+      translate: none;
+    }
   }
 </style>

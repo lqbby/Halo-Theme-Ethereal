@@ -1,0 +1,124 @@
+---
+// 项目集列表卡片（列表页「推荐项目」与「全部项目」共用）。
+//
+// 依赖外层 `th:each="project, stat : ..."` 提供的环境变量 `project` / `stat`
+// （与 PostCard.astro 依赖 `post` 的约定一致，勿单独给 th:each）。
+// 推荐态由 ${project.featured} 自身驱动，故两处无需额外 props。
+//
+// 结构：封面列（窄栏为左侧色带 + 完整缩略图，宽栏为顶部 2:1 封面）
+//       + 正文（标签行 / 标题 / 摘要 / 技术栈 / 底部元信息）。
+// 封面用 object-fit: contain 而非 cover——本项目封面多为 GitHub OG 图
+// （2:1、白底、图内含仓库名），正方形裁切会把仓库名切碎。
+---
+
+<article
+  th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+  class="pf-card onload-animation"
+  th:classappend="${project.featured == true ? ' pf-card--featured' : ''}"
+>
+  <a
+    th:if="${not #strings.isEmpty(project.cover)}"
+    th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+    class="pf-card__cover"
+    tabindex="-1"
+    aria-hidden="true"
+  >
+    <img
+      th:src="${project.cover}"
+      th:alt="${project.title}"
+      th:attr="loading=${stat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${stat.index == 0 ? 'high' : 'auto'}"
+      decoding="async"
+    />
+  </a>
+  <span
+    th:if="${#strings.isEmpty(project.cover)}"
+    class="pf-card__cover pf-card__cover--empty"
+    aria-hidden="true"
+    th:text="${#strings.substring(project.title, 0, 1)}">P</span
+  >
+
+  <div class="pf-card__body">
+    <!-- 标签行：推荐 / 类型 / 平台 -->
+    <div class="pf-card__eyebrow">
+      <span th:if="${project.featured == true}" class="pf-tag pf-tag--featured">
+        <span class="icon-[material-symbols--star-rounded] text-[0.6875rem]"
+        ></span>
+        <span th:text="#{page.portfolio.featured}">推荐</span>
+      </span>
+      <span
+        th:if="${not #strings.isEmpty(project.type)}"
+        class="pf-tag pf-tag--primary"
+        th:text="${typeLabels[project.type] ?: project.type}">Type</span
+      >
+      <span
+        th:if="${not #strings.isEmpty(project.platform)}"
+        class="pf-tag pf-tag--muted"
+        th:text="${platformLabels[project.platform] ?: project.platform}"
+        >Platform</span
+      >
+    </div>
+
+    <h3 class="pf-card__title">
+      <a
+        th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+        th:text="${project.title}">Project Title</a
+      >
+    </h3>
+
+    <p
+      th:if="${not #strings.isEmpty(project.summary)}"
+      class="pf-card__summary"
+      th:text="${project.summary}"
+    >
+      Summary
+    </p>
+
+    <!-- 技术栈：最多 3 个，其余折叠为 +N -->
+    <div
+      th:if="${not #lists.isEmpty(project.techStacks)}"
+      class="pf-card__tech"
+    >
+      <span
+        th:each="tech, techStat : ${project.techStacks}"
+        th:if="${techStat.index < 3}"
+        class="pf-tech"
+        th:text="${tech}">Tech</span
+      >
+      <span
+        th:if="${#lists.size(project.techStacks) > 3}"
+        class="pf-tech pf-tech--more"
+        th:text="${'+' + (#lists.size(project.techStacks) - 3)}">+N</span
+      >
+    </div>
+
+    <!-- 底部元信息：更新时间 + 外链 -->
+    <div class="pf-card__foot">
+      <span
+        th:if="${not #strings.isEmpty(project.updateTime)}"
+        class="pf-card__time"
+        th:text="${#strings.substring(project.updateTime, 0, 10)}"
+        >2026-01-01</span
+      >
+      <span class="pf-card__links">
+        <a
+          th:if="${not #strings.isEmpty(project.repoUrl)}"
+          th:href="${project.repoUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="icon-[material-symbols--code-rounded]"></span>
+          <span th:text="#{page.portfolio.repo}">仓库</span>
+        </a>
+        <a
+          th:if="${not #strings.isEmpty(project.demoUrl)}"
+          th:href="${project.demoUrl}"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <span class="icon-[material-symbols--play-circle-rounded]"></span>
+          <span th:text="#{page.portfolio.demo}">演示</span>
+        </a>
+      </span>
+    </div>
+  </div>
+</article>

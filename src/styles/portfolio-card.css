@@ -1,0 +1,126 @@
+/* ==========================================================================
+   portfolio 插件（作品管理 / 项目集）项目卡片主题化
+   --------------------------------------------------------------------------
+   插件会把「项目卡片」注入到文章 / 单页 / 项目详情页的正文里，并把卡片的
+   全部样式写成元素 inline style（灰色调、不随主题）。因此这里的覆盖规则
+   必须带 !important，否则无法压过 inline style。
+   类名均来自插件 ProjectCardRenderer 的输出，勿改。
+   ========================================================================== */
+
+.portfolio-project-card {
+  margin: 1.375rem 0 !important;
+  border: 1px solid color-mix(in oklab, var(--primary) 16%, transparent) !important;
+  border-radius: var(--radius-large) !important;
+  background: color-mix(in oklab, var(--primary) 3%, var(--card-bg)) !important;
+  box-shadow: 0 12px 30px -22px
+    color-mix(in oklab, var(--deep-text) 40%, transparent) !important;
+  overflow: hidden !important;
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.25s ease,
+    background-color 0.25s ease,
+    box-shadow 0.3s ease !important;
+}
+.portfolio-project-card:hover {
+  transform: translateY(-3px) !important;
+  border-color: color-mix(in oklab, var(--primary) 42%, transparent) !important;
+  background: color-mix(in oklab, var(--primary) 7%, var(--card-bg)) !important;
+  box-shadow: 0 18px 38px -20px
+    color-mix(in oklab, var(--primary) 58%, transparent) !important;
+}
+.portfolio-project-card:active {
+  transform: translateY(-1px) scale(0.998) !important;
+}
+
+/* 正文里的通用链接样式会污染卡片：
+   .custom-md a:not(.no-styling):not([class*="xhhao-com"]) 带 -m-1/p-1（负边距+内边距，
+   实测让卡片链接比卡片宽 6px、被 overflow:hidden 裁掉）、hover 背景与虚线下边框，
+   还有一层 ::before 悬浮层。逐项还原成卡片自己的布局。 */
+.portfolio-project-card > .portfolio-project-card__link,
+.portfolio-project-card > .portfolio-project-card__link:hover,
+.portfolio-project-card > .portfolio-project-card__link:active {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: inherit !important;
+  text-decoration: none !important;
+}
+.portfolio-project-card > .portfolio-project-card__link::before {
+  display: none !important;
+}
+
+/* 布局：改 grid → flex-wrap，让「封面 + 正文」在窄栏里自动换成上下堆叠。
+   不用 @container：正文里没有可靠的容器查询上下文（双侧栏布局下视口宽度
+   又判断不准内容栏），flex 换行按 flex-basis 之和与可用宽度比较，
+   不依赖任何祖先。 */
+.portfolio-project-card > .portfolio-project-card__link {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: stretch !important;
+}
+.portfolio-project-card__cover {
+  /* 插件的 aspect-ratio:16/10 会与 min-height 互相反推、把封面撑到 221px
+     溢出列宽 —— 改由 flex-basis 决定宽度。140+232=372px 以下自动堆叠，
+     双侧栏内容栏（约 420px）仍保持左图右文。 */
+  flex: 1 1 140px !important;
+  width: auto !important;
+  aspect-ratio: auto !important;
+  min-height: 148px !important;
+  border-right: none !important;
+}
+.portfolio-project-card__cover--image::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    155deg,
+    color-mix(in oklab, var(--primary) 16%, transparent),
+    transparent 62%
+  );
+}
+.portfolio-project-card__body {
+  flex: 3 1 232px !important;
+  gap: 0.5rem !important;
+  padding: 1.125rem 1.25rem !important;
+}
+.portfolio-project-card__eyebrow {
+  color: var(--primary) !important;
+  font-size: 0.6875rem !important;
+  letter-spacing: 0.09em !important;
+  opacity: 1 !important;
+}
+.portfolio-project-card__title {
+  color: var(--deep-text) !important;
+  font-size: 1.0625rem !important;
+  transition: color 0.25s ease !important;
+}
+.portfolio-project-card:hover .portfolio-project-card__title {
+  color: var(--primary) !important;
+}
+.portfolio-project-card__summary {
+  opacity: 1 !important;
+  font-size: 0.875rem !important;
+  color: color-mix(in oklab, var(--deep-text) 68%, transparent) !important;
+}
+.portfolio-project-card__chip {
+  border-color: transparent !important;
+  border-radius: 0.5rem !important;
+  padding: 0.1875rem 0.5rem !important;
+  font-size: 0.75rem !important;
+  opacity: 1 !important;
+  background: var(--btn-regular-bg) !important;
+  color: var(--btn-content) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portfolio-project-card,
+  .portfolio-project-card__title {
+    transition: none !important;
+  }
+  .portfolio-project-card:hover {
+    transform: none !important;
+  }
+}
