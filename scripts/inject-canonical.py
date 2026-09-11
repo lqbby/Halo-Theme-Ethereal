@@ -19,31 +19,42 @@ import pathlib
 ROOT = pathlib.Path(r"D:\WorkBuddy sjk\halo\ethereal\src\pages")
 
 # 页面 → canonical 路径参数（全部已核实）
+#
+# ⚠️⚠️ 分类判据（2026-09-11 踩坑修正）：
+#   判断一个页面该用「permalam 变量」还是「编译期常量」，**不能看它叫什么名字**，
+#   要看**它依赖的 Halo 数据源**：
+#     - 源码里出现 `${singlePage.*}` / `${post.*}` / `${category.*}` / `${tag.*}`
+#       ⇒ 它由 Halo 后端的实体渲染 ⇒ **必须用 status.permalink**（后台 slug 可能不是英文）
+#     - 源码里无任何 Halo 实体变量（纯主题自造页面）⇒ 才可用编译期常量
+#   ⚠️ 实坑：`friends` 我当初按名字归到「B 类静态页」写成常量 `/friends`，
+#      但它的真实 Halo slug 是 **`peng-you-quan`**（中文拼音），
+#      ⇒ canonical 渲染成 `/friends` —— **一个 404 死链**（比没有 canonical 更糟）。
+#   判据速查：`grep -l 'singlePage\|post\.status\|category\.status\|tag\.status' src/pages/*.astro`
 PLAN = {
-    # ---- A 类：Halo 实体，有 permalink 字段 ----
+    # ---- A 类：依赖 Halo 实体 ⇒ 必须用 status.permalink ----
     "post":             '"${post.status.permalink}"',
     "page":             '"${singlePage.status.permalink}"',
     "category":         '"${category.status.permalink}"',
     "tag":              '"${tag.status.permalink}"',
     "skills":           '"${singlePage.status.permalink}"',
     "timeline":         '"${singlePage.status.permalink}"',
+    "friends":          '"${singlePage.status.permalink}"',   # ⚠️ 别改回常量：真实 slug 是 peng-you-quan
+    "statistics":       '"${singlePage.status.permalink}"',   # ⚠️ 同为独立页面（后台 slug 恰好也是 statistics）
+    "wishes":           '"${singlePage.status.permalink}"',   # ⚠️ 同为独立页面（后台 slug 恰好也是 wishes）
+    "series":           '"${singlePage.status.permalink}"',   # ⚠️ 同为独立页面（后台 slug 恰好也是 series）
     # ---- 动态详情页：主题自定义路由（已线上实测形态）----
     "moment":           '"|/moments/${moment.metadata.name}|"',
     "portfolio-detail": '"|/portfolio/${project.slug}|"',
-    # ---- B 类：主题静态页，路径为编译期常量（已线上实测 200）----
+    # ---- B 类：纯主题静态页（无 Halo 实体变量），路径为编译期常量 ----
     "archives":         '"/archives"',
     "tags":             '"/tags"',
     "categories":       '"/categories"',
-    "series":           '"/series"',
     "moments":          '"/moments"',
     "photos":           '"/photos"',
     "equipments":       '"/equipments"',
     "portfolio":        '"/portfolio"',
     "bangumis":         '"/bangumis"',
-    "statistics":       '"/statistics"',
-    "wishes":           '"/wishes"',
-    "friends":          '"/friends"',
-    "links":            '"/links"',
+    "links":            '"/links"',                          # ⚠️ 例外：后台 slug 恰好 = links，且它不用 singlePage 变量
     "index":            '"/"',
     # ---- 刻意排除 ----
     # "photo":  照片详情页，URL 由插件 photoUrl.detail() 生成，主题拿不到 permalink

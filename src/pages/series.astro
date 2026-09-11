@@ -11,7 +11,7 @@ import PageHeader from "../components/control/PageHeader.astro";
 >
   <Fragment slot="head">
     <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
-    <Canonical path="/series" />
+    <Canonical path="${singlePage.status.permalink}" />
   </Fragment>
   <div
     th:remove="tag"

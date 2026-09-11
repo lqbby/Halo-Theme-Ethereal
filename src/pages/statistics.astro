@@ -33,7 +33,7 @@ import PageHeader from "../components/control/PageHeader.astro";
 >
   <Fragment slot="head">
     <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
-    <Canonical path="/statistics" />
+    <Canonical path="${singlePage.status.permalink}" />
   </Fragment>
   <!-- 作用域根容器：id 供 statistics.css 用高优先级选择器覆盖插件 CSS 变量
        （--chartboard-* / --halo-data-statistics-* 映射到 Ethereal token），
