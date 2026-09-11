@@ -9,6 +9,7 @@ import "../styles/comment-widget.css";
 import "../styles/base.css";
 import "../styles/theme-transition.css";
 import "../styles/components.css";
+import "../styles/footer-friend-links.css";
 import "../styles/statistics.css";
 import "../styles/markdown.css";
 import "../styles/portfolio-card.css";

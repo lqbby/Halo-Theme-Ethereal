@@ -2263,6 +2263,30 @@ spec:
                   name: html
                   label: 自定义HTML
                   help: "填写后优先渲染HTML，覆盖名称和链接"
+        - $formkit: group
+          name: friendLinks
+          label: 随机友链
+          value:
+            enable: true
+            count: 5
+          children:
+            - $formkit: switch
+              name: enable
+              id: footer_friend_links_enable
+              key: footer_friend_links_enable
+              value: true
+              label: 显示页脚随机友链
+              help: "在页脚空白区排一行随机友情链接，并提供「换一批」按钮（点击在本地重抽，不发请求）。需安装 Links 插件且已添加友链；无友链或插件未启用时整块自动隐藏"
+            - $formkit: number
+              name: count
+              id: footer_friend_links_count
+              key: footer_friend_links_count
+              if: "$get(footer_friend_links_enable).value"
+              value: 6
+              label: 宽屏显示条数
+              min: 2
+              max: 12
+              help: "页脚同时展示的友链数量（宽屏）。窄屏（<1024px）固定只显示前 4 条，避免占满屏幕"
     - group: links
       label: 友情链接
       formSchema:

@@ -1,0 +1,93 @@
+@reference "./global.css";
+
+/* ────────────────────────────────────────────────────────────────
+   页脚随机友链
+   来源：components/FooterFriendLinks.astro（结构）+ scripts/assets/footer-friend-links.ts（渲染）
+   胶囊是 JS 动态创建的 → 没有 Astro scoped 属性，样式必须全局；
+   随 app.ts / pages/layout.astro 的全局样式链走，全站只此一份。
+   ──────────────────────────────────────────────────────────────── */
+@layer components {
+  /* 两段式：第一行「标题 …… 换一批」，第二行起整行排胶囊。
+     list 用 basis-full 独占一行，避免在窄屏被标题/按钮挤到溢出 */
+  .footer-friend-bar {
+    @apply flex flex-wrap items-center gap-x-2 gap-y-2;
+  }
+
+  .footer-friend-title {
+    @apply inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-black/60 dark:text-white/60;
+  }
+
+  .footer-friend-title-icon {
+    @apply text-base;
+    color: var(--primary);
+  }
+
+  .footer-friend-list {
+    @apply flex min-w-0 basis-full flex-wrap items-center gap-1.5;
+  }
+
+  /* 友链胶囊：默认描边透明（hover 时只变色不移位） */
+  .footer-friend-chip {
+    @apply inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold text-black/75 transition duration-200 dark:text-white/75;
+    border-color: color-mix(in oklab, var(--primary) 0%, transparent);
+    background-color: var(--btn-regular-bg);
+  }
+
+  .footer-friend-chip:hover {
+    transform: translateY(-1px);
+    border-color: color-mix(in oklab, var(--primary) 38%, transparent);
+    background-color: var(--btn-regular-bg-hover);
+    color: var(--primary);
+  }
+
+  .footer-friend-chip-logo {
+    @apply size-3.5 shrink-0 rounded-sm object-cover;
+  }
+
+  .footer-friend-chip-name {
+    @apply truncate;
+    max-width: 7rem;
+  }
+
+  /* ml-auto：把按钮推到首行最右，与左侧标题形成两端对齐 */
+  .footer-friend-shuffle {
+    @apply ml-auto h-7 shrink-0 gap-1 rounded-lg px-2.5 text-xs font-bold;
+  }
+
+  .footer-friend-shuffle-icon {
+    @apply text-sm;
+  }
+
+  /* 点「换一批」图标转一圈（一次性动画，不做无限旋转） */
+  .footer-friend-shuffle.is-spinning .footer-friend-shuffle-icon {
+    animation: footer-friend-spin 0.6s ease-in-out;
+  }
+
+  @keyframes footer-friend-spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  /* 桌面显示 count 条，窄屏（<lg）只留前 4 条。
+     只切换显示、不重抽——缩放窗口时整排链接不会乱跳 */
+  @media (max-width: 1023px) {
+    .footer-friend-chip--extra {
+      display: none;
+    }
+  }
+
+  /* 尊重「减少动态效果」偏好：去掉位移与旋转 */
+  @media (prefers-reduced-motion: reduce) {
+    .footer-friend-chip,
+    .footer-friend-chip:hover {
+      transform: none;
+    }
+    .footer-friend-shuffle.is-spinning .footer-friend-shuffle-icon {
+      animation: none;
+    }
+  }
+}
