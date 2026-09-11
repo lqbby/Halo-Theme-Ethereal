@@ -10,16 +10,20 @@ const className = Astro.props.class ?? "";
 ---
 
 <!-- z-0：使 table-of-contents 成为堆叠上下文，把 #active-indicator 的 -z-10
-     约束在本组件内（画在卡片之上、条目之下）；否则 -z-10 会透到根上下文，
-     被不透明白卡片背景盖住，非透明模式下高亮/虚线完全看不见 -->
+       约束在本组件内（画在卡片之上、条目之下）；否则 -z-10 会透到根上下文，
+       被不透明白卡片背景盖住，非透明模式下高亮完全看不见 -->
 <table-of-contents
   class:list={[className, "group relative z-0 block"]}
   th:attr="data-max-depth=${theme.config?.post != null and theme.config?.post?.toc?.toc_depth != null ? theme.config?.post?.toc?.toc_depth : 2}"
   th:data-empty-text="#{common.notoc}"
 >
+  <!-- 当前小节指示器：左侧一根主色竖条 + 极淡主色底。
+         原先是整块圆角实心底 + 悬停时翻成虚线描边框，在深色卡片上是一大片
+         发灰的色块、且悬停时会闪一下描边，观感偏重。改成「细竖条 + 淡底」后
+         既有明确的当前位置提示，又不与正文争注意力。 -->
   <div
     id="active-indicator"
-    class="-z-10 absolute left-0 right-0 rounded-xl border-2 border-dashed border-transparent bg-(--primary)/10 transition-all duration-(--toc-transition-duration) group-hover:border-(--primary) group-hover:bg-transparent"
+    class="-z-10 absolute left-0 right-0 rounded-lg border-l-2 border-(--primary) bg-(--primary)/10 transition-all duration-(--toc-transition-duration)"
     style="opacity: 0"
   >
   </div>
@@ -34,6 +38,17 @@ const className = Astro.props.class ?? "";
 </table-of-contents>
 
 <script>
+  /**
+   * 标题纯文本：剔除装饰性锚点 <a class="heading-anchor">#</a>。
+   * content-enhance 会给每个 h2/h3 注入这个锚点，直接读 textContent 会把它的
+   * "#" 一起吞进目录标题（显示成「它是什么#」）。
+   */
+  function headingText(heading: HTMLElement): string {
+    const clone = heading.cloneNode(true) as HTMLElement;
+    clone.querySelectorAll(".heading-anchor").forEach((el) => el.remove());
+    return clone.textContent?.trim() || "";
+  }
+
   class TableOfContents extends HTMLElement {
     tocEl: HTMLElement | null = null;
     visibleClass = "visible";
@@ -45,6 +60,12 @@ const className = Astro.props.class ?? "";
     tocEntries: HTMLAnchorElement[] = [];
     active: boolean[] = [];
     activeIndicator: HTMLElement | null = null;
+    /** 阅读线（px）：标题顶边越过它就算「已读到」。
+     *  必须与标题的 scroll-margin-top 对齐（markdown.css 里 6rem = 96px，也就是
+     *  锚点跳转的落点），并留 2px 容差 —— 锚点跳转后标题恰好落在 96.xx px，
+     *  严格 `<= 96` 会把目标自己判掉，症状是「点了目录、页面滚到位了，
+     *  高亮却停在上一条」。init() 里按实际计算值算一次，避免每帧读样式。 */
+    readLine = 98;
 
     connectedCallback() {
       if (document.readyState === "loading") {
@@ -60,7 +81,9 @@ const className = Astro.props.class ?? "";
     disconnectedCallback() {
       this.mutationObserver?.disconnect();
       this.removeWindowListeners();
-      this.tocEl?.removeEventListener("click", this.handleAnchorClick);
+      this.tocEl?.removeEventListener("click", this.handleAnchorClick, {
+        capture: true,
+      });
       document.removeEventListener("DOMContentLoaded", this.refresh);
     }
 
@@ -78,7 +101,9 @@ const className = Astro.props.class ?? "";
     reset() {
       this.mutationObserver?.disconnect();
       this.removeWindowListeners();
-      this.tocEl?.removeEventListener("click", this.handleAnchorClick);
+      this.tocEl?.removeEventListener("click", this.handleAnchorClick, {
+        capture: true,
+      });
       this.querySelectorAll("[data-toc-entry]").forEach((entry) =>
         entry.remove(),
       );
@@ -86,6 +111,7 @@ const className = Astro.props.class ?? "";
       this.tocEntries = [];
       this.active = [];
       this.anchorNavTarget = null;
+      this.readLine = 98;
       this.activeIndicator = this.querySelector("#active-indicator");
       this.activeIndicator?.setAttribute("style", "opacity: 0");
       this.querySelector("#toc-empty")?.classList.add("hidden");
@@ -126,7 +152,7 @@ const className = Astro.props.class ?? "";
 
       const allHeadings = Array.from(
         content.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"),
-      ).filter((heading) => heading.textContent?.trim());
+      ).filter((heading) => headingText(heading));
       const maxDepth = Math.max(1, Number(this.dataset.maxDepth || "4"));
       const minDepth = allHeadings.length
         ? Math.min(
@@ -139,6 +165,14 @@ const className = Astro.props.class ?? "";
         (heading) => Number(heading.tagName.substring(1)) < minDepth + maxDepth,
       );
       this.active = this.headings.map(() => false);
+      // 阅读线 = 标题的 scroll-margin-top（锚点落点）+ 2px 容差。这里算一次存起来，
+      // 别放进 currentHeadingIndex（它每帧都被调用，读计算样式会拖慢滚动）。
+      if (this.headings.length) {
+        const smt = Number.parseFloat(
+          getComputedStyle(this.headings[0]).scrollMarginTop,
+        );
+        this.readLine = (Number.isFinite(smt) && smt > 0 ? smt : 96) + 2;
+      }
 
       if (!this.headings.length) {
         const emptyEl = this.querySelector<HTMLElement>("#toc-empty");
@@ -157,32 +191,51 @@ const className = Astro.props.class ?? "";
       // 插入（每次 childList 变化都会使布局失效，长文换页后 TOC 初始化时
       // 反复触发整页重排——实测 visit:end 后 300ms 级卡顿来源）
       const fragment = document.createDocumentFragment();
+      // 一级小节的序号：只数「一级小节」自己，不是标题的扁平下标。
+      // ⚠️ 曾经写成 String(index + 1)（全部标题的下标），下面挂子小节时序号会跳号
+      // —— 三个一级小节显示成 1 / 4 / 7 而不是 1 / 2 / 3。
+      let sectionNo = 0;
       this.headings.forEach((heading, index) => {
         if (!heading.id) {
           heading.id = `heading-${index}`;
         }
 
         const depth = Number(heading.tagName.substring(1));
-        const title = heading.textContent?.trim() || "";
+        const isTop = depth === minDepth;
+        if (isTop) {
+          sectionNo += 1;
+        }
+        const title = headingText(heading);
         const link = document.createElement("a");
         link.dataset.tocEntry = "true";
         link.href = `#${heading.id}`;
         link.className =
-          "px-2 flex gap-2 relative transition-all duration-(--toc-transition-duration) w-full min-h-9 rounded-xl hover:bg-(--toc-btn-hover) hover:pl-3 active:bg-(--toc-btn-active) py-2";
+          "px-2 flex gap-2 relative transition-all duration-(--toc-transition-duration) w-full min-h-10 rounded-xl hover:bg-(--toc-btn-hover) hover:pl-3 active:bg-(--toc-btn-active) py-2";
         // 三栏布局：调整条目边距以适配更窄的 TOC 宽度
         if (this.closest(".layout-three-column")) {
           link.style.marginLeft = "0.75rem";
           link.style.marginRight = "0.75rem";
           link.style.width = "calc(100% - 1.5rem)";
         }
+        // 标记挡位：一级 = 右对齐的等宽数字，子级 = 小圆点。
+        // ⚠️ 别改回「实心方块徽章」（原 w-5 h-5 rounded-lg bg-(--toc-badge-bg)）：
+        //    十几个方块会连成一条比标题还重的竖轴抢焦点，两位数（10/11/12）
+        //    塞进 20px 方块里还会挤成一团。数字沿用 text-50（与标题同色，靠更小
+        //    字号 + 无底色退到背景），既安静又不牺牲对比度。
+        //    标记盒固定 w-5 h-5 且不垂直居中整行：换行标题时标记要与**首行**对齐。
+        const indent =
+          depth === minDepth + 1
+            ? " ml-3"
+            : depth >= minDepth + 2
+              ? " ml-6"
+              : "";
+        const marker = isTop
+          ? `<span class="toc-marker toc-num transition w-5 h-5 shrink-0 flex items-center justify-end text-xs font-medium leading-5 tabular-nums text-50${indent}">${sectionNo}</span>`
+          : `<span class="toc-marker transition w-5 h-5 shrink-0 flex items-center justify-center${indent}"><span class="toc-dot transition rounded-full bg-black/20 dark:bg-white/25 ${
+              depth === minDepth + 1 ? "h-1.5 w-1.5" : "h-1 w-1"
+            }"></span></span>`;
         link.innerHTML = `
-          <div class="transition w-5 h-5 shrink-0 rounded-lg text-xs flex items-center justify-center font-bold ${
-            depth === minDepth ? "bg-(--toc-badge-bg) text-(--btn-content)" : ""
-          } ${depth === minDepth + 1 ? "ml-4" : ""} ${depth >= minDepth + 2 ? "ml-8" : ""}">
-            ${depth === minDepth ? String(index + 1) : ""}
-            ${depth === minDepth + 1 ? '<div class="transition w-2 h-2 rounded-[0.1875rem] bg-(--toc-badge-bg)"></div>' : ""}
-            ${depth >= minDepth + 2 ? '<div class="transition w-1.5 h-1.5 rounded-sm bg-black/5 dark:bg-white/10"></div>' : ""}
-          </div>
+          ${marker}
           <div class="toc-title transition duration-(--toc-transition-duration) text-sm ${depth >= minDepth + 2 ? "text-30" : "text-50"}"></div>
         `;
         const titleEl = link.querySelector(".toc-title");
@@ -324,7 +377,7 @@ const className = Astro.props.class ?? "";
     currentHeadingIndex() {
       if (!this.headings.length) return -1;
 
-      const offset = 96;
+      const offset = this.readLine;
       let activeIndex = 0;
       for (let index = 0; index < this.headings.length; index++) {
         if (this.headings[index].getBoundingClientRect().top <= offset) {
@@ -342,15 +395,27 @@ const className = Astro.props.class ?? "";
       if (activeIndex < 0) return;
 
       const active = this.tocEntries.map((_, index) => index === activeIndex);
+      // 点击目录后的跳转保护：目标到达阅读线即解除。
+      // ⚠️ 必须与 currentHeadingIndex 用**同一条阅读线**（原先这里写死 100、
+      // 判定用 96，保护会先于「目标被认定为当前项」解除 → 点击高亮被立刻覆盖，
+      // 表现为「点了目录、滚到位了，高亮却停在上一条」）。
+      // ⚠️ 还要兜住「目标永远到不了阅读线」的情形（典型：点最后一条，页面已到底、
+      // 没有更多内容把它顶上来）：否则 anchorNavTarget 永久残留，
+      // scrollToActiveHeading() 会一直早退，目录从此不再自动跟随阅读位置。
+      if (this.anchorNavTarget) {
+        const atBottom =
+          window.scrollY + window.innerHeight >=
+          document.documentElement.scrollHeight - 2;
+        if (
+          this.anchorNavTarget.getBoundingClientRect().top <= this.readLine ||
+          atBottom
+        ) {
+          this.anchorNavTarget = null;
+        }
+      }
       // dirty 检查：高亮未变化时跳过 indicator 定位/滚动，消除每 tick 布局读取
       if (active.every((value, index) => value === this.active[index])) {
         return;
-      }
-      if (
-        this.anchorNavTarget &&
-        this.anchorNavTarget.getBoundingClientRect().top <= 100
-      ) {
-        this.anchorNavTarget = null;
       }
       this.active = active;
       this.update();
