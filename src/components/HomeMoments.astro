@@ -2,20 +2,46 @@
 /**
  * 首页瞬间栏：顶部横向滚动跑马灯 + 底部标签筛选。
  *
- * 结构：
- *  ┌──────────────────────────────────────────────┐
- *  │ [✨瞬间]  滚动内容……   滚动内容……   [更多›]  │  跑马灯行
- *  │  #标签·n  #标签·n  #标签·n  …                │  标签筛选行
- *  └──────────────────────────────────────────────┘
+ * 在原版「[✨瞬间] ……滚动内容…… [更多›]」这一行的视觉语言上扩展：
+ * 同一条车道被中缝切成左右两半，左半跑瞬间、右半跑项目名称。
+ * 样式全部沿用原版的胶囊语言，不新造外层容器。
+ *
+ * 运动方向（1.4.54 起统一为「两侧同向」）：
+ * 两半都向左滚 ⇒ 整条带子读起来像**一条穿过中缝的传送带**：左半在中缝处淡入
+ * （内容从缝里涌出）、右半在中缝处被缝吞入。中缝因此退化为纯粹的**分隔线**。
+ * ⚠️ 别再改回对向（左向左 / 右向右）：那样中缝会同时成为两股**反向**运动的起点，
+ *   眼睛会被反复拉回几何中心，长时间阅读时明显不适（1.4.43~1.4.53 的观感问题）。
+ * ⚠️ 同向之后**两侧必须等速**：时长按 `半幅 / --marquee-speed` 算，两条跑道才是
+ *   同一线速度。别给时长设大下限（如 20s）——项目半内容短、半幅小，会被钳慢成另一种
+ *   速度，在中缝处露出「两条带子」的马脚（1.4.54 修正）。
+ *
+ * 结构（桌面 ≥768px）：
+ *  ┌────────────────────────────────────────────────────────────────────┐
+ *  │ [✨瞬间] ← 瞬间滚动 ……  ◆  …… 项目名滚动 ←     [项目›]            │
+ *  │  #标签·n  #标签·n  #标签·n  …                                      │
+ *  └────────────────────────────────────────────────────────────────────┘
+ * 移动端（<768px）：中缝与右半整体隐藏，与改动前的观感完全一致。
+ *
+ * 中缝：一根本色发丝线（上下淡出）穿过一枚主色菱形宝石，宝石带卡底色描边环
+ * 把线「打断」，看起来像嵌在车道缝里的一颗小宝石。刻意不加箭头。
+ *
+ * 中缝的交互（1.4.50 拖动 / 1.4.51 键盘 + 可发现性）：
+ * - 指针：按住左右拖动重分配两半宽度，双击复位；比例存 localStorage 供下次恢复。
+ * - 键盘：它是可聚焦的 separator，所以必须有键鼠等价 —— ←/→ 微调 16px（Shift ×5）、
+ *   Home/End 到两端（各留 MIN 宽）、Enter/空格 复位，并同步 aria-valuenow/min/max
+ *   （按可用宽的百分比，不是 0~100，因为两端各留了最小宽）。
+ * - 可发现性：首次访问时宝石轻呼吸 3 次 + 一枚一次性气泡；提示过就写 localStorage，
+ *   之后不再出现。尊重 prefers-reduced-motion（那种情况下不播放呼吸动画）。
+ *
+ * 右半只跑「项目名称」（不带摘要）：这一半是索引位，摘要会拖慢节奏、也会把
+ * 两半的信息密度拉开。
  *
  * 数据流：
- * - 跑马灯 SSR 渲染最近瞬间，content.raw 为富文本（可能含 HTML），
- *   由前端 JS 解析提取纯文本后回填（隐藏 span 传值，避免 HTML 转义外露）。
- *   每条瞬间只显示「第一行」：去图片块、按 <br>/段落边界断行、取首个逻辑行。
- * - 标签同样用隐藏 span 传入，JS 去重 + 计数后渲染为胶囊链接。
- * - 无缝滚动：JS 克隆一份内容，内容超出一屏时才启用动画；hover 暂停；两端渐隐。
- * - 开关：theme.config.layout.postList.showHomeMoments
- * - 数量：theme.config.layout.postList.homeMomentsCount
+ * - 瞬间与项目都 SSR 渲染，JS 只负责：① 瞬间富文本 content.raw → 首行纯文本
+ *   回填（隐藏 span 传值，避免 HTML 转义外露）；② 把内容补足到「一屏以上」再
+ *   克隆成两半做无缝滚动；③ 标签胶囊提取去重计数。
+ * - 开关：theme.config.layout.postList.showHomeMoments，数量：homeMomentsCount
+ * - Finder 用 ?. 空安全：插件未装时短路为 null，只显示空态，绝不崩页。
  */
 ---
 
@@ -23,15 +49,15 @@
   id="home-moments"
   class="card-base onload-animation relative mb-4 overflow-hidden px-4 py-4"
   th:if="${theme.config?.layout?.postList?.showHomeMoments == null or theme.config?.layout?.postList?.showHomeMoments}"
-  th:with="homeMoments = ${momentFinder?.list({size: theme.config?.layout?.postList?.homeMomentsCount ?: 10})}"
+  th:with="homeMoments = ${momentFinder?.list({size: theme.config?.layout?.postList?.homeMomentsCount ?: 10})},
+           homeProjects = ${projectFinder?.listBy('', '', '', '', 1, 999)}"
 >
   <!-- 装饰性覆盖层：父级 home-moments-wrap 为 pointer-events-none，本层继承后
        不拦截内层链接点击；纯装饰，不作为可聚焦链接（避免 target-size /
-       label-content-name-mismatch 审计误报）。空白区跳转由顶部「瞬间」徽标与
-       「更多」链接承担。 -->
+       label-content-name-mismatch 审计误报）。空白区跳转由两端入口承担。 -->
   <div class="home-moments-overlay"></div>
 
-  <!-- ===== 顶部：跑马灯行 ===== -->
+  <!-- ===== 顶部：跑马灯行（左半瞬间 / 中缝 / 右半项目） ===== -->
   <div class="relative z-10 flex flex-nowrap items-center gap-3">
     <!-- "瞬间" 标签 -->
     <a
@@ -47,10 +73,10 @@
       >
     </a>
 
-    <!-- 滚动区：SSR 渲染最近瞬间条目（momentFinder 由瞬间插件注入渲染上下文，
-         ?. 空安全——插件未装时短路为 null，仅显示空态，绝不崩页）。
-         前端 JS 仅负责富文本→纯文本回填、无缝滚动动画、标签胶囊提取，
-         不再承担数据拉取（匿名前端 API 需登录，拿不到数据）。 -->
+    <!-- 左半：瞬间（向左滚）。SSR 渲染最近瞬间条目（momentFinder 由瞬间插件注入
+         渲染上下文，?. 空安全——插件未装时短路为 null，仅显示空态，绝不崩页）。
+         前端 JS 仅负责富文本→纯文本回填、无缝滚动、标签胶囊提取，不承担数据拉取
+         （匿名前端 API 需登录，拿不到数据）。 -->
     <div
       id="home-moments-marquee"
       class="home-moments-marquee relative min-w-0 flex-1 overflow-hidden rounded-lg bg-(--btn-regular-bg) py-1.5"
@@ -103,14 +129,94 @@
       </div>
     </div>
 
-    <!-- 更多 -->
-    <a
-      th:href="@{/moments}"
-      class="btn-regular group relative z-10 flex h-8 shrink-0 items-center gap-0.5 rounded-lg px-3 text-sm font-bold active:scale-95"
+    <!-- 中缝：把车道切成左右两半 -->
+    <!-- 中缝 = 可左右拖动的分隔条：拖动即重新分配左右两半跑道的宽度。
+         语义上是 separator（不是装饰），所以去掉 aria-hidden 并给出标签；
+         命中区靠 ::after 向两侧各撑开 8px，视觉上仍只是一条发丝线 + 菱形宝石。
+         可聚焦的 separator 按 ARIA 规范必须响应方向键，故给 tabindex + 键盘处理；
+         aria-valuenow/min/max 由脚本按实际可用宽同步（两端各留最小宽，故非 0~100）。
+         移动端该元素 display:none，交互自然不生效。 -->
+    <div
+      id="home-moments-seam"
+      class="home-moments-seam"
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="左右拖动，或按左右方向键调整左右宽度；双击或回车复位"
+      aria-valuemin="0"
+      aria-valuemax="100"
+      aria-valuenow="50"
+      tabindex="0"
+      title="拖动 / ←→ 调整宽度 · 双击或回车复位"
     >
-      <span th:text="#{common.more}">更多</span>
+      <span class="home-moments-seam__gem"></span>
+      <!-- 首次访问的一次性提示。aria-hidden：无障碍信息已由上面的 aria-label 承担，
+           这枚气泡只是给视线的可发现性提示，不必让读屏重复播报。 -->
       <span
-        class="icon-[material-symbols--chevron-right-rounded] text-base transition-transform group-hover:translate-x-0.5"
+        id="home-moments-hint"
+        class="home-moments-hint"
+        aria-hidden="true"
+        hidden>拖动可调整比例</span
+      >
+    </div>
+
+    <!-- 右半：项目名称（1.4.54 起与左半同向、都向左滚，见文件头「运动方向」），只跑名称 -->
+    <div
+      id="home-projects-marquee"
+      class="home-moments-marquee home-projects-only relative min-w-0 flex-1 overflow-hidden rounded-lg bg-(--btn-regular-bg) py-1.5"
+    >
+      <div
+        id="home-projects-track"
+        class="home-moments-track flex w-max items-center"
+        th:if="${homeProjects != null and not #lists.isEmpty(homeProjects.items)}"
+      >
+        <div class="home-moments-group flex items-center">
+          <a
+            th:each="project : ${homeProjects.items}"
+            th:href="@{/portfolio/{slug}(slug=${project.slug})}"
+            class="home-moment-link group flex min-h-[24px] items-center whitespace-nowrap"
+          >
+            <span
+              class="home-moment-text text-sm text-50"
+              th:text="${project.title}">项目</span
+            >
+            <span
+              class="home-moment-dot mx-3 inline-block h-1 w-1 shrink-0 rounded-full bg-(--primary)/40"
+              aria-hidden="true"></span>
+          </a>
+        </div>
+      </div>
+
+      <!-- 空状态 -->
+      <div
+        th:if="${homeProjects == null or #lists.isEmpty(homeProjects.items)}"
+        class="px-3 text-sm text-30"
+        th:text="#{page.portfolio.empty}"
+      >
+        暂无项目
+      </div>
+    </div>
+
+    <!-- 项目入口：与左端「瞬间」徽章**完全同款**的胶囊——同底、同圆角、同内边距、
+         同字号、同图标规格（text-base + 主色），图标同样落在各自外侧；图标**不带
+         任何 hover 位移**（左端 ✨ 不动，右端也必须不动，否则两端手感不一致）。
+         入口在**移动端与桌面都显示**，移动端位置即旧版「更多」按钮处。
+         两个「不用」的理由：
+         · 不用 `.btn-regular`——它自带 `dark:text-white/75`，暗色下文字变半透明白，
+           与左端 `text-(--btn-content)`（暗色 oklch(.75 .1)）不一致。
+         · 不写 Tailwind 的 `flex`——本组件的样式在**后加载**的 MainGridLayout.css 里，
+           若这里再写一条 `display:block` 覆盖，会因同优先级+靠后而把 `flex` 顶掉，
+           按钮降级为块级、gap 失效、图标与文字退化为行内流（宽度与左端差 6px）。
+           所以 display 由 `.home-projects-end` 独家负责（见样式块）。 -->
+    <a
+      th:href="@{/portfolio}"
+      class="home-moments-badge home-projects-end group shrink-0 items-center gap-1.5 rounded-lg bg-(--btn-regular-bg) px-3 py-1.5 transition hover:bg-(--btn-regular-bg-hover) active:scale-95"
+    >
+      <span
+        class="text-sm font-bold text-(--btn-content)"
+        th:text="#{page.portfolio.title}">项目</span
+      >
+      <span
+        class="icon-[material-symbols--rocket-launch-outline-rounded] text-base text-(--primary)"
       ></span>
     </a>
   </div>
@@ -136,9 +242,209 @@
     pointer-events: none;
   }
 
+  /* ===== 中缝 =====
+     一根发丝线 + 一枚菱形宝石。宝石用 absolute 语义（stretch 居中）落在线上，
+     线用上下淡出的渐变，避免两端出现硬切边。
+     它同时是**可左右拖动的分隔条**（拖动重分配左右跑道宽度）。 */
+  .home-moments-seam {
+    position: relative;
+    display: none; /* 移动端隐藏（连同右半） */
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    /* 14px → 20px（1.4.54）：两半各自是独立圆角胶囊，中缝留宽一点，
+       两条带子才读成「两个结构」，而不是「一条被硬切开的带子」。 */
+    width: 1.25rem;
+    align-self: stretch;
+    /* 盖过两侧跑道（两者都是 position:relative、DOM 顺序在 seam 之后），
+       否则右侧跑道会吃掉 ::after 撑出来的那半边命中区 */
+    z-index: 2;
+    cursor: col-resize;
+    touch-action: none; /* 触屏拖动时不触发页面滚动 */
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* 命中区向两侧各撑开 8px —— 视觉仍是一条发丝线，但抓取容易得多。
+     用伪元素而不是加宽元素本身，免得挤压两侧跑道。 */
+  .home-moments-seam::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: -0.5rem;
+    right: -0.5rem;
+  }
+  .home-moments-seam::before {
+    content: "";
+    position: absolute;
+    top: 0.125rem;
+    bottom: 0.125rem;
+    left: 50%;
+    width: 1px;
+    transform: translateX(-50%);
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklab, var(--primary) 30%, transparent) 25%,
+      color-mix(in oklab, var(--primary) 30%, transparent) 75%,
+      transparent
+    );
+  }
+  .home-moments-seam__gem {
+    position: relative;
+    z-index: 1;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 0.125rem;
+    transform: rotate(45deg);
+    /* 静止态「降权」（1.4.54）：宝石是整条带子上唯一的高饱和主色元素，又正好坐在
+       中缝上，静止时就发光等于自己当视觉锚点（运动层的「源点」已按同向消掉，
+       颜色层不能再把视线拉回来）。所以静止只留低饱和菱形 + 打断发丝线所必需的
+       卡片底色描边；悬停 / 聚焦 / 拖动 / 首访提示时才升回满主色 + 光晕。 */
+    background: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
+    box-shadow: 0 0 0 0.1875rem var(--card-bg);
+    transition:
+      transform 150ms ease,
+      box-shadow 150ms ease,
+      background 150ms ease;
+  }
+  /* 升级态：满主色渐变 + 光晕 —— 明确「这里可以拖」 */
+  .home-moments-seam:hover .home-moments-seam__gem,
+  .home-moments-seam:focus-visible .home-moments-seam__gem,
+  .home-moments-seam--hint .home-moments-seam__gem,
+  .home-moments-seam--dragging .home-moments-seam__gem {
+    background: linear-gradient(
+      135deg,
+      var(--primary),
+      color-mix(in oklab, var(--primary) 45%, var(--card-bg))
+    );
+    box-shadow:
+      0 0 0 0.1875rem var(--card-bg),
+      0 0 0.5rem -0.0625rem color-mix(in oklab, var(--primary) 55%, transparent);
+  }
+  /* 悬停 / 聚焦 / 拖动 / 首次提示：宝石放大、发丝线加亮 —— 明确「这里可以拖」 */
+  .home-moments-seam:hover::before,
+  .home-moments-seam:focus-visible::before,
+  .home-moments-seam--hint::before,
+  .home-moments-seam--dragging::before {
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      color-mix(in oklab, var(--primary) 65%, transparent) 25%,
+      color-mix(in oklab, var(--primary) 65%, transparent) 75%,
+      transparent
+    );
+  }
+  .home-moments-seam:hover .home-moments-seam__gem {
+    transform: rotate(45deg) scale(1.3);
+  }
+  .home-moments-seam--dragging .home-moments-seam__gem {
+    transform: rotate(45deg) scale(1.6);
+    box-shadow:
+      0 0 0 0.1875rem var(--card-bg),
+      0 0 0.75rem -0.0625rem
+        color-mix(in oklab, var(--primary) 85%, transparent);
+  }
+  /* 键盘聚焦：焦点环画在宝石上（元素本身只有 14px 宽，画在元素上会是一条细长矩形） */
+  .home-moments-seam:focus-visible {
+    outline: none;
+  }
+  .home-moments-seam:focus-visible .home-moments-seam__gem {
+    transform: rotate(45deg) scale(1.6);
+    outline: 0.125rem solid var(--focus-ring);
+    outline-offset: 0.25rem;
+  }
+
+  /* ===== 首次访问的一次性可发现性提示 =====
+     宝石轻呼吸 3 次 + 一枚贴在缝「右侧」的气泡。
+     ⚠️ 气泡只能横向展开，不能向上浮：外层 section 是 overflow-hidden，
+     上方只留 py-4 = 16px 内边距，向上浮会被直接裁掉半截。 */
+  @keyframes home-moments-seam-breathe {
+    0%,
+    100% {
+      transform: rotate(45deg) scale(1.3);
+    }
+    50% {
+      transform: rotate(45deg) scale(1.75);
+    }
+  }
+  .home-moments-seam--hint .home-moments-seam__gem {
+    animation: home-moments-seam-breathe 1.3s ease-in-out 3;
+  }
+  .home-moments-hint {
+    position: absolute;
+    top: 50%;
+    left: calc(100% + 0.5rem);
+    z-index: 3;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    color: var(--on-primary);
+    background: var(--primary);
+    transform: translateY(-50%);
+    opacity: 0;
+    transition: opacity 240ms ease;
+    pointer-events: none; /* 气泡只是提示，不能挡住中缝的命中区 */
+  }
+  .home-moments-hint[hidden] {
+    display: none;
+  }
+  .home-moments-hint--show {
+    opacity: 1;
+  }
+  /* 指向宝石的小三角（画在气泡左缘） */
+  .home-moments-hint::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: 100%;
+    width: 0;
+    height: 0;
+    border: 0.25rem solid transparent;
+    border-right-color: var(--primary);
+    transform: translateY(-50%);
+  }
+  /* 拖动中：指针可能移出中缝，靠 body 类维持抓手光标并禁止选中文本 */
+  body.home-moments-resizing {
+    cursor: col-resize;
+    user-select: none;
+  }
+
+  /* ===== 两端入口按钮：移动端与桌面**都显示** =====
+     右半「项目跑道」和中缝只在桌面出现，但右端入口按钮各断点都保留：
+     移动端布局 = [✨ 瞬间] [瞬间跑道] [项目 🚀]（位置即旧版「更多」入口处）。
+     ⚠️ `.home-projects-end` 独家承担 display，**它不带 Tailwind 的 `flex`**：
+     本样式块落在**后加载**的 MainGridLayout.css，若这里写成 `display:block`
+     （或让 Tailwind 的 `.flex` 先加载），同优先级下靠后的胜出，按钮会降级为
+     块级 —— `gap` 失效、图标与文字退化成行内流，宽度比左端窄 6px（68 vs 74），
+     肉眼就是「左右不一样大」。所以这里显式给 `display:flex`。 */
+  .home-projects-end {
+    display: flex;
+  }
+  /* 移动端基线：右半跑道与中缝隐藏。
+     ⚠️ 基础规则必须写在下面 @media 之前——媒体查询不增加特异性，同分靠源码顺序。 */
+  .home-projects-only {
+    display: none;
+  }
+  /* 桌面：显示中缝与右半跑道。
+     这里用视口媒体查询而非容器查询——本项目实测手机 480/540 视口下内容栏
+     会被撑到 438/498px，与桌面双侧栏的 482px 几乎重合，按宽度分不出
+     「手机」和「桌面窄栏」。 */
+  @media (min-width: 768px) {
+    .home-moments-seam {
+      display: flex;
+    }
+    .home-projects-only {
+      display: block;
+    }
+  }
+
   /* ===== 跑马灯 ===== */
   .home-moments-marquee {
-    /* 两端渐隐遮罩：中间透明，两侧淡入卡片底色 */
+    /* 两端渐隐遮罩：中间透明，两侧淡入跑道底色。两半都双向淡出，靠中缝那一端
+       也淡出 —— 左半在中缝处淡入（内容从缝里涌出）、右半在中缝处淡出（被缝吞入），
+       两半同向（都向左）时接起来就读成「一条穿过中缝的传送带」。 */
     -webkit-mask-image: linear-gradient(
       to right,
       transparent,
@@ -155,6 +461,27 @@
     );
   }
 
+  /* 移动端：两端入口各占 74px 后，瞬间跑道只剩约 190px，
+     2rem 的渐隐会吃掉近 1/3 可见区 → 收到 1.25rem，保住可读宽度。 */
+  @media (max-width: 767px) {
+    .home-moments-marquee {
+      -webkit-mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 1.25rem,
+        black calc(100% - 1.25rem),
+        transparent
+      );
+      mask-image: linear-gradient(
+        to right,
+        transparent,
+        black 1.25rem,
+        black calc(100% - 1.25rem),
+        transparent
+      );
+    }
+  }
+
   /* 轨道：内容宽度自适应；滚动时长由 JS 按内容宽度动态注入。
      will-change 提前把轨道提升为独立合成层，动画用 GPU 合成，避免每帧重排 */
   .home-moments-track--animate {
@@ -163,6 +490,11 @@
     will-change: transform;
   }
 
+  /* 两半同向：都向左滚（内容整体左移）。轨道是「两半完全相同」的结构，
+     所以 0 ↔ -50% 无缝。
+     ⚠️ 1.4.54 删掉了反向的那一套（原 home-moments-scroll-reverse 关键帧 +
+     .home-moments-track--reverse 类）。别再恢复：对向会让中缝同时成为两股
+     反向运动的共同起点，视线被反复拉回几何中心 —— 见文件头「运动方向」。 */
   @keyframes home-moments-scroll {
     from {
       transform: translateX(0);
@@ -172,13 +504,17 @@
     }
   }
 
-  /* hover 暂停滚动 */
-  .home-moments-marquee:hover .home-moments-track--animate {
+  /* 暂停滚动：hover（鼠标）+ focus-within（键盘）。
+     WCAG 2.2.2「暂停、停止、隐藏」要求自动运动 >5s 且与其它内容并行的内容提供
+     暂停机制；只有 :hover 对键盘用户不算机制。这条带子里的瞬间/项目条目本身就是
+     可聚焦链接，Tab 进去即暂停。 */
+  .home-moments-marquee:hover .home-moments-track--animate,
+  .home-moments-marquee:focus-within .home-moments-track--animate {
     animation-play-state: paused;
   }
 
-  /* 单条瞬间：只显示第一行——内容由 JS 截取首个逻辑行（去图片、按 br/段落断行），
-     此处再限宽单行省略兜底，防某条首行本身超长撑破轨道。
+  /* 单条条目：只显示第一行——瞬间内容由 JS 截取首个逻辑行（去图片、按 br/
+     段落断行），此处再限宽单行省略兜底，防某条首行本身超长撑破轨道。
      inline-block 是关键：默认 span 是 inline，white-space 不生效。
      !important 防止被任何更高优先级的样式覆盖 */
   .home-moment-text {
@@ -225,10 +561,16 @@
     opacity: 0.7;
   }
 
-  /* 减少动态偏好：关闭滚动 */
+  /* 减少动态偏好：关闭滚动、宝石呼吸与气泡淡入 */
   @media (prefers-reduced-motion: reduce) {
     .home-moments-track--animate {
       animation: none;
+    }
+    .home-moments-seam--hint .home-moments-seam__gem {
+      animation: none;
+    }
+    .home-moments-hint {
+      transition: none;
     }
   }
 </style>
@@ -256,82 +598,429 @@
       return text.split("\n")[0].trim();
     }
 
-    function initHomeMoments() {
-      var marquee = document.getElementById("home-moments-marquee");
-      var track = document.getElementById("home-moments-track");
-      var tagsBox = document.getElementById("home-moments-tags");
-      if (!marquee || !track) return;
-
-      // ===== 1. 富文本 → 纯文本回填，过滤空文本条目 =====
-      var textEls = track.querySelectorAll(".home-moment-text");
-      textEls.forEach(function (el) {
-        var raw = el.textContent || "";
-        var text = firstLineOf(raw);
-        el.textContent = text;
-        if (!text) {
-          var link = el.closest(".home-moment-link");
-          if (link) link.style.display = "none";
-        }
+    // 装饰性副本：对读屏隐藏，并把其中的链接移出 tab 序
+    // （aria-hidden 容器内若有可聚焦元素会被 aria-hidden-focus 审计判为违规）
+    function markDecorative(node) {
+      node.setAttribute("aria-hidden", "true");
+      node.querySelectorAll("a").forEach(function (a) {
+        a.setAttribute("tabindex", "-1");
       });
+      return node;
+    }
 
-      var group = track.querySelector(".home-moments-group");
+    /**
+     * 无缝跑马灯。
+     *
+     * ⚠️ 关键点（上一版的缺陷所在）：**不能**只在「内容超出一屏」时才做副本。
+     * 项目只有 5 条，在宽屏（如 1920 视口、半幅跑道约 660px）下 5 个名称加起来
+     * 不足 660px —— 判为「不溢出」就完全不动画，用户看到的就是「右边的跑马灯
+     * 不往右跑」。所以改成：
+     *   ① 先把内容重复 k 份，凑够「至少一屏」宽（k = ceil(跑道宽 / 单份宽)）；
+     *   ② 再整体复制一份 → 轨道 = 两半完全相同；
+     *   ③ 0% ↔ -50% 之间平移即无缝（两份首尾相接，接缝处内容一致）。
+     * 这样无论内容多少，两侧都一定在滚；两侧**同向**（见文件头「运动方向」）。
+     */
+    function setupMarquee(marqueeEl, trackEl) {
+      if (!marqueeEl || !trackEl) return;
+      if (trackEl.getAttribute("data-cloned") === "1") return;
+      trackEl.setAttribute("data-cloned", "1");
+
+      var group = trackEl.querySelector(".home-moments-group");
       if (!group) return;
 
-      // ===== 2. 无缝滚动：克隆一份内容，超出一屏时才启用动画 =====
-      // 延迟到字体加载 + 布局稳定后再测量宽度：否则字体未就绪时 scrollWidth
-      // 偏小，容易误判为"不超宽"而禁用滚动（全屏模式下首屏 banner 占满、
-      // 字体加载更晚，此问题更明显）。
-      if (track.getAttribute("data-cloned") !== "1") {
-        track.setAttribute("data-cloned", "1");
-        var setupMarquee = function () {
-          var groupWidth = group.scrollWidth;
-          var marqueeWidth = marquee.clientWidth;
+      var apply = function () {
+        var setWidth = group.scrollWidth;
+        var boxWidth = marqueeEl.clientWidth;
+        // 隐藏的跑道（移动端的项目栏）两者都是 0，自然跳过
+        if (!setWidth || !boxWidth) return;
 
-          if (groupWidth > marqueeWidth) {
-            var clone = group.cloneNode(true);
-            clone.setAttribute("aria-hidden", "true");
-            // 克隆块内的瞬间链接是装饰性重复（aria-hidden 已对读屏隐藏），
-            // 但 <a> 默认可聚焦，会被 aria-hidden-focus 审计判为「可聚焦元素藏在
-            // aria-hidden 容器内」→ 显式 tabindex=-1 移出 tab 序。
-            clone.querySelectorAll("a").forEach(function (a) {
-              a.setAttribute("tabindex", "-1");
-            });
-            track.appendChild(clone);
-            track.classList.add("home-moments-track--animate");
-            // 速度读取全局 --marquee-speed（px/s，随动画速度档位变化），fallback 48
-            var speed =
-              parseInt(
-                getComputedStyle(document.documentElement).getPropertyValue(
-                  "--marquee-speed",
-                ),
-                10,
-              ) || 48;
-            // 最小 20s，避免内容少时转太快
-            var duration = Math.max(20, Math.round(groupWidth / speed));
-            track.style.setProperty("--home-moments-duration", duration + "s");
-          }
-        };
-        if (document.fonts && document.fonts.ready) {
-          document.fonts.ready.then(function () {
-            requestAnimationFrame(setupMarquee);
-          });
-        } else {
-          setTimeout(setupMarquee, 200);
+        // ① 补足「一屏」：半幅至少要和跑道一样宽，滚动过程中视窗才不会露空
+        var k = Math.max(1, Math.ceil(boxWidth / setWidth));
+        for (var i = 1; i < k; i++) {
+          trackEl.appendChild(markDecorative(group.cloneNode(true)));
         }
+        // ② 整体再复制一份 → 两半完全相同
+        var half = Array.prototype.slice.call(
+          trackEl.querySelectorAll(".home-moments-group"),
+        );
+        half.forEach(function (g) {
+          trackEl.appendChild(markDecorative(g.cloneNode(true)));
+        });
+
+        trackEl.classList.add("home-moments-track--animate");
+        // 记下已补足的「半幅」宽度：拖动改变跑道宽后据此判断是否需要重新补屏
+        trackEl.setAttribute("data-half-width", String(k * setWidth));
+
+        // 速度读取全局 --marquee-speed（px/s，随动画速度档位变化），fallback 48
+        var speed =
+          parseInt(
+            getComputedStyle(document.documentElement).getPropertyValue(
+              "--marquee-speed",
+            ),
+            10,
+          ) || 48;
+        // 一个周期平移半幅（k 份内容）。
+        // ⚠️ 1.4.54：不能在这里按「保持两侧同速」的意图给时长设大下限。
+        // duration = 半幅 / speed 才能让两条跑道保持**相同线速度** —— 同向之后
+        // 两侧读成一条穿过中缝的传送带，速度不齐会在中缝处露馅（项目半内容短、
+        // 半幅小，原先的 20s 下限会把它钳慢到 ~30px/s，而瞬间半仍是 48px/s）。
+        // 这里只留一个防病态的安全网：半幅 ≥ 跑道宽（上面的 k 保证），跑道典型
+        // ≥500px，故 6s 实际几乎不会触发，触发时也只是内容极少时的保护。
+        var duration = Math.max(6, Math.round((k * setWidth) / speed));
+        trackEl.style.setProperty("--home-moments-duration", duration + "s");
+      };
+
+      // 延迟到字体加载 + 布局稳定后再测量宽度：否则字体未就绪时 scrollWidth
+      // 偏小，会把「一屏」判少（全屏模式下首屏 banner 占满、字体加载更晚，
+      // 此问题更明显）。
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () {
+          requestAnimationFrame(apply);
+        });
+      } else {
+        setTimeout(apply, 200);
+      }
+    }
+
+    /* 拖动改变了跑道宽度后，原先按旧宽度补的「一屏」可能不够 → 会露白。
+       只在该跑道已经比「半幅」还宽时才重建，免得每次拖完都白重启动画。 */
+    function refitIfNeeded(marqueeEl, trackEl) {
+      if (!marqueeEl || !trackEl) return;
+      var half = parseFloat(trackEl.getAttribute("data-half-width") || "0");
+      if (!half || marqueeEl.clientWidth <= half) return;
+
+      // 拆掉所有克隆，回到「只剩第一个原始 group」，再走一遍补屏
+      var groups = trackEl.querySelectorAll(".home-moments-group");
+      for (var i = groups.length - 1; i >= 1; i--) {
+        groups[i].remove();
+      }
+      trackEl.classList.remove("home-moments-track--animate");
+      trackEl.removeAttribute("data-cloned");
+      trackEl.removeAttribute("data-half-width");
+      setupMarquee(marqueeEl, trackEl);
+    }
+
+    /* ===== 中缝拖拽 / 键盘：重新分配左右两半跑道的宽度 =====
+       两条跑道都是 flex: 1 1 0%，宽度之和恒等于可用总宽（两端按钮、中缝宽度固定）。
+       所以把 flex-grow 直接设成 [w, avail-w]，左跑道就正好是 w 像素宽 ——
+       像素与比例一一对应，拖动时无需反复换算。键盘调整同样落到像素上再夹紧，
+       所以指针和键盘两条路径的结果完全一致。
+       比例存 localStorage 供下次恢复；双击或 Enter 复位。 */
+    function setupSplitter() {
+      var seam = document.getElementById("home-moments-seam");
+      if (!seam) return;
+      var leftMq = document.getElementById("home-moments-marquee");
+      var rightMq = document.getElementById("home-projects-marquee");
+      if (!leftMq || !rightMq) return;
+
+      var MIN = 120; // 每侧最小宽度，避免被拖到消失
+      var KEY = "ethereal:home-moments-split";
+
+      var applyRatio = function (r) {
+        if (!(r > 0 && r < 1)) return;
+        leftMq.style.flexGrow = String(r * 1000);
+        rightMq.style.flexGrow = String((1 - r) * 1000);
+      };
+
+      // 恢复上次的比例（须在 setupMarquee 之前生效，补屏才按正确宽度算）
+      try {
+        var saved = parseFloat(localStorage.getItem(KEY) || "");
+        if (saved > 0 && saved < 1) applyRatio(saved);
+      } catch (err) {
+        /* 隐私模式禁用存储，忽略 */
       }
 
-      // ===== 3. 标签提取去重 + 计数，渲染胶囊 =====
-      if (tagsBox && tagsBox.getAttribute("data-rendered") !== "1") {
-        tagsBox.setAttribute("data-rendered", "1");
-        var tagMap = new Map();
-        // 计数源用原始 group（克隆块挂在 track 下，若从 track 数会把每个标签
-        // 算 2 次）；group 是克隆前的原始节点引用，此处只统计原始标签。
-        group
-          .querySelectorAll(".home-moment-link .home-moment-tag-data")
-          .forEach(function (el) {
-            var t = (el.textContent || "").trim();
-            if (t) tagMap.set(t, (tagMap.get(t) || 0) + 1);
+      var dragging = false;
+      var pointerId = -1;
+      var startX = 0;
+      var startW = 0;
+      var avail = 0;
+
+      var refitBoth = function () {
+        refitIfNeeded(leftMq, document.getElementById("home-moments-track"));
+        refitIfNeeded(rightMq, document.getElementById("home-projects-track"));
+      };
+
+      var persist = function (ratio) {
+        try {
+          localStorage.setItem(KEY, String(ratio));
+        } catch (err) {
+          /* 隐私模式禁用存储，忽略 */
+        }
+      };
+      var clearPersist = function () {
+        try {
+          localStorage.removeItem(KEY);
+        } catch (err) {
+          /* 忽略 */
+        }
+      };
+
+      /* aria-valuenow/min/max 用「左半占可用宽的百分比」，不是 0~100 ——
+         两端各留 MIN 最小宽，所以可达区间天然收窄，报 0~100 会骗读屏。
+         拖动、键盘调整、窗口尺寸变化后都要同步。 */
+      var syncAria = function () {
+        var total = leftMq.offsetWidth + rightMq.offsetWidth;
+        if (total <= 0) return;
+        var lo = Math.round((MIN / total) * 100);
+        var hi = 100 - lo;
+        var now = Math.round((leftMq.offsetWidth / total) * 100);
+        if (now < lo) now = lo;
+        if (now > hi) now = hi;
+        seam.setAttribute("aria-valuemin", String(lo));
+        seam.setAttribute("aria-valuemax", String(hi));
+        seam.setAttribute("aria-valuenow", String(now));
+      };
+
+      // 复位到默认等分（双击 / Enter）：清掉内联 flex-grow，交回 Tailwind 的 flex-1
+      var resetSplit = function () {
+        leftMq.style.flexGrow = "";
+        rightMq.style.flexGrow = "";
+        clearPersist();
+        syncAria();
+        refitBoth();
+      };
+
+      /* 键盘调整：把左半宽度推到 target（px），并夹在 [MIN, total-MIN] 内。
+         键盘与指针最终都走这里，保证两条路径的结果完全一致。 */
+      var nudge = function (target) {
+        var total = leftMq.offsetWidth + rightMq.offsetWidth;
+        if (total <= MIN * 2) return;
+        var w = target;
+        if (w < MIN) w = MIN;
+        if (w > total - MIN) w = total - MIN;
+        leftMq.style.flexGrow = String(w);
+        rightMq.style.flexGrow = String(total - w);
+        persist(w / total);
+        syncAria();
+        refitBoth();
+      };
+
+      var move = function (e) {
+        if (!dragging) return;
+        if (pointerId !== -1 && e.pointerId !== pointerId) return;
+        var w = startW + (e.clientX - startX);
+        if (w < MIN) w = MIN;
+        if (w > avail - MIN) w = avail - MIN;
+        leftMq.style.flexGrow = String(w);
+        rightMq.style.flexGrow = String(avail - w);
+      };
+
+      var end = function (e) {
+        if (!dragging) return;
+        if (e && pointerId !== -1 && e.pointerId !== pointerId) return;
+        dragging = false;
+        if (pointerId !== -1 && seam.releasePointerCapture) {
+          try {
+            seam.releasePointerCapture(pointerId);
+          } catch (err) {
+            /* 已隐式释放，忽略 */
+          }
+        }
+        pointerId = -1;
+        seam.classList.remove("home-moments-seam--dragging");
+        document.body.classList.remove("home-moments-resizing");
+        var total = leftMq.offsetWidth + rightMq.offsetWidth;
+        if (total > 0) persist(leftMq.offsetWidth / total);
+        // aria 只在拖动结束时更新一次：拖动中每帧改 aria-valuenow 会把读屏刷爆
+        syncAria();
+        refitBoth();
+      };
+
+      /* ===== 首次访问的一次性可发现性提示 =====
+         「能拖」这件事本身没有任何静态视觉暗示：一条发丝线 + 一颗小宝石，
+         不提示的话用户永远不会去拖它。所以首访时让宝石轻呼吸 3 次 + 出一枚气泡，
+         一旦用户拖了 / 按了键 / 超时，就永久标记不再出现。
+         ⚠️ 不用 sessionStorage 也不用「每次首屏都提示」——那会变成骚扰。 */
+      var HINT_KEY = "ethereal:home-moments-hint";
+      var hintEl = document.getElementById("home-moments-hint");
+      var hintTimer = 0;
+      var hintDone = false;
+      var reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      var dismissHint = function () {
+        if (hintDone) return;
+        hintDone = true;
+        if (hintTimer) window.clearTimeout(hintTimer);
+        seam.classList.remove("home-moments-seam--hint");
+        if (hintEl) {
+          hintEl.classList.remove("home-moments-hint--show");
+          window.setTimeout(function () {
+            if (hintEl) hintEl.hidden = true;
+          }, 300);
+        }
+        try {
+          localStorage.setItem(HINT_KEY, "1");
+        } catch (err) {
+          /* 忽略 */
+        }
+      };
+
+      var showHint = function () {
+        if (!hintEl || hintDone) return;
+        if (getComputedStyle(seam).display === "none") return; // 移动端中缝不显示
+        try {
+          if (localStorage.getItem(HINT_KEY) === "1") return;
+        } catch (err) {
+          /* 读不到就当没提示过，本次仍提示 */
+        }
+        if (leftMq.offsetWidth + rightMq.offsetWidth <= MIN * 2) return; // 太窄，拖了也没意义
+        hintEl.hidden = false;
+        if (!reduceMotion) seam.classList.add("home-moments-seam--hint");
+        // 双 rAF 保证 opacity 从 0 起跳，过渡才跑得出来（同一帧加 --show 会被合并）
+        // 取本地变量再进闭包：闭包内 TS 不再保留对 hintEl 的非空收窄
+        var el = hintEl;
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(function () {
+            el.classList.add("home-moments-hint--show");
           });
+        });
+        hintTimer = window.setTimeout(dismissHint, 5200);
+      };
+
+      seam.addEventListener("pointerdown", function (e) {
+        if (getComputedStyle(seam).display === "none") return; // 移动端隐藏
+        dismissHint(); // 用户已经上手，提示使命结束
+        if (e.pointerType === "mouse" && e.button !== 0) return;
+        avail = leftMq.offsetWidth + rightMq.offsetWidth;
+        if (avail <= MIN * 2) return;
+        dragging = true;
+        pointerId = e.pointerId;
+        startX = e.clientX;
+        startW = leftMq.offsetWidth;
+        seam.classList.add("home-moments-seam--dragging");
+        document.body.classList.add("home-moments-resizing");
+        if (seam.setPointerCapture) {
+          try {
+            seam.setPointerCapture(e.pointerId);
+          } catch (err) {
+            /* 捕获失败也有 window 兜底，忽略 */
+          }
+        }
+        e.preventDefault();
+      });
+
+      // ⚠️ 释放监听**必须挂在 window 的捕获阶段**，不能只挂中缝：
+      // 中缝视觉上只有一条发丝线（命中区靠 ::after 撑到 ~1.5rem），鼠标一拖出去，
+      // 若 setPointerCapture 未生效，pointerup 会派发给指针下的别的元素，
+      // 中缝收不到 → dragging 永不复位、body 永久停在 col-resize 光标（放开鼠标还显示拖动图标）。
+      // 捕获阶段先于目标阶段触发；配合 setPointerCapture 时事件同样冒泡到 window，双路保底。
+      window.addEventListener("pointermove", move, true);
+      window.addEventListener("pointerup", end, true);
+      window.addEventListener("pointercancel", end, true);
+      // 拖动中切走窗口/丢焦也复位，避免状态残留
+      window.addEventListener("blur", function () {
+        end(null);
+      });
+      seam.addEventListener("lostpointercapture", function (e) {
+        end(e);
+      });
+
+      /* 键盘等价：可聚焦的 separator 按 ARIA 规范必须响应方向键，
+         否则读屏用户 Tab 到一个「按什么都没反应」的控件。
+         ←/→ 微调 16px、Shift ×5；Home/End 直达两端；Enter/空格 复位。 */
+      var KEY_STEP = 16;
+      seam.addEventListener("keydown", function (e) {
+        if (e.altKey || e.ctrlKey || e.metaKey) return; // 别抢浏览器/系统快捷键
+        var total = leftMq.offsetWidth + rightMq.offsetWidth;
+        if (total <= MIN * 2) return;
+        var step = KEY_STEP * (e.shiftKey ? 5 : 1);
+        var w = leftMq.offsetWidth;
+        if (e.key === "ArrowLeft") {
+          nudge(w - step);
+        } else if (e.key === "ArrowRight") {
+          nudge(w + step);
+        } else if (e.key === "Home") {
+          nudge(MIN);
+        } else if (e.key === "End") {
+          nudge(total - MIN);
+        } else if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+          resetSplit();
+        } else {
+          return;
+        }
+        e.preventDefault(); // 方向键/空格会滚页面，必须拦掉
+        dismissHint();
+      });
+
+      /* 视口变化时两侧实际像素宽会变，但百分比区间（valuemin/max）要跟着重算。
+         用 rAF 合并连续 resize，避免拖动窗口时反复读写布局。 */
+      var ariaRaf = 0;
+      window.addEventListener("resize", function () {
+        if (ariaRaf) return;
+        ariaRaf = window.requestAnimationFrame(function () {
+          ariaRaf = 0;
+          syncAria();
+        });
+      });
+
+      // 双击中缝 → 复位到默认等分
+      seam.addEventListener("dblclick", function () {
+        dismissHint();
+        resetSplit();
+      });
+
+      syncAria();
+      showHint();
+      /* 首帧读数可能基于回退字体（webfont 未就绪），宽度会变 → 字体就绪后校正一次。
+         两步式 then 而不是 .catch：不产生未处理的 rejection。 */
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(
+          function () {
+            syncAria();
+          },
+          function () {
+            /* 取不到就算，忽略 */
+          },
+        );
+      }
+    }
+
+    function initHomeMoments() {
+      var track = document.getElementById("home-moments-track");
+      var tagsBox = document.getElementById("home-moments-tags");
+
+      // ===== 瞬间：富文本 → 纯文本回填，过滤空文本条目 =====
+      if (track) {
+        track.querySelectorAll(".home-moment-text").forEach(function (el) {
+          var raw = el.textContent || "";
+          var text = firstLineOf(raw);
+          el.textContent = text;
+          if (!text) {
+            var link = el.closest(".home-moment-link");
+            if (link) link.style.display = "none";
+          }
+        });
+      }
+
+      // ===== 先恢复拖动比例，再初始化跑道（补屏须按恢复后的宽度计算）=====
+      setupSplitter();
+
+      // ===== 两条跑道各自独立初始化 =====
+      setupMarquee(document.getElementById("home-moments-marquee"), track);
+      setupMarquee(
+        document.getElementById("home-projects-marquee"),
+        document.getElementById("home-projects-track"),
+      );
+
+      // ===== 标签胶囊：去重 + 计数 =====
+      // 必须在 setupMarquee 之后读、且**只看第一个 group**：补屏与复制会产生
+      // 多份副本，从整条 track 数会把每个标签算成 k×2 遍（历史上 1.2.66 就踩
+      // 过「标签计数翻倍」这个坑）。
+      if (tagsBox && track && tagsBox.getAttribute("data-rendered") !== "1") {
+        tagsBox.setAttribute("data-rendered", "1");
+        var firstGroup = track.querySelector(".home-moments-group");
+        var tagMap = new Map();
+        if (firstGroup) {
+          firstGroup
+            .querySelectorAll(".home-moment-link .home-moment-tag-data")
+            .forEach(function (el) {
+              var t = (el.textContent || "").trim();
+              if (t) tagMap.set(t, (tagMap.get(t) || 0) + 1);
+            });
+        }
 
         if (tagMap.size === 0) {
           tagsBox.style.display = "none";

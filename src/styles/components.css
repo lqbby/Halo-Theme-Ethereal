@@ -97,7 +97,8 @@
     filter: saturate(1.15);
   }
   .tag-chip:focus-visible {
-    outline: 2px solid var(--primary);
+    /* --focus-ring 而非 --primary：后者在浅色底上约 2.7:1，达不到 WCAG 2.4.11 的 3:1 */
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
   }
 
@@ -698,6 +699,9 @@
   /* 触控设备子菜单展开 */
   .group.submenu-open > .submenu-panel {
     opacity: 1 !important;
+    /* 收起态靠 opacity:0 隐藏时，面板内链接仍可被 Tab 聚焦（键盘用户会跳进看不见的菜单），
+       故收起时同时用 invisible，展开态在此恢复可见 */
+    visibility: visible !important;
     pointer-events: auto !important;
     translate: none !important;
   }
@@ -771,7 +775,9 @@
     background-color: var(--card-bg) !important;
     transition:
       opacity 150ms cubic-bezier(0.4, 0, 0.2, 1),
-      translate 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
+      translate 150ms cubic-bezier(0.4, 0, 0.2, 1),
+      /* 收起用 invisible（阻止隐藏链接被 Tab 聚焦），visibility 参与过渡才能保留淡出 */
+        visibility 150ms cubic-bezier(0.4, 0, 0.2, 1) !important;
   }
 
   /* 伪元素桥接 mt-5 间隙，防止鼠标穿过间隙时 group-hover 丢失 */
@@ -1181,6 +1187,16 @@
   color: var(--primary) !important;
 }
 
+/* 当前小节的标记（序号数字 / 子级圆点）一并点亮 —— 原先只有标题变色，
+   数字还留在灰档位上，跟「当前位置」这件事是脱节的 */
+[data-toc-entry].visible .toc-marker {
+  color: var(--primary) !important;
+}
+
+[data-toc-entry].visible .toc-dot {
+  background-color: var(--primary) !important;
+}
+
 /* TOC 目录项 hover 动效 - 文字变主题色 */
 [data-toc-entry]:hover .toc-title {
   color: var(--primary);
@@ -1359,7 +1375,7 @@ body.pswp-transition #photo-detail-image {
 }
 
 /* 移动端：即使 JS 启用双栏也保持单列 */
-@media (max-width: 767px) {
+@media (max-width: 767.98px) {
   .friends-timeline.masonry-active {
     flex-direction: column;
   }
