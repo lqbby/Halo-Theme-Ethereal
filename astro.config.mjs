@@ -120,7 +120,20 @@ export default defineConfig({
       loadOnIdle: false,
       // I25：删除 preload——cache:false 下 @swup/astro 强制禁用 preload（死配置），
       // 保留会误导未来误启用（每 hover = 整页 HTML 拉取，成为带宽放大面）
-      accessibility: true,
+      // A11y（@swup/a11y-plugin）：默认 `true` 会用英文文案 "Navigated to: {title}"
+      // 播报换页，对中文站点是错的语言。这里传选项对象覆盖文案（@swup/astro 只在
+      // options === true 时替换成 {}，传对象会原样透传给插件构造函数）。
+      // “*” 是语言通配键：插件按 document.documentElement.lang 取，取不到再回退 “*”。
+      // 播报区本身由 Layout.astro 预置 #swup-announcer（polite + sr-only）承担。
+      // 注：类型声明为 boolean，运行时接受对象，故绕过类型限制。
+      accessibility: /** @type {any} */ ({
+        announcements: {
+          "*": {
+            visit: "已导航至 {title}",
+            url: "新页面：{url}",
+          },
+        },
+      }),
       updateHead: true,
       updateBodyClass: false,
       globalInstance: true,

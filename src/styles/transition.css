@@ -91,6 +91,19 @@ html.swup-visited .bangumi-page .onload-animation {
   outline: none;
 }
 
+/* Swup 换页的焦点落点 = 页面主标题（选择器见 app.ts setupSwup 的 visit.a11y.focus）。
+   它是**程序化聚焦**，键盘用户需要看见落点，但不该用浏览器默认的 outline:auto：
+   h1 是 block w-full，默认环是整行大矩形，且与主题其它焦点环语言不一致。
+   统一成主题焦点环色（--focus-ring：浅色下已压深到达 WCAG 2.4.11 的 3:1）。
+   ⚠️ outline-offset 取 4px 而非 .tag-chip 的 2px —— 大字号标题贴太紧会顶到字形；
+      h1 自带的 ::before 主色竖条在元素盒之外，不会被这个环包住，属预期。 */
+#swup-container h1:focus-visible,
+#banner-title:focus-visible {
+  outline: 0.125rem solid var(--focus-ring);
+  outline-offset: 0.25rem;
+  border-radius: 0.375rem;
+}
+
 #content-wrapper {
   animation-delay: min(var(--content-delay), var(--dur-entry-max, 400ms));
 }

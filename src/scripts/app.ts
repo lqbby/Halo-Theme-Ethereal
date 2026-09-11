@@ -11,6 +11,7 @@ import "../styles/theme-transition.css";
 import "../styles/components.css";
 import "../styles/statistics.css";
 import "../styles/markdown.css";
+import "../styles/portfolio-card.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
@@ -301,6 +302,52 @@ if (!customElements.get("widget-layout")) {
 function setupSwup() {
   if ((window as any).__etherealSwupHandlersBound) return;
   (window as any).__etherealSwupHandlersBound = true;
+
+  // ── 换页后的焦点归位 ──
+  // @swup/a11y-plugin 顺手做了播报区，但**默认把焦点丢到 <body>**（其内部
+  // rootSelector = "body"）：焦点等于回到页面最起点，键盘用户每翻一页都得重新 Tab
+  // 过整个导航栏才能摸到正文（「键盘税」），读屏用户也拿不到"页面已切换"的落点。
+  // 这里覆盖 visit.a11y.focus 的选择器，让焦点落到当前页的主标题上（插件会负责
+  // tabindex=-1、focus({preventScroll})、以及旧浏览器兼容）。
+  // ⚠️ 必须用 on（handler 阶段）而不是 before：插件的 prepareVisit 注册在 before
+  // 阶段，且会把 visit.a11y 整体替换；swup 的 hooks.call 顺序是 before → handler →
+  // after，所以 on 阶段写入必然晚于插件、一定覆盖成功。用 before 反而会被反过来覆盖。
+  // ⚠️ 选择器**不能**写成 "main h1, h1" 之类的宽列表：querySelector 取的是文档顺序首个
+  // 匹配，而站点横幅标题 #banner-title 本身就是个 <h1>、且位于 main 之前（非首页时它
+  // 是 display:none，聚焦不渲染的元素会被浏览器直接忽略，修复静默失效）。同理也不能
+  // 把容器本身写进选择器列表 —— 容器在它的后代之前，会永远抢先命中。
+  // 契约：Swup 容器内的页面需要提供主标题 <h1>（缺失时插件静默跳过、焦点不移动，不报错）。
+  window.swup.hooks.on("visit:start", (visit: any) => {
+    if (!visit?.a11y) return;
+    visit.a11y.focus = {
+      selector: "#swup-container h1",
+      wait: true,
+    };
+  });
+
+  // ── 首页 banner 标题模式下的焦点兜底 ──
+  // 首页的 h1 有两种互斥形态（见 index.astro 与 MainGridLayout）：
+  //   ① banner 标题关闭 → 容器内渲染 sr-only 站点名 h1 → "#swup-container h1" 可命中；
+  //   ② banner 标题开启 → 页面唯一 h1 是 #banner-title，但它在 <main> 之外、#swup-container
+  //      之前（absolute 定位的横幅），"#swup-container h1" 选不到 → 焦点退回 <body>，
+  //      键盘税（每页重新 Tab 过导航栏）白付一遍。实测：1.4.52 从文章返回首页即命中此坑。
+  // 选择器必须在 content:replace 才解析：此时新内容已进 DOM，visit:start 时还在文档碎片里。
+  // ⚠️ 兜底目标只能是**非交互元素**：插件会给焦点目标无条件写 tabindex="-1"，且仅在原本
+  //    非 null 时还原 → 指向 <a>/<button> 会把它永久移出 Tab 序。
+  // ⚠️ 不能用 "A, B" 列表式选择器：querySelector 取文档顺序首个匹配，而 #banner-title 在
+  //    #swup-container 之前 → 非首页（banner 为 display:none）会抢先命中隐藏元素、聚焦被忽略。
+  // 落点质量：#banner-title 在文档顺序上晚于导航栏，故聚焦它之后按 Tab 直接前进到内容区。
+  window.swup.hooks.on("content:replace", (visit: any) => {
+    if (!visit?.a11y?.focus) return;
+    const container = document.querySelector("#swup-container");
+    if (!container?.querySelector("h1")) {
+      const bannerTitle = document.getElementById("banner-title");
+      visit.a11y.focus.selector =
+        bannerTitle && bannerTitle.getClientRects().length > 0
+          ? "#banner-title"
+          : "#swup-container";
+    }
+  });
 
   // 注：曾在此把 --content-delay 改为 0ms（让换页后内容立即浮现），但该变量被全部
   // 入场动画的 animation-delay: calc(var(--content-delay) + Xms) 消费，点击时修改

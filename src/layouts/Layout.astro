@@ -314,8 +314,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         }
         var cur = window.__etherealLangTag(document.documentElement.lang);
         if (cur === defaultLang) return;
-        if (sessionStorage.getItem("__ethereal_lang_bootstrapped")) return;
-        sessionStorage.setItem("__ethereal_lang_bootstrapped", "1");
+        try {
+          if (sessionStorage.getItem("__ethereal_lang_bootstrapped")) return;
+          sessionStorage.setItem("__ethereal_lang_bootstrapped", "1");
+        } catch (e) {
+          // 存储不可用（隐私模式/禁存储）：无法写入 bootstrap 标记，若继续执行
+          // 会每次加载都重定向 → 无限刷新，故直接跳过重定向。
+          return;
+        }
         window.__etherealSetLanguage(defaultLang);
         window.location.replace(window.location.href);
       })();
@@ -336,6 +342,16 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
       }}
     >
       (() => {
+        // localStorage 安全访问：禁存储环境（Safari 无痕 / 站点存储被拦）读取会抛
+        // SecurityError，裸调会中断主题初始化、导致整站主题/色相失效。读取失败按未设置处理。
+        var lsGet = (k) => {
+          try {
+            return localStorage.getItem(k);
+          } catch (e) {
+            return null;
+          }
+        };
+
         const configHue = document.documentElement.dataset.hue || "250";
         const fixedHue = document.documentElement.dataset.hueFixed === "true";
 
@@ -352,8 +368,8 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           typeof __eecs !== "undefined" && __eecs !== null ? __eecs : true;
         // 允许切换时：仅当用户手动选择过才读 localStorage，否则始终用后台默认
         var storedTheme;
-        if (enableChange && localStorage.getItem("__user_chose_theme")) {
-          storedTheme = localStorage.getItem("theme") || defaultScheme;
+        if (enableChange && lsGet("__user_chose_theme")) {
+          storedTheme = lsGet("theme") || defaultScheme;
         } else {
           storedTheme = defaultScheme;
         }
@@ -371,9 +387,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
           document.documentElement.classList.remove("dark");
         }
 
-        const hue = fixedHue
-          ? configHue
-          : localStorage.getItem("hue") || configHue;
+        const hue = fixedHue ? configHue : lsGet("hue") || configHue;
         document.documentElement.style.setProperty("--hue", hue);
         document.documentElement.style.setProperty(
           "--page-width",
@@ -609,12 +623,44 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     data-overlayscrollbars-initialize
   >
     <ConfigCarrier />
+    {
+      /* Swup 换页播报区（route-change announcement）。
+        @swup/a11y-plugin 启动时会先找页面里已存在的 #swup-announcer，找到就直接复用、
+        不再自建（其 getRegion() → createRegion()），所以在这里预置可以拿回两件事：
+        ① aria-live="polite" —— 插件自建的是 assertive，会打断读屏正在念的内容；
+        ② sr-only 视觉隐藏 —— 与插件内联样式等价，但不必等 JS 才存在。
+        播报文案由 astro.config.mjs 的 accessibility.announcements 提供（插件默认是英文
+        "Navigated to: {title}"）。
+        ⚠️ 必须留在 Swup 容器之外：换页不替换本节点，播报区才能常驻复用。 */
+    }
+    <p
+      id="swup-announcer"
+      class="sr-only"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+    </p>
     <!-- 访客样式覆盖启动脚本：紧跟 ConfigCarrier（body 首元素），在可见内容
          解析前应用 body class 与壁纸变量，无 FOUC。body 不被 Swup 替换，
          仅需首载执行一次；文章布局覆盖见 visitor-post-layout.js。
          开关关闭时忽略并清理对应 localStorage（与 __eecs 语义一致）。 -->
     <script is:inline>
       (function () {
+        // localStorage 安全访问：禁存储环境读取/删除会抛 SecurityError，裸调会中断
+        // 访客样式覆盖（悬浮/模糊/宽屏/卡片纹理/壁纸/波浪/标题全部失效、FOUC）。
+        var storageGet = function (k) {
+          try {
+            return localStorage.getItem(k);
+          } catch (e) {
+            return null;
+          }
+        };
+        var storageRemove = function (k) {
+          try {
+            localStorage.removeItem(k);
+          } catch (e) {}
+        };
+
         var carrier = document.getElementById("config-carrier");
         if (!carrier) return;
         var d = carrier.dataset;
@@ -626,23 +672,23 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
 
         // 卡片样式：悬浮效果 / 高级材质
         if (enable && on(d.visitorCardStyle)) {
-          var lift = localStorage.getItem("cardHoverLift");
+          var lift = storageGet("cardHoverLift");
           if (lift != null) {
             body.classList.toggle("card-hover-lift-enabled", lift === "true");
           }
-          var blur = localStorage.getItem("navbarBlur");
+          var blur = storageGet("navbarBlur");
           if (blur != null) {
             body.classList.toggle("navbar-blur-enabled", blur === "true");
           }
         } else {
-          localStorage.removeItem("cardHoverLift");
-          localStorage.removeItem("navbarBlur");
+          storageRemove("cardHoverLift");
+          storageRemove("navbarBlur");
         }
 
         // 宽屏布局：访客偏好覆盖服务端 th:classappend（与卡片样式区解耦，
         // 后台 visitorStyle.cardStyle 关闭时 UI 不显示但已存偏好仍生效）。
         // 不读 visitorCardStyle 门控：pageWide 独立于卡片样式。
-        var pw = localStorage.getItem("pageWide");
+        var pw = storageGet("pageWide");
         if (pw != null) {
           document.documentElement.classList.toggle(
             "mods-page-wide",
@@ -651,7 +697,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         }
 
         // 卡片纹理：访客偏好覆盖服务端 th:classappend（同宽屏，独立于卡片样式）。
-        var cp = localStorage.getItem("cardPattern");
+        var cp = storageGet("cardPattern");
         if (cp != null) {
           document.documentElement.classList.toggle(
             "mods-card-pattern",
@@ -662,7 +708,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         // 透明设置（全屏透明模式）：覆盖 body 内联变量
         if (enable && on(d.visitorTransparent)) {
           var num = function (key) {
-            var n = parseFloat(localStorage.getItem(key) || "");
+            var n = parseFloat(storageGet(key) || "");
             return isNaN(n) ? null : n;
           };
           var opacity = num("wallpaperOpacity");
@@ -684,9 +730,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
             body.style.setProperty("--transparent-card-alpha", String(alpha));
           }
         } else {
-          localStorage.removeItem("wallpaperOpacity");
-          localStorage.removeItem("wallpaperBlur");
-          localStorage.removeItem("wallpaperCardAlpha");
+          storageRemove("wallpaperOpacity");
+          storageRemove("wallpaperBlur");
+          storageRemove("wallpaperCardAlpha");
         }
 
         // 壁纸模式访客覆盖：写 html[data-banner-display] + 切 body.enable-banner，
@@ -695,7 +741,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         // BANNER_EXTEND_ROUNDING，勿硬编码到别处）。内容解析前生效无 FOUC
         if (enable && on(d.visitorWallpaperMode)) {
           var bannerModes = ["disabled", "banner", "fullscreen", "transparent"];
-          var mode = localStorage.getItem("bannerDisplay");
+          var mode = storageGet("bannerDisplay");
           if (bannerModes.indexOf(mode) === -1) {
             mode = d.bannerDisplayDefault || "banner";
           }
@@ -712,27 +758,27 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
             mode === "banner" || mode === "fullscreen",
           );
         } else {
-          localStorage.removeItem("bannerDisplay");
+          storageRemove("bannerDisplay");
         }
 
         // 壁纸设置访客覆盖（波浪 + 首页壁纸标题）：关闭时给 body 加对应
         // 隐藏类（CSS 门控）；开启/缺省时由后台默认决定
         if (enable && on(d.visitorWallpaperSettings)) {
           var waveDefault = d.waveDefault !== "false";
-          var waveStored = localStorage.getItem("bannerWave");
+          var waveStored = storageGet("bannerWave");
           var waveOn = waveStored == null ? waveDefault : waveStored === "true";
           if (!waveOn) body.classList.add("wave-disabled");
 
           var bannerTitleDefault = d.bannerTitleDefault !== "false";
-          var bannerTitleStored = localStorage.getItem("bannerTitle");
+          var bannerTitleStored = storageGet("bannerTitle");
           var bannerTitleOn =
             bannerTitleStored == null
               ? bannerTitleDefault
               : bannerTitleStored === "true";
           if (!bannerTitleOn) body.classList.add("banner-title-disabled");
         } else {
-          localStorage.removeItem("bannerWave");
-          localStorage.removeItem("bannerTitle");
+          storageRemove("bannerWave");
+          storageRemove("bannerTitle");
         }
       })();
     </script>
@@ -872,6 +918,13 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         #sidebar-sticky,
         #right-sidebar-sticky {
           transition: top var(--dur-scroll, 700ms) ease !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          /* 减少动态效果：侧边栏吸顶位置瞬时切换，不做位移过渡 */
+          #sidebar-sticky,
+          #right-sidebar-sticky {
+            transition: none !important;
+          }
         }
       }
     </style>
