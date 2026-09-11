@@ -100,7 +100,7 @@ const className = Astro.props.class;
   <div
     class="hitokoto-card px-3"
     id="hitokotoCard"
-    th:attr="data-api=${widget.api},
+    th:attr="data-api=${widget.hitokoto_api ?: widget.api},
       data-fallback-text=${widget.fallback_text},
       data-fallback-source=${widget.fallback_source}"
   >
@@ -224,9 +224,14 @@ const className = Astro.props.class;
       }
 
       function refresh() {
+        // 请求序号：连点「换一句」时旧响应可能后到，若已有更新刷新则丢弃，
+        // 避免把文案覆盖成更早的句子（fetchHitokoto 每次新建 controller、不 abort 旧请求）。
+        var id = (window.__hitokotoRefreshId =
+          (window.__hitokotoRefreshId || 0) + 1);
         card.classList.add("hitokoto-loading");
         refreshBtn.classList.add("spinning");
         fetchHitokoto().then(function (data) {
+          if (id !== window.__hitokotoRefreshId) return;
           setCachedData(CACHE_KEY, data);
           updateCard(data);
           setTimeout(function () {

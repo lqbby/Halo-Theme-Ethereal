@@ -64,7 +64,7 @@ const layoutId = `${widgetId}-layout`;
   /* 音量/进度滑块键盘聚焦可见焦点环（角色为 slider 的 div 现可聚焦） */
   .firefly-music-player .vol-container:focus-visible,
   .firefly-music-player .progress-container:focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 3px;
   }
 
@@ -82,7 +82,7 @@ const layoutId = `${widgetId}-layout`;
 <div
   class="contents"
   th:if="${not #strings.isEmpty(widget.id)}"
-  th:with="musicTitle=${#strings.isEmpty(widget.title) ? #messages.msg('widget.music.title') : widget.title}"
+  th:with="musicTitle=${#strings.isEmpty(widget.title) ? #messages.msg('widget.music.title') : widget.title}, musicApi=${widget.music_api ?: widget.api}"
 >
   <WidgetLayout
     name="音乐"
@@ -107,7 +107,7 @@ const layoutId = `${widgetId}-layout`;
       th:attr="data-server=${#strings.isEmpty(widget.server) ? 'netease' : widget.server},
         data-type=${#strings.isEmpty(widget.type) ? 'playlist' : widget.type},
         data-id=${widget.id},
-        data-api=${#strings.isEmpty(widget.api) ? 'https://api.i-meto.com/meting/api?server=:server&type=:type&id=:id&r=:r' : widget.api},
+        data-api=${#strings.isEmpty(musicApi) ? 'https://api.i-meto.com/meting/api?server=:server&type=:type&id=:id&r=:r' : musicApi},
         data-volume=${widget.volume == null ? 0.7 : widget.volume},
         data-play-mode=${#strings.isEmpty(widget.play_mode) ? 'list' : widget.play_mode},
         data-show-lyrics=true"
