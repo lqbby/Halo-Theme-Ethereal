@@ -1,5 +1,4 @@
 ---
-import FooterFriendLinks from "./FooterFriendLinks.astro";
 const currentYear = new Date().getFullYear();
 ---
 
@@ -166,10 +165,6 @@ const currentYear = new Date().getFullYear();
         href="https://github.com/AloneNanNan/halo-theme-ethereal">Ethereal</a
       >
     </div>
-    <!-- 随机友链带（经典页脚版）：居中样式由组件自身的 flex-wrap 承载 -->
-    <div class="mt-4 w-full">
-      <FooterFriendLinks />
-    </div>
   </footer>
 
   <!-- ============ 新版（卡片）底栏（魔改；受总开关 + footer.style 控制） ============ -->
@@ -211,12 +206,6 @@ const currentYear = new Date().getFullYear();
         >
         </a>
       </div>
-    </div>
-
-    <!-- 随机友链带：填在身份行与分隔线之间的空白区。
-       th:remove 由内部门控决定（无插件/无友链时整块不渲染） -->
-    <div class="px-6 pb-6 sm:px-8">
-      <FooterFriendLinks />
     </div>
 
     <!-- 分隔线 -->
