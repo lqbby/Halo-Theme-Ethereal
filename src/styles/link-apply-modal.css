@@ -13,6 +13,14 @@
   display: flex;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：关掉友链申请框的淡入 + 卡片上滑动画 */
+  .link-apply-backdrop,
+  .link-apply-card {
+    animation: none;
+  }
+}
+
 .link-apply-backdrop {
   position: absolute;
   inset: 0;

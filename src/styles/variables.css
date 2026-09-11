@@ -34,6 +34,13 @@
      0.7/0.75（中亮色），白字对比仅 ~2.3:1 不达 WCAG AA，须用深色前景。
      亮暗两套 --primary 亮度接近，深色前景在两者上均达标，故同值。 */
   --on-primary: oklch(0.25 0.07 var(--hue));
+  /* 焦点环专用色（1.4.54）：直接用 --primary 在白/浅色卡底上只有约 2.7:1、
+     对页面底(--page-bg oklch(.95)) 只有 2.3:1，够不上 WCAG 2.4.11
+     （Focus Appearance）要求的 3:1。压深一档解决，色相不变、肉眼几乎无感。
+     取 85% 而非 90%：90% 对页面底只有 3.01:1（擦线、无余量），85% 是 3.47:1
+     （对白卡 4.01:1），留出抗锯齿/显示器差异的余量。
+     全部焦点环都应引用本变量，别再写 var(--primary)。 */
+  --focus-ring: color-mix(in oklab, var(--primary) 85%, black);
   --page-bg: oklch(0.95 0.01 var(--hue));
   --card-bg: white;
   /* 卡片装饰纹理（v1.2.81 调整观感贴合主题）：
@@ -134,6 +141,8 @@
 :root.dark {
   --primary: oklch(0.75 0.14 var(--hue));
   --on-primary: oklch(0.25 0.07 var(--hue));
+  /* 暗色下 --primary（L .75）对卡底（L .23）≈ 7.6:1，本身已远超 3:1，直接用即可 */
+  --focus-ring: var(--primary);
   --page-bg: oklch(0.16 0.014 var(--hue));
   --card-bg: oklch(0.23 0.015 var(--hue));
   /* 暗色纹理 url() 见 components.css 的 :root.dark.mods-card-pattern 规则，同上不放自定义属性 */

@@ -1,8 +1,30 @@
+// @ts-nocheck —— legacy 手写经典脚本（ES5 原样，storageGet/Set 参数隐式 any 不参与类型检查，对齐 upvote.ts）
 // 构建产物：public/assets/post-like.js（源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
 import { getThemeConfig } from "./_theme-config";
 
 // 文章点赞按钮（Halo API 服务端存储）
 (function () {
+  // localStorage 安全访问：隐私模式/禁存储下 getItem/setItem/removeItem 会抛
+  // SecurityError（如 Safari 无痕），裸调会让点赞初始化中断（按钮 click 永不绑定）。
+  // 与 upvote.ts / post-card-like.ts 保持一致。
+  function storageGet(key) {
+    try {
+      return localStorage.getItem(key);
+    } catch (e) {
+      return null;
+    }
+  }
+  function storageSet(key, val) {
+    try {
+      localStorage.setItem(key, val);
+    } catch (e) {}
+  }
+  function storageRemove(key) {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+  }
+
   var btn = document.getElementById("post-like-btn");
   if (!btn) return;
 
@@ -26,11 +48,11 @@ import { getThemeConfig } from "./_theme-config";
   var postName = likeBtn.getAttribute("data-post");
   var svCount = parseInt(likeBtn.getAttribute("data-count") || "0", 10);
   var key = "ethereal-like-" + postName;
-  var liked = localStorage.getItem(key) === "1";
+  var liked = storageGet(key) === "1";
   var countEl = document.getElementById("post-like-count");
   var count = Math.max(
     svCount,
-    parseInt(localStorage.getItem(key + "-count") || "0", 10) || 0,
+    parseInt(storageGet(key + "-count") || "0", 10) || 0,
   );
 
   if (liked) likeBtn.classList.add("liked");
@@ -48,9 +70,9 @@ import { getThemeConfig } from "./_theme-config";
     if (Date.now() < cooldownUntil) return;
     // 乐观更新：先本地标记已赞、计数 +1（失败时回滚，与 upvote.js 瞬间版行为对齐）
     likeBtn.classList.add("liked");
-    localStorage.setItem(key, "1");
+    storageSet(key, "1");
     count++;
-    localStorage.setItem(key + "-count", String(count));
+    storageSet(key + "-count", String(count));
     if (countEl) {
       countEl.textContent = String(count);
       countEl.style.display = "flex";
@@ -72,8 +94,8 @@ import { getThemeConfig } from "./_theme-config";
       .catch(function (e) {
         // 点赞失败：回滚乐观更新（计数 -1、撤销已赞、清除本地标记、抖动提示）
         console.warn("[Like] 点赞失败", e && e.message);
-        localStorage.removeItem(key);
-        localStorage.removeItem(key + "-count");
+        storageRemove(key);
+        storageRemove(key + "-count");
         likeBtn.classList.remove("liked");
         count = Math.max(svCount, count - 1);
         if (countEl) {

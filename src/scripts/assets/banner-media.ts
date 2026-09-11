@@ -81,7 +81,10 @@ import { guardOnce } from "../../utils/once";
     // 独立来源开启时视频无 autoplay 属性、由切换引擎驱动 load/play，
     // loadeddata 触发后此处仍会兜底续播）
     video.addEventListener("loadeddata", function () {
-      if (video.paused && !userPaused) playVideo();
+      // 与 restore() 一致：仅「可见」时兜底续播。离屏/隐藏容器（offsetParent
+      // 为 null）下应保持 IO 的 suspend 暂停，否则 loadeddata 会绕过它重新播放。
+      if (video.paused && !userPaused && video.offsetParent !== null)
+        playVideo();
     });
 
     // 视频加载/解码失败：隐藏视频元素本身（而非整个容器），避免黑屏占位。

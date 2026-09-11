@@ -544,7 +544,11 @@ import { t } from "../../utils/i18n";
     btn.classList.add("spinning");
     var label = btn.querySelector(".random-visit-label");
     if (label) label.textContent = t("page.links.drawing", "抽取中...");
-    setTimeout(callback, SPIN_DELAY);
+    setTimeout(function () {
+      // Swup 换页后旧按钮已脱离文档：跳过回调，避免在新页面 collectUrls/openViaAnchor 误开标签
+      if (!btn.isConnected) return;
+      callback();
+    }, SPIN_DELAY);
   }
 
   // 从页面已渲染的友链卡片中收集链接。

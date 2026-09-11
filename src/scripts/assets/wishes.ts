@@ -275,6 +275,9 @@
     btn.dataset.wishSubmitBound = "true";
 
     function doSubmit() {
+      // 提交中守卫：点击路径已由 btn.disabled 阻止，但 Enter 键（input keydown）
+      // 不查按钮状态，需在此统一拦截，避免「点发布后按 Enter」重复提交两条便签。
+      if (btn.disabled) return;
       var content = input.value.trim();
       var nickname = nick ? nick.value.trim() : "";
       var max = parseInt(input.getAttribute("maxlength") || "200", 10);

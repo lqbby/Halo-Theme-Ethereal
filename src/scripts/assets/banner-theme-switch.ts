@@ -14,6 +14,17 @@ import { onPageView } from "../../utils/once";
     return document.documentElement.classList.contains("dark");
   }
 
+  // 暗色壁纸 404 时回退亮色。必须由独立函数「按值捕获」当前 el/light：
+  // 若直接在 for 循环里内联 onerror，闭包共享 swap() 函数作用域的 var img/lightSrc，
+  // 循环结束后所有 onerror 都指向最后一张图 → 任意图失败时回退到错误目标，
+  // 真正失败的图仍裂图（多横幅图 + 暗色图 404 时必现）。
+  function bindDarkFallback(el, light) {
+    el.onerror = function () {
+      el.onerror = null;
+      el.setAttribute("src", light);
+    };
+  }
+
   // 把带 data-theme-src 的 banner 图片 src 与 object-position 切换到当前主题
   // 对应的那份。首次切换前记录亮色 src（data-light-src）与位置
   // （data-light-position），恢复时无需依赖 SSR 原值。
@@ -57,10 +68,7 @@ import { onPageView } from "../../utils/once";
         img.setAttribute("src", next);
         // 暗色壁纸加载失败时回退亮色，避免主题切换后 banner 裂图
         if (dark && lightSrc) {
-          img.onerror = function () {
-            img.onerror = null;
-            img.setAttribute("src", lightSrc);
-          };
+          bindDarkFallback(img, lightSrc);
         } else {
           img.onerror = null;
         }

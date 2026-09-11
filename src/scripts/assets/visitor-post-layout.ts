@@ -1,5 +1,20 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 import { getVisitorSwitches } from "../../utils/settings/visitor-switches";
+
+// localStorage 安全访问：隐私模式/禁存储下 getItem/removeItem 会抛 SecurityError
+// （如 Safari 无痕），裸调会让访客布局覆盖脚本中断（布局开关静默失效）。
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    return null;
+  }
+}
+function storageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
 // 访客文章布局覆盖（显示设置面板「列表/网格」切换）
 // 同步脚本（无 defer/async）：在 PostList 容器解析后立即执行，首帧绘制前完成换类；
 // Swup 换页后由 SwupScriptsPlugin 重执行（同 post-list-layout.js / collapse.js）。
@@ -22,11 +37,11 @@ import { getVisitorSwitches } from "../../utils/settings/visitor-switches";
   // 开关关闭（或总开关关闭）时忽略并清理访客选择，与 fixed 色调语义一致。
   // 改用设置模块的 getVisitorSwitches() 单一真相源，消除与 setting-utils 的抄写重复。
   if (!getVisitorSwitches().postListLayout) {
-    localStorage.removeItem("postListLayout");
+    storageRemove("postListLayout");
     return;
   }
 
-  var mode = localStorage.getItem("postListLayout");
+  var mode = storageGet("postListLayout");
   if (mode !== "list" && mode !== "grid") return;
   if (mode === container.dataset.serverLayout) return;
 
@@ -48,10 +63,10 @@ import { getVisitorSwitches } from "../../utils/settings/visitor-switches";
   if (!container) return;
   // 改用设置模块的 getVisitorSwitches() 单一真相源（与 postListLayout 同款 seam）。
   if (!getVisitorSwitches().cardStyle) {
-    localStorage.removeItem("postListMasonry");
+    storageRemove("postListMasonry");
     return;
   }
-  var masonry = localStorage.getItem("postListMasonry");
+  var masonry = storageGet("postListMasonry");
   if (masonry === "true" || masonry === "false") {
     container.setAttribute("data-masonry", masonry);
   }

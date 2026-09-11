@@ -82,6 +82,14 @@
   display: flex;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：关掉状态卡的淡入 + 卡片上滑动画 */
+  .status-backdrop,
+  .status-card {
+    animation: none;
+  }
+}
+
 .status-backdrop {
   position: absolute;
   inset: 0;

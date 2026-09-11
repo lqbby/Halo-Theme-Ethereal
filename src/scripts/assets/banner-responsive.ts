@@ -48,7 +48,9 @@ import { guardOnce } from "../../utils/once";
     var sub = getEl("banner-subtitle");
     var cursor = getEl("banner-cursor");
 
-    if (window.innerWidth <= BP_TABLET) {
+    // 与全仓 CSS 约定对齐（移动端 = max-width:767.98px / 桌面 = min-width:768px）：
+    // 视口恰为 768px 时应按桌面处理，故用 `<` 而非 `<=`，避免与 CSS 差 1px 错位。
+    if (window.innerWidth < BP_TABLET) {
       // 标题：min(userSize, vw%) 响应式策略
       // 10vw / 14px(移动端 root) → 乘数 0.007，上限 3.5rem，下限 1.8rem
       var w = window.innerWidth;
@@ -67,10 +69,12 @@ import { guardOnce } from "../../utils/once";
       if (sub) sub.style.fontSize = ss.toFixed(2) + "rem";
       if (cursor) cursor.style.height = ss.toFixed(2) + "rem";
     } else {
-      // PC：还原 th:style 原始值
-      if (title && origTitleSize) title.style.fontSize = origTitleSize;
-      if (sub && origSubSize) sub.style.fontSize = origSubSize;
-      if (cursor && origCursorH) cursor.style.height = origCursorH;
+      // PC：还原 th:style 原始值。注意 origXxx 在「无内联值」时为 ""（falsy），
+      // 若无条件赋值即等同于清除内联样式、回退到 CSS class 字号，因此不能加
+      // `&& origXxx` 判断——否则移动端写入的内联字号会在缩放回桌面时永久残留。
+      if (title) title.style.fontSize = origTitleSize || "";
+      if (sub) sub.style.fontSize = origSubSize || "";
+      if (cursor) cursor.style.height = origCursorH || "";
     }
   }
 

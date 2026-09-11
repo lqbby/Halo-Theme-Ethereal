@@ -9,6 +9,14 @@
   padding: 1rem;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：关掉外链提示框的淡入 + 卡片上滑动画 */
+  #ext-link-backdrop,
+  #ext-link-card {
+    animation: none;
+  }
+}
+
 #ext-link-backdrop {
   position: absolute;
   inset: 0;

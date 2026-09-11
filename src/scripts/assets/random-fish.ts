@@ -39,7 +39,12 @@ import { t } from "../../utils/i18n";
     btn.classList.add("spinning");
     if (label) label.textContent = t("page.friends.fishing", "正在钓...");
     if (icon) icon.style.setProperty("--swing-duration", "0.5s");
-    setTimeout(callback, SPIN_DELAY);
+    setTimeout(function () {
+      // Swup 换页后旧按钮已脱离文档：跳过回调，避免在新页面误触发
+      // fetchFriendUrls/遮罩/swup.navigate（旧计时器不跨换页清理的兜底）。
+      if (!btn.isConnected) return;
+      callback();
+    }, SPIN_DELAY);
   }
 
   // 移除跳转遮罩
