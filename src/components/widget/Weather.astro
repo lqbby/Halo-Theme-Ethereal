@@ -392,6 +392,10 @@ const className = Astro.props.class;
     }
 
     function loadWeather() {
+      // 请求序号：换页/重复触发时旧响应可能后到，若已有更新请求则丢弃，
+      // 避免用旧数据覆盖新页天气卡、并污染 sessionStorage 缓存。
+      window.__weatherReqId = (window.__weatherReqId || 0) + 1;
+      var reqId = window.__weatherReqId;
       var cached = getCachedWeather();
       if (cached) {
         renderWeather(cached.data);
@@ -472,11 +476,13 @@ const className = Astro.props.class;
           });
         })
         .then(function (result) {
+          if (reqId !== window.__weatherReqId) return;
           result._updated = Date.now();
           setCachedWeather(result);
           renderWeather(result);
         })
         .catch(function () {
+          if (reqId !== window.__weatherReqId) return;
           renderError(t("widget.weather.busy", "天气服务繁忙，请稍后刷新"));
         });
     }

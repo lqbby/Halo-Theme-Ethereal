@@ -96,7 +96,7 @@ const className = Astro.props.class;
           <!-- PC 端子菜单下拉 -->
           <div
             th:if="${hasChildren}"
-            class="submenu-panel absolute left-0 top-full mt-5 w-44 rounded-2xl p-2 opacity-0 pointer-events-none -translate-y-1 group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 z-50"
+            class="submenu-panel invisible absolute left-0 top-full mt-5 w-44 rounded-2xl p-2 opacity-0 pointer-events-none -translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 z-50"
             th:id="'pc-submenu-' + ${itemStat.index}"
           >
             <!-- 父页面概览链接（仅触控设备显示） -->

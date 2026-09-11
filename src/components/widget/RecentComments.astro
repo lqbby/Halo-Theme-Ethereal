@@ -273,10 +273,15 @@ const COLLAPSED_HEIGHT = "7.5rem";
         a.title = name + " 的评论";
         // 走 Swup 整站页面过渡（淡入淡出），让「跳转到评论区」本身带过渡动画；
         // 文章页有 #comment hash 处理脚本，评论渲染后滚动到评论区并高亮。
-        // permalink 解析完成前（href 仍为 #）放行默认行为（不跳转）。
+        // permalink 解析完成前（href 仍为 #）必须 preventDefault：
+        // <a href="#"> 的默认行为是跳到页面顶部（丢失阅读位置），
+        // 原注释「放行默认行为（不跳转）」的假设是错的。
         a.addEventListener("click", function (e) {
           var href = a.getAttribute("href");
-          if (!href || href === "#") return;
+          if (!href || href === "#") {
+            e.preventDefault();
+            return;
+          }
           e.preventDefault();
           if (window.swup) window.swup.navigate(href);
           else window.location.href = href;
@@ -400,6 +405,9 @@ const COLLAPSED_HEIGHT = "7.5rem";
 
     // 主路径：1 次请求拿全站最新评论（permalink 由后端解析好）
     function load() {
+      // 请求序号：换页后旧响应可能后到，已有更新请求则丢弃，避免覆盖新页评论列表
+      window.__rcReqId = (window.__rcReqId || 0) + 1;
+      var reqId = window.__rcReqId;
       // 先读会话缓存：命中且未过期直接渲染，一次请求都不发
       try {
         var cached = sessionStorage.getItem(CACHE_KEY);
@@ -423,6 +431,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
           return r.json();
         })
         .then(function (data) {
+          if (reqId !== window.__rcReqId) return;
           var top = ((data && data.items) || []).map(adaptItem);
           if (!top.length) {
             showEmpty();

@@ -32,12 +32,16 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   <div th:remove="tag" th:with={topWith}>
     <!-- 框一：头部卡片（归档 + 共 N 篇文章，与 tags/categories 同款简洁风格） -->
     <div class="card-base px-8 py-6 mb-4">
-      <div
+      <!-- 用 <h1> 而不是 <div>：① 换页焦点归位依赖「#swup-container 内存在主标题」
+           （见 scripts/app.ts 的 visit:start 钩子）；② 读屏按标题导航时，本页原先
+           一个标题都没有。Tailwind Preflight 会把 h1 的字号/字重重置成继承，配合
+           下面的 text-2xl / font-bold / mb-2，渲染结果与 div 完全一致。 -->
+      <h1
         class="text-2xl font-bold text-(--primary) mb-2"
         th:text="#{page.archives.title}"
       >
         归档
-      </div>
+      </h1>
       <p
         id="archive-subtitle"
         class="text-30 text-sm"
@@ -352,6 +356,12 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
 
         function swap() {
           if (!incoming || !exitDone) return;
+          // 在途请求完成时页面可能已离开归档页（用户后退 / 经 Swup 跳走）：
+          // current 脱离文档后仍写 innerHTML + history.pushState 会污染历史、劫持导航，故跳过。
+          if (!current.isConnected) {
+            loading = false;
+            return;
+          }
           loading = false;
           // 禁用 transition 移除退场类，避免反向淡入；换入后恢复并重播入场动画。
           current.style.transition = "none";

@@ -63,6 +63,10 @@
 
     if (!normalizedKeyword) {
       result = [];
+      // 复位加载态：空关键词分支提前 return，不经过下方 try/finally；
+      // 而被 abort() 的前一请求在 finally 里因 searchId 已自增也不复位，
+      // 否则「输入字符→立即清空」会让「搜索中」永久卡住。
+      isSearching = false;
       setPanelVisibility(false, isDesktop);
       return;
     }
@@ -239,7 +243,7 @@
   /* 键盘聚焦（focus-visible）时提供可见焦点环，替代原来无条件 outline:0 导致的
      焦点不可见问题；鼠标点击不显示，避免视觉干扰 */
   input:focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--focus-ring);
     outline-offset: -2px;
     border-radius: 0.5rem;
   }

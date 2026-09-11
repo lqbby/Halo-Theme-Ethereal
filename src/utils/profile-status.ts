@@ -356,6 +356,11 @@ function showModal(bodyNode: HTMLElement, footerNode: HTMLElement | null) {
     footer.style.display = footerNode ? "" : "none";
     if (footerNode) footer.appendChild(footerNode);
   }
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  closing = false;
   modal.classList.add("is-open");
   document.body.style.overflow = "hidden";
 }
@@ -425,6 +430,8 @@ function buildButton(
 }
 
 let closing = false;
+// 关闭动画的延迟复位定时器：重开时须清理，否则陈旧定时器会把刚打开的弹窗关闭
+let hideTimer: ReturnType<typeof setTimeout> | null = null;
 
 function hideModal() {
   const modal = getModal();
@@ -441,7 +448,9 @@ function hideModal() {
     backdrop.style.transition = "opacity .15s ease";
     backdrop.style.opacity = "0";
   }
-  setTimeout(() => {
+  if (hideTimer) clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    hideTimer = null;
     modal.classList.remove("is-open");
     if (card) {
       card.style.opacity = "";

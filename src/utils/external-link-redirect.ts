@@ -30,7 +30,9 @@ function isWhitelisted(hostname: string, list?: string): boolean {
     return false;
   }
   return list.split("\n").some((line) => {
-    const p = line.trim();
+    // 配置项统一小写后比较：URL.hostname 已被浏览器小写化，若配置写大写域名
+    // （如 Example.COM）会永不匹配、外链仍弹框。
+    const p = line.trim().toLowerCase();
     if (!p) return false;
     if (p === hostname) return true;
     if (p.startsWith("*.")) {
@@ -153,9 +155,12 @@ function buildModal(): HTMLElement {
   copyIcon.className = "icon-[material-symbols--content-copy-outline-rounded]";
   copyIcon.style.cssText = "font-size:13px;line-height:1";
   copyBtn.appendChild(copyIcon);
-  copyBtn.appendChild(
-    document.createTextNode(t("external_link.copy_link", "复制")),
-  );
+  // 文字必须用 <span> 包裹：点击处理与恢复逻辑用 `span:last-child` 取 label
+  // （见 bindStaticListeners）。若用 createTextNode，按钮内只有一个 span（icon），
+  // `span:last-child` 会返回 icon span → 污染图标、真正的文字永不更新。
+  const copyLabel = document.createElement("span");
+  copyLabel.textContent = t("external_link.copy_link", "复制");
+  copyBtn.appendChild(copyLabel);
   urlBox.appendChild(copyBtn);
   card.appendChild(urlBox);
 
@@ -334,6 +339,8 @@ function bindStaticListeners(modal: HTMLElement) {
 }
 
 let activeTimer: ReturnType<typeof setInterval> | null = null;
+// 关闭动画的延迟隐藏定时器：重开时须清理，否则陈旧定时器会把刚打开的模态框隐藏
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
 function clearActiveTimer() {
   if (activeTimer) {
     clearInterval(activeTimer);
@@ -355,8 +362,10 @@ function closeModal(modal: HTMLElement) {
     backdrop.style.transition = "opacity .15s ease";
     backdrop.style.opacity = "0";
   }
-  // 不清除 DOM，仅隐藏；下次 show 时复用
-  setTimeout(() => {
+  // 不清除 DOM，仅隐藏；下次 show 时复用。用句柄记录，便于重开时清理陈旧定时器
+  if (closeTimer) clearTimeout(closeTimer);
+  closeTimer = setTimeout(() => {
+    closeTimer = null;
     if (modal.parentElement) {
       modal.style.display = "none";
     }
@@ -371,6 +380,10 @@ function setupModalBehavior(
 ) {
   let dismissed = false;
   clearActiveTimer();
+  if (closeTimer) {
+    clearTimeout(closeTimer);
+    closeTimer = null;
+  }
 
   // 显示模态框
   modal.style.display = "";

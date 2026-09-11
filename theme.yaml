@@ -34,7 +34,7 @@ spec:
         file: "statistics.html"
   settingName: "Ethereal-setting"
   configMapName: "Ethereal-configMap"
-  version: "1.4.2"
+  version: "1.4.57"
   requires: ">=2.25.0"
   license:
     - name: "MIT"
