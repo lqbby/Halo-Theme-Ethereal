@@ -453,7 +453,7 @@ spec:
           label: Banner 样式
           value:
             mode: single
-            src: "/themes/Ethereal/assets/images/demo-banner.png"
+            src: "/themes/Ethereal/assets/images/demo-banner.webp"
             darkSrc: ""
             carousel:
               images: []
@@ -486,7 +486,7 @@ spec:
               key: banner_src
               if: "$get(banner_mode).value === 'single'"
               label: 图片/视频
-              value: "/themes/Ethereal/assets/images/demo-banner.png"
+              value: "/themes/Ethereal/assets/images/demo-banner.webp"
               accepts:
                 - "image/*"
                 - "video/mp4"
@@ -1513,7 +1513,7 @@ spec:
             - $formkit: attachment
               name: avatar
               if: "$get(enable_profile_switch).value"
-              value: /themes/Ethereal/assets/images/demo-avatar.png
+              value: /themes/Ethereal/assets/images/demo-avatar.webp
               label: 头像
             - $formkit: text
               name: name

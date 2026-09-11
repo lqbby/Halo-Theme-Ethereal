@@ -41,6 +41,16 @@ const titleText = nameExpression
   : nameKey
     ? `#{${nameKey}}`
     : undefined;
+// style 未传时 Astro 会渲染成字面量 style="undefined; ..."。仅在有值时输出。
+const styleAttr = style || undefined;
+// 折叠高度：原先用 <style define:vars> 会把 --collapsedHeight 写到组件子树内
+// 每一个带 scope 属性的元素上（div/span/button…），单页重复上百次。
+// 改为直接挂在 .collapse-wrapper 上。仅「可能折叠」的小组件才需要该变量，
+// 其余组件（天气/一言/统计…）一律不输出，单页属性数进一步降到个位数。
+const canCollapse = isCollapsed || hasRuntimeCollapse;
+const collapseStyleAttr = canCollapse
+  ? `--collapsedHeight: ${collapsedHeight}`
+  : undefined;
 ---
 
 <widget-layout
@@ -48,7 +58,7 @@ const titleText = nameExpression
   data-is-collapsed={String(isCollapsed && !hasRuntimeCollapse)}
   th:attr={collapseDataAttr}
   class:list={["card-base pb-4", { "overflow-visible": noOverflow }, className]}
-  style={style}
+  style={styleAttr}
 >
   <div
     class="relative mb-2 ml-8 mt-4 text-lg font-bold text-neutral-900 transition before:absolute before:left-[-16px] before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-md before:bg-(--primary) dark:text-neutral-100"
@@ -59,6 +69,7 @@ const titleText = nameExpression
   <div
     id={id}
     th:classappend={collapseClassAppend}
+    style={collapseStyleAttr}
     class:list={[
       "collapse-wrapper px-2.5 overflow-hidden",
       { "!overflow-visible": noOverflow },
@@ -81,7 +92,7 @@ const titleText = nameExpression
   }
 </widget-layout>
 
-<style define:vars={{ collapsedHeight }}>
+<style>
   .collapsed {
     height: var(--collapsedHeight);
   }

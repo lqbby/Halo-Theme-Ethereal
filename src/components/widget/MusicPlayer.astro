@@ -14,7 +14,8 @@ interface Props {
 }
 
 const className = Astro.props.class;
-const style = Astro.props.style;
+// 未传时保持 undefined（Astro 会把 undefined 渲染成字面量 style="undefined"）
+const style = Astro.props.style || undefined;
 const widgetId = `music-widget-${Math.random().toString(36).slice(2, 9)}`;
 const layoutId = `${widgetId}-layout`;
 ---

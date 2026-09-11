@@ -7,7 +7,8 @@ interface Props {
 }
 
 const className = Astro.props.class;
-const style = Astro.props.style;
+// 未传时保持 undefined（Astro 会把 undefined 渲染成字面量 style="undefined"）
+const style = Astro.props.style || undefined;
 const COLLAPSED_HEIGHT = "7.5rem";
 ---
 
