@@ -7,6 +7,7 @@
   th:data-visitor-layout="${theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false}"
   th:data-visitor-card-style="${theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false}"
   th:data-masonry-default="${theme.config?.layout?.postList?.grid?.masonry == true}"
+  th:data-layout-default="${#strings.defaultString(theme.config?.layout?.postList?.defaultMode, 'list')}"
   th:data-visitor-transparent="${theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false}"
   th:data-visitor-wallpaper-mode="${theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false}"
   th:data-banner-display-default="${#strings.defaultString(theme.config?.layout?.bannerLayout?.displayMode, 'banner')}"

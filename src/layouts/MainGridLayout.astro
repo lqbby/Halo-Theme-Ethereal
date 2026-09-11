@@ -48,6 +48,13 @@ const {
       opacity var(--dur-banner-transition, 700ms) ease,
       transform var(--dur-banner-transition, 700ms) ease;
   }
+  @media (prefers-reduced-motion: reduce) {
+    /* 减少动态效果：轮播切换瞬时生效，不做透明度/位移过渡 */
+    #banner .banner-slide,
+    #banner-mobile .banner-slide {
+      transition: none;
+    }
+  }
 
   /* display:none 元素无法过渡：visible 先占位（opacity 仍为 0），
      active 再触发过渡；will-change 仅对正在参与过渡/当前显示的幻灯片生效 */

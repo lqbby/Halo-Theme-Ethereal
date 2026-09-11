@@ -7,6 +7,7 @@
     getVisitorSwitches,
     getStoredPostListLayout,
     setPostListLayout,
+    getDefaultPostListLayout,
     getDefaultCardHoverLift,
     getDefaultNavbarBlur,
     getStoredCardHoverLift,
@@ -104,13 +105,12 @@
     }
   });
 
-  /* ── 文章布局：当前生效值 = localStorage 覆盖 ?? 容器实际类（启动脚本已应用覆盖） ── */
-  function serverLayout(): PostListLayoutMode {
-    const container = document.getElementById("post-list-container");
-    const server = container?.dataset.serverLayout;
-    return server === "grid" || server === "list" ? server : "list";
-  }
-
+  /* ── 文章布局：当前生效值 = localStorage 覆盖 ?? 服务端默认 ──
+     服务端默认取自 ConfigCarrier（body 首元素），**不能**读
+     #post-list-container：本面板是 client:only 岛，在 parse 到 PostList
+     之前就已初始化（实测 t≈99ms vs 容器 t≈176ms），那时读容器会一律
+     落到 "list" 兜底，导致「站点默认就是网格」被判成偏离默认、还原
+     按钮常显。容器只在存在时作为运行期真值使用。 */
   function currentLayout(): PostListLayoutMode {
     const stored = getStoredPostListLayout();
     if (stored) return stored;
@@ -118,7 +118,7 @@
     if (container) {
       return container.classList.contains("post-grid-mode") ? "grid" : "list";
     }
-    return "list";
+    return getDefaultPostListLayout();
   }
 
   let layout = $state<PostListLayoutMode>(currentLayout());
@@ -134,7 +134,7 @@
   let wallpaperCardAlpha = $state(Math.round(storedWallpaper.cardAlpha * 100));
   // 各分区是否偏离默认（用于标题旁「恢复默认」按钮显隐）。
   // 判定与主题色一致：对比当前值与默认值，手动切回默认即自动隐藏。
-  const defaultLayout = serverLayout();
+  const defaultLayout = getDefaultPostListLayout();
   const defaultCardHoverLift = getDefaultCardHoverLift();
   const defaultNavbarBlur = getDefaultNavbarBlur();
   const defaultPageWide = getDefaultPageWide();
@@ -222,7 +222,7 @@
 
   function resetLayout() {
     resetPostListLayout();
-    layout = serverLayout();
+    layout = getDefaultPostListLayout();
   }
 
   function toggleCardHoverLift() {
@@ -594,9 +594,12 @@
   #display-setting .seg-item:hover {
     background: var(--btn-regular-bg-hover);
   }
+  /* 选中态：主色底 + --on-primary 文字（原 color:white 在本主题亮/暗两种主色
+     ——oklch(0.7/0.75 0.14 hue) 均为亮蓝——下对比度仅约 2.2:1，不达 WCAG AA 4.5:1；
+     --on-primary 语义即"主色之上的文字"，明暗两模式对比度均 >5:1） */
   #display-setting .seg-item.seg-on {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
   }
 
   /* 壁纸模式 2×2 网格（参考 firefly：图标 + 文字，当前模式主题色高亮） */
@@ -624,7 +627,7 @@
   }
   #display-setting .mode-item.mode-on {
     background: var(--primary);
-    color: white;
+    color: var(--on-primary);
   }
   /* 主题常用点击内凹动效（同 active:scale-95），作用于整行按钮背景 */
   #display-setting .seg-item:active,

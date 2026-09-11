@@ -28,6 +28,12 @@ export function carrierBool(name: string, fallback: boolean): boolean {
   return raw === "true";
 }
 
+/** ConfigCarrier 字符串属性缺省返回 fallback（与模板 `#strings.defaultString` 语义一致） */
+export function carrierStr(name: string, fallback: string): string {
+  const raw = getCarrier()?.dataset?.[name];
+  return raw == null || raw === "" ? fallback : raw;
+}
+
 let cachedVisitorSwitches: VisitorSwitches | null = null;
 
 function readVisitorSwitches(): VisitorSwitches {

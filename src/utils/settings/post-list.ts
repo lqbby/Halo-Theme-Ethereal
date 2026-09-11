@@ -1,8 +1,26 @@
-import { getVisitorSwitches, carrierBool } from "./visitor-switches";
+import {
+  getVisitorSwitches,
+  carrierBool,
+  carrierStr,
+} from "./visitor-switches";
 
 export type PostListLayoutMode = "list" | "grid";
 
 /* ── 文章布局（列表/网格） ── */
+
+/**
+ * 服务端默认布局（后台 theme.config.layout.postList.defaultMode）。
+ *
+ * 必须走 ConfigCarrier，**不能**读 `#post-list-container` 的类或
+ * data-server-layout：显示设置面板是 `client:only` 岛，在 parse 到 body
+ * 后段的 PostList 之前就完成初始化（实测面板 t≈99ms 取值时 Container
+ * 尚未入 DOM，t≈176ms 才有），此时读容器会一律落到 "list" 兜底，
+ * 导致「站点默认就是网格」却被判成偏离默认、还原按钮常显。
+ * ConfigCarrier 是 body 首元素，面板取值时已就位。
+ */
+export function getDefaultPostListLayout(): PostListLayoutMode {
+  return carrierStr("layoutDefault", "list") === "grid" ? "grid" : "list";
+}
 
 // 出场动画期间暂存的待应用动作：快速连点布局/瀑布流时不再丢弃，
 // 出场结束后按序一并应用（同一操作的多次切换以最后一次为准）
@@ -33,23 +51,27 @@ function triggerContentTransition(afterExit: () => void): void {
   content.classList.remove("content-entrance-animating");
   void content.offsetWidth;
   content.classList.add("content-exit-animating");
-  content.addEventListener(
-    "animationend",
-    () => {
-      content.classList.remove("content-exit-animating");
-      const actions = pendingLayoutActions;
-      pendingLayoutActions = [];
-      actions.forEach((a) => a());
-      void content.offsetWidth;
-      content.classList.add("content-entrance-animating");
-      content.addEventListener(
-        "animationend",
-        () => content.classList.remove("content-entrance-animating"),
-        { once: true },
-      );
-    },
-    { once: true },
-  );
+  // animationend 会冒泡：内容卡片（.onload-animation，fade-in-up）的 animationend
+  // 会冒泡到 #content-wrapper，若不校验 e.target 会被子元素提前触发、腰斩真实退场
+  // 动画。注意不能用 { once: true }——一旦被子元素冒泡「消耗」，自身事件将永不被
+  // 捕获、content-exit-animating 永久残留，故改为显式 removeEventListener。
+  const onExitEnd = (e: AnimationEvent) => {
+    if (e.target !== content) return;
+    content.removeEventListener("animationend", onExitEnd);
+    content.classList.remove("content-exit-animating");
+    const actions = pendingLayoutActions;
+    pendingLayoutActions = [];
+    actions.forEach((a) => a());
+    void content.offsetWidth;
+    content.classList.add("content-entrance-animating");
+    const onEnterEnd = (ev: AnimationEvent) => {
+      if (ev.target !== content) return;
+      content.removeEventListener("animationend", onEnterEnd);
+      content.classList.remove("content-entrance-animating");
+    };
+    content.addEventListener("animationend", onEnterEnd);
+  };
+  content.addEventListener("animationend", onExitEnd);
 }
 
 export function getStoredPostListLayout(): PostListLayoutMode | null {
@@ -121,13 +143,16 @@ export function setPostListMasonry(enabled: boolean): void {
 
 /* ── 分区恢复默认 ── */
 
-/** 布局默认值是服务端渲染的初始类，由 visitor-post-layout.js 记到 data-server-layout。
+/** 清掉访客覆盖后回到服务端默认布局。默认值取自 ConfigCarrier
+ *  （不依赖容器是否已入 DOM；data-server-layout 仅作兜底）。
  *  已是默认布局时 applyPostListLayout 内部会跳过，无需在此重复判断 */
 export function resetPostListLayout(): void {
   localStorage.removeItem("postListLayout");
   const container = document.getElementById("post-list-container");
   const server = container?.dataset.serverLayout;
-  if (server === "grid" || server === "list") {
-    applyPostListLayout(server);
-  }
+  const target =
+    server === "grid" || server === "list"
+      ? server
+      : getDefaultPostListLayout();
+  applyPostListLayout(target);
 }

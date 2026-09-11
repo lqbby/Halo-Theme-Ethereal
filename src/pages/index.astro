@@ -12,7 +12,9 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   <!-- 首页 h1 兜底：banner 标题缺失时（bannerText 关闭或 title 为空）用隐藏的站点名，
        保证首页始终有且只有一个 h1（Swup 无障碍插件要求；sr-only 视觉隐藏、保留可访问性树）。
        与 MainGridLayout 的 banner-title 条件精确互斥：banner h1 渲染条件 =
-       (bannerText 开启) and (title != null)，此处为其取反 -->
+       (bannerText 开启) and (title != null)，此处为其取反。
+       ⚠️ banner 标题开启时首页容器内**没有** h1，Swup 的 "#swup-container h1" 选不到焦点落点，
+       已在 app.ts setupSwup() 的 content:replace 里兜底改聚焦 #banner-title（勿删该分支）。 -->
   <h1
     th:if="${not ((theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.enable == null or theme.config?.style?.bannerText?.enable) and theme.config?.style?.bannerText?.title != null)}"
     class="sr-only"
