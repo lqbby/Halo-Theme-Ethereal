@@ -1,11 +1,16 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${project.title + ' - ' + (projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')) + ' - ' + site.title}"
   description="#{page.portfolioDetail.description(${site.title}, ${project.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="'/portfolio/' + ${project.slug}" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <div
     th:remove="tag"

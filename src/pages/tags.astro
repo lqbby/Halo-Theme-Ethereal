@@ -1,11 +1,16 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="|#{page.tags.title} - ${site.title}|"
   description="#{page.tags.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/tags" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <h1 class="sr-only" th:text="#{page.tags.title}">标签</h1>
 

@@ -1,6 +1,7 @@
 ---
 import PostList from "../components/PostList.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
@@ -8,6 +9,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   isHomePage={true}
   description="${theme.config?.sidebar?.profile?.bio}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <!-- 首页 h1 兜底：banner 标题缺失时（bannerText 关闭或 title 为空）用隐藏的站点名，
        保证首页始终有且只有一个 h1（Swup 无障碍插件要求；sr-only 视觉隐藏、保留可访问性树）。

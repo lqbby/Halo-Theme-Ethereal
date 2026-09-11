@@ -1,6 +1,7 @@
 ---
 import PostMeta from "../components/PostMeta.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import { imageSuffixThWith, CDN_SUFFIX_PATTERNS } from "../utils/image-suffix";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
@@ -17,8 +18,8 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 >
   <Fragment slot="head">
     <!-- og:title 由 Layout.astro 统一输出；此处仅保留文章特有 og 元数据 -->
-    <!-- SEO：canonical（Halo 核心不会自动注入，需主题输出；permalink 为绝对 URL） -->
-    <link rel="canonical" th:href="${post.status.permalink}" />
+    <!-- SEO：canonical（Halo 核心不会自动注入，需主题输出） -->
+    <Canonical path="${post.status.permalink}" />
     <meta
       property="article:published_time"
       th:content="${post.spec.publishTime}"

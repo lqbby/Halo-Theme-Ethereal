@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import QueryPagination from "../components/control/QueryPagination.astro";
@@ -17,6 +18,7 @@ import QueryPagination from "../components/control/QueryPagination.astro";
   description="#{page.timeline.description(${site.title})}"
 >
   <Fragment slot="head">
+    <Canonical path="${singlePage.status.permalink}" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <style is:global>
       .timeline-list {

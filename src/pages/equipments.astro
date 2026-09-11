@@ -3,12 +3,17 @@ import EquipmentPagination from "../components/EquipmentPagination.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${title + ' - ' + site.title}"
   description="#{page.equipments.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/equipments" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
     <!-- 标题区域 -->

@@ -3,6 +3,7 @@ import FilterTabs from "../components/control/FilterTabs.astro";
 import FilterTab from "../components/control/FilterTab.astro";
 import Pagination from "../components/control/Pagination.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 
 // 分类筛选：由页面内分类选择器（FilterTabs，moment 同款）驱动，
 // 分类导航栏（CategoryBar）在归档页不再转换筛选模式，仅保留 permalink。
@@ -28,6 +29,10 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   title="|#{page.archives.title} - ${site.title}|"
   description="#{page.archives.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/archives" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <div th:remove="tag" th:with={topWith}>
     <!-- 框一：头部卡片（归档 + 共 N 篇文章，与 tags/categories 同款简洁风格） -->

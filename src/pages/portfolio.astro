@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import PortfolioCard from "../components/PortfolioCard.astro";
@@ -9,6 +10,10 @@ import PortfolioCard from "../components/PortfolioCard.astro";
   title="${(projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')) + ' - ' + site.title}"
   description="#{page.portfolio.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/portfolio" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <div
     th:remove="tag"

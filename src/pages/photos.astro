@@ -5,6 +5,7 @@ import PhotoPagination from "../components/photos/PhotoPagination.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import "../styles/photos-gallery-lightbox.css";
 ---
 
@@ -13,6 +14,7 @@ import "../styles/photos-gallery-lightbox.css";
   description="${title + ' - ' + site.title}"
 >
   <Fragment slot="head">
+    <Canonical path="/photos" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <PhotoI18n />
   </Fragment>

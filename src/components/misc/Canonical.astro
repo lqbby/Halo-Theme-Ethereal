@@ -1,0 +1,70 @@
+---
+/**
+ * SEO：canonical 绝对 URL 输出（Halo 核心不会自动注入，需主题输出）。
+ *
+ * 背景：EdgeOne 规则引擎没有「路径变换」能力（无 Regex / URL Rewrite 动作，
+ * AccessUrlRedirect 只能静态目标），因此「去尾斜杠 301」在 CDN 层做不到。
+ * 退而求其次用 canonical 解决重复内容：带 / 不带尾斜杠两个 URL 都 200 时，
+ * 由 canonical 明确告诉搜索引擎哪个是规范版本 —— SEO 标准做法，且不依赖 CDN 能力。
+ *
+ * 规范形态 = **无尾斜杠**（与 sitemap.xml 及各页面自产链接一致）。
+ *
+ * ===== 用法 =====
+ * 由页面在 <Fragment slot="head"> 内调用，传**站点相对路径**：
+ *
+ *   <Canonical path="${post.status.permalink}" />   // 有 permalink 字段（首选）
+ *   <Canonical path="/archives" />                  // 编译期常量
+ *   <Canonical path={"/moments/" + expr} />         // 需自行拼路由时
+ *
+ * ⚠️ 不要试图在 Layout.astro 统一输出：Halo 主题上下文**不暴露请求对象**
+ *    （#httpServletRequest 恒为 null，见 Layout.astro 注释），拿不到「当前路径」，
+ *    必须由知道自身路径的页面各自声明。
+ *
+ * ⚠️⚠️ Thymeleaf 拼接的坑（都实测踩过）：
+ *   1. **`|...|` 字面量替换里不能再出现 `|`** —— 内层 `|` 提前闭合外层，
+ *      产物留下 `|a|b||` 坏串。**弃用 `|...|`**。
+ *   2. `${a + ${b}}`（`+` 两侧各一个 `${}`）有解析歧义，不可靠。
+ *   3. 正解：**把路径求值到中间变量 `p`，再用 `${site.url + p}`**
+ *      —— `+` 右侧是裸变量名，无嵌套无歧义。
+ *
+ *   ✅ 中间变量**与 `th:href` 写在同一标签上**即可，无需包一层。
+ *      依据 Thymeleaf 官方属性优先级表（数值小的先执行）：
+ *        th:with = 4「Local variable definition」
+ *        th:href = 6「Specific attribute modification」
+ *      → `th:with` 先于 `th:href` 执行，同标签变量可见。
+ *      （对比：`th:if`=3 也早于 `th:with`=4，所以「同标签 th:if 读不到 th:with 变量」
+ *        那条陷阱同样成立，两者不矛盾。）
+ *
+ *   ⚠️⚠️ **绝对不能改成 `<th:block th:with>` 包一层**：Astro 的 HTML 解析器
+ *      不认带命名空间前缀的标签，构建直接失败
+ *      `[CompilerError] Expected '>' but found ':'`。
+ *      （这也解释了主题里从未用过 `th:block`。）
+ *
+ * ⚠️ Astro 侧：要输出**字面**的 `${site.url}`，属性值必须用**普通字符串**
+ *    （写成 `` `...` `` 会被 Astro 当 JS 模板字符串解析 → 构建期报错，因为 site 不存在）。
+ *    故本组件全部用「构建期普通字符串拼好整段属性」的写法。
+ */
+interface Props {
+  /**
+   * 站点相对路径。支持三种形态：
+   * - Thymeleaf 表达式串：`"${post.status.permalink}"`
+   * - 含变量的拼接串：`"/moments/" + expr`（Astro 构建期算出含 ${} 的文本）
+   * - 编译期常量：`"/archives"`（组件会去掉多余尾斜杠）
+   */
+  path: string;
+}
+
+const { path } = Astro.props;
+
+// 常量去掉多余尾斜杠（保留根路径 "/"）；含 ${} 的表达式原样透传，不做任何加工。
+const raw = path.trim();
+const isExpr = raw.includes("${");
+const p = isExpr ? raw : raw === "/" ? "/" : raw.replace(/\/+$/, "");
+
+// th:with 的值：常量加引号成为 Thymeleaf 字符串字面量；表达式原样。
+const withAttr = "p=" + (isExpr ? p : "'" + p + "'");
+// 字面 ${} —— 用普通字符串，避免 Astro 构建期解析。
+const hrefAttr = "${site.url + p}";
+---
+
+<link rel="canonical" th:with={withAttr} th:href={hrefAttr} />

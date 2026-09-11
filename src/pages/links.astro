@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import CopyButton from "../components/CopyButton.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
@@ -10,6 +11,7 @@ import PageHeader from "../components/control/PageHeader.astro";
   description="#{page.links.description(${site.title})}"
 >
   <Fragment slot="head">
+    <Canonical path="/links" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <style is:global>
       /* 随机访问按钮：点击后图标匀速旋转 */

@@ -4,6 +4,7 @@
 // 筛选 tab 因此硬编码在下方。封面来自 B 站 CDN 且带 Referer 防盗链，<img> 必须
 // referrerpolicy="no-referrer"，否则跨域加载失败显示坏图。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import Pagination from "../components/control/Pagination.astro";
@@ -37,6 +38,10 @@ const stats = [
   title="|#{page.bangumi.title} - ${site.title}|"
   description="#{page.bangumi.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/bangumis" />
+  </Fragment>
   <div class="bangumi-page">
     <div
       th:remove="tag"

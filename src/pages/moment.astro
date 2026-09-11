@@ -1,12 +1,17 @@
 ---
 import MomentMedia from "../components/MomentMedia.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${title + ' - ' + site.title}"
   description="${moment.spec.content != null and not #strings.isEmpty(moment.spec.content.raw) ? #strings.abbreviate(moment.spec.content.raw, 120) : #messages.msg('page.moment.description', site.title)}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="'/moments/' + ${moment.metadata.name}" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <article
     class="card-base relative z-10 mb-4 w-full overflow-hidden px-6 py-6 md:px-9"

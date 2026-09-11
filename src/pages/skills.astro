@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import QueryPagination from "../components/control/QueryPagination.astro";
@@ -16,6 +17,10 @@ import QueryPagination from "../components/control/QueryPagination.astro";
   title="${singlePage.spec.title + ' - ' + site.title}"
   description="#{page.skills.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="${singlePage.status.permalink}" />
+  </Fragment>
   <!-- 注：分类计数用字面量投影（category == 'literal'），勿在 items.![...] 投影内引用
        param（Map 条目会遮蔽上下文变量导致 #lists.contains(null,...) 抛异常） -->
   {

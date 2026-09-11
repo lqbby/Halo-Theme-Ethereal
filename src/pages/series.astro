@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 ---
 
@@ -8,6 +9,10 @@ import PageHeader from "../components/control/PageHeader.astro";
   description="${singlePage.spec.excerpt.raw ?: site.subtitle}"
   setOGTypeArticle={true}
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/series" />
+  </Fragment>
   <div
     th:remove="tag"
     th:with="seriesList=${recentCommentsSeriesFinder.listAll()}, totalPosts=${#aggregates.sum(seriesList.![posts.size()])}"
