@@ -1,0 +1,133 @@
+---
+// 查询参数式分页（?page=N），带可选筛选参数透传（skills 的 category / timeline 的 type）。
+//
+// 与 Pagination.astro 的区别：Pagination 走「路径式」（/page/N，由 Halo 的
+// postFinder/pageable 生成的 prevUrl/nextUrl 推导 basePath），本组件走「查询参数式」
+// （singlePage.status.permalink?page=N），因为 skills/timeline 的数据来自
+// theme.config.extendPages.*.entries.items（主题设置数组，非 Halo 内容表），
+// 没有 pageable 对象，分页完全在模板层用 #numbers.sequence 算出来。
+//
+// 契约（Thymeleaf 表达式字符串传 props，与 FilterTabs / PageHeader 一致）：
+// - context：读取 curPage / totalPages 的对象名，固定为 `singlePage` 语义的包装别名，
+//     调用方通过 withExpr 声明即可（如 `context="pg"` + `pgCtx=${...}`）。
+//     为降低调用方心智负担，默认直接从上下文取 curPage / totalPages（两页的前置
+//     th:with 已在其作用域内定义这两个变量）。
+// - filterName：筛选参数名（`category` / `type`）。为空时不透传任何筛选参数。
+// - filterValuesExpr：完整表达式，判定筛选参数是否存在的 Thymeleaf 串，
+//     如 `${not #lists.isEmpty(param.category)}`。为空视为无筛选。
+//
+// 注意：th:if 先于同元素的 th:with 执行，故 windowStart/windowEnd/sep 的计算
+// 必须放在外层包装元素（本组件根元素的父级，或本组件的包装 div）上——本组件
+// 在内部用 `th:remove="tag"` 的包装 div 承载，调用方无需再包一层。
+interface Props {
+  filterName?: string;
+  filterValuesExpr?: string;
+  class?: string;
+}
+
+const {
+  filterName = "",
+  filterValuesExpr = "",
+  class: className = "mb-4 onload-animation flex flex-row justify-center gap-3",
+} = Astro.props;
+
+// 筛选参数前缀：`?` 或 `?<filterName>=<value>&`。
+// filterValuesExpr 已是含 `${...}` 的完整表达式，其花括号会与外层冲突，
+// 故这里由组件产出**完整的** `${ ... }`（含外层定界符），th:with 里直接 `sep=` 接上，
+// 不能再写 `sep=${...}`（那会变成 `${${...}}` 嵌套）。
+const sepExpr = filterName
+  ? `\${${filterValuesExpr.replace(/^\$\{|\}$/g, "")} ? '?${filterName}=' + param.${filterName}[0] + '&' : '?'}`
+  : "'?'";
+
+// 分页窗口（与 Pagination.astro 同一套：始终显示 5 个页码位，首尾留 1/末 1 + 省略号）
+const withExpr = `
+  sep=${sepExpr},
+  windowStart=\${curPage le 3 ? 1 : (curPage ge totalPages - 2 ? (totalPages - 4 gt 1 ? totalPages - 4 : 1) : curPage - 2)},
+  windowEnd=\${curPage le 3 ? (totalPages lt 5 ? totalPages : 5) : (curPage ge totalPages - 2 ? totalPages : curPage + 2)}
+`;
+---
+
+<div th:with={withExpr} th:remove="tag">
+  <nav
+    th:if="${totalPages gt 1}"
+    class={className}
+    th:aria-label="#{pagination.label}"
+    aria-label="Pagination"
+  >
+    <a
+      th:href="${curPage gt 1 ? singlePage.status.permalink + sep + 'page=' + (curPage - 1) : ''}"
+      th:classappend="${curPage gt 1 ? '' : ' disabled'}"
+      th:aria-label="#{pagination.previous}"
+      class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
+    >
+      <span
+        class="icon-[material-symbols--chevron-left-rounded] text-[1.75rem]"
+      ></span>
+    </a>
+    <div
+      class="flex flex-row items-center rounded-lg bg-(--card-bg) font-bold text-neutral-700 dark:text-neutral-300"
+    >
+      <a
+        th:if="${windowStart gt 1}"
+        th:href="${singlePage.status.permalink + sep + 'page=1'}"
+        th:aria-label="#{pagination.page(1)}"
+        class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+        >1</a
+      >
+      <a
+        th:if="${windowStart == 3}"
+        th:href="${singlePage.status.permalink + sep + 'page=2'}"
+        th:aria-label="#{pagination.page(2)}"
+        class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+        >2</a
+      >
+      <span
+        th:if="${windowStart gt 3}"
+        class="icon-[material-symbols--more-horiz] mx-1"></span>
+      <span
+        class="contents"
+        th:each="pn : ${#numbers.sequence(windowStart, windowEnd)}"
+      >
+        <div
+          th:if="${pn == curPage}"
+          class="flex h-11 w-11 items-center justify-center rounded-lg bg-(--primary) font-bold text-white dark:text-black/70"
+          th:text="${pn}"
+        >
+          1
+        </div>
+        <a
+          th:unless="${pn == curPage}"
+          th:href="${singlePage.status.permalink + sep + 'page=' + pn}"
+          th:aria-label="#{pagination.page(${pn})}"
+          class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+          th:text="${pn}">2</a
+        >
+      </span>
+      <span
+        th:if="${windowEnd lt totalPages - 2}"
+        class="icon-[material-symbols--more-horiz] mx-1"></span>
+      <a
+        th:if="${windowEnd == totalPages - 2}"
+        th:href="${singlePage.status.permalink + sep + 'page=' + (totalPages - 1)}"
+        th:aria-label="#{pagination.page(${totalPages - 1})}"
+        class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+        th:text="${totalPages - 1}"></a>
+      <a
+        th:if="${windowEnd lt totalPages}"
+        th:href="${singlePage.status.permalink + sep + 'page=' + totalPages}"
+        th:aria-label="#{pagination.page(${totalPages})}"
+        class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+        th:text="${totalPages}"></a>
+    </div>
+    <a
+      th:href="${curPage lt totalPages ? singlePage.status.permalink + sep + 'page=' + (curPage + 1) : ''}"
+      th:classappend="${curPage lt totalPages ? '' : ' disabled'}"
+      th:aria-label="#{pagination.next}"
+      class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
+    >
+      <span
+        class="icon-[material-symbols--chevron-right-rounded] text-[1.75rem]"
+      ></span>
+    </a>
+  </nav>
+</div>
