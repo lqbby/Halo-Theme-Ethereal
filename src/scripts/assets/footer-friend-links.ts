@@ -22,7 +22,11 @@ import { onPageView } from "../../utils/once";
 
   /** 容器就绪标记属性（值为 "1" 时跳过重复初始化） */
   var READY_ATTR = "data-ffl-ready";
-  /** 窄屏（<lg）最多显示几条；与 CSS 的 .footer-friend-chip--extra 断点保持一致 */
+  /**
+   * 窄屏（<640px）保留的条数 = 2 列 × 2 行 = 4。
+   * 与 CSS `.footer-friend-list` 的 grid-template-columns 断点、以及
+   * `.footer-friend-chip--extra` 的 max-width:639px 媒体查询三者必须一致。
+   */
   var MOBILE_MAX = 4;
   /** 友链池上限（与模板侧 linkFinder.random(100) 对齐） */
   var POOL_MAX = 100;
@@ -102,7 +106,7 @@ import { onPageView } from "../../utils/once";
     if (!list) return false;
 
     var count = parseInt(root.getAttribute("data-friend-count") || "", 10);
-    if (!isFinite(count) || count < 1) count = 5;
+    if (!isFinite(count) || count < 1) count = 8;
     var n = Math.min(count, pool.length);
     if (n < 1) return false;
 

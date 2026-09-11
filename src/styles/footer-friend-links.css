@@ -3,12 +3,14 @@
 /* ────────────────────────────────────────────────────────────────
    页脚随机友链
    来源：components/FooterFriendLinks.astro（结构）+ scripts/assets/footer-friend-links.ts（渲染）
-   胶囊是 JS 动态创建的 → 没有 Astro scoped 属性，样式必须全局；
-   随 app.ts / pages/layout.astro 的全局样式链走，全站只此一份。
+
+   · 胶囊由 JS 动态创建 → 无 Astro scoped 属性，样式必须全局；
+     随 app.ts / pages/layout.astro 的全局样式链走，全站只此一份。
+   · 本模块只占「身份行下方那条原有空白带」，四周间距全部沿用 Footer 既有 padding，
+     自身不新增顶部间距、也不改动任何既有元素 —— 见 Footer.astro 的插入点注释。
    ──────────────────────────────────────────────────────────────── */
 @layer components {
-  /* 两段式：第一行「标题 …… 换一批」，第二行起整行排胶囊。
-     list 用 basis-full 独占一行，避免在窄屏被标题/按钮挤到溢出 */
+  /* 首行：标题 …… 换一批；网格从次行起整行铺开 */
   .footer-friend-bar {
     @apply flex flex-wrap items-center gap-x-2 gap-y-2;
   }
@@ -22,19 +24,28 @@
     color: var(--primary);
   }
 
+  /* 胶囊网格：窄屏 2 列、≥640px 4 列，各两排（即「两排四个」）。
+     用 grid 而非 flex-wrap —— 列宽固定、两侧不参差、每排数量确定；
+     basis-full 让它独占一行，不与标题/按钮挤同一行 */
   .footer-friend-list {
-    @apply flex min-w-0 basis-full flex-wrap items-center gap-1.5;
+    @apply grid basis-full gap-1.5;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  /* 友链胶囊：默认描边透明（hover 时只变色不移位） */
+  @media (min-width: 640px) {
+    .footer-friend-list {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* 友链胶囊：占满所在网格列；默认描边透明（hover 只变色不位移，整行不抖） */
   .footer-friend-chip {
-    @apply inline-flex max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold text-black/75 transition duration-200 dark:text-white/75;
+    @apply inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold text-black/75 transition duration-200 dark:text-white/75;
     border-color: color-mix(in oklab, var(--primary) 0%, transparent);
     background-color: var(--btn-regular-bg);
   }
 
   .footer-friend-chip:hover {
-    transform: translateY(-1px);
     border-color: color-mix(in oklab, var(--primary) 38%, transparent);
     background-color: var(--btn-regular-bg-hover);
     color: var(--primary);
@@ -45,20 +56,21 @@
   }
 
   .footer-friend-chip-name {
-    @apply truncate;
-    max-width: 7rem;
+    @apply min-w-0 truncate;
   }
 
-  /* ml-auto：把按钮推到首行最右，与左侧标题形成两端对齐 */
+  /* 换一批：小号纯图标按钮。刻意做成 28px（小于 36px 的社交图标），
+     位置在标题行右端、与社交图标不同视觉组，避免被误读成「第 4 个图标」；
+     语义由 title / aria-label 承载 */
   .footer-friend-shuffle {
-    @apply ml-auto h-7 shrink-0 gap-1 rounded-lg px-2.5 text-xs font-bold;
+    @apply ml-auto size-7 shrink-0 rounded-lg;
   }
 
   .footer-friend-shuffle-icon {
-    @apply text-sm;
+    @apply text-[0.9375rem];
   }
 
-  /* 点「换一批」图标转一圈（一次性动画，不做无限旋转） */
+  /* 点按后图标转一圈（一次性，不做无限旋转） */
   .footer-friend-shuffle.is-spinning .footer-friend-shuffle-icon {
     animation: footer-friend-spin 0.6s ease-in-out;
   }
@@ -72,20 +84,16 @@
     }
   }
 
-  /* 桌面显示 count 条，窄屏（<lg）只留前 4 条。
-     只切换显示、不重抽——缩放窗口时整排链接不会乱跳 */
-  @media (max-width: 1023px) {
+  /* 窄屏只留前两排（2×2 = 4 条）：只切显示、不重抽，
+     缩放窗口时整块不会乱跳 */
+  @media (max-width: 639px) {
     .footer-friend-chip--extra {
       display: none;
     }
   }
 
-  /* 尊重「减少动态效果」偏好：去掉位移与旋转 */
+  /* 尊重「减少动态效果」偏好 */
   @media (prefers-reduced-motion: reduce) {
-    .footer-friend-chip,
-    .footer-friend-chip:hover {
-      transform: none;
-    }
     .footer-friend-shuffle.is-spinning .footer-friend-shuffle-icon {
       animation: none;
     }
