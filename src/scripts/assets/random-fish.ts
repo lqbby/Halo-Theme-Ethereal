@@ -79,7 +79,7 @@ import { t } from "../../utils/i18n";
   function openRandom(urls, btn, newTab) {
     var chosen = urls[Math.floor(Math.random() * urls.length)];
     // 新标签打开：朋友圈页内点击（newTab=true）始终新标签打开，让当前窗口留在
-    // 朋友圈页。站内链接是根相对路径（如 /peng-you-quan/...），原 /^https?:\/\//
+    // 朋友圈页。站内链接是根相对路径（如 /friends/...），原 /^https?:\/\//
     // 判定永远不进、导致「新标签」意图被下方同标签 SPA 导航分支静默吞掉，此处放行。
     if (newTab) {
       var a = document.createElement("a");
@@ -117,7 +117,10 @@ import { t } from "../../utils/i18n";
     function clearTimer() {
       clearTimeout(timer);
     }
-    fetch("/peng-you-quan?t=" + Date.now(), { signal: controller.signal })
+    // 朋友圈页 URL = Halo 后台「独立页面」的 slug。
+    // ⚠️ 2026-09-11 起后台 slug 已统一为 /friends（原先自动生成的是 /peng-you-quan）。
+    //    若日后又改名，这里必须同步 —— 但**同一主题包内该值是固定的**（不随访客数据变化）。
+    fetch("/friends?t=" + Date.now(), { signal: controller.signal })
       .then(function (r) {
         clearTimer();
         if (!r.ok) throw new Error("http " + r.status);
