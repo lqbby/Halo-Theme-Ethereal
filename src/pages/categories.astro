@@ -9,7 +9,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <h1 class="sr-only" th:text="#{page.categories.title}">分类</h1>
 
-  <!-- 段一：头部卡片（分类 + 共 N 个分类，与 tags 页同款简洁风格） -->
+  <!-- 段一：页头卡片（分类 + 共 N 个分类 · M 篇文章，与 tags 页同款简洁风格） -->
   <div class="card-base px-8 py-6 mb-4">
     <div
       class="text-2xl font-bold text-(--primary) mb-2"
@@ -17,54 +17,94 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     >
       分类
     </div>
-    <p
-      class="text-30 text-sm"
-      th:text="#{page.categories.subtitleCount(${#lists.size(categories)})}"
-    >
-      共 0 个分类
-    </p>
-  </div>
-
-  <!-- 段二：分类胶囊墙卡片（错峰入场 + 文章数数字滚动） -->
-  <div class="card-base onload-animation flex flex-wrap gap-3 px-9 py-6">
-    <a
-      th:each="category, stat : ${categories}"
-      th:href="@{${category.status.permalink}}"
-      th:attr="data-name=${category.spec.displayName},data-count=${category.postCount ?: 0}"
-      th:aria-label="|${category.spec.displayName} - ${category.postCount ?: 0}|"
-      th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-      class="cat-pill group relative overflow-hidden rounded-full px-4 py-2.5 text-sm font-bold transition duration-300 active:scale-95"
-    >
-      <!-- 主题色小圆点 -->
-      <span class="cat-pill-dot" aria-hidden="true"></span>
-      <!-- 名称 -->
-      <span class="cat-pill-name" th:text="${category.spec.displayName}"
-        >分类</span
-      >
-      <!-- 文章数徽章（JS 数字滚动） -->
+    <p class="text-30 text-sm">
       <span
-        class="cat-pill-count"
-        th:attr="data-count=${category.postCount ?: 0}"
-        th:text="${category.postCount ?: 0}">0</span
-      >
-    </a>
-    <p
-      th:if="${#lists.isEmpty(categories)}"
-      class="w-full py-6 text-center text-30 text-sm"
-    >
-      暂无分类
+        th:text="#{page.categories.subtitleCount(${#lists.size(categories)})}"
+        >共 0 个分类</span
+      ><span data-cat-total></span>
     </p>
   </div>
 
-  <!-- 互动脚本：文章数数字滚动 -->
+  <!-- 段二：分类卡片网格
+       每卡 = 分类名（主信息）+ 文章数（大号数字，滚动动画）+ 权重条（按全站最大
+       分类归一，宽度由 JS 设置）。容器查询决定列数：双侧栏布局下内容栏仅 ~420px，
+       用视口媒体查询会误判为两列。 -->
+  <div class="cat-grid-wrap">
+    <div class="cat-grid">
+      <a
+        th:each="category, stat : ${categories}"
+        th:href="@{${category.status.permalink}}"
+        th:attr="data-count=${category.postCount ?: 0}"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+        class="cat-card card-base onload-animation"
+      >
+        <div class="cat-card-body">
+          <div class="cat-card-head">
+            <span class="cat-card-name" th:text="${category.spec.displayName}"
+              >分类</span
+            >
+            <span class="cat-card-go" aria-hidden="true">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="3.2"
+                stroke-linecap="round"
+                stroke-linejoin="round"><path d="M9 6l6 6-6 6"></path></svg
+              >
+            </span>
+          </div>
+          <div class="cat-card-stat">
+            <span
+              class="cat-card-num"
+              th:attr="data-count=${category.postCount ?: 0}"
+              th:text="${category.postCount ?: 0}">0</span
+            >
+            <span class="cat-card-unit text-50">篇文章</span>
+            <span class="cat-card-track" aria-hidden="true"
+              ><i class="cat-card-fill"></i></span
+            >
+          </div>
+        </div>
+      </a>
+      <p
+        th:if="${#lists.isEmpty(categories)}"
+        class="cat-empty text-30 text-sm"
+      >
+        暂无分类
+      </p>
+    </div>
+  </div>
+
+  <!-- 互动脚本：页头文章总数 + 卡片数字滚动与权重条。
+       必须内联（is:inline）并置于 swup 容器内，否则换页进入本页时不执行。 -->
   <script is:inline>
     (function () {
-      var counts = document.querySelectorAll(".cat-pill-count[data-count]");
-      function animate(el, target) {
+      var cards = Array.prototype.slice.call(
+        document.querySelectorAll(".cat-card"),
+      );
+      if (!cards.length) return;
+
+      var targets = cards.map(function (card) {
+        var n = card.querySelector(".cat-card-num[data-count]");
+        return n ? Number(n.getAttribute("data-count")) || 0 : 0;
+      });
+      var total = targets.reduce(function (a, b) {
+        return a + b;
+      }, 0);
+      var max = targets.reduce(function (a, b) {
+        return Math.max(a, b);
+      }, 0);
+
+      /* 页头补一句真实文章总数（JS 不可用时不插入，无残留分隔符） */
+      var totalEl = document.querySelector("[data-cat-total]");
+      if (totalEl && total > 0) totalEl.textContent = " · " + total + " 篇文章";
+
+      function roll(el, target) {
         var dur = 550;
         var start = null;
         function tick(now) {
-          if (start == null) start = now;
+          if (start === null) start = now;
           var p = Math.min((now - start) / dur, 1);
           var eased = 1 - Math.pow(1 - p, 3);
           el.textContent = Math.round(target * eased);
@@ -72,109 +112,227 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         }
         requestAnimationFrame(tick);
       }
+
+      function play(card, target) {
+        var num = card.querySelector(".cat-card-num[data-count]");
+        if (num) roll(num, target);
+        var fill = card.querySelector(".cat-card-fill");
+        /* 权重条按全站最大分类归一：各分类占比接近（8%~23%）时按占比出条会
+           全都很短，无法分辨多寡；归一后仍能体现相对权重 */
+        if (fill && max > 0) {
+          fill.style.width =
+            Math.max(6, Math.round((target / max) * 100)) + "%";
+        }
+      }
+
       if ("IntersectionObserver" in window) {
         var io = new IntersectionObserver(
           function (entries) {
             entries.forEach(function (en) {
-              if (en.isIntersecting) {
-                animate(
-                  en.target,
-                  Number(en.target.getAttribute("data-count")) || 0,
-                );
-                io.unobserve(en.target);
-              }
+              if (!en.isIntersecting) return;
+              var card = en.target;
+              play(card, targets[cards.indexOf(card)]);
+              io.unobserve(card);
             });
           },
-          { threshold: 0.4 },
+          { threshold: 0.25 },
         );
-        counts.forEach(function (c) {
+        cards.forEach(function (c) {
           io.observe(c);
         });
       } else {
-        counts.forEach(function (c) {
-          c.textContent = c.getAttribute("data-count") || 0;
+        cards.forEach(function (c, i) {
+          play(c, targets[i]);
         });
       }
     })();
   </script>
 
   <style is:global>
-    /* ── 分类胶囊（半透明毛玻璃 + 统一主题色，对齐 Firefly 风格） ── */
-    .cat-pill {
-      display: inline-flex;
+    /* ── 分类卡片网格 ──
+       设计基线沿用主题既有语言：card-base 基础（--radius-large 圆角 / 卡片底色 /
+       纹理）、15% 主色描边（同 .summary-box 与正文表格）、--deep-text 正文色、
+       --primary 强调色、--on-primary 主色底上的前景（不可用白，见 variables.css）、
+       tabular-nums 数字等宽。 */
+    .cat-grid-wrap {
+      container-type: inline-size;
+    }
+    .cat-grid {
+      display: grid;
+      gap: 0.875rem;
+      grid-template-columns: 1fr;
+    }
+    @container (min-width: 460px) {
+      .cat-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .cat-card {
+      position: relative;
+      display: block;
+      background-color: color-mix(in oklab, var(--primary) 3%, var(--card-bg));
+      border: 1px solid color-mix(in oklab, var(--primary) 15%, transparent);
+      transition:
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+    }
+    /* 左侧主色强调条：静态半高、hover 拉满，兼任「整卡可点」的交互反馈。
+       用外沿 3px 而非给整卡描边，避免与卡片的 15% 主色边框重复。 */
+    .cat-card::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 26%;
+      bottom: 26%;
+      width: 3px;
+      opacity: 0.5;
+      border-radius: 0 3px 3px 0;
+      background: linear-gradient(
+        180deg,
+        var(--primary),
+        color-mix(in oklab, var(--primary) 40%, transparent)
+      );
+      transition:
+        top 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        bottom 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 0.25s ease;
+    }
+    .cat-card:hover::after {
+      top: 12%;
+      bottom: 12%;
+      opacity: 1;
+    }
+    .cat-card:hover {
+      transform: translateY(-3px);
+      background-color: color-mix(in oklab, var(--primary) 7%, var(--card-bg));
+      border-color: color-mix(in oklab, var(--primary) 42%, transparent);
+      box-shadow: 0 12px 26px -14px
+        color-mix(in oklab, var(--primary) 60%, transparent);
+    }
+    .cat-card:active {
+      transform: translateY(-1px) scale(0.995);
+    }
+    .cat-card:focus-visible {
+      outline: 2px solid var(--focus-ring);
+      outline-offset: 2px;
+    }
+
+    .cat-card-body {
+      padding: 0.875rem 1.125rem 0.9375rem;
+    }
+
+    .cat-card-head {
+      display: flex;
       align-items: center;
-      gap: 0.5rem;
-      /* 半透明毛玻璃：主题色淡底 + backdrop 模糊，深浅色均通透精致 */
-      background: color-mix(in srgb, var(--primary) 7%, transparent);
-      -webkit-backdrop-filter: blur(12px) saturate(140%);
-      backdrop-filter: blur(12px) saturate(140%);
-      color: var(--btn-content);
-      border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+      gap: 0.625rem;
+    }
+    .cat-card-name {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 1.0625rem;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--deep-text);
+      transition: color 0.25s ease;
+    }
+    .cat-card:hover .cat-card-name {
+      color: var(--primary);
+    }
+
+    .cat-card-go {
+      margin-left: auto;
+      flex: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.375rem;
+      height: 1.375rem;
+      border-radius: 9999px;
+      color: var(--primary);
+      background-color: color-mix(in oklab, var(--primary) 12%, transparent);
       transition:
         transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
-        box-shadow 0.25s ease,
         color 0.25s ease,
-        border-color 0.25s ease;
+        background-color 0.25s ease;
     }
-    .cat-pill:hover {
-      transform: translateY(-3px);
-      color: #fff;
-      border-color: transparent;
-      background: linear-gradient(
-        135deg,
-        var(--primary),
-        color-mix(in srgb, var(--primary) 72%, black)
-      );
-      box-shadow:
-        0 10px 24px -8px color-mix(in srgb, var(--primary) 55%, transparent),
-        0 3px 8px -3px rgb(0 0 0 / 0.14);
+    .cat-card-go svg {
+      width: 0.75rem;
+      height: 0.75rem;
     }
-    /* 主题色小圆点 */
-    .cat-pill-dot {
-      width: 0.5rem;
-      height: 0.5rem;
-      border-radius: 9999px;
-      flex-shrink: 0;
-      background: var(--primary);
-      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-      transition: box-shadow 0.25s ease;
+    .cat-card:hover .cat-card-go {
+      transform: translateX(3px);
+      color: var(--on-primary);
+      background-color: var(--primary);
     }
-    .cat-pill:hover .cat-pill-dot {
-      box-shadow: 0 0 0 3px rgb(255 255 255 / 0.3);
+
+    /* 数值行：大号文章数 + 单位 + 权重条同排 —— 条与数值并读，卡片更紧凑 */
+    .cat-card-stat {
+      display: flex;
+      align-items: baseline;
+      gap: 0.375rem;
+      margin-top: 0.5rem;
     }
-    /* 名称 */
-    .cat-pill-name {
-      line-height: 1.2;
-    }
-    /* 文章数徽章：默认主题色淡底 → hover 白底反色 */
-    .cat-pill-count {
-      font-size: 0.75rem;
-      font-weight: 700;
+    .cat-card-num {
+      font-size: 1.625rem;
+      font-weight: 800;
       line-height: 1;
-      padding: 0.25rem 0.5rem;
-      border-radius: 9999px;
-      font-variant-numeric: tabular-nums;
-      background: color-mix(in srgb, var(--primary) 13%, transparent);
+      letter-spacing: -0.01em;
       color: var(--primary);
-      transition:
-        background 0.25s ease,
-        color 0.25s ease;
+      font-variant-numeric: tabular-nums;
     }
-    .cat-pill:hover .cat-pill-count {
-      background: rgb(255 255 255 / 0.22);
-      color: #fff;
+    .cat-card-unit {
+      font-size: 0.75rem;
     }
-    /* 暗色反色：暗色下主色渐变底变浅，白字对比不足，改用深色前景 */
-    :root.dark .cat-pill:hover {
-      color: var(--on-primary);
+
+    /* 权重条：轨道 12% 主色，填充 55%→100% 主色渐变，宽度由 JS 归一设置 */
+    .cat-card-track {
+      align-self: center;
+      flex: 1;
+      min-width: 0;
+      margin-left: 0.625rem;
+      height: 0.3125rem;
+      border-radius: 9999px;
+      overflow: hidden;
+      background-color: color-mix(in oklab, var(--primary) 12%, transparent);
     }
-    :root.dark .cat-pill:hover .cat-pill-count {
-      color: var(--on-primary);
+    .cat-card-fill {
+      display: block;
+      width: 0;
+      height: 100%;
+      border-radius: inherit;
+      background-image: linear-gradient(
+        90deg,
+        color-mix(in oklab, var(--primary) 55%, transparent),
+        var(--primary)
+      );
+      transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1);
     }
-    /* 可访问性 */
-    .cat-pill:focus-visible {
-      outline: 2px solid var(--primary);
-      outline-offset: 2px;
+    .cat-card:hover .cat-card-fill {
+      box-shadow: 0 0 10px color-mix(in oklab, var(--primary) 55%, transparent);
+    }
+
+    .cat-empty {
+      grid-column: 1 / -1;
+      padding: 1.5rem 0;
+      text-align: center;
+    }
+
+    /* 动效敏感用户：位移与宽度过渡全部取消（数字滚动由 JS 直接落终值） */
+    @media (prefers-reduced-motion: reduce) {
+      .cat-card,
+      .cat-card::after,
+      .cat-card-go,
+      .cat-card-fill {
+        transition: none;
+      }
+      .cat-card:hover {
+        transform: none;
+      }
     }
   </style>
 </MainGridLayout>
