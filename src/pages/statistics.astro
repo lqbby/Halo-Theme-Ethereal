@@ -38,11 +38,10 @@ import PageHeader from "../components/control/PageHeader.astro";
     th:with="
     siteCharts=${theme.config?.extendPages?.statistics?.siteCharts == null ? true : theme.config?.extendPages?.statistics?.siteCharts},
     umami=${theme.config?.extendPages?.statistics?.umami == null ? true : theme.config?.extendPages?.statistics?.umami},
-    uptimeKuma=${theme.config?.extendPages?.statistics?.uptimeKuma == null ? true : theme.config?.extendPages?.statistics?.uptimeKuma},
     github=${theme.config?.extendPages?.statistics?.github == null ? true : theme.config?.extendPages?.statistics?.github}"
   >
-    <!-- 页头 -->
-    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <!-- 页头：纯净玻璃卡，不加主色辉光 -->
+    <section class="card-base onload-animation mb-4 px-6 py-7 md:px-9 md:py-8">
       <PageHeader
         containerClass="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
         titleExpr="${singlePage.spec.title}"
@@ -51,7 +50,7 @@ import PageHeader from "../components/control/PageHeader.astro";
         labelExpr="#{page.statistics.title}"
         label="数据看板"
         subExpr="#{page.statistics.subtitle}"
-        sub="站点数据统计"
+        sub="站点数据统计与流量概览"
       />
     </section>
 
@@ -88,36 +87,22 @@ import PageHeader from "../components/control/PageHeader.astro";
       </div>
     </section>
 
-    <!-- Uptime Kuma 服务状态 -->
-    <section
-      th:if="${uptimeKuma}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-    >
-      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
-        <span
-          class="icon-[material-symbols--monitor-heart-rounded] text-(--primary)"
-        ></span>
-        <span th:text="#{page.statistics.uptime}">服务状态</span>
-      </h2>
-      <div class="xhhaocom-dataStatistics-v2-uptime-kuma"></div>
-    </section>
-
-    <!-- GitHub 活跃度（贡献图/统计卡/语言分布） -->
+    <!-- GitHub 贡献图（仅保留自建 gh-graph 的热力图/折线贡献图）。
+         刻意不启用插件内置的 stats / top-langs：这两张由第三方服务生成的
+         SVG 图片无法被主题 CSS 覆盖（深色实底统计卡 + 纯白底语言分布卡，在
+         深色主题上格外突兀），故 data-types 只留 graph。 -->
     <section
       th:if="${github}"
       class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
     >
       <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
         <span class="icon-[fa6-brands--github] text-(--primary)"></span>
-        <span th:text="#{page.statistics.github}">GitHub</span>
+        <span>GitHub 贡献</span>
       </h2>
       <div
         class="github-statistics-container"
-        data-types="graph,stats,top-langs"
-        data-stats-locale="cn"
-        data-stats-show-icons="true"
+        data-types="graph"
         data-graph-theme="minimal"
-        data-top-langs-layout="donut"
       >
       </div>
     </section>

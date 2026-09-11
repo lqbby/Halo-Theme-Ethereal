@@ -2,6 +2,7 @@
 import Announcement from "./Announcement.astro";
 import Categories from "./Categories.astro";
 import Hitokoto from "./Hitokoto.astro";
+import MoeCounter from "./MoeCounter.astro";
 import Profile from "./Profile.astro";
 import RecentComments from "./RecentComments.astro";
 import Schedule from "./Schedule.astro";
@@ -76,6 +77,9 @@ const thClassappend = Astro.props["th:classappend"] || "";
         </div>
         <div class="contents" th:case="'recent-comments'">
           <RecentComments />
+        </div>
+        <div class="contents" th:case="'moe-counter'">
+          <MoeCounter />
         </div>
         <div th:case="'html'" class="card-base p-4" th:utext="${widget.html}">
         </div>

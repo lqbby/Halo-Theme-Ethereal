@@ -1,0 +1,331 @@
+---
+import WidgetLayout from "./WidgetLayout.astro";
+
+interface Props {
+  class?: string;
+  style?: string;
+}
+
+const className = Astro.props.class;
+const style = Astro.props.style;
+---
+
+{
+  /* 访客计数（Moe-Counter 小组件）
+     - 默认「原版模式」：直接渲染 Moe-Counter 的主题 SVG（如 moebooru 的看板娘数字）。
+       该 SVG 是自包含的——数字贴图以 base64 GIF 内嵌在 <defs> 里，约 6.5KB，零外部图片请求。
+       用 counter_theme 可切服务端任意主题（moebooru / 3d-num / miku / capoo-1 …）
+     - 可选「自绘模式」：counter_theme = native 时用主题 token（--primary / --deep-text）
+       自绘数字方块，不带看板娘，风格更克制
+     - 性能：img 走 loading=lazy + 视口懒加载；自绘模式另有 sessionStorage 每会话一次的缓存
+     - 配置：侧栏小组件的 counter_api / counter_name / counter_theme（见 settings.yaml） */
+}
+<div
+  class="contents"
+  th:with="
+    moeApi=${widget?.counter_api ?: 'https://moe.lqbby.com:1443'},
+    moeName=${widget?.counter_name ?: 'lqbby'},
+    moeTheme=${widget?.counter_theme ?: 'moebooru'}"
+>
+  <WidgetLayout
+    id="moe-counter"
+    name="访客计数"
+    nameKey="widget.moeCounter.title"
+    class={className}
+    style={style}
+  >
+    <div
+      id="moe-counter-root"
+      class="moe-cnt-root"
+      th:attr="data-api=${moeApi}, data-name=${moeName}, data-theme=${moeTheme}"
+    >
+      <!-- 原版模式：服务端主题 SVG（可含看板娘贴图） -->
+      <img
+        id="moe-counter-img"
+        class="moe-cnt-img"
+        alt="访客计数"
+        loading="lazy"
+        decoding="async"
+        th:alt="#{widget.moeCounter.title}"
+      />
+      <!-- 自绘模式：主题 token 渲染的数字方块（counter_theme = native 时启用） -->
+      <div id="moe-counter-digits" class="moe-cnt-digits" hidden></div>
+      <div class="moe-cnt-caption">
+        <span
+          class="moe-cnt-caption-icon icon-[material-symbols--visibility-outline-rounded]"
+        ></span>
+        <span th:text="#{widget.moeCounter.caption}">本站累计访问</span>
+      </div>
+      <div
+        id="moe-counter-error"
+        class="moe-cnt-error"
+        hidden
+        th:text="#{widget.moeCounter.error}"
+      >
+        计数器加载失败
+      </div>
+    </div>
+  </WidgetLayout>
+</div>
+
+<script is:inline th:inline="none">
+  (function () {
+    var SESSION_PREFIX = "moe-cnt-session-";
+    var LAST_PREFIX = "moe-cnt-last-";
+
+    function readStore(store, key) {
+      try {
+        return store.getItem(key);
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function writeStore(store, key, val) {
+      try {
+        store.setItem(key, val);
+      } catch (e) {}
+    }
+
+    function showError(root) {
+      var err = document.getElementById("moe-counter-error");
+      if (err) err.hidden = false;
+      root.setAttribute("data-state", "error");
+    }
+
+    // ---- 自绘模式：逐位渲染成「里程表」小方块 ----
+    function renderDigits(digitsEl, num) {
+      var text = String(num);
+      if (!/^\d+$/.test(text)) return false;
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < text.length; i++) {
+        var span = document.createElement("span");
+        span.className = "moe-cnt-digit";
+        span.textContent = text.charAt(i);
+        span.style.animationDelay = i * 45 + "ms";
+        frag.appendChild(span);
+      }
+      digitsEl.innerHTML = "";
+      digitsEl.appendChild(frag);
+      return true;
+    }
+
+    function initNativeMode(root, imgEl, digitsEl, api, name) {
+      root.setAttribute("data-state", "native");
+      if (imgEl) imgEl.hidden = true;
+      digitsEl.hidden = false;
+
+      var sessionKey = SESSION_PREFIX + name;
+      var lastKey = LAST_PREFIX + name;
+
+      // 本会话已取过：直接复用，避免同一访客反复 +1
+      var sessionVal = readStore(window.sessionStorage, sessionKey);
+      if (sessionVal && renderDigits(digitsEl, sessionVal)) return;
+
+      // 先垫上次已知值，避免加载空白
+      var lastVal = readStore(window.localStorage, lastKey);
+      if (lastVal) renderDigits(digitsEl, lastVal);
+
+      var url = api + "/record/@" + encodeURIComponent(name);
+      var ctrl =
+        typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+      }, 6000);
+
+      fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          var num = data && data.num != null ? String(data.num) : "";
+          if (!num || !renderDigits(digitsEl, num)) {
+            if (!lastVal) showError(root);
+            return;
+          }
+          writeStore(window.sessionStorage, sessionKey, num);
+          writeStore(window.localStorage, lastKey, num);
+        })
+        .catch(function (e) {
+          console.warn(
+            "[MoeCounter] 获取失败:",
+            e && e.message ? e.message : e,
+          );
+          if (!lastVal) showError(root);
+        })
+        .then(function () {
+          clearTimeout(timer);
+        });
+    }
+
+    function initMoeCounter() {
+      var root = document.getElementById("moe-counter-root");
+      if (!root) return;
+      var imgEl = document.getElementById("moe-counter-img");
+      var digitsEl = document.getElementById("moe-counter-digits");
+      if (!digitsEl) return;
+
+      var api = String(root.getAttribute("data-api") || "").replace(/\/+$/, "");
+      var name = String(root.getAttribute("data-name") || "");
+      var theme = String(root.getAttribute("data-theme") || "moebooru").trim();
+      if (!api || !name) {
+        showError(root);
+        return;
+      }
+
+      if (theme === "native") {
+        initNativeMode(root, imgEl, digitsEl, api, name);
+        return;
+      }
+
+      // ---- 原版模式：加载服务端主题 SVG（自包含，含看板娘贴图）----
+      if (!imgEl) return;
+      root.setAttribute("data-state", "theme");
+      imgEl.addEventListener("load", function () {
+        root.setAttribute("data-state", "ready");
+      });
+      imgEl.addEventListener("error", function () {
+        console.warn("[MoeCounter] 主题图片加载失败:", theme);
+        showError(root);
+      });
+      imgEl.src =
+        api +
+        "/get/@" +
+        encodeURIComponent(name) +
+        "?theme=" +
+        encodeURIComponent(theme);
+    }
+
+    window.__themeLazyInit("moe-counter-root", initMoeCounter);
+  })();
+</script>
+
+<style is:global>
+  /* 类名统一 moe-cnt- 前缀，避免与主题既有规则冲突
+     （is:global 是必需的：自绘模式的数字节点由 JS 动态创建，拿不到 Astro scoped 的 data-astro-cid-*） */
+  .moe-cnt-root {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.35rem 0.75rem 0.6rem;
+  }
+
+  /* ---- 原版模式：主题 SVG ---- */
+  .moe-cnt-img {
+    display: block;
+    width: 100%;
+    max-width: 315px;
+    height: auto;
+    aspect-ratio: 315 / 100; /* 未加载前先占位，避免布局跳动 */
+    margin: 0 auto;
+    color: transparent; /* 加载失败时不显示 alt 文本破版 */
+  }
+  .moe-cnt-img[hidden] {
+    display: none !important;
+  }
+
+  /* 原版 SVG 内部用 prefers-color-scheme 自降亮度；「站点暗色 + 系统亮色」这种
+     错配场景它不会降，这里补一刀，保证深色卡片上不刺眼 */
+  @media (prefers-color-scheme: light) {
+    html.dark .moe-cnt-img {
+      filter: brightness(0.62);
+    }
+  }
+
+  /* ---- 自绘模式：数字方块 ---- */
+  .moe-cnt-digits {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.3rem;
+  }
+  .moe-cnt-digits[hidden] {
+    display: none !important;
+  }
+
+  .moe-cnt-digit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.7rem;
+    height: 2.2rem;
+    padding: 0 0.35rem;
+    border-radius: 0.6rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--primary);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--primary) 22%, transparent),
+      color-mix(in oklab, var(--primary) 6%, transparent)
+    );
+    border: 1px solid color-mix(in oklab, var(--primary) 26%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, #fff 20%, transparent),
+      0 2px 8px color-mix(in oklab, var(--primary) 13%, transparent);
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease;
+    animation: moe-cnt-in 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .moe-cnt-digit:hover {
+    transform: translateY(-2px) scale(1.04);
+    box-shadow:
+      inset 0 1px 0 color-mix(in oklab, #fff 28%, transparent),
+      0 6px 14px color-mix(in oklab, var(--primary) 24%, transparent);
+  }
+
+  .moe-cnt-digit.is-empty {
+    min-width: 2.6rem;
+    color: color-mix(in oklab, var(--deep-text) 42%, transparent);
+  }
+
+  /* ---- 说明与错误态 ---- */
+  .moe-cnt-caption {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    line-height: 1;
+    color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+  }
+
+  .moe-cnt-caption-icon {
+    font-size: 0.95rem;
+  }
+
+  .moe-cnt-root[data-state="error"] .moe-cnt-caption {
+    display: none;
+  }
+
+  .moe-cnt-error {
+    font-size: 0.75rem;
+    line-height: 1;
+    color: color-mix(in oklab, var(--deep-text) 55%, transparent);
+  }
+  .moe-cnt-error[hidden] {
+    display: none !important;
+  }
+
+  @keyframes moe-cnt-in {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.86);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .moe-cnt-digit {
+      animation: none;
+    }
+  }
+</style>

@@ -3,6 +3,7 @@ import Announcement from "./Announcement.astro";
 import Categories from "./Categories.astro";
 import Hitokoto from "./Hitokoto.astro";
 import MusicPlayer from "./MusicPlayer.astro";
+import MoeCounter from "./MoeCounter.astro";
 import PopularPosts from "./PopularPosts.astro";
 import Profile from "./Profile.astro";
 import Schedule from "./Schedule.astro";
@@ -76,6 +77,9 @@ const thClassappend = Astro.props["th:classappend"] || "";
         </div>
         <div class="contents" th:case="'site-stats'">
           <SiteStats class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'moe-counter'">
+          <MoeCounter class="onload-animation" />
         </div>
         <div class="contents" th:case="'weather'">
           <Weather

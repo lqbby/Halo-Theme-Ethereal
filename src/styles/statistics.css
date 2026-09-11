@@ -238,9 +238,112 @@
 #statistics-dashboard .xhhaocom-chartboard-card,
 #statistics-dashboard .xhhaocom-dataStatistics-v2-traffic,
 #statistics-dashboard .xhhaocom-dataStatistics-v2-activity,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-uptime-kuma,
 #statistics-dashboard .github-statistics-container {
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-radius: var(--radius-large);
+}
+
+/* ============================================================================
+   视觉升级（2026-09-10）
+   ----------------------------------------------------------------------------
+   逐项诊断与对策：
+   1) 插件图表的 COLOR_PALETTE 是硬编码彩虹色（#3b82f6/#10b981/#f59e0b/#ef4444…），
+      与 Ethereal「深色玻璃 + 青色渐变」主调冲突
+      → 定义 --chartboard-series-1..10 青→蓝→紫渐进色阶，插件 siteCharts.js
+        通过 cssVar 读取（配套插件改动），替代彩虹色。
+   2) 插件自带「面板容器」（-traffic-section / -activity / chartboard-section）
+      又套一层实色底和自己的标题 → 与外层 section 的玻璃卡形成「双层贴片」+ 标题重复
+      → 面板透明化 + 隐藏重复标题。
+   3) 子图表小卡是实色底，与外层半透明玻璃卡不一致 → 半透明化 + hover 主色描边。
+   4) 指标卡图标与数字未主题化（灰/白）→ 统一 var(--primary)。
+   5) 空状态（暂无活动）是实色深块，像视觉黑洞 → 虚线描边占位。
+   6) 热力图空位格子偏灰 → 改为主色极淡调。
+   ============================================================================ */
+
+#statistics-dashboard {
+  /* 图表分类色板：色相 190°(青) → 250°(蓝) → 290°(紫) 渐进、明度相近，
+     在深色底上相邻项仍可区分；替代插件硬编码的彩虹色 */
+  --chartboard-series-1: #67e8f9;
+  --chartboard-series-2: #22d3ee;
+  --chartboard-series-3: #06b6d4;
+  --chartboard-series-4: #38bdf8;
+  --chartboard-series-5: #0ea5e9;
+  --chartboard-series-6: #3b82f6;
+  --chartboard-series-7: #6366f1;
+  --chartboard-series-8: #818cf8;
+  --chartboard-series-9: #a78bfa;
+  --chartboard-series-10: #c084fc;
+
+  /* 热力图空位：主色极淡，避免灰调突兀 */
+  --chartboard-heatmap-cell-bg: color-mix(
+    in oklab,
+    var(--primary) 9%,
+    transparent
+  );
+}
+
+/* --- 页头：保持纯净玻璃拟态，不加主色辉光 ---
+   （2026-09-10 依反馈移除：原双层径向辉光在深色卡上呈弥散光斑，观感不干净） */
+
+/* --- 插件「面板容器」透明化（消除双层贴片与重复标题） --- */
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-section,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-activity,
+#statistics-dashboard .xhhaocom-chartboard-section {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* 外层 section 已有标题，隐藏插件内重复标题与空泛说明 */
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-title-box,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-subtitle {
+  display: none !important;
+}
+
+/* --- 子图表小卡：半透明融入 + hover 主色描边 --- */
+#statistics-dashboard .xhhaocom-chartboard-card,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-card {
+  background: color-mix(in oklab, var(--card-bg) 42%, transparent) !important;
+  border-color: color-mix(in oklab, var(--primary) 13%, transparent) !important;
+  backdrop-filter: blur(10px);
+  border-radius: 14px !important;
+  transition:
+    border-color 0.22s ease,
+    box-shadow 0.22s ease,
+    transform 0.22s ease;
+}
+
+#statistics-dashboard .xhhaocom-chartboard-card:hover,
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-card:hover {
+  border-color: color-mix(in oklab, var(--primary) 34%, transparent) !important;
+  box-shadow: 0 14px 32px -20px
+    color-mix(in oklab, var(--primary) 60%, transparent);
+  transform: translateY(-2px);
+}
+
+/* --- 指标卡：图标与数字统一主色 --- */
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-icon {
+  color: var(--primary) !important;
+}
+
+#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-value {
+  color: var(--primary) !important;
+  letter-spacing: -0.02em;
+}
+
+/* --- 空状态：虚线占位取代实色块 --- */
+#statistics-dashboard .xhhaocom-dataStatistics-v2-activity-empty {
+  background: color-mix(in oklab, var(--primary) 5%, transparent) !important;
+  border: 1px dashed color-mix(in oklab, var(--primary) 26%, transparent) !important;
+  border-radius: var(--radius-large);
+  color: color-mix(in oklab, var(--deep-text) 45%, transparent) !important;
+}
+
+/* --- 图表卡底部说明文字淡化 --- */
+#statistics-dashboard .xhhaocom-chartboard-card__footer {
+  color: color-mix(in oklab, var(--deep-text) 48%, transparent) !important;
 }
