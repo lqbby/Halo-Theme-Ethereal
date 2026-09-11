@@ -18,7 +18,19 @@ import PageHeader from "../components/control/PageHeader.astro";
   description="#{page.wishes.description(${site.title})}"
 >
   <Fragment slot="head">
-    <Canonical path="${singlePage.status.permalink}" />
+    <!--
+      ⚠️⚠️ 必须判空：本页有**两种渲染模式**（见上方注释）——
+        1. 插件内置页（enableBuiltinPage=true，本站即此模式）：插件拦截 /wishes，
+           只注入 pageTitle，**singlePage 恒为 null**；
+        2. Halo 自定义页面（后台选「心愿便签」模板）：注入 singlePage。
+      裸写 ${singlePage.status.permalink} 在模式 1 下会抛
+        TemplateProcessingException: Exception evaluating SpringEL expression: "site.url + p"
+      且因响应已 commit 200 → 页面 **渲染中断在半途**（HTML 被截断），线上回源即 404。
+      回退值用常量 "/wishes"：插件内置页的路由是固定的。
+    -->
+    <Canonical
+      path="${singlePage != null ? singlePage.status.permalink : '/wishes'}"
+    />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <link
       rel="stylesheet"
