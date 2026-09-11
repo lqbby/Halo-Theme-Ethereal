@@ -35,10 +35,11 @@
  *      （对比：`th:if`=3 也早于 `th:with`=4，所以「同标签 th:if 读不到 th:with 变量」
  *        那条陷阱同样成立，两者不矛盾。）
  *
- *   ⚠️⚠️ **绝对不能改成 `<th:block th:with>` 包一层**：Astro 的 HTML 解析器
- *      不认带命名空间前缀的标签，构建直接失败
+ *   ⚠️⚠️ **不能把变量换成 `<th:block th:with>` 外层**：Astro 的 HTML 解析器
+ *      不认带命名空间前缀的标签，直接写会构建失败
  *      `[CompilerError] Expected '>' but found ':'`。
- *      （这也解释了主题里从未用过 `th:block`。）
+ *      （主题里现存的 `th:block` 都是走 `Fragment set:html={字符串}` 注入的，
+ *        见 `src/pages/layout.astro:42-46` —— 绕开解析器的仅此一法，但没必要用在这里。）
  *
  * ⚠️ Astro 侧：要输出**字面**的 `${site.url}`，属性值必须用**普通字符串**
  *    （写成 `` `...` `` 会被 Astro 当 JS 模板字符串解析 → 构建期报错，因为 site 不存在）。
