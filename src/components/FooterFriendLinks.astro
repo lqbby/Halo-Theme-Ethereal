@@ -42,7 +42,8 @@
       </template>
 
       <!-- 组件外壳：脚本就绪后才显示；无 JS 或池子为空时整块保持隐藏。
-           DOM 顺序 = 标题 → 换一批 → 网格：标题与按钮占首行两端，网格整行铺开。
+           首行 = 标题 ── 细线 ── 换一批（细线把两端连起来，避免「标题孤零零 + 按钮孤零零」）；
+           网格从次行起整行铺开。
            ⚠️ 本块只做「填进身份行下方那条原有空白带」，四周间距全靠既有 padding，
               不新增顶部间距、也不改动身份行任何 class。 -->
       <div class="footer-friend-bar" hidden>
@@ -52,9 +53,10 @@
             aria-hidden="true"></span>
           <span th:text="#{footer.friendLinks}">友情链接</span>
         </span>
+        <span class="footer-friend-rule" aria-hidden="true"></span>
         <button
           type="button"
-          class="footer-friend-shuffle btn-regular"
+          class="footer-friend-shuffle"
           th:title="#{footer.friendLinksShuffle}"
           th:aria-label="#{footer.friendLinksShuffle}"
         >

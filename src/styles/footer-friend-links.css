@@ -24,12 +24,26 @@
     color: var(--primary);
   }
 
+  /* 标题与按钮之间的连接细线：把首行两端连成一体，
+     避免「左边一个小标题、右边一个小按钮」各看各的。
+     右端渐隐，呼应页脚的星芒分隔带 */
+  .footer-friend-rule {
+    @apply h-px min-w-3 flex-1;
+    background: linear-gradient(
+      to right,
+      color-mix(in oklab, var(--primary) 28%, transparent),
+      color-mix(in oklab, var(--primary) 6%, transparent)
+    );
+  }
+
   /* 胶囊网格：窄屏 2 列、≥640px 4 列，各两排（即「两排四个」）。
-     用 grid 而非 flex-wrap —— 列宽固定、两侧不参差、每排数量确定；
+     用 grid 保证「每排数量确定、列起点对齐」；
+     justify-items:start 让胶囊**贴着文字宽**，不被拉成等宽空块；
      basis-full 让它独占一行，不与标题/按钮挤同一行 */
   .footer-friend-list {
-    @apply grid basis-full gap-1.5;
+    @apply grid basis-full gap-x-1.5 gap-y-1.5;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: start;
   }
 
   @media (min-width: 640px) {
@@ -38,32 +52,47 @@
     }
   }
 
-  /* 友链胶囊：占满所在网格列；默认描边透明（hover 只变色不位移，整行不抖） */
+  /* 友链胶囊：贴文字宽（grid 里靠 justify-items:start 实现）。
+     底色/描边都取「主色的极淡混合」而不是 --btn-regular-bg ——
+     后者是不透明灰蓝块，压在带纹理的卡片上很闷、且与旁边内容抢注意力。
+     hover 只变色不位移（网格里位移会让整行抖） */
   .footer-friend-chip {
-    @apply inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold text-black/75 transition duration-200 dark:text-white/75;
-    border-color: color-mix(in oklab, var(--primary) 0%, transparent);
-    background-color: var(--btn-regular-bg);
+    @apply inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-black/75 transition duration-200 dark:text-white/75;
+    border-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 7%, transparent);
   }
 
   .footer-friend-chip:hover {
-    border-color: color-mix(in oklab, var(--primary) 38%, transparent);
-    background-color: var(--btn-regular-bg-hover);
+    border-color: color-mix(in oklab, var(--primary) 42%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
     color: var(--primary);
   }
 
   .footer-friend-chip-logo {
-    @apply size-3.5 shrink-0 rounded-sm object-cover;
+    @apply size-3 shrink-0 rounded-[3px] object-cover;
   }
 
+  /* 站名上限：统一截断长度，长名不撑破网格列、短名不显空 */
   .footer-friend-chip-name {
     @apply min-w-0 truncate;
+    max-width: 6.5rem;
   }
 
-  /* 换一批：小号纯图标按钮。刻意做成 28px（小于 36px 的社交图标），
-     位置在标题行右端、与社交图标不同视觉组，避免被误读成「第 4 个图标」；
-     语义由 title / aria-label 承载 */
+  /* 换一批：小号纯图标按钮，与胶囊同一套「极淡主色」语言
+     （相对 36px 的社交图标刻意做小到 28px，且位于标题行、不同视觉组，
+     不会被误读成「第 4 个图标」）；语义由 title / aria-label 承载。
+     不用 btn-regular：它的不透明灰蓝底与旁边淡色胶囊不搭 */
   .footer-friend-shuffle {
-    @apply ml-auto size-7 shrink-0 rounded-lg;
+    @apply size-7 shrink-0 items-center justify-center rounded-md border transition duration-200;
+    border-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 7%, transparent);
+    color: color-mix(in oklab, var(--primary) 78%, transparent);
+  }
+
+  .footer-friend-shuffle:hover {
+    border-color: color-mix(in oklab, var(--primary) 42%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 16%, transparent);
+    color: var(--primary);
   }
 
   .footer-friend-shuffle-icon {
