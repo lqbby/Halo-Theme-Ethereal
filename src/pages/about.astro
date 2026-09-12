@@ -1151,11 +1151,15 @@ import Canonical from "../components/misc/Canonical.astro";
       socials=${theme.config?.sidebar?.profile?.social_media}"
     th:remove="tag"
   >
-    <!-- ================= ① 身份卡 ================= -->
+    <!-- ================= ① 身份卡 =================
+         ⚠️ 本页 cfg = theme.config?.extendPages?.about（页面级作用域），
+         所以「在线状态」等侧栏配置项**不能**写 cfg?.sidebar?.…（永远为 null，
+         1.4.90 正是踩了这条 ⇒ 状态胶囊恒不渲染），必须走完整路径
+         theme.config?.sidebar?.profile?.statusSettings（同 socials 的写法）。 -->
     <section
       class="card-base about-hero-card onload-animation mb-4"
       th:with="ident=${cfg?.identity},
-        sts=${cfg?.sidebar?.profile?.statusSettings},
+        sts=${theme.config?.sidebar?.profile?.statusSettings},
         hasPrimary=${!#strings.isEmpty(ident?.actionPrimaryLabel) and !#strings.isEmpty(ident?.actionPrimaryUrl)},
         hasSecondary=${!#strings.isEmpty(ident?.actionSecondaryLabel) and !#strings.isEmpty(ident?.actionSecondaryUrl)}"
     >
