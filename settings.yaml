@@ -2380,38 +2380,35 @@ spec:
             - $formkit: group
               name: activity
               label: 最近动态
+              help: "数据自动取自本站最新文章 + 最新瞬间，无需手填；客户端按发布时间归并成一条时间线"
               children:
+                - $formkit: switch
+                  name: enable
+                  label: 显示「最近的提交」
+                  value: true
                 - $formkit: text
                   name: subtitle
                   label: 标题下小字
                   value: "写下来的，才会留下"
                   help: "留空则不显示"
-                - $formkit: array
-                  name: items
-                  label: 动态条目
-                  help: "建议 3~5 条，最新的在上"
-                  children:
-                    - $formkit: text
-                      name: type
-                      label: 类型
-                      value: "文章"
-                      help: "如：文章 / 系统"
-                    - $formkit: text
-                      name: title
-                      label: 标题
-                    - $formkit: text
-                      name: link
-                      label: 链接
+                - $formkit: number
+                  name: count
+                  label: 各取几条
+                  value: 5
+                  min: 2
+                  max: 10
+                  step: 1
+                  help: "文章、瞬间各取这么多条后合并排序。取多了卡片会变长"
             - $formkit: textarea
               name: trajectory
               label: 技术轨迹
               value: ""
               help: "每行一个，如 React"
-            - $formkit: textarea
-              name: contact
-              label: 联系方式
-              value: ""
-              help: "每行一条，格式：名称|链接|图标（图标可省略）。图标请从下面这组里挑选并复制（已随主题打包）：icon-[fa6-brands--qq] icon-[mdi--github] icon-[fa6-brands--bilibili] icon-[material-symbols--mail-rounded] icon-[mdi--wechat] icon-[fa6-brands--telegram] icon-[fa6-brands--x-twitter] icon-[fa6-brands--weibo] icon-[material-symbols--rss-feed-rounded] icon-[material-symbols--link-rounded] 。用其它图标不会被渲染。"
+            - $formkit: switch
+              name: contactEnable
+              label: 显示「保持联系」
+              value: true
+              help: "数据取自「侧边栏 → 个人简介小组件 → 社交媒体」，在那边增删即可，这里不用重复维护"
             # ---- 我的朋友（数据取自本站友情链接，随机展示）----
             - $formkit: switch
               name: friendsEnable
@@ -2462,11 +2459,22 @@ spec:
               name: footerMotto
               label: 页脚一句话
               value: ""
-            - $formkit: textarea
-              name: footerLinks
+            - $formkit: array
+              name: footerLinkItems
               label: 页脚链接
-              value: ""
-              help: "每行一条，格式：名称|链接，建议 2 条"
+              help: "建议 2 条；名称与链接分开填，不用再写「名称|链接」"
+              value:
+                - label: GitHub
+                  url: https://github.com/lqbby
+                - label: 博客
+                  url: https://www.lqbby.com
+              children:
+                - $formkit: text
+                  name: label
+                  label: 名称
+                - $formkit: text
+                  name: url
+                  label: 链接
         - $formkit: group
           name: blogChangelog
           label: 博客更新日志页面

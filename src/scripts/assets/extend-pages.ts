@@ -1,10 +1,13 @@
 // @ts-nocheck —— 与 timeline.js 同款：配合模板里 th:data-* 多行字段在客户端渲染。
 // 用于「关于我」与「博客更新日志」两个自定义页面：模板把多行文本写进 data-lines，
-// 这里按行拆分后生成 chips / links / paragraphs / entries / tags / stackTags /
-// contacts / projTech / stubRows。
+// 这里按行拆分后生成 chips / paragraphs / entries / tags / stackTags /
+// projTech / stubRows。
 //
 // 为什么要客户端渲染：settings.yaml 里这些字段是 textarea（每行一条），
 // 而 Thymeleaf 侧没有顺手的分行迭代；timeline.js 已确立同一做法。
+//
+// 「关于我」页的「保持联系」「页脚链接」已改为结构化设置 / 直接读侧栏社交，
+// 由模板服务端渲染，不再经过本文件。
 //
 // Swup 换页由 SwupScriptsPlugin 重执行（DOM 已替换），data-rendered 守卫仅防重复。
 (function () {
@@ -35,12 +38,6 @@
   // 「博客更新日志」页的标签胶囊（圆角全包），与「关于我」的 .about-chip 不同
   var CLS_TAG =
     "rounded-full border border-(--line-color) px-2.5 py-1 text-xs text-75 transition-colors hover:border-(--primary) hover:text-(--primary)";
-  var CLS_LINK =
-    "rounded-md bg-(--btn-regular-bg) px-3 py-1.5 text-sm font-bold text-(--btn-content) transition-colors hover:bg-(--btn-regular-bg-hover) hover:text-(--primary)";
-  // 各卡右侧的外链箭头（= 参考站 .project-card__arrow / .activity-arrow /
-  // .profile-connect-arrow）。类名已登记在 global.css 的 @source inline 里。
-  var CLS_ARROW = "icon-[material-symbols--arrow-outward-rounded]";
-
   // 「服务器状态」四行的图标 = 参考站同一组，按数据源字段固定；
   // 必须是**完整字面量**类名，候选集已由 global.css 的 @source inline 登记。
   var STUB_ICONS = {
@@ -72,19 +69,6 @@
         var p = document.createElement("p");
         p.textContent = line;
         frag.appendChild(p);
-      });
-    } else if (kind === "links") {
-      lines.forEach(function (line) {
-        var pair = splitPair(line);
-        var a = document.createElement("a");
-        a.className = CLS_LINK;
-        a.textContent = pair.label;
-        if (pair.href) {
-          a.href = pair.href;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-        }
-        frag.appendChild(a);
       });
     } else if (kind === "entries") {
       lines.forEach(function (line, i) {
@@ -144,45 +128,6 @@
         var i = document.createElement("i");
         i.textContent = line;
         frag.appendChild(i);
-      });
-    } else if (kind === "contacts") {
-      // 「保持联系」= 参考站 .profile-connect-list：
-      // 单列列表，每行「图标 | 名称 | 外链箭头」，无边框、次要灰字。
-      // 名称|链接|图标类名 —— 图标第三段写的是**完整** iconify 类名
-      // （如 icon-[mdi--github]），候选类名已写在 settings.yaml 帮助文本里
-      // -> Tailwind 会扫到并生成，因此这里直接透传类名即可
-      // （不要在本文件里拼接类名，那样扫不到）。
-      lines.forEach(function (line) {
-        var parts = line.split("|");
-        var name = (parts[0] || "").trim();
-        var href = (parts[1] || "").trim();
-        var icon = (parts[2] || "").trim();
-        if (!name) return;
-
-        var a = document.createElement("a");
-        a.className = "about-connect";
-        if (href) {
-          a.href = href;
-          if (href.indexOf("mailto:") !== 0) {
-            a.target = "_blank";
-            a.rel = "noopener noreferrer";
-          }
-        }
-        var ic = document.createElement("span");
-        ic.className = "about-connect-icon" + (icon ? " " + icon : "");
-        ic.setAttribute("aria-hidden", "true");
-
-        var nm = document.createElement("span");
-        nm.textContent = name;
-
-        var ar = document.createElement("span");
-        ar.className = "about-connect-arrow " + CLS_ARROW;
-        ar.setAttribute("aria-hidden", "true");
-
-        a.appendChild(ic);
-        a.appendChild(nm);
-        a.appendChild(ar);
-        frag.appendChild(a);
       });
     } else if (kind === "stubRows") {
       // 「服务器状态」指标行 = 参考站 .server-stat：
@@ -401,6 +346,31 @@
     });
   }
 
+  // 「最近的提交」= 最新文章 + 最新瞬间两组由服务端直出的行，这里按 data-time
+  // 归并成一条时间线。时间戳都是 ISO-8601（同为 UTC 口径），取前 19 位（精确到秒）
+  // 做**字典序**比较即等价于时间序 —— 既避开 Date.parse 对「9 位小数秒」的兼容性坑，
+  // 也不用先解析。无 JS 时行照样完整可见（只是按「文章在前、瞬间在后」两组排），
+  // 属于渐进增强；Swup 换页由 init 重新触发（data-sorted 守卫防重复）。
+  function sortTimeline() {
+    var box = document.querySelector(
+      "[data-activity-timeline]:not([data-sorted])",
+    );
+    if (!box) return;
+    box.setAttribute("data-sorted", "true");
+
+    var rows = Array.prototype.slice.call(box.children);
+    if (rows.length < 2) return;
+    rows.sort(function (a, b) {
+      var ka = String(a.getAttribute("data-time") || "").slice(0, 19);
+      var kb = String(b.getAttribute("data-time") || "").slice(0, 19);
+      if (ka === kb) return 0;
+      return ka < kb ? 1 : -1;
+    });
+    rows.forEach(function (el) {
+      box.appendChild(el);
+    });
+  }
+
   function init() {
     var nodes = document.querySelectorAll("[data-lines]:not([data-rendered])");
     Array.prototype.slice.call(nodes).forEach(function (el) {
@@ -408,6 +378,7 @@
       render(el);
     });
     shuffleFriends();
+    sortTimeline();
   }
 
   if (document.readyState === "loading") {
