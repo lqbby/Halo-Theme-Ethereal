@@ -8,6 +8,8 @@
 // 两栏按**容器宽度**分档（≥880px 才分栏），不跟视口走 —— 见 .about-cols-wrap。
 // 多行字段（正文/标签/联系方式/监控指标）由 extend-pages.js 在客户端渲染。
 // 友链取自 Halo 友链插件的 groups（按需随机展示 N 个）。
+// 服务器状态：配置了「数据源地址」时由 extend-pages.js 拉取只读 JSON 回填，
+//   未配置（或取不到）时保持占位（— / 0%），不伪造数据。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 ---
@@ -462,7 +464,7 @@ import Canonical from "../components/misc/Canonical.astro";
         opacity: 0.6;
       }
 
-      /* ================= 服务器状态（占位） ================= */
+      /* ================= 服务器状态 ================= */
       .about-stub-chip {
         font-size: 11px;
         font-weight: 700;
@@ -470,6 +472,32 @@ import Canonical from "../components/misc/Canonical.astro";
         border-radius: 999px;
         color: color-mix(in oklab, currentColor 55%, transparent);
         background: var(--btn-regular-bg);
+      }
+      /* 取到真实数据：标签转为「在线」态（主题色 + 呼吸点） */
+      .about-stub-chip--live {
+        color: var(--primary);
+        background: color-mix(in oklab, var(--primary) 13%, transparent);
+      }
+      .about-stub-chip--live::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 5px;
+        vertical-align: 1px;
+        border-radius: 50%;
+        background: #10b981;
+        box-shadow: 0 0 0 3px color-mix(in oklab, #10b981 20%, transparent);
+        animation: about-stub-pulse 2.4s ease-in-out infinite;
+      }
+      @keyframes about-stub-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
       }
       .about-stub-chip--end {
         margin-left: auto;
@@ -501,11 +529,23 @@ import Canonical from "../components/misc/Canonical.astro";
         height: 100%;
         border-radius: 999px;
         background: var(--primary);
+        transition: width 0.6s ease;
       }
+      /* 需给「值」留出对齐宽度，避免 100% ↔ 9% 切换时抖动 */
       .about-stub-val {
         flex-shrink: 0;
+        min-width: 42px;
         font-variant-numeric: tabular-nums;
+        text-align: right;
         opacity: 0.7;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .about-stub-chip--live::before {
+          animation: none;
+        }
+        .about-stub-bar > i {
+          transition: none;
+        }
       }
     </style>
   </Fragment>
@@ -936,7 +976,8 @@ import Canonical from "../components/misc/Canonical.astro";
             <p class="about-card-foot">欢迎来串门，一起交流。</p>
           </section>
 
-          <!-- 服务器状态（占位，数据待接入） -->
+          <!-- 服务器状态：数据源见「主题设置 → 关于我 → 服务器状态」的「数据源地址」；
+               未配置数据源时保持占位（— / 0%），配置后由 extend-pages.js 拉取并回填 -->
           <section
             class="card-base onload-animation"
             th:if="${cfg?.serverEnable != false and cfg?.serverRows != null and !#strings.isEmpty(cfg?.serverRows)}"
@@ -957,9 +998,11 @@ import Canonical from "../components/misc/Canonical.astro";
             <div
               class="flex flex-col gap-4"
               th:data-lines="${cfg?.serverRows}"
+              th:data-server-url="${cfg?.serverDataUrl}"
               data-lines-render="stubRows"
             >
             </div>
+            <p class="about-card-foot" data-server-foot hidden></p>
           </section>
         </div>
       </div>

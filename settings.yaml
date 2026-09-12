@@ -2402,7 +2402,7 @@ spec:
               label: 卡片底部小字
               value: "各自折腾，互相串门。"
               help: "留空则不显示"
-            # ---- 服务器状态（当前为占位展示，数据待接入）----
+            # ---- 服务器状态 ----
             - $formkit: switch
               name: serverEnable
               label: 显示「服务器状态」
@@ -2411,12 +2411,17 @@ spec:
               name: serverBadge
               label: 状态小标签
               value: "待接入"
-              help: "标题右侧小圆标；留空则不显示"
+              help: "标题右侧小圆标；取到数据后会被数据源里的状态文案替换，留空则自动生成"
             - $formkit: textarea
               name: serverRows
               label: 监控指标
               value: "处理器\n内存\n存储"
-              help: "每行一个指标名"
+              help: "每行一个指标名；也可写「名称|cpu」的格式与数据源字段对应（cpu / mem / disk），不写则按顺序对应"
+            - $formkit: text
+              name: serverDataUrl
+              label: 数据源地址
+              value: ""
+              help: "只读 JSON 的地址，留空则保持占位（— / 0%）。JSON 形状：{status: 状态文案, updatedText: 更新时间, uptimeDays: 运行天数, items: [{key, label, percent, text, detail}]}"
             - $formkit: text
               name: footerEyebrow
               label: 页脚小标题

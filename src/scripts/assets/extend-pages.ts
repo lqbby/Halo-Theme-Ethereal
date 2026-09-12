@@ -149,7 +149,8 @@
         frag.appendChild(a);
       });
     } else if (kind === "stubRows") {
-      // 「服务器状态」占位行：每行一个指标名，进度条先留 0%
+      // 「服务器状态」指标行：每行一个指标名（可写 "名称|key" 指定数据字段），
+      // 未配置数据源时进度条留 0%、数值显示 —（诚实占位）。
       lines.forEach(function (line) {
         var row = document.createElement("div");
         row.className = "about-stub-row";
@@ -158,7 +159,8 @@
         head.className = "about-stub-head";
 
         var label = document.createElement("span");
-        label.textContent = line;
+        var sep = line.indexOf("|");
+        label.textContent = sep >= 0 ? line.slice(0, sep).trim() : line;
 
         var bar = document.createElement("span");
         bar.className = "about-stub-bar";
@@ -187,6 +189,122 @@
     }
 
     el.appendChild(frag);
+    if (kind === "stubRows") applyServerStatus(el);
+  }
+
+  // ============ 服务器状态：拉取只读 JSON 并回填（每 60s 一次） ============
+  // 数据源来自主题设置「服务器状态 → 数据源地址」；为空则完全不发请求，保持占位。
+  // ⚠️ 必须带 cache-buster（?t=时间戳）：EdgeOne 的缓存键忽略 Vary: Origin，
+  //    缓存命中那一份响应里**没有** Access-Control-Allow-Origin，浏览器会直接
+  //    拒读；带唯一查询串强制 MISS 回源才能拿到 CORS 头。
+  function applyServerStatus(el) {
+    var url = (el.getAttribute("data-server-url") || "").trim();
+    if (!url) return;
+
+    var section = el.closest("section") || el.parentNode;
+
+    function load() {
+      // Swup 换页后旧节点会被摘下 -> 顺手停掉定时器
+      if (!document.contains(el)) {
+        if (el.__serverTimer) clearInterval(el.__serverTimer);
+        return;
+      }
+      var bust = (url.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
+      fetch(url + bust, { credentials: "omit", cache: "no-store" })
+        .then(function (res) {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then(function (data) {
+          paintServerStatus(el, section, data);
+        })
+        .catch(function () {
+          markServerOffline(el, section);
+        });
+    }
+
+    if (el.__serverTimer) clearInterval(el.__serverTimer);
+    load();
+    el.__serverTimer = setInterval(load, 60000);
+  }
+
+  // 行与数据项的对应：行内写了 "名称|key" 就按 key 找，否则按顺序取第 i 项
+  function findServerItem(items, key, index) {
+    if (!items || !items.length) return null;
+    if (key) {
+      for (var i = 0; i < items.length; i++) {
+        if (items[i] && items[i].key === key) return items[i];
+      }
+      return null;
+    }
+    return items[index] || null;
+  }
+
+  function paintServerStatus(el, section, data) {
+    var items = (data && data.items) || [];
+    var lines = splitLines(el.getAttribute("data-lines"));
+    var rows = el.querySelectorAll(".about-stub-row");
+
+    Array.prototype.slice.call(rows).forEach(function (row, i) {
+      var raw = lines[i] || "";
+      var sep = raw.indexOf("|");
+      var key = sep >= 0 ? raw.slice(sep + 1).trim() : "";
+      var item = findServerItem(items, key, i);
+      if (!item) return;
+
+      var pct = parseFloat(item.percent);
+      if (isNaN(pct)) pct = 0;
+      if (pct < 0) pct = 0;
+      if (pct > 100) pct = 100;
+
+      var fill = row.querySelector(".about-stub-bar > i");
+      var val = row.querySelector(".about-stub-val");
+      if (fill) fill.style.width = pct + "%";
+      if (val) val.textContent = item.text || pct + "%";
+
+      // 明细（核心数/负载、已用容量…）放 title，不挤占设计版式
+      if (item.detail || item.label) {
+        row.setAttribute(
+          "title",
+          (item.label || "") + (item.detail ? "：" + item.detail : ""),
+        );
+      }
+    });
+
+    // 状态标签：用户留空时补一个；有真实数据就切成「在线」态
+    var chip = section.querySelector(".about-stub-chip");
+    if (!chip) {
+      chip = document.createElement("span");
+      chip.className = "about-stub-chip about-stub-chip--end";
+      var head = section.querySelector(".about-card-head");
+      if (head) head.appendChild(chip);
+    }
+    if (chip && data && data.status) {
+      chip.textContent = data.status;
+      chip.classList.add("about-stub-chip--live");
+    }
+
+    // 脚注：更新于 / 运行时长
+    var foot = section.querySelector("[data-server-foot]");
+    if (foot && data) {
+      var bits = [];
+      if (data.updatedText) bits.push("更新于 " + data.updatedText);
+      if (data.uptimeDays) bits.push("已运行 " + data.uptimeDays + " 天");
+      if (bits.length) {
+        foot.textContent = bits.join(" · ");
+        foot.removeAttribute("hidden");
+      }
+    }
+    el.setAttribute("data-server-state", "live");
+  }
+
+  function markServerOffline(el, section) {
+    var foot = section.querySelector("[data-server-foot]");
+    if (foot) {
+      foot.textContent = "数据源暂时取不到，稍后自动重试";
+      foot.removeAttribute("hidden");
+    }
+    el.setAttribute("data-server-state", "offline");
   }
 
   // 「我的朋友」随机展示：服务端把全部友链渲染进 DOM（无 JS 时仍完整可见），
