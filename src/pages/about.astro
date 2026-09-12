@@ -41,34 +41,25 @@ import Canonical from "../components/misc/Canonical.astro";
         --content-meta: color-mix(in srgb, var(--deep-text) 68%, transparent);
       }
 
-      /* ================= ① 卡级外壳 ================= */
+      /* ================= ① 卡级外壳 =================
+         ⚠️ 这里刻意**不加边框、不加阴影**（2026-09-12 LQ 明确要求）：
+         早前一度照参考站给这几张卡加了 1px 主色描边 + `box-shadow: 0 .7rem 1.8rem`，
+         但 LQ 认为「外面包一圈」不符合本主题的设计语言 —— 卡片应当直接融进页面背景，
+         只靠间距分隔，不加壳。改动前勿擅自补回（参考站有 ≠ 本主题要跟）。 */
       .about-hero-card,
       .about-col-main > section,
       .about-col-side > section,
       .about-footer-card {
-        border: 1px solid
-          color-mix(in srgb, var(--primary) 14%, var(--line-divider));
-        box-shadow: 0 0.7rem 1.8rem #3a5b890f;
+        border: none;
+        box-shadow: none;
       }
 
-      /* ================= ② 页头：身份卡 ================= */
+      /* ================= ② 页头：身份卡 =================
+         卡面保持纯净：不加顶部柔光（早前的 ::after 渐隐高光已于 2026-09-12 移除）。 */
       .about-hero-card {
         position: relative;
         overflow: hidden;
         padding: clamp(1.1rem, 2.5vw, 1.65rem);
-      }
-      /* 顶部一层主题色柔光，呼应个人主页的「身份卡」气质 */
-      .about-hero-card::after {
-        content: "";
-        position: absolute;
-        inset: 0 0 auto;
-        height: 7rem;
-        background: linear-gradient(
-          to bottom,
-          color-mix(in oklab, var(--primary) 14%, transparent),
-          transparent
-        );
-        pointer-events: none;
       }
       /* 头像 = 主色描边相框 + 内层留白 + 圆角图（对齐参考站 .profile-avatar） */
       .about-avatar {
@@ -204,11 +195,11 @@ import Canonical from "../components/misc/Canonical.astro";
         gap: 0.25rem;
         min-height: 3rem;
         overflow-x: auto;
-        border: 1px solid
-          color-mix(in srgb, var(--primary) 16%, var(--line-divider));
+        /* 与卡片一致：不加边框 / 阴影，只靠底色与下方 2px 主色下划线区分（2026-09-12 去壳） */
+        border: none;
         border-radius: var(--radius-large);
         background: color-mix(in srgb, var(--card-bg) 94%, transparent);
-        box-shadow: 0 0.35rem 1rem #3a5b890a;
+        box-shadow: none;
         scrollbar-width: none;
       }
       .about-subnav::-webkit-scrollbar {
