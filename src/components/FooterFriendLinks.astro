@@ -182,12 +182,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
     display: none;
   }
 
-  /* ---- 标题行 ---- */
+  /* ---- 标题行 ----
+     三行共用同一条竖直中轴（head / list / more 全部居中），
+     视觉上成为一个整体而非三块拼贴。 */
   .hbf-head {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
+    margin-bottom: 0.875rem;
   }
   .hbf-title {
     font-size: 0.95rem;
@@ -247,6 +250,8 @@ const { compact = false } = Astro.props as { compact?: boolean };
     font-weight: 700;
     background: var(--btn-regular-bg);
     color: var(--btn-content);
+    /* 与标题间距略大一点，避免「申请友链 14」被读成一个词组 */
+    margin-left: 0.125rem;
   }
 
   /* ---- 卡片列表 ---- */
@@ -256,7 +261,8 @@ const { compact = false } = Astro.props as { compact?: boolean };
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    margin-top: 0.875rem;
+    /* 与标题行的间距由 .hbf-head 的 margin-bottom 统一给出，
+       这里不再写 margin-top（否则两处叠加、间距翻倍）。 */
     width: 100%;
   }
   .hbf-item {
@@ -295,12 +301,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
         color-mix(in oklab, var(--primary) 18%, transparent);
     }
   }
+  /* logo 统一为正圆：源图长宽比五花八门（方形 / 长条 / 椭圆），
+     统一裁成圆形才不会出现「有的圆有的扁」的杂乱感。
+     圆形比圆角方块更弱化自身轮廓，让一排胶囊的「文字」成为视觉主角。 */
   .hbf-logo,
   .hbf-logo-ph {
     flex: 0 0 auto;
     width: 1.125rem;
     height: 1.125rem;
-    border-radius: 0.375rem;
+    border-radius: 9999px;
     background: var(--btn-regular-bg);
   }
   .hbf-logo {
@@ -320,18 +329,24 @@ const { compact = false } = Astro.props as { compact?: boolean };
     white-space: nowrap;
   }
 
-  /* ---- 「更多」：被 max_items 截断时显示在卡片下方，跳转完整友链页 ---- */
+  /* ---- 「更多」：被 max_items 截断时显示，跳转完整友链页 ----
+     设计：与上两行共用竖直中轴（standalone 居中切线自居中；
+     compact 下由 flex 列 + align-items 控制）。
+     形态：虚线胶囊（与「申请友链」实心胶囊构成同族 hierarchy），
+     上间距略小以体现与胶囊行的归属关系，而非独立一块。 */
   .hbf-more {
-    margin-top: 0.75rem;
-    text-align: center;
+    display: flex;
+    justify-content: center;
+    margin-top: 0.625rem;
   }
   .hbf-more-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    gap: 0.1875rem;
     min-width: 3.5rem;
     height: 1.75rem;
-    padding: 0;
+    padding: 0 0.5rem;
     border: 1px dashed color-mix(in oklab, var(--primary) 32%, transparent);
     border-radius: 9999px;
     background: transparent;
@@ -350,16 +365,21 @@ const { compact = false } = Astro.props as { compact?: boolean };
     border-color: color-mix(in oklab, var(--primary) 55%, transparent);
     color: var(--primary);
   }
+  /* 箭头图标：悬停时轻微下移，暗示「向下/进入更多」 */
   .hbf-more-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 1rem;
     height: 1rem;
+    transition: transform 0.2s ease;
   }
   .hbf-more-icon svg {
     width: 100%;
     height: 100%;
+  }
+  .hbf-more-btn:hover .hbf-more-icon {
+    transform: translateY(1px);
   }
 
   /* ---- 键盘焦点可见性：与主题其它交互元素一致（photos 页同款 outline） ---- */
@@ -418,7 +438,6 @@ const { compact = false } = Astro.props as { compact?: boolean };
   .hbf-compact .hbf-list {
     justify-content: flex-start;
     gap: 0.375rem;
-    margin-top: 0.5rem;
   }
   .hbf-compact .hbf-item {
     height: 1.75rem;
@@ -432,14 +451,14 @@ const { compact = false } = Astro.props as { compact?: boolean };
   .hbf-compact .hbf-logo-ph {
     width: 1rem;
     height: 1rem;
-    border-radius: 0.3125rem;
+    border-radius: 9999px;
   }
   .hbf-compact .hbf-more {
+    justify-content: flex-start;
     margin-top: 0.5rem;
-    text-align: left;
   }
-  /* 卡片内不再保留纵向大留白（standalone 版的 margin-top 是为独立块与分隔线拉开距离） */
+  /* 卡片内不再保留纵向大留白（standalone 版的 margin-bottom 是为独立块与列表拉开距离） */
   .hbf-compact .hbf-head {
-    margin-top: 0;
+    margin-bottom: 0.5rem;
   }
 </style>
