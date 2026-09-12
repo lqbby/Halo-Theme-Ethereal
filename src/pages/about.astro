@@ -1092,7 +1092,7 @@ import Canonical from "../components/misc/Canonical.astro";
       aboutMoments=${momentFinder?.list({size: cfg?.activity?.count ?: 5})?.items},
       aboutPostCount=${aboutPosts != null ? #lists.size(aboutPosts) : 0},
       aboutMomentCount=${aboutMoments != null ? #lists.size(aboutMoments) : 0},
-      groups=${linkFinder != null ? linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]] : null}"
+      groups=${(pluginFinder == null or !pluginFinder.available('PluginLinks') or linkFinder == null) ? null : linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]]}"
     th:remove="tag"
   >
     <!-- ================= ① 身份卡 ================= -->
@@ -1454,14 +1454,14 @@ import Canonical from "../components/misc/Canonical.astro";
               <li
                 class="about-activity"
                 th:each="p : ${aboutPosts}"
-                th:data-time="${p.spec.publishTime}"
+                th:data-time="${p?.spec?.publishTime}"
               >
                 <span class="about-activity-marker" aria-hidden="true"></span>
                 <span class="about-activity-kind">文章</span>
                 <a
                   class="about-activity-link"
-                  th:href="@{${p.status.permalink}}"
-                  th:text="${p.spec.title}">标题</a
+                  th:href="@{${p?.status?.permalink}}"
+                  th:text="${p?.spec?.title}">标题</a
                 >
                 <span
                   class="about-activity-arrow icon-[material-symbols--arrow-outward-rounded]"
@@ -1470,17 +1470,17 @@ import Canonical from "../components/misc/Canonical.astro";
               <li
                 class="about-activity"
                 th:each="m : ${aboutMoments}"
-                th:with="momentText=${m.spec.content != null and m.spec.content.raw != null
-                    ? m.spec.content.raw.replaceAll('<[^>]*>', ' ').trim()
+                th:with="momentText=${m?.spec?.content?.raw != null
+                    ? m?.spec?.content?.raw.replaceAll('<[^>]*>', ' ').trim()
                     : ''},
                   momentLabel=${momentText != null and !#strings.isEmpty(momentText) ? momentText : '分享了一条瞬间'}"
-                th:data-time="${m.spec.releaseTime}"
+                th:data-time="${m?.spec?.releaseTime}"
               >
                 <span class="about-activity-marker" aria-hidden="true"></span>
                 <span class="about-activity-kind">瞬间</span>
                 <a
                   class="about-activity-link"
-                  th:href="@{/moments/{name}(name=${m.metadata.name})}"
+                  th:href="@{/moments/{name}(name=${m?.metadata?.name})}"
                   th:text="${momentLabel}">内容</a
                 >
                 <span

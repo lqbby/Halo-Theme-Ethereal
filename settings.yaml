@@ -473,7 +473,7 @@ spec:
             darkPosition: "center"
             credit:
               enable: false
-              text: "© 2022 Ethereal"
+              text: ""
               url: ""
           children:
             - $formkit: select
@@ -691,8 +691,8 @@ spec:
                 - $formkit: text
                   name: text
                   label: 文字
-                  value: "© 2022 Ethereal"
-                  help: "显示的文字"
+                  value: ""
+                  help: "显示在 banner 上的版权文字。留空时自动用「© 当前年份 站点名」兜底"
                 - $formkit: url
                   name: url
                   label: 链接

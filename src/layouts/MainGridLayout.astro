@@ -399,7 +399,8 @@ const {
           ></span>
           <span
             class="text-xs text-white/75"
-            th:text="${theme.config?.style?.bannerStyle?.credit?.text}"></span>
+            th:text="${!#strings.isEmpty(theme.config?.style?.bannerStyle?.credit?.text) ? theme.config?.style?.bannerStyle?.credit?.text : '© ' + #dates.year(#dates.createNow()) + ' ' + site.title}"
+          ></span>
           <span
             class="icon-[fa6-solid--arrow-up-right-from-square] absolute right-4 text-[0.75rem] text-(--primary) opacity-0 transition group-hover:opacity-100"
           ></span>
