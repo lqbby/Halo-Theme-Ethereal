@@ -41,6 +41,13 @@ spec:
           value: true
           help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
         - $formkit: switch
+          name: cardShell
+          id: mods_cardShell
+          key: mods_cardShell
+          label: 卡片外壳（描边 + 暗晕）
+          value: false
+          help: "给全站卡片套一层外壳：1px 淡蓝主色描边 + 卡片外侧一圈柔和暗晕，让卡片从页面背景中浮起来（即早前「关于我」页的那种卡片效果）。关闭则维持无壳的纯净外观。需总开关「启用魔改」开启才生效；访客也可在样式切换面板里自行开关"
+        - $formkit: switch
           name: menuFullRowExpand
           id: mods_menuFullRowExpand
           key: mods_menuFullRowExpand

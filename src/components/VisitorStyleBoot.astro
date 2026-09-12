@@ -76,6 +76,16 @@
       );
     }
 
+    // 卡片外壳（1px 主色描边 + 外侧暗晕）：同宽屏/纹理，独立于卡片样式，
+    // 访客偏好覆盖服务端 th:classappend。
+    var cs = storageGet("cardShell");
+    if (cs != null) {
+      document.documentElement.classList.toggle(
+        "mods-card-shell",
+        cs === "true",
+      );
+    }
+
     // 透明设置（全屏透明模式）：覆盖 body 内联变量
     if (enable && on(d.visitorTransparent)) {
       var num = function (key) {

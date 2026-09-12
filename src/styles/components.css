@@ -78,6 +78,55 @@
     @apply shadow-none;
   }
 
+  /* 魔改：卡片外壳 —— 1px 淡蓝主色描边 + 卡片外侧一圈柔和暗晕
+     （即 1.4.73「关于我」页那套卡片效果的全站版；1.4.76 曾从关于我页移除，
+     现改为由后台/访客开关按需全站启用，默认关）。
+     仅 <html class="mods-card-shell"> 时生效 → 关闭时完全回到无壳外观（零副作用）。
+
+     ⚠️ 为何用 outline 而不是 border：
+       1) 瀑布流（masonry）下 post-list-layout.js 会把 .post-card-item 绝对定位并
+          写死行内 width/height，border 会改变盒模型尺寸、与 JS 算出的高度互相干扰；
+       2) 上游 .btn-card-outline 已用 border，此处若也用 border 会互相覆盖；
+       3) outline 不参与布局，且可用 outline-offset 制造「描边浮在卡片外沿」的观感。
+     ⚠️ 为何描边 + 暗晕都挂在卡片自身而不是外层 wrapper：全站 77 处 .card-base
+       散落在各页面，无统一 wrapper；只在卡片自身加 shadow 即可获得「浮起」观感。
+
+     配色：描边 = 主色 14% 混入分隔线色（与关于我页原值一致，随主题色相联动）；
+           暗晕 = #3a5b89（冷蓝）8% 透明度、向下偏移 0.7rem、模糊 1.8rem，
+           是「暗晕」而非纯黑阴影，避免在浅色卡片下显脏。 */
+  :root.mods-card-shell .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+  :root.mods-card-shell
+    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
+      .bg-\(--primary\)
+    ),
+  :root.mods-card-shell .float-panel {
+    outline: 1px solid
+      color-mix(in srgb, var(--primary) 14%, var(--line-divider));
+    outline-offset: -1px;
+    box-shadow: 0 0.7rem 1.8rem #3a5b890f;
+  }
+
+  /* 暗色下：描边提亮一点才看得见（暗底上 14% 主色几乎不可辨），
+     暗晕改用纯黑低透明度——冷蓝阴影在深底上会显灰。 */
+  :root.dark.mods-card-shell
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+  :root.dark.mods-card-shell
+    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
+      .bg-\(--primary\)
+    ),
+  :root.dark.mods-card-shell .float-panel {
+    outline-color: color-mix(in srgb, var(--primary) 26%, var(--line-divider));
+    box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 0.22);
+  }
+
+  /* 置顶卡片优先：置顶自带的 outline 环（PostList.astro，特异性同级）不能被
+     卡片外壳的描边顶掉。本块在全局样式里、置顶规则在页面级样式里且加载更晚，
+     故置顶天然胜出；此处仅把暗晕改成主色调，让置顶卡在外壳模式下仍可辨识。
+     ⚠️ 不重复声明 outline —— 交给 PostList.astro，避免两处维护同一语义。 */
+  :root.mods-card-shell #post-list-container .post-card.is-pinned {
+    box-shadow: 0 2px 18px color-mix(in srgb, var(--primary) 22%, transparent);
+  }
+
   /* 标签胶囊（全站统一）：颜色跟随标签配置 tag.spec.color（由 th:style 注入
      color/background/border），hover 上浮 + 同色光晕；无颜色时回退主题色。
      根因历史：① 组件 class 上的 Tailwind `hover:-translate-y-0.5`（utilities 层）

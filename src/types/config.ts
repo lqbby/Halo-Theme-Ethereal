@@ -10,6 +10,27 @@ export interface ThemeConfig {
   footer: Footer;
   links: Links;
   external_link: ExternalLink;
+  /** 魔改开关（「启用魔改」总开关 + 各项魔改） */
+  mods?: ModsConfig;
+}
+
+/** 魔改开关组 */
+export interface ModsConfig {
+  /** 总开关。关闭则该组全部魔改失效，回到上游原版行为 */
+  enable?: boolean;
+  /** 卡片纹理（细纹理背景） */
+  cardPattern?: boolean;
+  /** 纹理淡化程度 0.01~0.10 */
+  cardPatternOpacity?: number;
+  /** 宽屏布局（主容器 112rem） */
+  pageWidth?: boolean;
+  /**
+   * 卡片外壳：全站卡片加 1px 淡蓝主色描边 + 外侧柔和暗晕
+   * （即 1.4.73「关于我」页那套卡片效果）。默认关。
+   */
+  cardShell?: boolean;
+  /** 移动端菜单整行展开 */
+  menuFullRowExpand?: boolean;
 }
 
 /** 扩展页面设置：朋友圈 / 时间轴 / 技能（后台未配置的子组可能缺失，均视为可选） */

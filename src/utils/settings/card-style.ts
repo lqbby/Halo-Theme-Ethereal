@@ -87,17 +87,50 @@ export function resetCardPattern(): void {
   setCardPattern(getDefaultCardPattern());
 }
 
+/* ── 卡片外壳（魔改：1px 主色描边 + 外侧暗晕的全站开关） ── */
+
+// 后台默认值受总开关与 cardShell 门控（与 Layout.astro 服务端类挂载同源）。
+// ConfigCarrier 暴露的是 data-card-shell-default（dataset.cardShellDefault）。
+export function getDefaultCardShell(): boolean {
+  return carrierBool("cardShellDefault", false);
+}
+
+// 独立存储：访客可覆盖后台 mods.cardShell；存储生命周期与卡片样式区联动
+// （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
+export function getStoredCardShell(): boolean {
+  if (!getVisitorSwitches().cardStyle) return getDefaultCardShell();
+  const stored = localStorage.getItem("cardShell");
+  return stored == null ? getDefaultCardShell() : stored === "true";
+}
+
+export function setCardShell(enabled: boolean): void {
+  localStorage.setItem("cardShell", String(enabled));
+  // 与服务端 th:classappend 同类名 mods-card-shell（挂在 <html>）
+  document.documentElement.classList.toggle("mods-card-shell", enabled);
+}
+
+export function resetCardShell(): void {
+  localStorage.removeItem("cardShell");
+  setCardShell(getDefaultCardShell());
+}
+
 /* ── 分区恢复默认 ── */
 
 export function resetCardStyle(): void {
   localStorage.removeItem("cardHoverLift");
   localStorage.removeItem("navbarBlur");
   localStorage.removeItem("postListMasonry");
+  localStorage.removeItem("cardShell");
   document.body.classList.toggle(
     "card-hover-lift-enabled",
     getDefaultCardHoverLift(),
   );
   document.body.classList.toggle("navbar-blur-enabled", getDefaultNavbarBlur());
+  // 卡片外壳是挂在 <html> 的作用域类（同 cardPattern），恢复默认即回后台值
+  document.documentElement.classList.toggle(
+    "mods-card-shell",
+    getDefaultCardShell(),
+  );
   // 瀑布流默认值已生效时 applyPostListMasonry 内部会跳过
   applyPostListMasonry(getDefaultPostListMasonry());
 }

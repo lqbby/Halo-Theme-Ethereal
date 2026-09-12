@@ -22,6 +22,10 @@
     getStoredCardPattern,
     setCardPattern,
     resetCardPattern,
+    getDefaultCardShell,
+    getStoredCardShell,
+    setCardShell,
+    resetCardShell,
     getDefaultPostListMasonry,
     getStoredPostListMasonry,
     setPostListMasonry,
@@ -126,6 +130,7 @@
   let navbarBlur = $state(getStoredNavbarBlur());
   let pageWide = $state(getStoredPageWide());
   let cardPattern = $state(getStoredCardPattern());
+  let cardShell = $state(getStoredCardShell());
   let postListMasonry = $state(getStoredPostListMasonry());
   // 面板里透明度类参数以百分比展示（存储为 0–1）
   const storedWallpaper = getStoredWallpaperParams();
@@ -139,6 +144,7 @@
   const defaultNavbarBlur = getDefaultNavbarBlur();
   const defaultPageWide = getDefaultPageWide();
   const defaultCardPattern = getDefaultCardPattern();
+  const defaultCardShell = getDefaultCardShell();
   const defaultPostListMasonry = getDefaultPostListMasonry();
   const defaultWallpaper = getDefaultWallpaperParams();
   const dirtyLayout = $derived(layout !== defaultLayout);
@@ -147,6 +153,7 @@
       navbarBlur !== defaultNavbarBlur ||
       pageWide !== defaultPageWide ||
       cardPattern !== defaultCardPattern ||
+      cardShell !== defaultCardShell ||
       postListMasonry !== defaultPostListMasonry,
   );
   const showMasonry = $derived(showCardStyle && layout === "grid");
@@ -245,6 +252,11 @@
     setCardPattern(cardPattern);
   }
 
+  function toggleCardShell() {
+    cardShell = !cardShell;
+    setCardShell(cardShell);
+  }
+
   function toggleMasonry() {
     postListMasonry = !postListMasonry;
     setPostListMasonry(postListMasonry);
@@ -258,6 +270,8 @@
     pageWide = getDefaultPageWide();
     resetCardPattern();
     cardPattern = getDefaultCardPattern();
+    resetCardShell();
+    cardShell = getDefaultCardShell();
     postListMasonry = getDefaultPostListMasonry();
   }
 
@@ -380,6 +394,11 @@
           <span class="icon-[material-symbols--texture-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.cardPattern", "卡片纹理")}</span>
           <span class="toggle" class:toggle-on={cardPattern}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={cardShell} role="switch" aria-checked={cardShell} on:click={toggleCardShell}>
+          <span class="icon-[material-symbols--select-all-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.cardShell", "卡片外壳")}</span>
+          <span class="toggle" class:toggle-on={cardShell}><span class="toggle-knob"></span></span>
         </button>
         {#if showMasonry}
           <button type="button" class="toggle-row" class:toggle-on={postListMasonry} role="switch" aria-checked={postListMasonry} on:click={toggleMasonry}>
