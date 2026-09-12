@@ -316,38 +316,101 @@
     el.setAttribute("data-server-state", "offline");
   }
 
-  // 「我的朋友」随机展示：服务端把全部友链渲染进 DOM（无 JS 时仍完整可见），
-  // 这里洗牌后只保留前 data-count 个。defer 脚本在首次绘制前后极短窗口内执行，
-  // 不会造成明显跳动；Swup 换页后由 init 重新触发（data-shuffled 守卫防重复）。
+  // 「我的朋友」：友链由**配套插件端点**（/apis/api.recent-comments.halo.run/.../friends/random）
+  // 在服务端随机挑 N 条返回，这里只负责渲染成卡片。
   //
-  // 2026-09-13 改版为「带头像卡片墙」后本函数**无需改动**：洗牌单位仍是每个
-  // <a class="about-friend">（logo / 名称 / 描述都在这个节点内部），
-  // appendChild 搬的是整个卡片，不会出现「头像与名字错位」。
-  function shuffleFriends() {
+  // 2026-09-13（1.4.88）改造动机：原先由 Thymeleaf 把**全部**友链写进 HTML、前端再洗牌截前 N。
+  // 友链上百条时 HTML 会随数量线性膨胀（每卡约 650B，且浏览器要解析再删掉 99% 的节点）；
+  // 改为服务端随机 + 按需下发后，**页面体积与友链总数无关**，随机性也不受 CDN 缓存影响
+  // （请求带 ?_=<时间戳> 绕开边缘缓存）。
+  //
+  // 代价：无 JS 时不再有卡片（about.astro 用 <noscript> 提供通往 /links 的入口兜底）。
+  // Swup 换页后容器是新节点，本函数会自动重新拉取一批；data-friends-loaded 守卫防重复执行。
+  function loadRandomFriends() {
     var box = document.querySelector(
-      '.about-friends[data-shuffle="true"]:not([data-shuffled])',
+      ".about-friends[data-friends-endpoint]:not([data-friends-loaded])",
     );
     if (!box) return;
-    box.setAttribute("data-shuffled", "true");
+    box.setAttribute("data-friends-loaded", "true");
 
-    var items = Array.prototype.slice.call(
-      box.querySelectorAll(".about-friend"),
-    );
-    var n = parseInt(box.getAttribute("data-count") || "6", 10);
+    var endpoint = box.getAttribute("data-friends-endpoint");
+    if (!endpoint) return;
+    var n = parseInt(box.getAttribute("data-friends-count") || "6", 10);
     if (!n || n < 0) n = 6;
-    if (items.length <= n) return;
 
-    // Fisher-Yates
-    for (var i = items.length - 1; i > 0; i--) {
-      var j = Math.floor(Math.random() * (i + 1));
-      var t = items[i];
-      items[i] = items[j];
-      items[j] = t;
+    // ?_=<时间戳> 强制绕过 CDN 边缘缓存 —— 否则不同访客会命中同一份缓存响应，
+    // 「每次进页都换一批」就失效了（服务端已随机，前端不再洗牌）。
+    var url =
+      endpoint +
+      (endpoint.indexOf("?") < 0 ? "?" : "&") +
+      "size=" +
+      n +
+      "&_=" +
+      Date.now();
+
+    fetch(url, { credentials: "same-origin" })
+      .then(function (res) {
+        return res.ok ? res.json() : null;
+      })
+      .then(function (data) {
+        var items = data && data.items;
+        if (!items || !items.length) return;
+        var frag = document.createDocumentFragment();
+        items.forEach(function (item) {
+          frag.appendChild(buildFriendCard(item));
+        });
+        box.textContent = "";
+        box.appendChild(frag);
+      })
+      .catch(function () {
+        /* 静默失败：容器保持为空，noscript 里的 /links 入口仍在 */
+      });
+  }
+
+  // 单条友链卡片。刻意全程用 DOM API + textContent（而非拼 innerHTML）：
+  // 友链的名称/描述是站外可控文本，字符串拼接会引入 XSS 面。
+  function buildFriendCard(item) {
+    var a = document.createElement("a");
+    a.className = "about-friend";
+    var url = item.url || "";
+    if (/^(https?:)?\/\//.test(url) || url.charAt(0) === "/") a.href = url;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.title = item.description || item.displayName || "";
+
+    var logo = item.logo || "";
+    if (/^(https?:)?\/\//.test(logo) || logo.charAt(0) === "/") {
+      var img = document.createElement("img");
+      img.className = "about-friend-logo";
+      img.src = logo;
+      img.alt = "";
+      img.loading = "lazy";
+      img.decoding = "async";
+      a.appendChild(img);
+    } else {
+      var ph = document.createElement("span");
+      ph.className = "about-friend-logo-ph";
+      var ico = document.createElement("span");
+      ico.className = "icon-[material-symbols--link-rounded]";
+      ico.setAttribute("aria-hidden", "true");
+      ph.appendChild(ico);
+      a.appendChild(ph);
     }
-    items.forEach(function (el, idx) {
-      if (idx < n) box.appendChild(el);
-      else el.remove();
-    });
+
+    var body = document.createElement("span");
+    body.className = "about-friend-body";
+    var name = document.createElement("span");
+    name.className = "about-friend-name";
+    name.textContent = item.displayName || item.url || "";
+    body.appendChild(name);
+    if (item.description) {
+      var desc = document.createElement("span");
+      desc.className = "about-friend-desc";
+      desc.textContent = item.description;
+      body.appendChild(desc);
+    }
+    a.appendChild(body);
+    return a;
   }
 
   // 「最近的提交」= 最新文章 + 最新瞬间两组由服务端直出的行，这里按 data-time
@@ -381,7 +444,7 @@
       el.setAttribute("data-rendered", "true");
       render(el);
     });
-    shuffleFriends();
+    loadRandomFriends();
     sortTimeline();
   }
 

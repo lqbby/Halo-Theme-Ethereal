@@ -1534,48 +1534,22 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <h2 class="about-card-title text-90">我的朋友</h2>
             </div>
+            <!-- 友链卡片：服务端**不再**下发全量列表（友链上百条时 HTML 会随数量线性膨胀，
+                 每卡约 650B、且浏览器要解析再删掉 99% 的节点），改由 extend-pages.js 调
+                 配套插件端点 `friends/random` 异步取 N 条随机渲染 ⇒ 页面体积与友链总数无关。
+                 容器刻意留空；无 JS 时由下方 <noscript> 提供通往 /links 的入口。
+                 请求会带 ?_=<时间戳> 绕过 CDN 边缘缓存（否则每次进页会拿到同一批）。 -->
             <div
               class="about-friends"
-              th:data-shuffle="${cfg?.friends?.shuffle != false ? 'true' : null}"
-              th:data-count="${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
+              data-friends-endpoint="/apis/api.recent-comments.halo.run/v1alpha1/friends/random"
+              th:data-friends-count="${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
             >
-              <div th:each="g : ${groups}" th:remove="tag">
-                <!-- aboutLogoOk 口径与页脚友链一致：logo 非空且是 http / // / / 开头 -->
-                <a
-                  class="about-friend"
-                  th:each="l : ${g?.links}"
-                  th:with="aboutLogoOk = ${l?.spec?.logo != null and (l?.spec?.logo.startsWith('http') or l?.spec?.logo.startsWith('//') or l?.spec?.logo.startsWith('/'))}"
-                  th:href="${l?.spec?.url != null and (l?.spec?.url.startsWith('http') or l?.spec?.url.startsWith('//') or l?.spec?.url.startsWith('/')) ? l?.spec?.url : null}"
-                  th:title="${#strings.defaultString(l?.spec?.description, l?.spec?.displayName)}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <img
-                    th:if="${aboutLogoOk}"
-                    th:src="${l?.spec?.logo}"
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    class="about-friend-logo"
-                  />
-                  <span th:unless="${aboutLogoOk}" class="about-friend-logo-ph">
-                    <span
-                      class="icon-[material-symbols--link-rounded]"
-                      aria-hidden="true"></span>
-                  </span>
-                  <span class="about-friend-body">
-                    <span
-                      class="about-friend-name"
-                      th:text="${l?.spec?.displayName}">链接</span
-                    >
-                    <span
-                      class="about-friend-desc"
-                      th:if="${!#strings.isEmpty(l?.spec?.description)}"
-                      th:text="${l?.spec?.description}"></span>
-                  </span>
-                </a>
-              </div>
             </div>
+            <noscript>
+              <p class="mt-3 text-xs text-50">
+                <a href="/links">查看全部友情链接 →</a>
+              </p>
+            </noscript>
             <p
               class="mt-3 text-xs text-50"
               th:if="${!#strings.isEmpty(cfg?.friends?.note)}"
