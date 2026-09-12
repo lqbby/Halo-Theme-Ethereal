@@ -119,12 +119,28 @@
     box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 0.22);
   }
 
-  /* 置顶卡片优先：置顶自带的 outline 环（PostList.astro，特异性同级）不能被
-     卡片外壳的描边顶掉。本块在全局样式里、置顶规则在页面级样式里且加载更晚，
-     故置顶天然胜出；此处仅把暗晕改成主色调，让置顶卡在外壳模式下仍可辨识。
-     ⚠️ 不重复声明 outline —— 交给 PostList.astro，避免两处维护同一语义。 */
+  /* ===== 置顶卡片 vs 卡片外壳：必须一眼可辨（2026-09-13 LQ 要求）=====
+     开关模式下普通卡 = 1px / 14% 淡描边 + 8% 极淡暗晕（几乎只是「有边」）。
+     置顶卡必须**明显强于**这个基线，否则「置顶」在视觉上消失。做法：
+       · 描边加粗到 2px + 主色饱和度提到 60%（普通卡 14% → 4 倍差距）
+       · 用 outline-offset: 2px 把环**推到卡片外侧**（普通卡是 -1px 贴内沿）
+         ⇒ 一个「内贴细线」 vs 一个「外浮粗环」，形态本身就不一样
+       · 暗晕换成主色实色投影（28%）+ 轻微外发光，与普通卡的冷蓝#3a5b89 区分
+     ⚠️ 特异性：本选择器含 ID（1-4），胜过卡片外壳的纯 class（0-7）⇒ 无需 !important。
+     ⚠️ 仍用 outline（不用 border）：瀑布流下 JS 写死行内 width/height，border 会改盒模型。 */
   :root.mods-card-shell #post-list-container .post-card.is-pinned {
-    box-shadow: 0 2px 18px color-mix(in srgb, var(--primary) 22%, transparent);
+    outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent),
+      0 6px 22px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+  /* 暗色：描边再提亮一档，保证深底上「置顶环」依然醒目 */
+  :root.dark.mods-card-shell #post-list-container .post-card.is-pinned {
+    outline-color: color-mix(in srgb, var(--primary) 75%, transparent);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent),
+      0 6px 22px rgb(0 0 0 / 0.35);
   }
 
   /* 标签胶囊（全站统一）：颜色跟随标签配置 tag.spec.color（由 th:style 注入

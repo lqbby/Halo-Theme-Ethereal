@@ -47,10 +47,24 @@ const currentYear = new Date().getFullYear();
   >
   </div>
 
-  <!-- 页脚友情链接卡片墙：数据来自 Links 插件（PluginLinks），插件未安装 / 未开启时整块跳过。
-       位置固定在分隔线（星芒 / 虚线，二选一）之后、版权页脚之前。
-       组件内部为 <nav> 地标，样式随组件（is:global，Astro 会提升到 head 且只输出一次）。 -->
-  <FooterFriendLinks />
+  <!-- 页脚友情链接：两种形态二选一（2026-09-13 调整）
+       · 卡片样式（魔改开 且 footer.style == 'card'）→ 嵌进下方卡片页脚顶行的中间空白，
+         不在此处渲染（避免同一页出现两次）；
+       · 其它样式 → 仍是这里「分隔线之下、版权之上」的独立块。
+       数据来自 Links 插件（PluginLinks），插件未装 / 未开启时组件内部整块跳过。
+       ⚠️ 两个必须遵守的 Thymeleaf 约束（本处曾踩过）：
+         ① th:unless 必须挂在**真实 HTML 元素**上，挂 Astro 组件标签会被静默丢弃；
+         ② th:with(400) **晚于**同元素的 th:unless(300) 求值 ⇒ 同元素上「用 with 的变量做 unless 条件」
+            永远读到 null（= 条件不成立、块照常输出）。故变量必须定义在**外层包装元素**上，
+            th:unless 放在内层元素。 -->
+  <div
+    th:with="friendLinksInline=${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.footer?.style == 'card'}"
+    th:remove="tag"
+  >
+    <div th:unless="${friendLinksInline}" th:remove="tag">
+      <FooterFriendLinks />
+    </div>
+  </div>
 
   <footer
     th:if="${(modsEnable) ? (theme.config?.footer?.style != 'card') : true}"
@@ -181,7 +195,12 @@ const currentYear = new Date().getFullYear();
     th:if="${modsEnable && theme.config?.footer?.style == 'card'}"
     class="card-base mb-12"
   >
-    <!-- 顶部：站点身份 + 社交图标 -->
+    <!-- 顶部：站点身份 + 友情链接（中间空白） + 社交图标
+         2026-09-13：友链嵌进本行中间空白。flex 行在桌面端是
+         [身份] [友链 flex-1 居中段] [社交]，友链块自带 flex-1 + min-w-0，
+         自动吃掉 justify-between 留下的空白；窄屏（<sm）整行折成纵向，
+         友链自然落到身份与社交之间，不会溢出。
+         ⚠️ 用 order 类保证折行后顺序仍是 身份 → 友链 → 社交（DOM 顺序即如此，无需额外处理）。 -->
     <div
       class="flex flex-col gap-5 px-6 pb-6 pt-6 sm:flex-row sm:items-center sm:justify-between sm:px-8"
     >
@@ -198,6 +217,13 @@ const currentYear = new Date().getFullYear();
           <span th:text="${site.subtitle}">站点副标题</span>
         </div>
       </div>
+
+      <!-- 中间空白：友情链接（compact 形态）。组件内部自带 PluginLinks 可用性 + 开关判定，
+           未启用时整块不输出，本行自动回到「身份 ←→ 社交」的原版 justify-between 布局。 -->
+      <div class="min-w-0 sm:mx-6 sm:flex-1">
+        <FooterFriendLinks compact />
+      </div>
+
       <div
         th:if="${theme.config?.sidebar?.profile?.social_media != null and not #lists.isEmpty(theme.config?.sidebar?.profile?.social_media)}"
         class="flex flex-wrap items-center gap-2.5"

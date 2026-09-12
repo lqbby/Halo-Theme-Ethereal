@@ -7,11 +7,11 @@ import LanguageSwitch from "./widget/LanguageSwitch.svelte";
 import NavMenuPanel from "./widget/NavMenuPanel.astro";
 
 const className = Astro.props.class;
-/* isHomePage：显式页面作用域入参（不用文案猜、也不用运行期读 body 类）。
-   「访客样式面板 → 应用到全站页面」关闭时，只有首页才渲染入口与面板；
-   开启时全站渲染。MainGridLayout 把已有的 isHomePage 透传下来，
-   layout.astro（插件页外壳）不传 → 视作非首页，与「首页才显示」语义一致。 */
-const isHomePage = Astro.props.isHomePage === true;
+/* 注：访客样式面板默认**全站渲染**（只要有 Navbar 就有入口）。
+   1.4.77 曾加过 visitorStyle.allPages「应用到全站页面」开关 + isHomePage 作用域门控，
+   1.4.79 按 LQ 要求**已整体回滚**（那个改动是理解偏差的产物）——
+   面板回归「结构上全站、开关只控各分区是否可用」的原语义。
+   ⇒ 不要再从 Astro.props 读 isHomePage 来门控面板。 */
 ---
 
 <div id="navbar" class="z-50">
@@ -31,16 +31,15 @@ const isHomePage = Astro.props.isHomePage === true;
        id="navbar-card" 供欢迎弹窗等按导航栏卡片实际边缘（max-w 居中后）对齐 -->
   {
     /* visitorStyleEnabled：显示设置入口/面板的门控条件。
-       三段：① 总开关开启；② 任一分区可用（色相/布局/卡片样式/壁纸模式/
-       壁纸设置/透明）；③ 页面作用域——「应用到全站页面」开启，或当前页是首页。
-       ① 与 ② 原本在入口按钮与面板各写一遍，提取到此处统一复用。
+       两段：① 总开关开启；② 任一分区可用（色相/布局/卡片样式/壁纸模式/
+       壁纸设置/透明）。① 与 ② 原本在入口按钮与面板各写一遍，提取到此处统一复用。
        注：用 JSX 注释而非 HTML 注释——strip-comments 不处理 error/404.html，
        HTML 注释会残留进该页产物。
        ⚠️ Thymeleaf 属性优先级：th:with(4) 先于子元素求值，故入口与面板都能读到 */
   }
   <div
     id="navbar-card"
-    th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false)) and (theme.config?.layout?.mobileMenu?.visitorStyle?.allPages != false or ${isHomePage})}`}
+    th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}`}
     class:list={[
       className,
       "relative z-10 mx-auto flex h-[4.5rem] max-w-(--page-width) items-center justify-between px-4 rounded-(--radius-large) !rounded-t-none",

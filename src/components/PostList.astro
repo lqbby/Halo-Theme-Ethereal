@@ -106,7 +106,10 @@ const { pagination = "posts" } = Astro.props;
      布局模式下都稳定胜出；hover 时的 translateY 位移照常保留（那是交互，不是高亮）。
      ⚠️ 用 outline 而非 border：瀑布流下卡片由 JS 绝对定位并显式写下 width/height
      行内样式，若用 border 会改变盒模型尺寸、与 JS 计算的高度互相干扰；
-     outline 不占空间，随卡片一起移动，无需 JS 额外处理。 */
+     outline 不占空间，随卡片一起移动，无需 JS 额外处理。
+     ⚠️ 此处是「卡片外壳开关关闭」时的基线（细描边 + 淡光晕）。开关开启后由
+     components.css 的 `:root.mods-card-shell #post-list-container .post-card.is-pinned`
+     升级成「2px 外浮粗环 + 主色投影」——两级强度刻意拉开，保证置顶一眼可辨。 */
   #post-list-container .post-card.is-pinned {
     outline: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
     outline-offset: -1px;

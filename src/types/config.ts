@@ -166,8 +166,6 @@ export interface MobileMenuConfig {
 export interface VisitorStyleConfig {
   /** 总开关：关闭后不显示任何样式切换开关 */
   enable?: boolean;
-  /** 应用到全站页面：关闭则仅在首页显示样式切换面板 */
-  allPages?: boolean;
   /** 主题色相切换 */
   hue?: boolean;
   /** 文章布局（列表/网格）切换 */
