@@ -4,8 +4,13 @@
 // 契约声明见 <html th:fragment="html (head, content)">，构建后输出 templates/layout.html。
 // 该模板仅作为插件页的兜底外壳，复用全局样式 + 导航栏 + 页脚；侧边栏小组件、
 // banner、Swup 过渡、访客样式覆盖等不在契约范围内（契约只传 head / content 两个槽位）。
+// ⚠️ 必须挂 ConfigCarrier：导航栏内的访客样式面板（DisplaySettings）与首帧访客样式
+// 覆盖脚本都以 #config-carrier 的 data-* 为「后台默认值」唯一来源；缺了它，
+// getVisitorSwitches() 全部走 fallback true（后台关了照样显示），「恢复默认」判定也会错乱。
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
+import ConfigCarrier from "../components/ConfigCarrier.astro";
+import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import {
   DEFAULT_THEME,
   LIGHT_MODE,
@@ -146,6 +151,12 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     class="relative min-h-screen transition"
     th:classappend="${(theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
   >
+    <!-- 配置载体（body 首元素）：访客样式面板与首帧访客样式覆盖脚本的默认值来源。
+         必须与导航栏同为「插件页外壳」的一部分，否则面板门控失效 -->
+    <ConfigCarrier />
+    <!-- 访客样式覆盖启动脚本：与主题页外壳同款，紧跟 ConfigCarrier、在可见内容
+         解析前应用 body/html 类与壁纸变量，无 FOUC -->
+    <VisitorStyleBoot />
     <!-- 与 MainGridLayout 同款导航栏外壳：顶部行 + 导航栏 -->
     <div
       id="top-row"

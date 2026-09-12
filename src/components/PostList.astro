@@ -98,13 +98,20 @@ const { pagination = "posts" } = Astro.props;
     opacity: 1;
   }
 
-  /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）===== */
+  /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）=====
+     ⚠️ 置顶高亮必须独立于访客样式切换：访客切布局（列表/网格/瀑布流）只改容器类
+     与卡片定位，不得改变置顶卡片的描边/光晕。本规则写在 #post-list-container 的
+     ID 选择器下（特异性 1-2-0），高于任何访客可切换的类选择器（如
+     body.card-hover-lift-enabled .card-hover-lift:hover 的 0-3-1），因此在所有
+     布局模式下都稳定胜出；hover 时的 translateY 位移照常保留（那是交互，不是高亮）。
+     ⚠️ 用 outline 而非 border：瀑布流下卡片由 JS 绝对定位并显式写下 width/height
+     行内样式，若用 border 会改变盒模型尺寸、与 JS 计算的高度互相干扰；
+     outline 不占空间，随卡片一起移动，无需 JS 额外处理。 */
   #post-list-container .post-card.is-pinned {
     outline: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
     outline-offset: -1px;
     box-shadow: 0 2px 18px color-mix(in srgb, var(--primary) 14%, transparent);
   }
-  /* 瀑布流下卡片由 JS 绝对定位，outline 随卡片一起移动，无需额外处理 */
 
   /* ===== 网格（grid）布局容器 ===== */
   #post-list-container.post-grid-mode {

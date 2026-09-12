@@ -1,0 +1,152 @@
+---
+// 访客样式覆盖启动脚本（双外壳共用）。
+//
+// 消费 #config-carrier 的 data-*（后台默认值）+ localStorage（访客偏好），在可见
+// 内容解析前把 body / html 的类与变量应用好，避免 FOUC。开关关闭时忽略并清理对应
+// localStorage（与 Layout.astro 的 __eecs 语义一致）。
+//
+// 调用位置（两处必须都挂，且紧跟在 <ConfigCarrier /> 之后）：
+//   1. src/layouts/Layout.astro      —— 主题页外壳（首页 / 文章 / 归档 / 关于我 …）
+//   2. src/pages/layout.astro        —— 插件页外壳（th:fragment 契约，插件自有页面）
+// ⚠️ 抽成组件而非复制：两份失步会让插件页与主题页的访客样式行为不一致。
+// ⚠️ body 不被 Swup 替换，本脚本仅在首载执行一次即可（无需 Swup 换页重执行）。
+//    文章列表布局覆盖是另一条路径（PostList.astro 的 visitor-post-layout.js）。
+// ⚠️ is:inline 必须显式声明：否则 Astro 会当模块打包进 bundle，脚本不再在
+//    配置载体之后同步执行，首帧 FOUC 就回来了。
+---
+
+<script is:inline>
+  (function () {
+    // localStorage 安全访问：禁存储环境读取/删除会抛 SecurityError，裸调会中断
+    // 访客样式覆盖（悬浮/模糊/宽屏/卡片纹理/壁纸/波浪/标题全部失效、FOUC）。
+    var storageGet = function (k) {
+      try {
+        return localStorage.getItem(k);
+      } catch (e) {
+        return null;
+      }
+    };
+    var storageRemove = function (k) {
+      try {
+        localStorage.removeItem(k);
+      } catch (e) {}
+    };
+
+    var carrier = document.getElementById("config-carrier");
+    if (!carrier) return;
+    var d = carrier.dataset;
+    var on = function (value) {
+      return value !== "false";
+    };
+    var enable = on(d.visitorEnable);
+    var body = document.body;
+
+    // 卡片样式：悬浮效果 / 高级材质
+    if (enable && on(d.visitorCardStyle)) {
+      var lift = storageGet("cardHoverLift");
+      if (lift != null) {
+        body.classList.toggle("card-hover-lift-enabled", lift === "true");
+      }
+      var blur = storageGet("navbarBlur");
+      if (blur != null) {
+        body.classList.toggle("navbar-blur-enabled", blur === "true");
+      }
+    } else {
+      storageRemove("cardHoverLift");
+      storageRemove("navbarBlur");
+    }
+
+    // 宽屏布局：访客偏好覆盖服务端 th:classappend（与卡片样式区解耦，
+    // 后台 visitorStyle.cardStyle 关闭时 UI 不显示但已存偏好仍生效）。
+    // 不读 visitorCardStyle 门控：pageWide 独立于卡片样式。
+    var pw = storageGet("pageWide");
+    if (pw != null) {
+      document.documentElement.classList.toggle(
+        "mods-page-wide",
+        pw === "true",
+      );
+    }
+
+    // 卡片纹理：访客偏好覆盖服务端 th:classappend（同宽屏，独立于卡片样式）。
+    var cp = storageGet("cardPattern");
+    if (cp != null) {
+      document.documentElement.classList.toggle(
+        "mods-card-pattern",
+        cp === "true",
+      );
+    }
+
+    // 透明设置（全屏透明模式）：覆盖 body 内联变量
+    if (enable && on(d.visitorTransparent)) {
+      var num = function (key) {
+        var n = parseFloat(storageGet(key) || "");
+        return isNaN(n) ? null : n;
+      };
+      var opacity = num("wallpaperOpacity");
+      var wBlur = num("wallpaperBlur");
+      var alpha = num("wallpaperCardAlpha");
+      if (opacity != null) {
+        body.style.setProperty(
+          "--transparent-wallpaper-opacity",
+          String(opacity),
+        );
+      }
+      if (wBlur != null) {
+        body.style.setProperty("--transparent-wallpaper-blur", wBlur + "px");
+      }
+      if (alpha != null) {
+        body.style.setProperty("--transparent-card-alpha", String(alpha));
+      }
+    } else {
+      storageRemove("wallpaperOpacity");
+      storageRemove("wallpaperBlur");
+      storageRemove("wallpaperCardAlpha");
+    }
+
+    // 壁纸模式访客覆盖：写 html[data-banner-display] + 切 body.enable-banner，
+    // 并重算延伸像素（与 constants.ts 的 calcBannerHeightExtend 同式：
+    // extendVh 对应 bannerExtendVh，全屏 65 / 横幅 30；%4 对齐对应
+    // BANNER_EXTEND_ROUNDING，勿硬编码到别处）。内容解析前生效无 FOUC
+    if (enable && on(d.visitorWallpaperMode)) {
+      var bannerModes = ["disabled", "banner", "fullscreen", "transparent"];
+      var mode = storageGet("bannerDisplay");
+      if (bannerModes.indexOf(mode) === -1) {
+        mode = d.bannerDisplayDefault || "banner";
+      }
+      var extendVh = mode === "fullscreen" ? 65 : 30;
+      var offset = Math.floor(window.innerHeight * (extendVh / 100));
+      offset = offset - (offset % 4);
+      document.documentElement.setAttribute("data-banner-display", mode);
+      document.documentElement.style.setProperty(
+        "--banner-height-extend",
+        offset + "px",
+      );
+      body.classList.toggle(
+        "enable-banner",
+        mode === "banner" || mode === "fullscreen",
+      );
+    } else {
+      storageRemove("bannerDisplay");
+    }
+
+    // 壁纸设置访客覆盖（波浪 + 首页壁纸标题）：关闭时给 body 加对应
+    // 隐藏类（CSS 门控）；开启/缺省时由后台默认决定
+    if (enable && on(d.visitorWallpaperSettings)) {
+      var waveDefault = d.waveDefault !== "false";
+      var waveStored = storageGet("bannerWave");
+      var waveOn = waveStored == null ? waveDefault : waveStored === "true";
+      if (!waveOn) body.classList.add("wave-disabled");
+
+      var bannerTitleDefault = d.bannerTitleDefault !== "false";
+      var bannerTitleStored = storageGet("bannerTitle");
+      var bannerTitleOn =
+        bannerTitleStored == null
+          ? bannerTitleDefault
+          : bannerTitleStored === "true";
+      if (!bannerTitleOn) body.classList.add("banner-title-disabled");
+    } else {
+      storageRemove("bannerWave");
+      storageRemove("bannerTitle");
+    }
+  })();
+</script>

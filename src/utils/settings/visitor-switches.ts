@@ -10,6 +10,7 @@
 
 export interface VisitorSwitches {
   enable: boolean;
+  allPages: boolean;
   postListLayout: boolean;
   cardStyle: boolean;
   transparent: boolean;
@@ -40,6 +41,7 @@ function readVisitorSwitches(): VisitorSwitches {
   const enable = carrierBool("visitorEnable", true);
   return {
     enable,
+    allPages: enable && carrierBool("visitorAllPages", true),
     postListLayout: enable && carrierBool("visitorLayout", true),
     cardStyle: enable && carrierBool("visitorCardStyle", true),
     transparent: enable && carrierBool("visitorTransparent", true),

@@ -285,6 +285,7 @@ spec:
               label: 访客样式切换
               value:
                 enable: true
+                allPages: true
                 hue: true
                 postListLayout: true
                 cardStyle: true
@@ -299,6 +300,14 @@ spec:
                   label: 允许访客切换样式
                   value: true
                   help: "总开关：开启后访客可在导航栏显示设置面板中切换下列样式；关闭则不显示任何样式切换开关"
+                - $formkit: switch
+                  name: allPages
+                  id: visitorStyle_allPages
+                  key: visitorStyle_allPages
+                  if: "$get(visitorStyle_enable).value"
+                  label: 应用到全站页面
+                  value: true
+                  help: "开启后样式切换面板在主题所有页面（首页 / 文章页 / 归档 / 关于我 / 友链 / 图库 / 瞬间等）均可用，访客在任何页面都能切换样式；关闭则仅在首页显示面板。插件自有页面（如追番 / 日程日历）同样受本开关控制"
                 - $formkit: switch
                   name: hue
                   id: visitorStyle_hue
