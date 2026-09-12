@@ -1092,7 +1092,7 @@ import Canonical from "../components/misc/Canonical.astro";
       aboutMoments=${momentFinder?.list({size: cfg?.activity?.count ?: 5})?.items},
       aboutPostCount=${aboutPosts != null ? #lists.size(aboutPosts) : 0},
       aboutMomentCount=${aboutMoments != null ? #lists.size(aboutMoments) : 0},
-      groups=${(pluginFinder == null or !pluginFinder.available('PluginLinks') or linkFinder == null) ? null : linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]]}"
+      groups=${(pluginFinder == null or !pluginFinder.available('PluginLinks') or linkFinder == null) ? null : linkFinder.groupBy()}"
     th:remove="tag"
   >
     <!-- ================= ① 身份卡 ================= -->

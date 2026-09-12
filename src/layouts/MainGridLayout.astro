@@ -339,6 +339,40 @@ const {
         </div>
       </div>
     </div>
+
+    <!-- banner 署名链接（2026-09-13 / 1.4.86 修正「位置不对」）：
+         原先挂在 #main-grid 里用 `absolute -top-13` 硬往上挪——但它的 offsetParent
+         是 #main-grid，而 #main-grid 的 top 随 banner 高度（vh）变化 ⇒ 署名位置跟着
+         漂移，还会跨在 banner 底边线上。现移进 #banner-wrapper 内、改用 bottom 锚定，
+         无论 banner 多高都稳定贴在图片内侧右下角；水平方向与内容区右缘对齐（复用同一套
+         mx-auto w-full xl:w-[92vw] max-w-(--page-width) 宽度约束）。
+         显隐仍由 th:if + components.css 的 html[data-banner-display] 规则共同控制。
+         可见文本（credit.text）即天然可访问名，不设 aria-label；text 留空时运行时
+         兜底为「© 当前年份 + 站点名」。 -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-0 z-20 mx-auto w-full xl:w-[92vw] max-w-(--page-width)"
+    >
+      <a
+        id="banner-credit"
+        th:if="${theme.config?.style?.bannerStyle?.credit?.enable != false and !#strings.isEmpty(theme.config?.style?.bannerStyle?.credit?.url)}"
+        th:href="${theme.config?.style?.bannerStyle?.credit?.url}"
+        target="_blank"
+        rel="noopener"
+        class="group pointer-events-auto onload-animation absolute bottom-4 right-4 flex h-9 items-center justify-center rounded-full bg-black/60 px-3 transition-all hover:bg-black/70 hover:pr-9 active:bg-black/80"
+      >
+        <span
+          class="icon-[material-symbols--copyright-outline-rounded] mr-1 text-[1.25rem] text-white/75"
+        ></span>
+        <span
+          class="text-xs text-white/75"
+          th:text="${!#strings.isEmpty(theme.config?.style?.bannerStyle?.credit?.text) ? theme.config?.style?.bannerStyle?.credit?.text : '© ' + #dates.year(#dates.createNow()) + ' ' + site.title}"
+        ></span>
+        <span
+          class="icon-[fa6-solid--arrow-up-right-from-square] absolute right-4 text-[0.75rem] text-(--primary) opacity-0 transition group-hover:opacity-100"
+        ></span>
+      </a>
+    </div>
+
     <!-- 全屏模式首页：向下滚动指示箭头，点击平滑滚动到内容区。
        独立于 #banner-overlay 渲染——标题/副标题关闭（bannerText.enable=false）
        时箭头也必须显示（仅全屏模式首页）。落点 = 网格顶边 −
@@ -383,29 +417,6 @@ const {
         class="pointer-events-auto left-0 right-0 mx-auto grid w-full grid-cols-[1fr] grid-rows-[auto] gap-4 px-0 md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr_auto] md:px-4"
         th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:grid-cols-[17.5rem_1fr_17.5rem]'}"
       >
-        <!-- banner 署名链接：可见文本（credit.text）即天然可访问名，不设 aria-label
-           （原硬编码 "Visit image source" 与可见文本不一致，触发 WCAG 2.5.3 违规）；
-           url 未配置时（href 为空）整个链接不渲染，避免产生无效空链接 -->
-        <a
-          id="banner-credit"
-          th:if="${theme.config?.style?.bannerStyle?.credit?.enable != false and !#strings.isEmpty(theme.config?.style?.bannerStyle?.credit?.url)}"
-          th:href="${theme.config?.style?.bannerStyle?.credit?.url}"
-          target="_blank"
-          rel="noopener"
-          class="group onload-animation absolute -top-13 right-4 flex h-9 items-center justify-center rounded-full bg-black/60 px-3 transition-all hover:bg-black/70 hover:pr-9 active:bg-black/80"
-        >
-          <span
-            class="icon-[material-symbols--copyright-outline-rounded] mr-1 text-[1.25rem] text-white/75"
-          ></span>
-          <span
-            class="text-xs text-white/75"
-            th:text="${!#strings.isEmpty(theme.config?.style?.bannerStyle?.credit?.text) ? theme.config?.style?.bannerStyle?.credit?.text : '© ' + #dates.year(#dates.createNow()) + ' ' + site.title}"
-          ></span>
-          <span
-            class="icon-[fa6-solid--arrow-up-right-from-square] absolute right-4 text-[0.75rem] text-(--primary) opacity-0 transition group-hover:opacity-100"
-          ></span>
-        </a>
-
         <!-- 主内容区 - 移动端第一项 -->
         <div
           class="col-span-2 min-w-0 md:col-span-1 md:row-start-1 md:col-start-2 flex flex-col gap-4"
