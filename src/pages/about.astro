@@ -1075,21 +1075,24 @@ import Canonical from "../components/misc/Canonical.astro";
        · aboutPosts   = 最新已发布文章（Finder 变量，用 ?. 空安全）
        · aboutMoments = 最新瞬间（瞬间插件注入 momentFinder；未装插件时短路为 null）
        两组一起供「最近的提交」卡片用，客户端按 data-time 归并成一条时间线。
+       · groups       = 友情链接分组（linkFinder.groupBy()，过滤掉空/非法 url），
+       供「我的朋友」卡片 + subnav 友链计数用。
 
-       🔴🔴 反面教材（1.4.83 踩过）：**别指望在这条 th:with 里算出来的变量
-       能被下面的卡片读到**。MainGridLayout 会把默认 slot 的全部子节点包进
-       <th:block th:replace="...wrapBlock">，而 th:insert/replace 的优先级
-       （100）晚于父容器的 processAllAttributes（200）⇒ 本元素的 th:with
-       （优先级 400）在 wrapBlock 展开时**已经离开作用域**，子树里读到的
-       只有 null 且**不报错**。所以 `groups` 曾在这里被引用了 4 处却从未生效：
-       「我的朋友」卡片与 subnav 友链计数**从 1.4.77 起一直没渲染过**。
-       结论：变量计算要放在**卡片自身**的属性上（见下方 friendsGroups）。 -->
+       🔴🔴 1.4.84 修正（推翻 1.4.83 的错误结论）：这条 th:with 的变量
+       **能被下方所有卡片正常读到**（cfg / aboutPosts 一直在被「关于我」
+       「最近的提交」等卡片使用且渲染正常）。1.4.83 曾误判「顶层 th:with
+       跨 slot 失效」，于是把变量下放到卡片自身 section 的 th:with，却又把
+       th:if 放在了**同一个元素上**——Thymeleaf 里 th:if(优先级3) 先于
+       th:with(优先级4) 执行 ⇒ th:if 求值时变量还是 null ⇒ 恒假。所以
+       1.4.83 依然没修好。正确做法：变量就在这条顶层 th:with 里补 groups，
+       卡片/subnav 直接用，勿再在消费点上叠 th:with + th:if。 -->
   <div
     th:with="cfg=${theme.config?.extendPages?.about},
       aboutPosts=${postFinder?.list({page: 1, size: cfg?.activity?.count ?: 5})?.items},
       aboutMoments=${momentFinder?.list({size: cfg?.activity?.count ?: 5})?.items},
       aboutPostCount=${aboutPosts != null ? #lists.size(aboutPosts) : 0},
-      aboutMomentCount=${aboutMoments != null ? #lists.size(aboutMoments) : 0}"
+      aboutMomentCount=${aboutMoments != null ? #lists.size(aboutMoments) : 0},
+      groups=${linkFinder != null ? linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]] : null}"
     th:remove="tag"
   >
     <!-- ================= ① 身份卡 ================= -->
@@ -1221,9 +1224,8 @@ import Canonical from "../components/misc/Canonical.astro";
           >友链</span
         >
         <em
-          th:with="navLinkCount = ${#aggregates.sum(linkFinder.groupBy().![links.size()])}"
-          th:if="${cfg?.nav?.linksCount != false and navLinkCount != null and navLinkCount > 0}"
-          th:text="${navLinkCount}">0</em
+          th:if="${cfg?.nav?.linksCount != false and groups != null and !#lists.isEmpty(groups)}"
+          th:text="${#aggregates.sum(groups.![links.size()])}">0</em
         >
       </a>
       <a
@@ -1522,18 +1524,14 @@ import Canonical from "../components/misc/Canonical.astro";
                数据源：Links 插件的 linkFinder.groupBy()（服务端全量渲染，
                客户端洗牌后截前 N）。
 
-               🔴🔴 2026-09-13（1.4.83 修 bug）：friendsGroups 必须在本 section
-               自身的 th:with 里算 —— **不能**依赖页面外层那条 th:with。
-               原因：MainGridLayout 把默认 slot 的全部子节点包进 <th:block>，
-               而 th:insert/replace（优先级 100）在父容器 processAllAttributes
-               之后才执行 ⇒ 外层 th:with 的局部变量对 wrapBlock 子树**全部失效**
-               （同因导致 subnav 的友链计数 <em> 也一直无输出）。
-               判据：Thymeleaf 属性优先级 insert/replace 1 → each 2 → if 3
-               → with 4 ⇒ 变量计算要放在**离消费点最近、且不被组件边界隔断**的元素上。 -->
+               🔴🔴 1.4.84 修正：groups 已在上方页面顶层 th:with 里定义
+               （linkFinder.groupBy() + url 过滤），这里直接用即可。
+               **不要**在本 section 上再叠 th:with + th:if —— th:if(3)
+               先于 th:with(4) 执行，同元素上 th:if 读不到 th:with 的变量
+               （1.4.83 正是这样修坏的）。 -->
           <section
             class="card-base onload-animation"
-            th:with="friendsGroups = ${linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]]}"
-            th:if="${cfg?.friends?.enable != false and friendsGroups != null and !#lists.isEmpty(friendsGroups)}"
+            th:if="${cfg?.friends?.enable != false and groups != null and !#lists.isEmpty(groups)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1547,7 +1545,7 @@ import Canonical from "../components/misc/Canonical.astro";
               class="about-friends"
               th:attr="data-shuffle=${cfg?.friends?.shuffle != false ? 'true' : null},data-count=${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
             >
-              <div th:each="g : ${friendsGroups}" th:remove="tag">
+              <div th:each="g : ${groups}" th:remove="tag">
                 <!-- hbfLogoOk 口径与页脚友链一致：logo 非空且是 http / // / / 开头 -->
                 <a
                   class="about-friend"
