@@ -120,17 +120,28 @@ import Canonical from "../components/misc/Canonical.astro";
       /* ================= ③ 页头按钮 =================
          刻意保持与「心愿墙」页 .wish-bar-btn 逐属性一致（早前明确要求），
          不跟参考站的 .profile-action 走。 */
+      /* 2026-09-13：移动端改为**并排等宽两个**（原先纵向堆叠，LQ 要求对齐参考站）；
+         ≥640px 仍回到纵向堆叠、与身份卡并排。
+         只动容器布局 —— .about-btn 自身与「心愿墙」页 .wish-bar-btn 的逐属性一致保持不变。 */
       .about-hero-actions {
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         gap: 8px;
         width: 100%;
       }
+      .about-hero-actions > .about-btn {
+        flex: 1 1 0;
+        min-width: 0;
+      }
       @media (min-width: 640px) {
         .about-hero-actions {
+          flex-direction: column;
           width: auto;
           min-width: 9.2rem;
           align-items: stretch;
+        }
+        .about-hero-actions > .about-btn {
+          flex: 0 0 auto;
         }
       }
       .about-btn {
