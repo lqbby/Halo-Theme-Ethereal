@@ -3,6 +3,19 @@
 @plugin "@tailwindcss/typography";
 @plugin "@iconify/tailwind4";
 
+/* 显式把 settings.yaml 纳入 Tailwind 扫描范围。
+   「关于我」页面里社交入口的图标类名（icon-[fa6-brands--qq] 之类）只写在
+   设置项的默认值与帮助文本中，不声明 @source 会被漏扫 -> 图标不渲染。 */
+@source "../../settings.yaml";
+
+/* 「关于我 → 保持联系」社交入口的可选图标白名单。
+   这些类名由用户在设置项里手填，不一定出现在任何 .astro 源码中；且帮助文本里
+   多个图标以顿号相连时，会被 Tailwind 当成**单个超长 token** 而整体解析失败
+   （实测：顿号相连 -> 0 个生成；空格分隔 -> 正常生成）。故用 @source inline
+   显式登记，确保这 10 个图标的 CSS 一定进包。
+   注意：类名必须是**完整字面量**，运行时拼接的类名不会被生成。 */
+@source inline("icon-[fa6-brands--qq] icon-[mdi--github] icon-[fa6-brands--bilibili] icon-[material-symbols--mail-rounded] icon-[mdi--wechat] icon-[fa6-brands--telegram] icon-[fa6-brands--x-twitter] icon-[fa6-brands--weibo] icon-[material-symbols--rss-feed-rounded] icon-[material-symbols--link-rounded]");
+
 @utility is-home {
   &.enable-banner #banner-wrapper {
     @apply h-(--banner-height-home) translate-y-(--banner-height-extend);

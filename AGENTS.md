@@ -93,7 +93,7 @@ Halo 应用市场的 Markdown 渲染器不支持 `<picture>`（GitHub 深浅色�
 - `activeExpr` / `allActiveExpr` 传**裸布尔表达式**（无 `${}`，如 `#lists.contains(param.group, group.spec.displayName)`）。组件会把它注入 `th:classappend` 的三元追加激活类。
 - 其余表达式 prop（`hrefExpr` / `labelExpr` / `countExpr` / `showIfExpr` / `withExpr` / `countShowIfExpr` / `subExpr` / `titleExpr` / `filteredExpr` / `sepShowIfExpr` 及 `all*` 系列）传**完整表达式**（含 `${}` 或 `#{}`）。
 - 动态 tab 列表用 `<div class="contents" th:each=...>` 包裹（组件标签上的 `th:each` 不会转发到根元素，故不能放 FilterTab 自身）。
-- `iconClass` 只传 `icon-[...]` 名字面量，组件统一追加 `text-base text-(--primary)`；图标名必须留在页面源码，Tailwind/Iconify 内容扫描才能生成图标规则，勿用 `icon-[${name}]` 动态拼接。
+- `iconClass` 只传 Iconify 类名的**字面量**（形如 `icon-` 前缀 + `[material-symbols--school]`），组件统一追加 `text-base text-(--primary)`；图标名必须留在页面源码，Tailwind/Iconify 内容扫描才能生成图标规则，**不要**动态拼接。（写文档时也别把完整的 icon 方括号写法写出来——那会被扫描当成图标名解析并告警。）
 - **沉默 footgun**：若把字面量误当表达式传（或漏写 `${}`），`astro build` 不报错，只在 Halo 服务端渲染时抛 Thymeleaf 解析异常。改这些组件前先读懂对应 `.astro` 文件顶部的传参注释。
 
 ## 常见坑（务必注意）

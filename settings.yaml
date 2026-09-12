@@ -2202,6 +2202,25 @@ spec:
               label: 状态行
               value: ""
               help: "如：正在构建效率工具，也在持续写作"
+            # ---- 身份卡右侧按钮（对应参考设计的主按钮 / 次按钮）----
+            - $formkit: text
+              name: actionPrimaryLabel
+              label: 主按钮文字
+              value: "查看 GitHub"
+              help: "留空则不显示主按钮"
+            - $formkit: text
+              name: actionPrimaryUrl
+              label: 主按钮链接
+              value: ""
+            - $formkit: text
+              name: actionSecondaryLabel
+              label: 次按钮文字
+              value: "查看心愿墙"
+              help: "留空则不显示次按钮"
+            - $formkit: text
+              name: actionSecondaryUrl
+              label: 次按钮链接
+              value: ""
             - $formkit: textarea
               name: quote
               label: 引语
@@ -2212,10 +2231,61 @@ spec:
               label: 正文
               value: ""
               help: "关于我正文，每行一段"
+            - $formkit: text
+              name: introSubtitle
+              label: 关于我区右上小字
+              value: "公开 · 持续更新"
+            # ---- 顶部导航（长条菜单；图标固定，只配文字与链接）----
+            - $formkit: text
+              name: navProfileLabel
+              label: 导航①文字
+              value: "个人资料"
+              help: "指向当前页面，不可改链接"
+            - $formkit: text
+              name: navChangelogLabel
+              label: 导航②文字
+              value: "博客日志"
+            - $formkit: text
+              name: navChangelogUrl
+              label: 导航②链接
+              value: ""
+              help: "留空则不显示该项"
+            - $formkit: text
+              name: navLinksLabel
+              label: 导航③文字
+              value: "友链"
+            - $formkit: text
+              name: navLinksUrl
+              label: 导航③链接
+              value: ""
+              help: "留空则不显示该项"
+            - $formkit: switch
+              name: navLinksCount
+              label: 导航③显示友链数量
+              value: true
+              help: "读取本站友情链接总数，显示为小圆标"
+            - $formkit: text
+              name: navFriendsLabel
+              label: 导航④文字
+              value: "朋友圈"
+            - $formkit: text
+              name: navFriendsUrl
+              label: 导航④链接
+              value: ""
+              help: "留空则不显示该项"
             - $formkit: group
               name: projects
               label: 项目
               children:
+                - $formkit: text
+                  name: moreLabel
+                  label: 右上角链接文字
+                  value: "全部项目 →"
+                  help: "留空则不显示"
+                - $formkit: text
+                  name: moreUrl
+                  label: 右上角链接地址
+                  value: ""
                 - $formkit: array
                   name: items
                   label: 项目列表
@@ -2224,6 +2294,10 @@ spec:
                     - $formkit: text
                       name: title
                       label: 名称
+                    - $formkit: text
+                      name: thumb
+                      label: 封面图
+                      help: "图片 URL，建议 16:9；留空则不显示封面"
                     - $formkit: textarea
                       name: description
                       label: 说明
@@ -2239,6 +2313,15 @@ spec:
               name: highlights
               label: 更新摘要
               children:
+                - $formkit: text
+                  name: moreLabel
+                  label: 右上角链接文字
+                  value: "按日查看 →"
+                  help: "留空则不显示"
+                - $formkit: text
+                  name: moreUrl
+                  label: 右上角链接地址
+                  value: "/blog-changelog"
                 - $formkit: array
                   name: items
                   label: 摘要条目
@@ -2266,6 +2349,11 @@ spec:
               name: activity
               label: 最近动态
               children:
+                - $formkit: text
+                  name: subtitle
+                  label: 标题下小字
+                  value: "写下来的，才会留下"
+                  help: "留空则不显示"
                 - $formkit: array
                   name: items
                   label: 动态条目
@@ -2283,11 +2371,6 @@ spec:
                       name: link
                       label: 链接
             - $formkit: textarea
-              name: stack
-              label: 技术栈标签
-              value: ""
-              help: "每行一个，显示在侧边栏"
-            - $formkit: textarea
               name: trajectory
               label: 技术轨迹
               value: ""
@@ -2296,7 +2379,44 @@ spec:
               name: contact
               label: 联系方式
               value: ""
-              help: "每行一条，格式：名称|链接（如 GitHub|https://github.com/xxx）"
+              help: "每行一条，格式：名称|链接|图标（图标可省略）。图标请从下面这组里挑选并复制（已随主题打包）：icon-[fa6-brands--qq] icon-[mdi--github] icon-[fa6-brands--bilibili] icon-[material-symbols--mail-rounded] icon-[mdi--wechat] icon-[fa6-brands--telegram] icon-[fa6-brands--x-twitter] icon-[fa6-brands--weibo] icon-[material-symbols--rss-feed-rounded] icon-[material-symbols--link-rounded] 。用其它图标不会被渲染。"
+            # ---- 我的朋友（数据取自本站友情链接，随机展示）----
+            - $formkit: switch
+              name: friendsEnable
+              label: 显示「我的朋友」
+              value: true
+              help: "需已安装友链插件且有审核通过的链接，否则卡片自动隐藏"
+            - $formkit: switch
+              name: friendsShuffle
+              label: 每次刷新随机排序
+              value: true
+            - $formkit: number
+              name: friendsCount
+              label: 展示数量
+              value: 6
+              min: 3
+              max: 12
+              step: 1
+            - $formkit: text
+              name: friendsNote
+              label: 卡片底部小字
+              value: "各自折腾，互相串门。"
+              help: "留空则不显示"
+            # ---- 服务器状态（当前为占位展示，数据待接入）----
+            - $formkit: switch
+              name: serverEnable
+              label: 显示「服务器状态」
+              value: true
+            - $formkit: text
+              name: serverBadge
+              label: 状态小标签
+              value: "待接入"
+              help: "标题右侧小圆标；留空则不显示"
+            - $formkit: textarea
+              name: serverRows
+              label: 监控指标
+              value: "处理器\n内存\n存储"
+              help: "每行一个指标名"
             - $formkit: text
               name: footerEyebrow
               label: 页脚小标题

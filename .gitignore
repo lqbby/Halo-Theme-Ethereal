@@ -41,3 +41,9 @@ templates/
 
 # 文档
 docs/
+
+# WorkBuddy 工具目录（本地态，勿提交）
+.workbuddy/
+
+# 临时快照（勿提交；也会被 Tailwind 内容扫描到 -> 徒增无用 CSS）
+.tmp_*.html

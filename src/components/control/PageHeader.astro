@@ -6,9 +6,10 @@
 // - titleExpr/labelExpr/subExpr/subShowIfExpr/filteredExpr/sepShowIfExpr
 //     完整表达式（含 ${} 或 #{}），如 `${linksTitle}` / `#{common.filtered}`
 // - titleExpr 缺省时 h1 内容改由默认 slot 渲染（wishes 用嵌套 span）
-// - iconClass 只传 icon-[...] 名字面量（如 `icon-[material-symbols--psychology]`），
-//     组件统一追加 `text-base text-(--primary)`。名字面量留在各页源码，
-//     Tailwind/Iconify 内容扫描才能生成图标规则，勿用 `icon-[${icon}]` 动态拼接
+// - iconClass 只传 Iconify 类名的**字面量**（形如 `icon-` 前缀 + `[material-symbols--psychology]`），
+//     组件统一追加 `text-base text-(--primary)`。字面量留在各页源码，
+//     Tailwind/Iconify 内容扫描才能生成图标规则，**不要**动态拼接类名
+//     （本注释刻意不写出完整的 icon 方括号写法：那会被内容扫描当成图标名去解析并告警）
 // - filteredExpr 缺省则整个徽章不渲染（wishes 为客户端筛选无 URL 参数）
 // - sepShowIfExpr 缺省则 `·` 恒显（与迁移前一致）；wishes 用它条件显隐。
 //     注意：不能默认跟随 subShowIfExpr——links/equipments/portfolio 的 `·`
