@@ -21,11 +21,41 @@ import Canonical from "../components/misc/Canonical.astro";
   <Fragment slot="head">
     <Canonical path="${singlePage.status.permalink}" />
     <style is:global>
-      /* ================= 页头：身份卡 ================= */
+      /* ==========================================================================
+         「关于我」卡片体系 —— 逐条对齐参考站 rainzt.cn/about/
+         参考站把卡级规则写在该页自己的样式表里（不在主题 .card-base）：
+           · 外壳   1px 细边（主色 14% 混分隔线）+ 大范围极淡投影
+           · 卡头   图标 1.08rem 主色 / 标题 1rem·780·-.015em / 尾标 .68rem
+           · 内嵌项 1px 分隔线边 + 半径 .78rem + 底 = 95% card-bg 混 5% 主色
+           · 可点内嵌项 hover：边 48% 主色 + 底 7% 主色 + 投影 + 上浮 2px
+         本主题与参考站同名同值（--radius-large / --line-divider / --card-bg / --primary），
+         数值可直接照搬；只补一个参考站有、本主题没有的 --content-meta。
+         ========================================================================== */
+
+      /* 卡片作用域内补齐参考站的「次要文字色」（rgba .7 / .6 的等价物） */
+      .about-hero-card,
+      .about-subnav,
+      .about-col-main > section,
+      .about-col-side > section,
+      .about-footer-card {
+        --content-meta: color-mix(in srgb, var(--deep-text) 68%, transparent);
+      }
+
+      /* ================= ① 卡级外壳 ================= */
+      .about-hero-card,
+      .about-col-main > section,
+      .about-col-side > section,
+      .about-footer-card {
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 14%, var(--line-divider));
+        box-shadow: 0 0.7rem 1.8rem #3a5b890f;
+      }
+
+      /* ================= ② 页头：身份卡 ================= */
       .about-hero-card {
         position: relative;
         overflow: hidden;
-        padding: 26.4px;
+        padding: clamp(1.1rem, 2.5vw, 1.65rem);
       }
       /* 顶部一层主题色柔光，呼应个人主页的「身份卡」气质 */
       .about-hero-card::after {
@@ -40,24 +70,64 @@ import Canonical from "../components/misc/Canonical.astro";
         );
         pointer-events: none;
       }
+      /* 头像 = 主色描边相框 + 内层留白 + 圆角图（对齐参考站 .profile-avatar） */
       .about-avatar {
-        position: relative;
-        z-index: 1;
-        width: 5.5rem;
-        height: 5.5rem;
-        border-radius: 1.25rem;
+        display: block;
+        flex: none;
+        width: 6.25rem;
+        height: 6.25rem;
+        padding: 0.22rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 32%, var(--line-divider));
+        border-radius: 1.2rem;
+        background: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+        box-shadow: 0 0.55rem 1.2rem
+          color-mix(in srgb, var(--primary) 12%, transparent);
+      }
+      .about-avatar__image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border-radius: 0.95rem;
+        background: var(--card-bg);
         object-fit: cover;
-        background: linear-gradient(
-          135deg,
-          var(--btn-regular-bg-hover),
-          var(--btn-regular-bg)
-        );
-        box-shadow:
-          0 0 0 3px var(--card-bg),
-          0 0 0 4px color-mix(in oklab, var(--primary) 35%, transparent);
+      }
+      /* 姓名 / 身份 / 简介 / 状态：字号阶梯对齐参考站 */
+      .about-name {
+        margin: 0;
+        font-size: clamp(1.7rem, 3.2vw, 2.35rem);
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+      }
+      .about-roles {
+        margin: 0.3rem 0 0;
+        color: var(--content-meta);
+        font-size: 0.9rem;
+      }
+      .about-tagline {
+        max-width: 42rem;
+        margin: 0.75rem 0 0;
+        font-size: 0.97rem;
+        line-height: 1.7;
+      }
+      .about-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.48rem;
+        margin-top: 0.75rem;
+        color: var(--content-meta);
+        font-size: 0.76rem;
+      }
+      .about-status .about-ico {
+        width: 0.95rem;
+        height: 0.95rem;
+        color: var(--primary);
       }
 
-      /* ================= 页头：身份卡按钮 ================= */
+      /* ================= ③ 页头按钮 =================
+         刻意保持与「心愿墙」页 .wish-bar-btn 逐属性一致（早前明确要求），
+         不跟参考站的 .profile-action 走。 */
       .about-hero-actions {
         display: flex;
         flex-direction: column;
@@ -67,6 +137,7 @@ import Canonical from "../components/misc/Canonical.astro";
       @media (min-width: 640px) {
         .about-hero-actions {
           width: auto;
+          min-width: 9.2rem;
           align-items: stretch;
         }
       }
@@ -94,7 +165,6 @@ import Canonical from "../components/misc/Canonical.astro";
         height: 0.85em;
         opacity: 0.75;
       }
-      /* 主按钮 —— 与「心愿墙」页 .wish-bar-btn 同款 */
       .about-btn--primary {
         background: var(--primary);
         color: #fff;
@@ -114,7 +184,6 @@ import Canonical from "../components/misc/Canonical.astro";
       :root.dark .about-btn--primary:hover {
         background: color-mix(in oklab, var(--primary) 85%, #fff);
       }
-      /* 次按钮 —— 描边 + 半透明底，尺寸与主按钮对齐 */
       .about-btn--ghost {
         background: var(--btn-regular-bg);
         color: var(--btn-content);
@@ -127,28 +196,39 @@ import Canonical from "../components/misc/Canonical.astro";
         transform: translateY(-1px);
       }
 
-      /* ================= 顶部导航（长条菜单） ================= */
-      /* 容器直接用主题的 .card-base：无边框、有底色、有圆角与纹理 */
+      /* ================= ④ 顶部导航（长条菜单）= 参考站 .profile-tabs ================= */
       .about-subnav {
         display: flex;
         flex-direction: row;
         align-items: stretch;
-        gap: 4px;
+        gap: 0.25rem;
+        min-height: 3rem;
         overflow-x: auto;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 16%, var(--line-divider));
+        border-radius: var(--radius-large);
+        background: color-mix(in srgb, var(--card-bg) 94%, transparent);
+        box-shadow: 0 0.35rem 1rem #3a5b890a;
+        scrollbar-width: none;
+      }
+      .about-subnav::-webkit-scrollbar {
+        display: none;
       }
       .about-subnav-item {
-        position: relative;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 6.72px;
-        padding: 12.48px 14.4px 10.88px;
-        border-radius: 11.52px 11.52px 0 0;
-        font-size: 12.8px;
+        justify-content: center;
+        gap: 0.42rem;
+        min-width: max-content;
+        padding: 0.78rem 0.9rem 0.68rem;
+        border-bottom: 2px solid transparent;
+        border-radius: 0.72rem 0.72rem 0 0;
+        color: var(--content-meta);
+        font-size: 0.8rem;
         font-weight: 680;
         line-height: 1.5;
         white-space: nowrap;
         text-decoration: none;
-        color: color-mix(in oklab, currentColor 60%, transparent);
         transition:
           color 0.18s,
           border-color 0.18s,
@@ -161,390 +241,730 @@ import Canonical from "../components/misc/Canonical.astro";
       }
       .about-subnav-item em {
         font-style: normal;
-        font-size: 10.5px;
-        font-weight: 700;
-        line-height: 1;
-        padding: 2px 6px;
+        min-width: 1.25rem;
+        padding: 0.1rem 0.32rem;
         border-radius: 999px;
-        background: color-mix(in oklab, var(--primary) 16%, transparent);
-        color: var(--primary);
+        background: var(--btn-regular-bg);
+        color: var(--btn-content);
+        font-size: 0.65rem;
+        font-weight: 700;
+        line-height: 1.25;
+        text-align: center;
       }
-      .about-subnav-item:hover {
-        color: var(--primary);
-        background: color-mix(in oklab, var(--primary) 7%, transparent);
-      }
-      /* active：主色文字 + 底部 3px 下划线 */
+      .about-subnav-item:hover,
+      .about-subnav-item:focus-visible,
       .about-subnav-item.is-active {
+        border-bottom-color: var(--primary);
         color: var(--primary);
-        background: color-mix(in oklab, var(--primary) 6%, transparent);
-      }
-      .about-subnav-item.is-active::after {
-        content: "";
-        position: absolute;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        height: 3px;
-        border-radius: 3px;
-        background: var(--primary);
+        outline: none;
       }
       .about-subnav-item.is-active .about-ico {
         opacity: 1;
       }
 
-      /* ================= 两栏布局（按容器宽度分档） ================= */
+      /* ================= ⑤ 两栏布局（按容器宽度分档） ================= */
       .about-cols-wrap {
         container-type: inline-size;
       }
       .about-cols {
         display: grid;
         grid-template-columns: minmax(0, 1fr);
-        gap: 16px;
+        gap: 1rem;
         align-items: start;
       }
-      /* 内容列自身够宽（≥880px）才分两栏 —— 中等宽度下自动单列，卡片不至于挤成一条 */
+      /* 内容列自身够宽（≥880px）才分两栏 */
       @container (min-width: 880px) {
         .about-cols {
           grid-template-columns: minmax(0, 1fr) 288px;
         }
       }
-      /* 卡片内边距对齐参考站实测值：主列 23.2px / 侧列 16px / 身份卡 26.4px，圆角 16px */
+      /* 卡片内边距 = 参考站：主列 clamp(1rem,2.5vw,1.45rem) / 侧列 1rem */
       .about-col-main > section {
-        padding: 23.2px;
+        padding: clamp(1rem, 2.5vw, 1.45rem);
       }
       .about-col-side > section {
-        padding: 16px;
-      }
-      .about-cols > .about-col-main > section,
-      .about-cols > .about-col-side > section {
-        border-radius: 16px;
+        padding: 1rem;
       }
       .about-col-main,
       .about-col-side {
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 1rem;
         min-width: 0;
       }
-      /* 主列卡片头自带分隔线（两列统一观感） */
+      /* 主列卡头下的分隔线（等价于参考站 .profile-readme__body 的 border-top） */
       .about-col-main > section > .mb-5:first-child {
-        padding-bottom: 12px;
-        margin-bottom: 16px;
-        border-bottom: 1px solid var(--line-color);
+        padding-bottom: 0.75rem;
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--line-divider);
       }
 
-      /* ================= 小区块标签（kicker） ================= */
+      /* ================= ⑥ 小区块标签 kicker = 参考站 .profile-section-kicker ================= */
       .about-section-label {
         display: inline-flex;
         align-items: center;
-        gap: 0.4rem;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
+        gap: 0.42rem;
+        margin: 0;
         color: var(--primary);
+        font-size: 0.6rem;
+        font-weight: 780;
+        letter-spacing: 0.12em;
+        line-height: 1.3;
+        text-transform: uppercase;
+      }
+      /* 卡头右侧的「更多 →」= 参考站 .profile-section-link */
+      .about-section-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        color: var(--content-meta);
+        font-size: 0.72rem;
+        text-decoration: none;
+        transition: color 0.18s;
+      }
+      .about-section-link:hover,
+      .about-section-link:focus-visible {
+        color: var(--primary);
+        outline: none;
+      }
+      /* 卡头右侧的次要说明 = 参考站 .profile-panel__meta */
+      .about-card-meta {
+        color: var(--content-meta);
+        font-size: 0.68rem;
+        font-weight: 400;
+        white-space: nowrap;
       }
 
-      /* ================= 引语 ================= */
+      /* ================= ⑦ 引语 = 参考站 .profile-readme__quote ================= */
       .about-quote {
-        border-left: 3px solid
-          color-mix(in oklab, var(--primary) 55%, transparent);
-        background: color-mix(in oklab, var(--primary) 5%, transparent);
-        border-radius: 0 0.6rem 0.6rem 0;
+        margin: 0 0 1.15rem;
+        padding: 0.8rem 1rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 18%, var(--line-divider));
+        border-radius: 0 0.7rem 0.7rem 0;
+        background: color-mix(in srgb, var(--primary) 7%, var(--card-bg));
+        font-size: clamp(1rem, 1.8vw, 1.18rem);
+        font-weight: 700;
+        line-height: 1.7;
+        font-style: normal;
       }
 
-      /* ================= 本人项目 ================= */
+      /* ================= ⑧ 正文段落 = 参考站 .profile-markdown p ================= */
+      .about-paragraphs > p {
+        max-width: 72ch;
+        margin: 0.85rem 0 0;
+        color: var(--content-meta);
+        font-size: 0.92rem;
+        line-height: 1.9;
+      }
+      .about-paragraphs > p:first-child {
+        margin-top: 0;
+      }
+
+      /* ================= ⑨ 内嵌卡片：项目 / 更新摘要 = 参考站 .project-card ================= */
       .about-proj-grid {
         display: grid;
-        gap: 12px;
-        /* 主列项目卡固定 2 列 */
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.7rem;
       }
-      @media (max-width: 640px) {
-        .about-proj-grid {
-          grid-template-columns: minmax(0, 1fr);
-        }
+      .about-tile-list {
+        display: grid;
+        gap: 0.55rem;
       }
-      .about-proj {
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        border: 1px solid var(--line-color);
-        border-radius: 0.9rem;
-        background: color-mix(in oklab, var(--card-bg) 92%, transparent);
+      /* 横向网格：图标方块 | 正文 | 箭头（参考站无封面图） */
+      .about-proj,
+      .about-tile {
+        display: grid;
+        grid-template-columns: 2rem minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 0.7rem;
+        min-width: 0;
+        padding: 0.82rem;
+        border: 1px solid var(--line-divider);
+        border-radius: 0.78rem;
+        background: color-mix(in srgb, var(--card-bg) 95%, var(--primary) 5%);
+        color: inherit;
         text-decoration: none;
         transition:
-          border-color 0.2s,
-          transform 0.2s,
-          background-color 0.2s;
+          transform 0.18s,
+          border-color 0.18s,
+          background-color 0.18s,
+          box-shadow 0.18s;
       }
-      .about-proj:hover {
-        border-color: color-mix(in oklab, var(--primary) 45%, transparent);
-        background: color-mix(in oklab, var(--primary) 4%, transparent);
+      .about-proj:hover,
+      .about-proj:focus-visible,
+      .about-tile:hover,
+      .about-tile:focus-visible {
+        border-color: color-mix(
+          in srgb,
+          var(--primary) 48%,
+          var(--line-divider)
+        );
+        background: color-mix(in srgb, var(--primary) 7%, var(--card-bg));
+        box-shadow: 0 0.55rem 1.25rem
+          color-mix(in srgb, var(--primary) 10%, transparent);
         transform: translateY(-2px);
+        outline: none;
       }
-      .about-proj__thumb {
-        display: block;
-        aspect-ratio: 16 / 9;
-        overflow: hidden;
-        background: var(--btn-regular-bg);
+      .about-proj__icon,
+      .about-tile__icon {
+        display: grid;
+        place-items: center;
+        width: 2rem;
+        height: 2rem;
+        border-radius: 0.6rem;
+        background: color-mix(in srgb, var(--primary) 12%, transparent);
+        color: var(--primary);
+        font-size: 1.1rem;
       }
-      .about-proj__thumb img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
+      /* 参考站的三色图标变体（.project-card--gold / --mint / --violet） */
+      .is-gold .about-proj__icon,
+      .is-gold .about-tile__icon {
+        background: #f0b93333;
+        color: #c48a08;
       }
-      .about-proj__body {
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
-        padding: 12px 14px 14px;
+      .is-mint .about-proj__icon,
+      .is-mint .about-tile__icon {
+        background: #42c7b02e;
+        color: #159b8b;
+      }
+      .is-violet .about-proj__icon,
+      .is-violet .about-tile__icon {
+        background: #8b78db2b;
+        color: #7361c8;
+      }
+      .about-proj__body,
+      .about-tile__body {
+        display: grid;
+        gap: 0.35rem;
         min-width: 0;
       }
-      .about-proj__title {
-        font-size: 15px;
-        font-weight: 700;
-        line-height: 1.3;
+      .about-proj__title,
+      .about-tile__title {
+        overflow: hidden;
+        color: var(--deep-text);
+        font-size: 0.88rem;
+        font-weight: 760;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .about-proj__desc {
-        font-size: 12.5px;
-        line-height: 1.6;
+      .about-proj__desc,
+      .about-tile__desc {
+        display: -webkit-box;
+        overflow: hidden;
+        color: var(--content-meta);
+        font-size: 0.74rem;
+        line-height: 1.55;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
       }
       .about-proj__tech {
         display: flex;
         flex-wrap: wrap;
-        gap: 6px;
-        margin-top: 2px;
+        gap: 0.25rem;
       }
+      /* 项目卡底部技术标签 = 参考站 .project-card__tags em */
       .about-proj__tech i {
         font-style: normal;
-        font-size: 10.5px;
-        font-weight: 700;
-        padding: 2px 7px;
-        border-radius: 999px;
+        padding: 0.18rem 0.34rem;
+        border-radius: 0.35rem;
         background: var(--btn-regular-bg);
         color: var(--btn-content);
+        font-size: 0.6rem;
+        line-height: 1.2;
       }
-
-      /* ================= 更新摘要条目 / 动态条目通用抬升 ================= */
-      .about-tile {
-        border: 1px solid var(--line-color);
-        border-radius: 0.9rem;
+      /* 外链箭头 = 参考站 .project-card__arrow / .activity-arrow */
+      .about-proj__arrow,
+      .about-tile__arrow,
+      .about-activity-arrow {
+        color: var(--content-meta);
+        font-size: 0.95rem;
         transition:
-          border-color 0.2s ease,
-          transform 0.2s ease,
-          background-color 0.2s ease;
+          color 0.18s,
+          transform 0.18s;
       }
-      .about-tile:hover {
-        border-color: color-mix(in oklab, var(--primary) 45%, transparent);
-        background: color-mix(in oklab, var(--primary) 4%, transparent);
-        transform: translateY(-2px);
+      .about-proj:hover .about-proj__arrow,
+      .about-proj:focus-visible .about-proj__arrow,
+      .about-tile:hover .about-tile__arrow,
+      .about-tile:focus-visible .about-tile__arrow,
+      .about-activity:hover .about-activity-arrow {
+        color: var(--primary);
+        transform: translate(0.1rem, -0.1rem);
       }
 
-      /* ================= 侧列卡片头（图标 + 标题 + 可选尾标） ================= */
+      /* ================= ⑩ 更新摘要里的动作标签 = 参考站 .project-card__tags em ================= */
+      .about-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+      }
+      .about-chip {
+        display: inline-block;
+        padding: 0.18rem 0.34rem;
+        border-radius: 0.35rem;
+        background: var(--btn-regular-bg);
+        color: var(--btn-content);
+        font-size: 0.6rem;
+        font-weight: 400;
+        line-height: 1.2;
+        white-space: nowrap;
+      }
+
+      /* ================= ⑪ 卡头 = 参考站 .profile-panel__header / .profile-side-heading ================= */
       .about-card-head {
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding-bottom: 12px;
-        margin-bottom: 16px;
-        border-bottom: 1px solid var(--line-color);
+        justify-content: flex-start;
+        gap: 0.8rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid var(--line-divider);
       }
       .about-head-icon {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+        flex: none;
         color: var(--primary);
-        flex-shrink: 0;
-        font-size: 20px;
+        font-size: 1.08rem;
         line-height: 1;
       }
       .about-card-title {
-        font-size: 16px;
-        font-weight: 700;
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 780;
+        letter-spacing: -0.015em;
         line-height: 1.3;
       }
 
-      /* ================= 我的朋友 ================= */
+      /* ================= ⑫ 标签胶囊：我的朋友 / 技术轨迹 = 参考站 .chip-list / .stack-list ================= */
       .about-friends {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        gap: 0.35rem;
+        margin-top: 0.8rem;
       }
-      .about-friend {
+      .about-tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-top: 0.8rem;
+      }
+      /* 胶囊本体（.about-friend 是 <a>；技术轨迹是 JS 生成的 .about-tag-chip） */
+      .about-friend,
+      .about-tag-chip {
         display: block;
         max-width: 100%;
-        padding: 5px 4px;
-        border-radius: 999px;
-        border: 1px solid color-mix(in oklab, var(--primary) 38%, transparent);
-        background: color-mix(in oklab, var(--primary) 8%, transparent);
-        font-size: 12px;
-        font-weight: 600;
+        padding: 0.28rem 0.5rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 16%, var(--line-divider));
+        border-radius: 0.45rem;
+        background: color-mix(in srgb, var(--primary) 6%, var(--card-bg));
+        color: var(--btn-content);
+        font-size: 0.65rem;
+        font-weight: 400;
         letter-spacing: -0.01em;
-        line-height: 1.35;
+        line-height: 1.2;
         text-align: center;
-        color: var(--primary);
         text-decoration: none;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
         transition:
-          color 0.2s,
-          border-color 0.2s,
-          background-color 0.2s;
+          color 0.18s,
+          border-color 0.18s,
+          background-color 0.18s;
       }
-      .about-friend:hover {
-        border-color: color-mix(in oklab, var(--primary) 70%, transparent);
-        background: color-mix(in oklab, var(--primary) 16%, transparent);
+      .about-friend:hover,
+      .about-friend:focus-visible,
+      .about-tag-chip:hover {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+        color: var(--primary);
+        outline: none;
       }
-      /* 侧列其它卡的标签统一成同款观感（标签是主色） */
-      .about-col-side [data-lines-render="tags"] > * {
-        border-color: color-mix(
-          in oklab,
-          var(--primary) 38%,
-          transparent
-        ) !important;
-        background: color-mix(
-          in oklab,
-          var(--primary) 8%,
-          transparent
-        ) !important;
-        color: var(--primary) !important;
+      /* 技术轨迹在参考站里走**青色**系（.stack-list 的专属处理） */
+      .about-tag-chip {
+        border-color: color-mix(in srgb, #42c7b0 18%, var(--line-divider));
+        background: color-mix(in srgb, #42c7b0 7%, var(--card-bg));
+      }
+      .about-tag-chip:hover {
+        border-color: #42c7b0;
+        color: #159b8b;
       }
 
-      /* ================= 保持联系：社交入口 ================= */
-      .about-contact-grid {
+      /* ================= ⑬ 保持联系 = 参考站 .profile-connect-list ================= */
+      .about-connect-list {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 8px;
+        gap: 0.4rem;
+        margin-top: 0.8rem;
       }
-      .about-contact {
-        display: flex;
+      .about-connect {
+        display: grid;
+        grid-template-columns: 1.1rem minmax(0, 1fr) auto;
         align-items: center;
-        gap: 7px;
+        gap: 0.45rem;
         min-width: 0;
-        padding: 9px 10px;
-        border-radius: 10px;
-        border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
-        background: color-mix(in oklab, var(--primary) 7%, transparent);
-        color: var(--primary);
-        font-size: 12.5px;
-        font-weight: 600;
-        line-height: 1.2;
+        padding: 0.47rem 0.45rem;
+        border-radius: 0.45rem;
+        color: var(--content-meta);
+        font-size: 0.74rem;
         text-decoration: none;
         transition:
-          color 0.2s,
-          border-color 0.2s,
-          background-color 0.2s,
-          transform 0.2s;
+          background-color 0.18s,
+          color 0.18s;
       }
-      .about-contact:hover {
-        border-color: color-mix(in oklab, var(--primary) 55%, transparent);
-        background: color-mix(in oklab, var(--primary) 14%, transparent);
-        transform: translateY(-1px);
+      .about-connect:hover,
+      .about-connect:focus-visible {
+        background: color-mix(in srgb, var(--primary) 8%, var(--card-bg));
+        color: var(--primary);
+        outline: none;
       }
-      .about-contact-icon {
+      .about-connect > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .about-connect-icon {
         display: inline-flex;
-        flex: 0 0 auto;
         align-items: center;
         justify-content: center;
-        font-size: 16px;
+        font-size: 0.95rem;
         line-height: 1;
       }
-      .about-contact-name {
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-      }
-      .about-card-foot {
-        margin: 12px 0 0;
-        font-size: 11.5px;
-        line-height: 1.5;
-        opacity: 0.6;
+      .about-connect-arrow {
+        font-size: 0.82rem;
       }
 
-      /* ================= 服务器状态 ================= */
-      .about-stub-chip {
-        font-size: 11px;
-        font-weight: 700;
-        padding: 3px 8px;
-        border-radius: 999px;
-        color: color-mix(in oklab, currentColor 55%, transparent);
-        background: var(--btn-regular-bg);
+      /* ================= ⑭ 最近的提交 = 参考站 .activity-list ================= */
+      .about-activity-list {
+        display: grid;
+        margin: 0;
+        padding: 0;
+        list-style: none;
       }
-      /* 取到真实数据：标签转为「在线」态（主题色 + 呼吸点） */
-      .about-stub-chip--live {
+      .about-activity {
+        display: grid;
+        grid-template-columns: 0.5rem 2.3rem minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 0.6rem;
+        min-width: 0;
+        padding: 0.72rem 0;
+        border-top: 1px solid var(--line-divider);
+      }
+      .about-activity-marker {
+        width: 0.42rem;
+        height: 0.42rem;
+        border-radius: 50%;
+        background: var(--primary);
+        box-shadow: 0 0 0 0.18rem
+          color-mix(in srgb, var(--primary) 13%, transparent);
+      }
+      .about-activity-kind {
+        color: var(--content-meta);
+        font-size: 0.68rem;
+        font-weight: 720;
+      }
+      .about-activity-link {
+        overflow: hidden;
+        color: var(--deep-text);
+        font-size: 0.8rem;
+        text-decoration: none;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .about-activity-link:hover,
+      .about-activity-link:focus-visible {
         color: var(--primary);
-        background: color-mix(in oklab, var(--primary) 13%, transparent);
+        outline: none;
+      }
+
+      /* ================= ⑮ 卡片脚注 = 参考站 .server-note ================= */
+      .about-card-foot {
+        margin: 0.7rem 0 0;
+        color: var(--content-meta);
+        font-size: 0.62rem;
+        line-height: 1.5;
+      }
+
+      /* ================= ⑯ 服务器状态 = 参考站 .server-status / .server-stat ================= */
+      .about-stub-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        flex: none;
+        margin-left: auto;
+        color: var(--content-meta);
+        font-size: 0.66rem;
+        font-weight: 720;
+        white-space: nowrap;
+      }
+      .about-stub-chip::before {
+        content: "";
+        width: 0.42rem;
+        height: 0.42rem;
+        flex: none;
+        border-radius: 999px;
+        background: #f2b94b;
+        box-shadow: 0 0 0 0.2rem #f2b94b24;
+      }
+      .about-stub-chip--live {
+        color: #159b62;
       }
       .about-stub-chip--live::before {
-        content: "";
-        display: inline-block;
-        width: 6px;
-        height: 6px;
-        margin-right: 5px;
-        vertical-align: 1px;
-        border-radius: 50%;
-        background: #10b981;
-        box-shadow: 0 0 0 3px color-mix(in oklab, #10b981 20%, transparent);
-        animation: about-stub-pulse 2.4s ease-in-out infinite;
+        background: #34c759;
+        box-shadow: 0 0 0 0.2rem #34c75924;
       }
-      @keyframes about-stub-pulse {
-        0%,
-        100% {
-          opacity: 1;
-        }
-        50% {
-          opacity: 0.4;
-        }
+      .about-stub-chip[data-state="offline"] {
+        color: #c5782e;
       }
-      .about-stub-chip--end {
-        margin-left: auto;
+      .about-stub-chip[data-state="offline"]::before {
+        background: #e19a45;
+        box-shadow: 0 0 0 0.2rem #e19a4524;
+      }
+      :root.dark .about-stub-chip--live {
+        color: #4ad07f;
+      }
+      :root.dark .about-stub-chip[data-state="offline"] {
+        color: #e19a45;
+      }
+
+      .about-stub-list {
+        display: grid;
+        gap: 0.35rem;
+        margin-top: 0.8rem;
       }
       .about-stub-row {
-        padding: 10px 12px;
-        border-radius: 10px;
-        background: var(--btn-regular-bg);
-      }
-      .about-stub-head {
-        display: flex;
+        display: grid;
+        grid-template-columns: 1.45rem minmax(0, 1fr) auto;
         align-items: center;
-        gap: 10px;
-        font-size: 12.5px;
-        color: color-mix(in oklab, currentColor 62%, transparent);
+        gap: 0.5rem;
+        min-width: 0;
+        padding: 0.5rem 0.45rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 10%, var(--line-divider));
+        border-radius: 0.55rem;
+        background: color-mix(in srgb, var(--card-bg) 96%, var(--primary) 4%);
       }
-      .about-stub-head > span:first-child {
-        flex-shrink: 0;
+      /* system 行不显示进度条 = 参考站 [data-server-stat=system] */
+      .about-stub-row[data-stub-key="system"] .about-stub-bar {
+        display: none;
+      }
+      .about-stub-icon {
+        display: grid;
+        place-items: center;
+        width: 1.35rem;
+        height: 1.35rem;
+        border-radius: 0.42rem;
+        background: color-mix(in srgb, var(--primary) 11%, transparent);
+        color: var(--primary);
+        font-size: 0.9rem;
+      }
+      .about-stub-copy {
+        display: grid;
+        gap: 0.08rem;
+        min-width: 0;
+      }
+      .about-stub-copy strong {
+        overflow: hidden;
+        font-size: 0.72rem;
+        font-weight: 720;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .about-stub-copy small {
+        overflow: hidden;
+        color: var(--content-meta);
+        font-size: 0.62rem;
+        line-height: 1.35;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .about-stub-copy small:empty {
+        display: none;
+      }
+      .about-stub-val {
+        color: var(--deep-text);
+        font-size: 0.72rem;
+        font-weight: 780;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
       }
       .about-stub-bar {
-        flex: 1;
-        height: 6px;
-        border-radius: 999px;
-        background: color-mix(in oklab, currentColor 12%, transparent);
+        display: block;
+        grid-column: 2 / -1;
+        height: 0.24rem;
         overflow: hidden;
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--primary) 12%, var(--line-divider));
       }
       .about-stub-bar > i {
         display: block;
+        width: 100%;
         height: 100%;
-        border-radius: 999px;
-        background: var(--primary);
-        transition: width 0.6s ease;
+        border-radius: inherit;
+        background: linear-gradient(
+          90deg,
+          color-mix(in srgb, var(--primary) 68%, #fff),
+          var(--primary)
+        );
+        transform: scaleX(var(--meter-scale, 0));
+        transform-origin: 0;
+        transition: transform 0.42s;
       }
-      /* 需给「值」留出对齐宽度，避免 100% ↔ 9% 切换时抖动 */
-      .about-stub-val {
-        flex-shrink: 0;
-        min-width: 42px;
-        font-variant-numeric: tabular-nums;
-        text-align: right;
-        opacity: 0.7;
+
+      /* ================= ⑰ 页脚卡 = 参考站 .profile-footer ================= */
+      section.about-footer-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 1rem 1.2rem;
+        background: color-mix(in srgb, var(--primary) 5%, var(--card-bg));
       }
-      @media (prefers-reduced-motion: reduce) {
-        .about-stub-chip--live::before {
-          animation: none;
+      .about-footer-motto {
+        margin: 0.38rem 0 0;
+        color: var(--deep-text);
+        font-size: 0.86rem;
+        font-weight: 680;
+        line-height: 1.4;
+      }
+      .about-footer-links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 0.45rem;
+      }
+      .about-footer-links > a {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.45rem 0.6rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 20%, var(--line-divider));
+        border-radius: 0.5rem;
+        color: var(--primary);
+        font-size: 0.7rem;
+        text-decoration: none;
+        transition:
+          background-color 0.18s,
+          border-color 0.18s;
+      }
+      .about-footer-links > a:hover,
+      .about-footer-links > a:focus-visible {
+        border-color: var(--primary);
+        background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+        outline: none;
+      }
+
+      /* ================= ⑱ 窄屏档 = 参考站 ≤640px 那一组 ================= */
+      @media (max-width: 640px) {
+        .about-cols {
+          gap: 0.75rem;
         }
+        .about-hero-card {
+          padding: 1rem;
+        }
+        .about-col-main > section,
+        .about-col-side > section {
+          padding: 0.9rem;
+          border-radius: 0.95rem;
+        }
+        .about-col-main,
+        .about-col-side {
+          gap: 0.75rem;
+        }
+        .about-avatar {
+          width: 4.75rem;
+          height: 4.75rem;
+          border-radius: 1rem;
+        }
+        .about-avatar__image {
+          border-radius: 0.8rem;
+        }
+        .about-name {
+          font-size: 1.55rem;
+        }
+        .about-roles {
+          font-size: 0.78rem;
+        }
+        .about-tagline {
+          margin-top: 0.6rem;
+          font-size: 0.84rem;
+          line-height: 1.65;
+        }
+        .about-status {
+          margin-top: 0.6rem;
+          font-size: 0.68rem;
+        }
+        .about-subnav {
+          min-height: 2.8rem;
+          border-radius: 0.85rem;
+        }
+        .about-subnav-item {
+          padding: 0.7rem 0.65rem 0.58rem;
+          font-size: 0.72rem;
+        }
+        .about-card-meta,
+        .about-section-link {
+          font-size: 0.62rem;
+        }
+        .about-proj-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        /* 参考站 ≤640px：内嵌卡与活动行整体缩一档 */
+        .about-proj,
+        .about-tile {
+          grid-template-columns: 1.85rem minmax(0, 1fr) auto;
+          gap: 0.58rem;
+          padding: 0.72rem;
+        }
+        .about-proj__icon,
+        .about-tile__icon {
+          width: 1.85rem;
+          height: 1.85rem;
+          font-size: 1rem;
+        }
+        .about-proj__title,
+        .about-tile__title {
+          font-size: 0.83rem;
+        }
+        .about-proj__desc,
+        .about-tile__desc {
+          font-size: 0.7rem;
+        }
+        .about-activity {
+          grid-template-columns: 0.45rem 2rem minmax(0, 1fr) auto;
+          gap: 0.45rem;
+        }
+        .about-activity-link {
+          font-size: 0.74rem;
+        }
+        section.about-footer-card {
+          align-items: flex-start;
+          flex-direction: column;
+          padding: 0.9rem;
+        }
+        .about-footer-links {
+          justify-content: flex-start;
+        }
+      }
+
+      /* ================= ⑲ 尊重「减少动态效果」 ================= */
+      @media (prefers-reduced-motion: reduce) {
+        .about-friend,
+        .about-connect,
+        .about-proj,
+        .about-tile,
+        .about-subnav-item,
+        .about-footer-links > a,
         .about-stub-bar > i {
           transition: none;
+        }
+        .about-proj:hover,
+        .about-proj:focus-visible,
+        .about-tile:hover,
+        .about-tile:focus-visible {
+          transform: none;
         }
       }
     </style>
@@ -554,41 +974,45 @@ import Canonical from "../components/misc/Canonical.astro";
     <!-- ================= ① 身份卡 ================= -->
     <section class="card-base about-hero-card onload-animation mb-4">
       <div class="relative z-1 flex flex-col gap-5 sm:flex-row sm:items-center">
-        <img
-          class="about-avatar shrink-0"
+        <span
+          class="about-avatar"
           th:if="${cfg?.avatar != null and !#strings.isEmpty(cfg?.avatar)}"
-          th:src="${cfg?.avatar}"
-          th:alt="${cfg?.name ?: site.title}"
-          src=""
-          alt="avatar"
-        />
+        >
+          <img
+            class="about-avatar__image"
+            th:src="${cfg?.avatar}"
+            th:alt="${cfg?.name ?: site.title}"
+            src=""
+            alt="avatar"
+          />
+        </span>
         <div class="min-w-0 flex-1">
           <h1
-            class="mb-1.5 text-3xl font-bold text-90 md:text-4xl"
+            class="about-name text-90"
             th:text="${cfg?.name != null and !#strings.isEmpty(cfg?.name) ? cfg?.name : site.title}"
           >
             关于我
           </h1>
           <p
-            class="mb-3 text-sm font-bold text-(--primary)"
+            class="about-roles"
             th:if="${cfg?.roles != null and !#strings.isEmpty(cfg?.roles)}"
             th:text="${cfg?.roles}"
           >
             身份
           </p>
           <p
-            class="mb-2 text-base leading-relaxed text-75 md:text-lg"
+            class="about-tagline text-75"
             th:if="${cfg?.tagline != null and !#strings.isEmpty(cfg?.tagline)}"
             th:text="${cfg?.tagline}"
           >
             一句话简介
           </p>
           <p
-            class="inline-flex items-center gap-1.5 text-xs text-50"
+            class="about-status"
             th:if="${cfg?.status != null and !#strings.isEmpty(cfg?.status)}"
           >
             <span
-              class="icon-[material-symbols--bolt-rounded] text-sm text-(--primary)"
+              class="icon-[material-symbols--bolt-rounded] about-ico"
               aria-hidden="true"></span>
             <span th:text="${cfg?.status}">状态</span>
           </p>
@@ -700,16 +1124,22 @@ import Canonical from "../components/misc/Canonical.astro";
           <section class="card-base onload-animation">
             <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
-                <h2 class="mt-1 text-xl font-bold text-90">关于我</h2>
+                <p class="about-section-label">
+                  <span
+                    class="icon-[material-symbols--menu-book-rounded]"
+                    aria-hidden="true"></span>
+                  <span>ABOUT ME</span>
+                </p>
+                <h2 class="about-card-title mt-1 text-90">关于我</h2>
               </div>
               <span
-                class="text-xs text-50"
+                class="about-card-meta"
                 th:if="${cfg?.introSubtitle != null and !#strings.isEmpty(cfg?.introSubtitle)}"
                 th:text="${cfg?.introSubtitle}">公开 · 持续更新</span
               >
             </div>
             <blockquote
-              class="about-quote mb-4 px-4 py-3 text-sm leading-relaxed text-75 italic"
+              class="about-quote text-75"
               th:if="${cfg?.quote != null and !#strings.isEmpty(cfg?.quote)}"
               th:text="${cfg?.quote}"
             >
@@ -737,10 +1167,10 @@ import Canonical from "../components/misc/Canonical.astro";
                     aria-hidden="true"></span>
                   <span>MY PROJECTS</span>
                 </p>
-                <h2 class="mt-1 text-xl font-bold text-90">本人项目</h2>
+                <h2 class="about-card-title mt-1 text-90">本人项目</h2>
               </div>
               <a
-                class="text-xs font-bold text-(--primary) transition-opacity hover:opacity-80"
+                class="about-section-link"
                 th:if="${cfg?.projects?.moreUrl != null and !#strings.isEmpty(cfg?.projects?.moreUrl)}"
                 th:href="${cfg?.projects?.moreUrl}"
               >
@@ -754,22 +1184,22 @@ import Canonical from "../components/misc/Canonical.astro";
               <a
                 class="about-proj"
                 th:each="p : ${cfg?.projects?.items}"
+                th:classappend="${p?.tone != null and !#strings.isEmpty(p?.tone) ? ' is-' + p?.tone : ''}"
                 th:href="${p?.link != null and !#strings.isEmpty(p?.link) ? p?.link : null}"
                 th:target="${p?.link != null and !#strings.isEmpty(p?.link) ? '_blank' : null}"
                 rel="noopener noreferrer"
               >
-                <span
-                  class="about-proj__thumb"
-                  th:if="${p?.thumb != null and !#strings.isEmpty(p?.thumb)}"
-                >
-                  <img th:src="${p?.thumb}" alt="" loading="lazy" />
+                <span class="about-proj__icon">
+                  <span
+                    th:class="${p?.icon != null and !#strings.isEmpty(p?.icon) ? p?.icon : 'icon-[material-symbols--auto-awesome-rounded]'}"
+                    aria-hidden="true"></span>
                 </span>
                 <span class="about-proj__body">
-                  <span class="about-proj__title text-90" th:text="${p?.title}"
-                    >项目名</span
+                  <strong class="about-proj__title" th:text="${p?.title}"
+                    >项目名</strong
                   >
                   <span
-                    class="about-proj__desc text-75"
+                    class="about-proj__desc"
                     th:if="${p?.description != null and !#strings.isEmpty(p?.description)}"
                     th:text="${p?.description}">说明</span
                   >
@@ -779,6 +1209,9 @@ import Canonical from "../components/misc/Canonical.astro";
                     th:data-lines="${p?.tags}"
                     data-lines-render="projTech"></span>
                 </span>
+                <span
+                  class="about-proj__arrow icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
               </a>
             </div>
           </section>
@@ -796,10 +1229,10 @@ import Canonical from "../components/misc/Canonical.astro";
                     aria-hidden="true"></span>
                   <span>LATEST CHANGES</span>
                 </p>
-                <h2 class="mt-1 text-xl font-bold text-90">更新摘要</h2>
+                <h2 class="about-card-title mt-1 text-90">更新摘要</h2>
               </div>
               <a
-                class="text-xs font-bold text-(--primary) transition-opacity hover:opacity-80"
+                class="about-section-link"
                 th:if="${cfg?.highlights?.moreUrl != null and !#strings.isEmpty(cfg?.highlights?.moreUrl)}"
                 th:href="${cfg?.highlights?.moreUrl}"
               >
@@ -809,38 +1242,45 @@ import Canonical from "../components/misc/Canonical.astro";
                 >
               </a>
             </div>
-            <div class="flex flex-col gap-3">
+            <div class="about-tile-list">
               <a
-                class="about-tile block px-4 py-4"
+                class="about-tile"
                 th:each="h : ${cfg?.highlights?.items}"
+                th:classappend="${h?.tone != null and !#strings.isEmpty(h?.tone) ? ' is-' + h?.tone : ''}"
                 th:href="${h?.link != null and !#strings.isEmpty(h?.link) ? h?.link : null}"
                 th:target="${h?.link != null and !#strings.isEmpty(h?.link) ? '_blank' : null}"
                 rel="noopener noreferrer"
               >
-                <div class="mb-1.5 flex flex-wrap items-center gap-2">
-                  <h3 class="text-base font-bold text-90" th:text="${h?.title}">
-                    标题
-                  </h3>
+                <span class="about-tile__icon">
                   <span
-                    class="rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-(--btn-content)"
-                    th:if="${h?.version != null and !#strings.isEmpty(h?.version)}"
-                    th:text="${h?.version}">v0.0.0</span
+                    th:class="${h?.icon != null and !#strings.isEmpty(h?.icon) ? h?.icon : 'icon-[material-symbols--auto-awesome-rounded]'}"
+                    aria-hidden="true"></span>
+                </span>
+                <span class="about-tile__body">
+                  <strong class="about-tile__title" th:text="${h?.title}"
+                    >标题</strong
                   >
-                </div>
-                <p
-                  class="mb-3 text-sm leading-relaxed text-75"
-                  th:if="${h?.description != null and !#strings.isEmpty(h?.description)}"
-                  th:text="${h?.description}"
-                >
-                  说明
-                </p>
-                <div
-                  class="flex flex-wrap gap-1.5"
-                  th:if="${h?.tags != null and !#strings.isEmpty(h?.tags)}"
-                  th:data-lines="${h?.tags}"
-                  data-lines-render="chips"
-                >
-                </div>
+                  <span
+                    class="about-tile__desc"
+                    th:if="${h?.description != null and !#strings.isEmpty(h?.description)}"
+                    th:text="${h?.description}">说明</span
+                  >
+                  <span
+                    class="about-chip-list"
+                    th:if="${(h?.version != null and !#strings.isEmpty(h?.version)) or (h?.tags != null and !#strings.isEmpty(h?.tags))}"
+                    th:data-lines="${h?.tags}"
+                    data-lines-render="chips"
+                  >
+                    <span
+                      class="about-chip"
+                      th:if="${h?.version != null and !#strings.isEmpty(h?.version)}"
+                      th:text="${h?.version}">v0.0.0</span
+                    >
+                  </span>
+                </span>
+                <span
+                  class="about-tile__arrow icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
               </a>
             </div>
           </section>
@@ -857,27 +1297,25 @@ import Canonical from "../components/misc/Canonical.astro";
                   aria-hidden="true"></span>
                 <span>RECENT ACTIVITY</span>
               </p>
-              <h2 class="mt-1 text-xl font-bold text-90">最近的提交</h2>
+              <h2 class="about-card-title mt-1 text-90">最近的提交</h2>
               <p
-                class="mt-1 text-xs text-50"
+                class="about-card-meta mt-1"
                 th:if="${cfg?.activity?.subtitle != null and !#strings.isEmpty(cfg?.activity?.subtitle)}"
                 th:text="${cfg?.activity?.subtitle}"
               >
                 写下来的，才会留下
               </p>
             </div>
-            <ul class="flex flex-col gap-2">
-              <li
-                class="flex items-start gap-2.5"
-                th:each="a : ${cfg?.activity?.items}"
-              >
+            <ul class="about-activity-list">
+              <li class="about-activity" th:each="a : ${cfg?.activity?.items}">
+                <span class="about-activity-marker" aria-hidden="true"></span>
                 <span
-                  class="mt-0.5 shrink-0 rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 text-[0.7rem] font-bold text-(--btn-content)"
+                  class="about-activity-kind"
                   th:text="${a?.type != null and !#strings.isEmpty(a?.type) ? a?.type : '动态'}"
                   >类型</span
                 >
                 <a
-                  class="min-w-0 flex-1 text-sm text-75 transition-colors hover:text-(--primary)"
+                  class="about-activity-link"
                   th:href="${a?.link != null and !#strings.isEmpty(a?.link) ? a?.link : null}"
                   th:target="${a?.link != null and !#strings.isEmpty(a?.link) ? '_blank' : null}"
                   rel="noopener noreferrer"
@@ -885,6 +1323,9 @@ import Canonical from "../components/misc/Canonical.astro";
                 >
                   标题
                 </a>
+                <span
+                  class="about-activity-arrow icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
               </li>
             </ul>
           </section>
@@ -944,9 +1385,9 @@ import Canonical from "../components/misc/Canonical.astro";
               <h2 class="about-card-title text-90">技术轨迹</h2>
             </div>
             <div
-              class="flex flex-wrap gap-2"
+              class="about-tag-list"
               th:data-lines="${cfg?.trajectory}"
-              data-lines-render="tags"
+              data-lines-render="stackTags"
             >
             </div>
             <p class="mt-3 text-xs text-50">
@@ -962,13 +1403,13 @@ import Canonical from "../components/misc/Canonical.astro";
             <div class="about-card-head">
               <span class="about-head-icon">
                 <span
-                  class="icon-[material-symbols--handshake-rounded]"
+                  class="icon-[material-symbols--alternate-email-rounded]"
                   aria-hidden="true"></span>
               </span>
               <h2 class="about-card-title text-90">保持联系</h2>
             </div>
             <div
-              class="about-contact-grid"
+              class="about-connect-list"
               th:data-lines="${cfg?.contact}"
               data-lines-render="contacts"
             >
@@ -985,7 +1426,7 @@ import Canonical from "../components/misc/Canonical.astro";
             <div class="about-card-head">
               <span class="about-head-icon">
                 <span
-                  class="icon-[material-symbols--dns-rounded]"
+                  class="icon-[material-symbols--cloud-outline]"
                   aria-hidden="true"></span>
               </span>
               <h2 class="about-card-title text-90">服务器状态</h2>
@@ -996,7 +1437,7 @@ import Canonical from "../components/misc/Canonical.astro";
               >
             </div>
             <div
-              class="flex flex-col gap-4"
+              class="about-stub-list"
               th:data-lines="${cfg?.serverRows}"
               th:data-server-url="${cfg?.serverDataUrl}"
               data-lines-render="stubRows"
@@ -1010,7 +1451,7 @@ import Canonical from "../components/misc/Canonical.astro";
 
     <!-- ================= ④ 页脚卡 ================= -->
     <section
-      class="card-base onload-animation mb-4 flex flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-9"
+      class="card-base about-footer-card onload-animation mb-4"
       th:if="${(cfg?.footerMotto != null and !#strings.isEmpty(cfg?.footerMotto)) or (cfg?.footerLinks != null and !#strings.isEmpty(cfg?.footerLinks))}"
     >
       <div class="min-w-0">
@@ -1022,7 +1463,7 @@ import Canonical from "../components/misc/Canonical.astro";
           OPEN SOURCE, OPEN CHANNEL
         </p>
         <p
-          class="mt-1.5 text-base font-bold text-90"
+          class="about-footer-motto"
           th:if="${cfg?.footerMotto != null and !#strings.isEmpty(cfg?.footerMotto)}"
           th:text="${cfg?.footerMotto}"
         >
@@ -1030,7 +1471,7 @@ import Canonical from "../components/misc/Canonical.astro";
         </p>
       </div>
       <div
-        class="flex flex-wrap gap-2"
+        class="about-footer-links"
         th:if="${cfg?.footerLinks != null and !#strings.isEmpty(cfg?.footerLinks)}"
         th:data-lines="${cfg?.footerLinks}"
         data-lines-render="links"

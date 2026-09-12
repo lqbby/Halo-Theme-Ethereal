@@ -2295,9 +2295,23 @@ spec:
                       name: title
                       label: 名称
                     - $formkit: text
-                      name: thumb
-                      label: 封面图
-                      help: "图片 URL，建议 16:9；留空则不显示封面"
+                      name: icon
+                      label: 图标
+                      value: "icon-[material-symbols--auto-awesome-rounded]"
+                      help: "卡片左侧图标方块。请从下面这组里挑选并复制（已随主题打包）：icon-[material-symbols--auto-awesome-rounded] icon-[material-symbols--history-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] 。用其它图标不会被渲染"
+                    - $formkit: select
+                      name: tone
+                      label: 图标配色
+                      value: ""
+                      options:
+                        - label: 跟随主题色
+                          value: ""
+                        - label: 金色
+                          value: gold
+                        - label: 薄荷
+                          value: mint
+                        - label: 紫色
+                          value: violet
                     - $formkit: textarea
                       name: description
                       label: 说明
@@ -2330,6 +2344,24 @@ spec:
                     - $formkit: text
                       name: title
                       label: 标题
+                    - $formkit: text
+                      name: icon
+                      label: 图标
+                      value: "icon-[material-symbols--auto-awesome-rounded]"
+                      help: "卡片左侧图标方块。请从下面这组里挑选并复制（已随主题打包）：icon-[material-symbols--auto-awesome-rounded] icon-[material-symbols--history-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] 。用其它图标不会被渲染"
+                    - $formkit: select
+                      name: tone
+                      label: 图标配色
+                      value: ""
+                      options:
+                        - label: 跟随主题色
+                          value: ""
+                        - label: 金色
+                          value: gold
+                        - label: 薄荷
+                          value: mint
+                        - label: 紫色
+                          value: violet
                     - $formkit: textarea
                       name: description
                       label: 说明
@@ -2416,7 +2448,7 @@ spec:
               name: serverRows
               label: 监控指标
               value: "处理器\n内存\n存储"
-              help: "每行一个指标名；也可写「名称|cpu」的格式与数据源字段对应（cpu / mem / disk），不写则按顺序对应"
+              help: "每行一个指标名；也可写「名称|cpu」的格式与数据源字段对应。可用字段：cpu（处理器）/ mem（内存）/ disk（存储）/ system（系统）。图标按字段自动匹配，system 那行不显示进度条（与设计稿一致）。不写字段时按行序对应 cpu / mem / disk"
             - $formkit: text
               name: serverDataUrl
               label: 数据源地址

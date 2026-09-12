@@ -47,3 +47,7 @@ docs/
 
 # 临时快照（勿提交；也会被 Tailwind 内容扫描到 -> 徒增无用 CSS）
 .tmp_*.html
+
+# 临时侦察物：参考站样式/HTML 摘录、语法检查副本（勿提交，勿让 Tailwind 扫到）
+.tmp_ref/
+.tmp_check/

@@ -1,6 +1,7 @@
 // @ts-nocheck —— 与 timeline.js 同款：配合模板里 th:data-* 多行字段在客户端渲染。
 // 用于「关于我」与「博客更新日志」两个自定义页面：模板把多行文本写进 data-lines，
-// 这里按行拆分后生成 chips / links / paragraphs / entries / tags。
+// 这里按行拆分后生成 chips / links / paragraphs / entries / tags / stackTags /
+// contacts / projTech / stubRows。
 //
 // 为什么要客户端渲染：settings.yaml 里这些字段是 textarea（每行一条），
 // 而 Thymeleaf 侧没有顺手的分行迭代；timeline.js 已确立同一做法。
@@ -31,25 +32,44 @@
 
   var CLS_CHIP =
     "rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)";
+  // 「博客更新日志」页的标签胶囊（圆角全包），与「关于我」的 .about-chip 不同
   var CLS_TAG =
     "rounded-full border border-(--line-color) px-2.5 py-1 text-xs text-75 transition-colors hover:border-(--primary) hover:text-(--primary)";
   var CLS_LINK =
     "rounded-md bg-(--btn-regular-bg) px-3 py-1.5 text-sm font-bold text-(--btn-content) transition-colors hover:bg-(--btn-regular-bg-hover) hover:text-(--primary)";
+  // 各卡右侧的外链箭头（= 参考站 .project-card__arrow / .activity-arrow /
+  // .profile-connect-arrow）。类名已登记在 global.css 的 @source inline 里。
+  var CLS_ARROW = "icon-[material-symbols--arrow-outward-rounded]";
+
+  // 「服务器状态」四行的图标 = 参考站同一组，按数据源字段固定；
+  // 必须是**完整字面量**类名，候选集已由 global.css 的 @source inline 登记。
+  var STUB_ICONS = {
+    cpu: "icon-[material-symbols--memory-rounded]",
+    mem: "icon-[material-symbols--memory-alt-rounded]",
+    memory: "icon-[material-symbols--memory-alt-rounded]",
+    disk: "icon-[material-symbols--database]",
+    system: "icon-[material-symbols--dns]",
+  };
+  // 行内没写「名称|key」时按行序兜底
+  var STUB_ORDER = ["cpu", "mem", "disk", "system"];
+  var STUB_ICON_DEFAULT = "icon-[material-symbols--memory-rounded]";
 
   function render(el) {
     var kind = el.getAttribute("data-lines-render") || "chips";
     var lines = splitLines(el.getAttribute("data-lines"));
     if (lines.length === 0) {
-      el.remove();
+      // 容器里可能已经有服务端渲染的静态子节点（例如「更新摘要」的版本号胶囊），
+      // 这种情况只跳过追加，不能整块摘掉。
+      if (!el.childNodes.length) el.remove();
       return;
     }
 
     var frag = document.createDocumentFragment();
 
     if (kind === "paragraphs") {
+      // 版式由 .about-paragraphs > p 接管（max-width:72ch / .92rem / line-height:1.9）
       lines.forEach(function (line) {
         var p = document.createElement("p");
-        p.className = "mb-3 text-sm leading-relaxed text-75 last:mb-0";
         p.textContent = line;
         frag.appendChild(p);
       });
@@ -102,9 +122,19 @@
         frag.appendChild(li);
       });
     } else if (kind === "tags") {
+      // 「博客更新日志」页专用（圆角全包胶囊）
       lines.forEach(function (line) {
         var span = document.createElement("span");
         span.className = CLS_TAG;
+        span.textContent = line;
+        frag.appendChild(span);
+      });
+    } else if (kind === "stackTags") {
+      // 「关于我 → 技术轨迹」= 参考站 .stack-list span（青色系胶囊，
+      // 样式见 about.astro 的 .about-tag-chip）
+      lines.forEach(function (line) {
+        var span = document.createElement("span");
+        span.className = "about-tag-chip";
         span.textContent = line;
         frag.appendChild(span);
       });
@@ -116,10 +146,12 @@
         frag.appendChild(i);
       });
     } else if (kind === "contacts") {
-      // 「保持联系」社交入口：名称|链接|图标类名
-      // 图标第三段写的是**完整** iconify 类名（如 icon-[mdi--github]），
-      // 候选类名已写在 settings.yaml 帮助文本里 -> Tailwind 会扫到并生成，
-      // 因此这里直接透传类名即可（不要在本文件里拼接类名，那样扫不到）。
+      // 「保持联系」= 参考站 .profile-connect-list：
+      // 单列列表，每行「图标 | 名称 | 外链箭头」，无边框、次要灰字。
+      // 名称|链接|图标类名 —— 图标第三段写的是**完整** iconify 类名
+      // （如 icon-[mdi--github]），候选类名已写在 settings.yaml 帮助文本里
+      // -> Tailwind 会扫到并生成，因此这里直接透传类名即可
+      // （不要在本文件里拼接类名，那样扫不到）。
       lines.forEach(function (line) {
         var parts = line.split("|");
         var name = (parts[0] || "").trim();
@@ -128,8 +160,7 @@
         if (!name) return;
 
         var a = document.createElement("a");
-        a.className = "about-contact";
-        a.title = name;
+        a.className = "about-connect";
         if (href) {
           a.href = href;
           if (href.indexOf("mailto:") !== 0) {
@@ -137,52 +168,74 @@
             a.rel = "noopener noreferrer";
           }
         }
-        if (icon) {
-          var ic = document.createElement("span");
-          ic.className = "about-contact-icon " + icon;
-          a.appendChild(ic);
-        }
+        var ic = document.createElement("span");
+        ic.className = "about-connect-icon" + (icon ? " " + icon : "");
+        ic.setAttribute("aria-hidden", "true");
+
         var nm = document.createElement("span");
-        nm.className = "about-contact-name";
         nm.textContent = name;
+
+        var ar = document.createElement("span");
+        ar.className = "about-connect-arrow " + CLS_ARROW;
+        ar.setAttribute("aria-hidden", "true");
+
+        a.appendChild(ic);
         a.appendChild(nm);
+        a.appendChild(ar);
         frag.appendChild(a);
       });
     } else if (kind === "stubRows") {
-      // 「服务器状态」指标行：每行一个指标名（可写 "名称|key" 指定数据字段），
-      // 未配置数据源时进度条留 0%、数值显示 —（诚实占位）。
-      lines.forEach(function (line) {
+      // 「服务器状态」指标行 = 参考站 .server-stat：
+      //   图标方块 | (粗体指标名 + 小字明细) | 数值   ＋   下一行通栏进度条
+      // 每行写「名称|key」，key ∈ cpu / mem / disk / system；key 决定图标。
+      // system 行不渲染进度条（参考站靠 [data-server-stat=system] 隐藏）。
+      // 未配置数据源时数值显示 —、进度条 0%，保持诚实占位。
+      lines.forEach(function (line, i) {
+        var sep = line.indexOf("|");
+        var label = sep >= 0 ? line.slice(0, sep).trim() : line;
+        var key =
+          (sep >= 0 ? line.slice(sep + 1).trim() : "") || STUB_ORDER[i] || "";
+
         var row = document.createElement("div");
         row.className = "about-stub-row";
+        row.setAttribute("data-stub-key", key);
 
-        var head = document.createElement("div");
-        head.className = "about-stub-head";
+        var icon = document.createElement("span");
+        icon.className = "about-stub-icon";
+        var glyph = document.createElement("span");
+        glyph.setAttribute("class", STUB_ICONS[key] || STUB_ICON_DEFAULT);
+        glyph.setAttribute("aria-hidden", "true");
+        icon.appendChild(glyph);
 
-        var label = document.createElement("span");
-        var sep = line.indexOf("|");
-        label.textContent = sep >= 0 ? line.slice(0, sep).trim() : line;
-
-        var bar = document.createElement("span");
-        bar.className = "about-stub-bar";
-        bar.setAttribute("role", "presentation");
-        var fill = document.createElement("i");
-        fill.style.width = "0%";
-        bar.appendChild(fill);
+        var copy = document.createElement("span");
+        copy.className = "about-stub-copy";
+        var strong = document.createElement("strong");
+        strong.textContent = label;
+        var small = document.createElement("small");
+        copy.appendChild(strong);
+        copy.appendChild(small);
 
         var val = document.createElement("span");
         val.className = "about-stub-val";
         val.textContent = "\u2014";
 
-        head.appendChild(label);
-        head.appendChild(bar);
-        head.appendChild(val);
-        row.appendChild(head);
+        var bar = document.createElement("span");
+        bar.className = "about-stub-bar";
+        bar.setAttribute("aria-hidden", "true");
+        var fill = document.createElement("i");
+        bar.appendChild(fill);
+
+        row.appendChild(icon);
+        row.appendChild(copy);
+        row.appendChild(val);
+        row.appendChild(bar);
         frag.appendChild(row);
       });
     } else {
+      // chips：「更新摘要」条目底部的动作标签 = 参考站 .project-card__tags em
       lines.forEach(function (line) {
         var span = document.createElement("span");
-        span.className = CLS_CHIP;
+        span.className = "about-chip";
         span.textContent = line;
         frag.appendChild(span);
       });
@@ -249,7 +302,11 @@
       var raw = lines[i] || "";
       var sep = raw.indexOf("|");
       var key = sep >= 0 ? raw.slice(sep + 1).trim() : "";
-      var item = findServerItem(items, key, i);
+      var item = findServerItem(
+        items,
+        key || row.getAttribute("data-stub-key"),
+        i,
+      );
       if (!item) return;
 
       var pct = parseFloat(item.percent);
@@ -259,29 +316,30 @@
 
       var fill = row.querySelector(".about-stub-bar > i");
       var val = row.querySelector(".about-stub-val");
-      if (fill) fill.style.width = pct + "%";
-      if (val) val.textContent = item.text || pct + "%";
+      var strong = row.querySelector(".about-stub-copy strong");
+      var small = row.querySelector(".about-stub-copy small");
 
-      // 明细（核心数/负载、已用容量…）放 title，不挤占设计版式
-      if (item.detail || item.label) {
-        row.setAttribute(
-          "title",
-          (item.label || "") + (item.detail ? "：" + item.detail : ""),
-        );
-      }
+      // 进度条用 --meter-scale 驱动（参考站 .server-stat__meter>span 同款），
+      // 不动 width，交给 CSS 里的 transform:scaleX + transition 做动画
+      if (fill) fill.style.setProperty("--meter-scale", String(pct / 100));
+      if (val) val.textContent = item.text || pct + "%";
+      if (strong && !strong.textContent) strong.textContent = item.label || "";
+      // 明细写在指标名下方；为空时由 CSS 的 small:empty 收掉高度
+      if (small) small.textContent = item.detail || "";
     });
 
     // 状态标签：用户留空时补一个；有真实数据就切成「在线」态
     var chip = section.querySelector(".about-stub-chip");
     if (!chip) {
       chip = document.createElement("span");
-      chip.className = "about-stub-chip about-stub-chip--end";
+      chip.className = "about-stub-chip";
       var head = section.querySelector(".about-card-head");
       if (head) head.appendChild(chip);
     }
     if (chip && data && data.status) {
       chip.textContent = data.status;
       chip.classList.add("about-stub-chip--live");
+      chip.removeAttribute("data-state");
     }
 
     // 脚注：更新于 / 运行时长
@@ -299,6 +357,12 @@
   }
 
   function markServerOffline(el, section) {
+    var chip = section.querySelector(".about-stub-chip");
+    if (chip) {
+      chip.textContent = "离线";
+      chip.classList.remove("about-stub-chip--live");
+      chip.setAttribute("data-state", "offline");
+    }
     var foot = section.querySelector("[data-server-foot]");
     if (foot) {
       foot.textContent = "数据源暂时取不到，稍后自动重试";

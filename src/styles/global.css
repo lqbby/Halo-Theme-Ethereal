@@ -16,6 +16,15 @@
    注意：类名必须是**完整字面量**，运行时拼接的类名不会被生成。 */
 @source inline("icon-[fa6-brands--qq] icon-[mdi--github] icon-[fa6-brands--bilibili] icon-[material-symbols--mail-rounded] icon-[mdi--wechat] icon-[fa6-brands--telegram] icon-[fa6-brands--x-twitter] icon-[fa6-brands--weibo] icon-[material-symbols--rss-feed-rounded] icon-[material-symbols--link-rounded]");
 
+/* 「关于我」页面剩余的三组图标白名单，全部由**用户在主题设置里手填**或由
+   extend-pages.js 在**运行时**写进 DOM，源码里不出现完整字面量，必须登记：
+   1) 项目 / 更新摘要卡左侧的图标方块（settings.yaml 的 projects/highlights.icon）
+   2) 服务器状态四行的图标（由 extend-pages.js 的 stubRows 生成，与数据源的
+      key 一一对应：cpu / mem / disk / system）
+   3) 各卡片通用的「外链箭头」icon-[material-symbols--arrow-outward-rounded]
+   同样：类名必须是完整字面量，空格分隔。 */
+@source inline("icon-[material-symbols--auto-awesome-rounded] icon-[material-symbols--history-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] icon-[material-symbols--memory-rounded] icon-[material-symbols--memory-alt-rounded] icon-[material-symbols--arrow-outward-rounded]");
+
 @utility is-home {
   &.enable-banner #banner-wrapper {
     @apply h-(--banner-height-home) translate-y-(--banner-height-extend);
