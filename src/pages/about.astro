@@ -1002,12 +1002,12 @@ import Canonical from "../components/misc/Canonical.astro";
       <div class="relative z-1 flex flex-col gap-5 sm:flex-row sm:items-center">
         <span
           class="about-avatar"
-          th:if="${cfg?.avatar != null and !#strings.isEmpty(cfg?.avatar)}"
+          th:if="${cfg?.identity?.avatar != null and !#strings.isEmpty(cfg?.identity?.avatar)}"
         >
           <img
             class="about-avatar__image"
-            th:src="${cfg?.avatar}"
-            th:alt="${cfg?.name ?: site.title}"
+            th:src="${cfg?.identity?.avatar}"
+            th:alt="${cfg?.identity?.name ?: site.title}"
             src=""
             alt="avatar"
           />
@@ -1015,64 +1015,68 @@ import Canonical from "../components/misc/Canonical.astro";
         <div class="min-w-0 flex-1">
           <h1
             class="about-name text-90"
-            th:text="${cfg?.name != null and !#strings.isEmpty(cfg?.name) ? cfg?.name : site.title}"
+            th:text="${cfg?.identity?.name != null and !#strings.isEmpty(cfg?.identity?.name) ? cfg?.identity?.name : site.title}"
           >
             关于我
           </h1>
           <p
             class="about-roles"
-            th:if="${cfg?.roles != null and !#strings.isEmpty(cfg?.roles)}"
-            th:text="${cfg?.roles}"
+            th:if="${cfg?.identity?.roles != null and !#strings.isEmpty(cfg?.identity?.roles)}"
+            th:text="${cfg?.identity?.roles}"
           >
             身份
           </p>
           <p
             class="about-tagline text-75"
-            th:if="${cfg?.tagline != null and !#strings.isEmpty(cfg?.tagline)}"
-            th:text="${cfg?.tagline}"
+            th:if="${cfg?.identity?.tagline != null and !#strings.isEmpty(cfg?.identity?.tagline)}"
+            th:text="${cfg?.identity?.tagline}"
           >
             一句话简介
           </p>
           <p
             class="about-status"
-            th:if="${cfg?.status != null and !#strings.isEmpty(cfg?.status)}"
+            th:if="${cfg?.identity?.status != null and !#strings.isEmpty(cfg?.identity?.status)}"
           >
             <span
               class="icon-[material-symbols--bolt-rounded] about-ico"
               aria-hidden="true"></span>
-            <span th:text="${cfg?.status}">状态</span>
+            <span th:text="${cfg?.identity?.status}">状态</span>
           </p>
         </div>
 
         <div
           class="about-hero-actions"
-          th:if="${(cfg?.actionPrimaryLabel != null and !#strings.isEmpty(cfg?.actionPrimaryLabel) and cfg?.actionPrimaryUrl != null and !#strings.isEmpty(cfg?.actionPrimaryUrl)) or (cfg?.actionSecondaryLabel != null and !#strings.isEmpty(cfg?.actionSecondaryLabel) and cfg?.actionSecondaryUrl != null and !#strings.isEmpty(cfg?.actionSecondaryUrl))}"
+          th:if="${(cfg?.identity?.actionPrimaryLabel != null and !#strings.isEmpty(cfg?.identity?.actionPrimaryLabel) and cfg?.identity?.actionPrimaryUrl != null and !#strings.isEmpty(cfg?.identity?.actionPrimaryUrl)) or (cfg?.identity?.actionSecondaryLabel != null and !#strings.isEmpty(cfg?.identity?.actionSecondaryLabel) and cfg?.identity?.actionSecondaryUrl != null and !#strings.isEmpty(cfg?.identity?.actionSecondaryUrl))}"
         >
           <a
             class="about-btn about-btn--primary"
-            th:if="${cfg?.actionPrimaryLabel != null and !#strings.isEmpty(cfg?.actionPrimaryLabel) and cfg?.actionPrimaryUrl != null and !#strings.isEmpty(cfg?.actionPrimaryUrl)}"
-            th:href="${cfg?.actionPrimaryUrl}"
+            th:if="${cfg?.identity?.actionPrimaryLabel != null and !#strings.isEmpty(cfg?.identity?.actionPrimaryLabel) and cfg?.identity?.actionPrimaryUrl != null and !#strings.isEmpty(cfg?.identity?.actionPrimaryUrl)}"
+            th:href="${cfg?.identity?.actionPrimaryUrl}"
             target="_blank"
             rel="noopener noreferrer"
           >
             <span class="icon-[mdi--github] about-ico" aria-hidden="true"
             ></span>
-            <span th:text="${cfg?.actionPrimaryLabel}">查看 GitHub</span>
+            <span th:text="${cfg?.identity?.actionPrimaryLabel}"
+              >查看 GitHub</span
+            >
             <span
               class="icon-[material-symbols--open-in-new-rounded] about-ico about-ico--xs"
               aria-hidden="true"></span>
           </a>
           <a
             class="about-btn about-btn--ghost"
-            th:if="${cfg?.actionSecondaryLabel != null and !#strings.isEmpty(cfg?.actionSecondaryLabel) and cfg?.actionSecondaryUrl != null and !#strings.isEmpty(cfg?.actionSecondaryUrl)}"
-            th:href="${cfg?.actionSecondaryUrl}"
+            th:if="${cfg?.identity?.actionSecondaryLabel != null and !#strings.isEmpty(cfg?.identity?.actionSecondaryLabel) and cfg?.identity?.actionSecondaryUrl != null and !#strings.isEmpty(cfg?.identity?.actionSecondaryUrl)}"
+            th:href="${cfg?.identity?.actionSecondaryUrl}"
             target="_blank"
             rel="noopener noreferrer"
           >
             <span
               class="icon-[material-symbols--star-rounded] about-ico"
               aria-hidden="true"></span>
-            <span th:text="${cfg?.actionSecondaryLabel}">查看心愿墙</span>
+            <span th:text="${cfg?.identity?.actionSecondaryLabel}"
+              >查看心愿墙</span
+            >
           </a>
         </div>
       </div>
@@ -1092,50 +1096,50 @@ import Canonical from "../components/misc/Canonical.astro";
           class="icon-[material-symbols--person-rounded] about-ico"
           aria-hidden="true"></span>
         <span
-          th:text="${cfg?.navProfileLabel != null and !#strings.isEmpty(cfg?.navProfileLabel) ? cfg?.navProfileLabel : '个人资料'}"
+          th:text="${cfg?.nav?.profileLabel != null and !#strings.isEmpty(cfg?.nav?.profileLabel) ? cfg?.nav?.profileLabel : '个人资料'}"
           >个人资料</span
         >
       </a>
       <a
         class="about-subnav-item"
-        th:if="${cfg?.navChangelogUrl != null and !#strings.isEmpty(cfg?.navChangelogUrl)}"
-        th:href="${cfg?.navChangelogUrl}"
+        th:if="${cfg?.nav?.changelogUrl != null and !#strings.isEmpty(cfg?.nav?.changelogUrl)}"
+        th:href="${cfg?.nav?.changelogUrl}"
       >
         <span
           class="icon-[material-symbols--history-rounded] about-ico"
           aria-hidden="true"></span>
         <span
-          th:text="${cfg?.navChangelogLabel != null and !#strings.isEmpty(cfg?.navChangelogLabel) ? cfg?.navChangelogLabel : '博客日志'}"
+          th:text="${cfg?.nav?.changelogLabel != null and !#strings.isEmpty(cfg?.nav?.changelogLabel) ? cfg?.nav?.changelogLabel : '博客日志'}"
           >博客日志</span
         >
       </a>
       <a
         class="about-subnav-item"
-        th:if="${cfg?.navLinksUrl != null and !#strings.isEmpty(cfg?.navLinksUrl)}"
-        th:href="${cfg?.navLinksUrl}"
+        th:if="${cfg?.nav?.linksUrl != null and !#strings.isEmpty(cfg?.nav?.linksUrl)}"
+        th:href="${cfg?.nav?.linksUrl}"
       >
         <span
           class="icon-[material-symbols--link-rounded] about-ico"
           aria-hidden="true"></span>
         <span
-          th:text="${cfg?.navLinksLabel != null and !#strings.isEmpty(cfg?.navLinksLabel) ? cfg?.navLinksLabel : '友链'}"
+          th:text="${cfg?.nav?.linksLabel != null and !#strings.isEmpty(cfg?.nav?.linksLabel) ? cfg?.nav?.linksLabel : '友链'}"
           >友链</span
         >
         <em
-          th:if="${cfg?.navLinksCount != false and groups != null and !#lists.isEmpty(groups)}"
+          th:if="${cfg?.nav?.linksCount != false and groups != null and !#lists.isEmpty(groups)}"
           th:text="${#aggregates.sum(groups.![links.size()])}">0</em
         >
       </a>
       <a
         class="about-subnav-item"
-        th:if="${cfg?.navFriendsUrl != null and !#strings.isEmpty(cfg?.navFriendsUrl)}"
-        th:href="${cfg?.navFriendsUrl}"
+        th:if="${cfg?.nav?.friendsUrl != null and !#strings.isEmpty(cfg?.nav?.friendsUrl)}"
+        th:href="${cfg?.nav?.friendsUrl}"
       >
         <span
           class="icon-[material-symbols--rss-feed-rounded] about-ico"
           aria-hidden="true"></span>
         <span
-          th:text="${cfg?.navFriendsLabel != null and !#strings.isEmpty(cfg?.navFriendsLabel) ? cfg?.navFriendsLabel : '朋友圈'}"
+          th:text="${cfg?.nav?.friendsLabel != null and !#strings.isEmpty(cfg?.nav?.friendsLabel) ? cfg?.nav?.friendsLabel : '朋友圈'}"
           >朋友圈</span
         >
       </a>
@@ -1160,21 +1164,21 @@ import Canonical from "../components/misc/Canonical.astro";
               </div>
               <span
                 class="about-card-meta"
-                th:if="${cfg?.introSubtitle != null and !#strings.isEmpty(cfg?.introSubtitle)}"
-                th:text="${cfg?.introSubtitle}">公开 · 持续更新</span
+                th:if="${cfg?.identity?.introSubtitle != null and !#strings.isEmpty(cfg?.identity?.introSubtitle)}"
+                th:text="${cfg?.identity?.introSubtitle}">公开 · 持续更新</span
               >
             </div>
             <blockquote
               class="about-quote text-75"
-              th:if="${cfg?.quote != null and !#strings.isEmpty(cfg?.quote)}"
-              th:text="${cfg?.quote}"
+              th:if="${cfg?.identity?.quote != null and !#strings.isEmpty(cfg?.identity?.quote)}"
+              th:text="${cfg?.identity?.quote}"
             >
               引语
             </blockquote>
             <div
               class="about-paragraphs"
-              th:if="${cfg?.intro != null and !#strings.isEmpty(cfg?.intro)}"
-              th:data-lines="${cfg?.intro}"
+              th:if="${cfg?.identity?.intro != null and !#strings.isEmpty(cfg?.identity?.intro)}"
+              th:data-lines="${cfg?.identity?.intro}"
               data-lines-render="paragraphs"
             >
             </div>
@@ -1207,18 +1211,26 @@ import Canonical from "../components/misc/Canonical.astro";
               </a>
             </div>
             <div class="about-proj-grid">
+              <!-- 图标留空时按序号轮换，避免整列卡片图标雷同；填了 icon 则以填的为准。
+                   ⚠️ 这里刻意不用内联列表 / 拼接类名：Thymeleaf 的 ${} 里放 {} 会截断表达式，
+                   Tailwind 也不会为拼出来的类名生成 CSS。就写死几个字面量三元。 -->
               <a
                 class="about-proj"
-                th:each="p : ${cfg?.projects?.items}"
+                th:each="p, pst : ${cfg?.projects?.items}"
+                th:with="pIcon=${p?.icon != null and !#strings.isEmpty(p?.icon)
+                  ? p?.icon
+                  : (pst.index == 0 ? 'icon-[material-symbols--terminal-rounded]'
+                    : (pst.index == 1 ? 'icon-[material-symbols--database]'
+                      : (pst.index == 2 ? 'icon-[material-symbols--menu-book-rounded]'
+                        : (pst.index == 3 ? 'icon-[material-symbols--widgets-outline-rounded]'
+                          : 'icon-[material-symbols--bolt-rounded]'))))}"
                 th:classappend="${p?.tone != null and !#strings.isEmpty(p?.tone) ? ' is-' + p?.tone : ''}"
                 th:href="${p?.link != null and !#strings.isEmpty(p?.link) ? p?.link : null}"
                 th:target="${p?.link != null and !#strings.isEmpty(p?.link) ? '_blank' : null}"
                 rel="noopener noreferrer"
               >
                 <span class="about-proj__icon">
-                  <span
-                    th:class="${p?.icon != null and !#strings.isEmpty(p?.icon) ? p?.icon : 'icon-[material-symbols--auto-awesome-rounded]'}"
-                    aria-hidden="true"></span>
+                  <span th:class="${pIcon}" aria-hidden="true"></span>
                 </span>
                 <span class="about-proj__body">
                   <strong class="about-proj__title" th:text="${p?.title}"
@@ -1269,18 +1281,23 @@ import Canonical from "../components/misc/Canonical.astro";
               </a>
             </div>
             <div class="about-tile-list">
+              <!-- 同「本人项目」：留空按序号轮换，和左边那张卡的图标序列不重叠 -->
               <a
                 class="about-tile"
-                th:each="h : ${cfg?.highlights?.items}"
+                th:each="h, hst : ${cfg?.highlights?.items}"
+                th:with="hIcon=${h?.icon != null and !#strings.isEmpty(h?.icon)
+                  ? h?.icon
+                  : (hst.index == 0 ? 'icon-[material-symbols--history-rounded]'
+                    : (hst.index == 1 ? 'icon-[material-symbols--update-rounded]'
+                      : (hst.index == 2 ? 'icon-[material-symbols--edit-note-rounded]'
+                        : 'icon-[material-symbols--auto-awesome-rounded]')))}"
                 th:classappend="${h?.tone != null and !#strings.isEmpty(h?.tone) ? ' is-' + h?.tone : ''}"
                 th:href="${h?.link != null and !#strings.isEmpty(h?.link) ? h?.link : null}"
                 th:target="${h?.link != null and !#strings.isEmpty(h?.link) ? '_blank' : null}"
                 rel="noopener noreferrer"
               >
                 <span class="about-tile__icon">
-                  <span
-                    th:class="${h?.icon != null and !#strings.isEmpty(h?.icon) ? h?.icon : 'icon-[material-symbols--auto-awesome-rounded]'}"
-                    aria-hidden="true"></span>
+                  <span th:class="${hIcon}" aria-hidden="true"></span>
                 </span>
                 <span class="about-tile__body">
                   <strong class="about-tile__title" th:text="${h?.title}"
@@ -1381,7 +1398,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <!-- 我的朋友（数据取自本站友情链接，可随机） -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.friendsEnable != false and groups != null and !#lists.isEmpty(groups)}"
+            th:if="${cfg?.friends?.enable != false and groups != null and !#lists.isEmpty(groups)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1393,7 +1410,7 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
             <div
               class="about-friends"
-              th:attr="data-shuffle=${cfg?.friendsShuffle != false ? 'true' : null},data-count=${cfg?.friendsCount != null ? cfg?.friendsCount : 6}"
+              th:attr="data-shuffle=${cfg?.friends?.shuffle != false ? 'true' : null},data-count=${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
             >
               <div th:each="g : ${groups}" th:remove="tag">
                 <a
@@ -1409,8 +1426,8 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
             <p
               class="mt-3 text-xs text-50"
-              th:if="${cfg?.friendsNote != null and !#strings.isEmpty(cfg?.friendsNote)}"
-              th:text="${cfg?.friendsNote}"
+              th:if="${cfg?.friends?.note != null and !#strings.isEmpty(cfg?.friends?.note)}"
+              th:text="${cfg?.friends?.note}"
             >
               各自折腾，互相串门。
             </p>
@@ -1419,7 +1436,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <!-- 技术轨迹 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.trajectory != null and !#strings.isEmpty(cfg?.trajectory)}"
+            th:if="${cfg?.identity?.trajectory != null and !#strings.isEmpty(cfg?.identity?.trajectory)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1431,7 +1448,7 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
             <div
               class="about-tag-list"
-              th:data-lines="${cfg?.trajectory}"
+              th:data-lines="${cfg?.identity?.trajectory}"
               data-lines-render="stackTags"
             >
             </div>
@@ -1445,7 +1462,7 @@ import Canonical from "../components/misc/Canonical.astro";
                必须用 th:utext 注入，不能走 th:class —— 见 Profile.astro / Footer.astro） -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.contactEnable != false and theme.config?.sidebar?.profile?.social_media != null and !#lists.isEmpty(theme.config?.sidebar?.profile?.social_media)}"
+            th:if="${cfg?.friends?.contactEnable != false and theme.config?.sidebar?.profile?.social_media != null and !#lists.isEmpty(theme.config?.sidebar?.profile?.social_media)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1481,7 +1498,7 @@ import Canonical from "../components/misc/Canonical.astro";
                未配置数据源时保持占位（— / 0%），配置后由 extend-pages.js 拉取并回填 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.serverEnable != false and cfg?.serverRows != null and !#strings.isEmpty(cfg?.serverRows)}"
+            th:if="${cfg?.server?.enable != false and cfg?.server?.rows != null and !#strings.isEmpty(cfg?.server?.rows)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1492,14 +1509,14 @@ import Canonical from "../components/misc/Canonical.astro";
               <h2 class="about-card-title text-90">服务器状态</h2>
               <span
                 class="about-stub-chip about-stub-chip--end"
-                th:if="${cfg?.serverBadge != null and !#strings.isEmpty(cfg?.serverBadge)}"
-                th:text="${cfg?.serverBadge}">待接入</span
+                th:if="${cfg?.server?.badge != null and !#strings.isEmpty(cfg?.server?.badge)}"
+                th:text="${cfg?.server?.badge}">待接入</span
               >
             </div>
             <div
               class="about-stub-list"
-              th:data-lines="${cfg?.serverRows}"
-              th:data-server-url="${cfg?.serverDataUrl}"
+              th:data-lines="${cfg?.server?.rows}"
+              th:data-server-url="${cfg?.server?.dataUrl}"
               data-lines-render="stubRows"
             >
             </div>
@@ -1510,34 +1527,34 @@ import Canonical from "../components/misc/Canonical.astro";
     </div>
 
     <!-- ================= ④ 页脚卡 ================= -->
-    <!-- 页脚链接走结构化设置（主题设置 → 关于我 → 页脚链接，名称 + 链接两栏），
+    <!-- 页脚链接走结构化设置（主题设置 → 关于我 → 页脚 → 页脚链接，名称 + 链接两栏），
          不再用「名称|链接」的多行文本 —— 名称位置填成 URL 那种误用就此消失。 -->
     <section
       class="card-base about-footer-card onload-animation mb-4"
-      th:if="${(cfg?.footerMotto != null and !#strings.isEmpty(cfg?.footerMotto)) or (cfg?.footerLinkItems != null and !#lists.isEmpty(cfg?.footerLinkItems))}"
+      th:if="${(cfg?.footer?.motto != null and !#strings.isEmpty(cfg?.footer?.motto)) or (cfg?.footer?.linkItems != null and !#lists.isEmpty(cfg?.footer?.linkItems))}"
     >
       <div class="min-w-0">
         <p
           class="about-section-label"
-          th:if="${cfg?.footerEyebrow != null and !#strings.isEmpty(cfg?.footerEyebrow)}"
-          th:text="${cfg?.footerEyebrow}"
+          th:if="${cfg?.footer?.eyebrow != null and !#strings.isEmpty(cfg?.footer?.eyebrow)}"
+          th:text="${cfg?.footer?.eyebrow}"
         >
           OPEN SOURCE, OPEN CHANNEL
         </p>
         <p
           class="about-footer-motto"
-          th:if="${cfg?.footerMotto != null and !#strings.isEmpty(cfg?.footerMotto)}"
-          th:text="${cfg?.footerMotto}"
+          th:if="${cfg?.footer?.motto != null and !#strings.isEmpty(cfg?.footer?.motto)}"
+          th:text="${cfg?.footer?.motto}"
         >
           页脚一句话
         </p>
       </div>
       <div
         class="about-footer-links"
-        th:if="${cfg?.footerLinkItems != null and !#lists.isEmpty(cfg?.footerLinkItems)}"
+        th:if="${cfg?.footer?.linkItems != null and !#lists.isEmpty(cfg?.footer?.linkItems)}"
       >
         <a
-          th:each="fl : ${cfg?.footerLinkItems}"
+          th:each="fl : ${cfg?.footer?.linkItems}"
           th:href="${fl?.url != null and !#strings.isEmpty(fl?.url) ? fl?.url : null}"
           th:target="${fl?.url != null and !#strings.isEmpty(fl?.url) ? '_blank' : null}"
           rel="noopener noreferrer"
