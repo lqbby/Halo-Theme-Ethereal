@@ -135,10 +135,12 @@ const { compact = false } = Astro.props as { compact?: boolean };
         <span class="hbf-name" th:text="${hbfLink.spec.displayName}">Link</span>
       </a>
     </span>
-  </div>
-  <div class="hbf-more" th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}">
+    <!-- 「更多」箭头：2026-09-13 起**并入胶囊行**（原来是独立一行）。
+         作为 flex 行的最后一个子项，它会自动跟在最后一个胶囊后面，
+         换行时也自然跟随，不再出现「上下两排左对齐、箭头单独居中」的割裂感。 -->
     <a
       class="hbf-more-btn"
+      th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}"
       th:href="@{/links}"
       th:title="#{footer.friendLinks.moreTitle(${hbfTotal})}"
       th:aria-label="#{footer.friendLinks.moreAria}"
@@ -329,23 +331,17 @@ const { compact = false } = Astro.props as { compact?: boolean };
     white-space: nowrap;
   }
 
-  /* ---- 「更多」：被 max_items 截断时显示，跳转完整友链页 ----
-     设计：与上两行共用竖直中轴（standalone 居中切线自居中；
-     compact 下由 flex 列 + align-items 控制）。
-     形态：虚线胶囊（与「申请友链」实心胶囊构成同族 hierarchy），
-     上间距略小以体现与胶囊行的归属关系，而非独立一块。 */
-  .hbf-more {
-    display: flex;
-    justify-content: center;
-    margin-top: 0.625rem;
-  }
+  /* ---- 「更多」：被 max_items 截断时显示的箭头，**并入胶囊行**（2026-09-13）
+     它现在是 .hbf-list 的最后一个 flex 子项，不再是独立块 ⇒ 无外间距、
+     尺寸与 .hbf-item 对齐（同高 2rem / compact 下 1.75rem），
+     这样换行时它看起来就是「最后一个胶囊」。 */
   .hbf-more-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 0.1875rem;
-    min-width: 3.5rem;
-    height: 1.75rem;
+    min-width: 2rem;
+    height: 2rem;
     padding: 0 0.5rem;
     border: 1px dashed color-mix(in oklab, var(--primary) 32%, transparent);
     border-radius: 9999px;
@@ -393,18 +389,21 @@ const { compact = false } = Astro.props as { compact?: boolean };
   /* ===== compact 形态：嵌进「卡片页脚」顶行中间空白（2026-09-13） =====
      设计目标：像「本来就在卡片里」，而不是「塞进来的一块」。
      手法：① 尺寸整体收一档（贴合卡片内 0.875rem 的行节奏）
-           ② 左对齐（卡片顶行是 flex 行，居中会显得漂浮）
+           ② **三排统一居中**（标题行 / 胶囊行 / 箭头）—— 2026-09-13 LQ 明确要求，
+              修改说明见下方注释（原先判断「卡片顶行是 flex 行、居中会漂浮」是错的：
+              友链块自带 flex-1 撑满中间列，在它**自己的列宽内**居中反而更稳，
+              真正造成漂浮感的是「上两排左对齐 + 箭头单独居中」那种轴不统一）
            ③ 去掉与卡片重复的纵向大留白，间距交给父级的 flex gap
            ④ 标题字号降到 0.8125rem、去掉强字重，退居「小标签」层级
      响应式：宽度靠 flex-1 + min-w-0 自适应；窄屏时由父级 flex-col 自然折到下一行。 */
   .hbf-compact {
     margin-bottom: 0;
-    text-align: left;
+    text-align: center;
     font-size: 0.8125rem;
     line-height: 1.5;
   }
   .hbf-compact .hbf-head {
-    justify-content: flex-start;
+    justify-content: center;
     gap: 0.35rem;
   }
   .hbf-compact .hbf-head-icon {
@@ -436,7 +435,7 @@ const { compact = false } = Astro.props as { compact?: boolean };
     padding: 0.02rem 0.35rem;
   }
   .hbf-compact .hbf-list {
-    justify-content: flex-start;
+    justify-content: center;
     gap: 0.375rem;
   }
   .hbf-compact .hbf-item {
@@ -453,9 +452,10 @@ const { compact = false } = Astro.props as { compact?: boolean };
     height: 1rem;
     border-radius: 9999px;
   }
-  .hbf-compact .hbf-more {
-    justify-content: flex-start;
-    margin-top: 0.5rem;
+  /* 箭头与胶囊同高（它已并入 .hbf-list，高度需跟 .hbf-item 对齐） */
+  .hbf-compact .hbf-more-btn {
+    min-width: 1.75rem;
+    height: 1.75rem;
   }
   /* 卡片内不再保留纵向大留白（standalone 版的 margin-bottom 是为独立块与列表拉开距离） */
   .hbf-compact .hbf-head {

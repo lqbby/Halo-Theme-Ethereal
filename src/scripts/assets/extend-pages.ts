@@ -319,6 +319,10 @@
   // 「我的朋友」随机展示：服务端把全部友链渲染进 DOM（无 JS 时仍完整可见），
   // 这里洗牌后只保留前 data-count 个。defer 脚本在首次绘制前后极短窗口内执行，
   // 不会造成明显跳动；Swup 换页后由 init 重新触发（data-shuffled 守卫防重复）。
+  //
+  // 2026-09-13 改版为「带头像卡片墙」后本函数**无需改动**：洗牌单位仍是每个
+  // <a class="about-friend">（logo / 名称 / 描述都在这个节点内部），
+  // appendChild 搬的是整个卡片，不会出现「头像与名字错位」。
   function shuffleFriends() {
     var box = document.querySelector(
       '.about-friends[data-shuffle="true"]:not([data-shuffled])',

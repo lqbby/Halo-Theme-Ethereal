@@ -4,7 +4,8 @@
 //
 // 布局：身份卡（横跨）→ 顶部导航（横跨）→ 两栏
 //   主列：关于我 / 本人项目 / 更新摘要 / 最近的提交
-//   侧列：我的朋友 / 技术轨迹 / 保持联系 / 服务器状态
+//   侧列：技术轨迹 / 我的朋友 / 保持联系 / 服务器状态
+//   （2026-09-13：「我的朋友」由技术轨迹**上方**移到下方，并改版为带头像卡片墙）
 // 两栏按**容器宽度**分档（≥880px 才分栏），不跟视口走 —— 见 .about-cols-wrap。
 // 多行字段（正文/标签/联系方式/监控指标）由 extend-pages.js 在客户端渲染。
 // 友链取自 Halo 友链插件的 groups（按需随机展示 N 个）。
@@ -527,11 +528,15 @@ import Canonical from "../components/misc/Canonical.astro";
         line-height: 1.3;
       }
 
-      /* ================= ⑫ 标签胶囊：我的朋友 / 技术轨迹 = 参考站 .chip-list / .stack-list ================= */
+      /* ================= ⑫ 我的朋友（带头像卡片墙）/ 技术轨迹（标签胶囊） =================
+         2026-09-13 改版：两个卡片原本共用 .about-friend / .about-tag-chip 一套胶囊样式，
+         现在「我的朋友」升级为带头像卡片墙 ⇒ **必须解耦**，否则技术轨迹会被一起改掉。
+         · .about-friends / .about-friend*  → 卡片墙（圆形 logo + 名称 + 描述，2 列）
+         · .about-tag-list / .about-tag-chip → 仍是胶囊（保持参考站 .stack-list 青色系） */
       .about-friends {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 0.35rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.4rem;
         margin-top: 0.8rem;
       }
       .about-tag-list {
@@ -540,8 +545,96 @@ import Canonical from "../components/misc/Canonical.astro";
         gap: 0.35rem;
         margin-top: 0.8rem;
       }
-      /* 胶囊本体（.about-friend 是 <a>；技术轨迹是 JS 生成的 .about-tag-chip） */
-      .about-friend,
+
+      /* ---- 友链卡片：圆形头像 + 名称 / 描述两行 ----
+         视觉目标：像「一排名片」而不是「一排按钮」。
+         · 圆形 logo 弱化轮廓，让名称成为主角
+         · 描述行降一级颜色、单行省略，避免长短不一撑破网格
+         · 悬停：描边提亮 + 淡主色底 + 上浮 1px（与卡片体系其它可点项一致） */
+      .about-friend {
+        display: grid;
+        grid-template-columns: 1.5rem minmax(0, 1fr);
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+        padding: 0.45rem 0.55rem;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 16%, var(--line-divider));
+        border-radius: 0.55rem;
+        background: color-mix(in srgb, var(--primary) 5%, var(--card-bg));
+        color: var(--btn-content);
+        text-decoration: none;
+        transition:
+          color 0.18s,
+          border-color 0.18s,
+          background-color 0.18s,
+          box-shadow 0.18s,
+          transform 0.18s;
+      }
+      .about-friend:hover,
+      .about-friend:focus-visible {
+        border-color: color-mix(in srgb, var(--primary) 48%, transparent);
+        background: color-mix(in srgb, var(--primary) 9%, var(--card-bg));
+        color: var(--primary);
+        outline: none;
+      }
+      /* 上浮只在桌面端（触屏没有 hover，位移反而造成「点了没反应」的错觉） */
+      @media (hover: hover) and (pointer: fine) {
+        .about-friend:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 3px 10px
+            color-mix(in srgb, var(--primary) 14%, transparent);
+        }
+      }
+      .about-friend-logo,
+      .about-friend-logo-ph {
+        flex: none;
+        width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 9999px;
+        background: var(--btn-regular-bg);
+      }
+      .about-friend-logo {
+        display: block;
+        object-fit: cover;
+      }
+      .about-friend-logo-ph {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--primary);
+        font-size: 0.75rem;
+      }
+      .about-friend-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        min-width: 0;
+      }
+      .about-friend-name {
+        min-width: 0;
+        overflow: hidden;
+        font-size: 0.7rem;
+        font-weight: 400;
+        letter-spacing: -0.01em;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* 描述：降一级颜色（复用本页 --content-meta）+ 单行省略 */
+      .about-friend-desc {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--content-meta);
+        font-size: 0.6rem;
+        letter-spacing: -0.005em;
+        line-height: 1.25;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* 胶囊本体（仅技术轨迹用，由 JS 生成 .about-tag-chip）。
+         ⚠️ 2026-09-13 起「我的朋友」已是卡片墙，**不再加入本规则** —— 
+         原来两者共用一套胶囊样式，改版时必须解耦，否则卡片被当胶囊渲染。 */
       .about-tag-chip {
         display: block;
         max-width: 100%;
@@ -565,8 +658,6 @@ import Canonical from "../components/misc/Canonical.astro";
           border-color 0.18s,
           background-color 0.18s;
       }
-      .about-friend:hover,
-      .about-friend:focus-visible,
       .about-tag-chip:hover {
         border-color: var(--primary);
         background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
@@ -914,6 +1005,10 @@ import Canonical from "../components/misc/Canonical.astro";
           font-size: 0.62rem;
         }
         .about-proj-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+        /* 友链卡片墙：窄屏两列会挤成「名称只剩两个字」⇒ 降为单列 */
+        .about-friends {
           grid-template-columns: minmax(0, 1fr);
         }
         /* 参考站 ≤640px：内嵌卡与活动行整体缩一档 */
@@ -1386,44 +1481,6 @@ import Canonical from "../components/misc/Canonical.astro";
 
         <!-- ---------- 侧列 ---------- -->
         <div class="about-col-side">
-          <!-- 我的朋友（数据取自本站友情链接，可随机） -->
-          <section
-            class="card-base onload-animation"
-            th:if="${cfg?.friends?.enable != false and groups != null and !#lists.isEmpty(groups)}"
-          >
-            <div class="about-card-head">
-              <span class="about-head-icon">
-                <span
-                  class="icon-[material-symbols--group-rounded]"
-                  aria-hidden="true"></span>
-              </span>
-              <h2 class="about-card-title text-90">我的朋友</h2>
-            </div>
-            <div
-              class="about-friends"
-              th:attr="data-shuffle=${cfg?.friends?.shuffle != false ? 'true' : null},data-count=${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
-            >
-              <div th:each="g : ${groups}" th:remove="tag">
-                <a
-                  class="about-friend"
-                  th:each="l : ${g?.links}"
-                  th:href="${l?.spec?.url != null and (l?.spec?.url.startsWith('http') or l?.spec?.url.startsWith('//') or l?.spec?.url.startsWith('/')) ? l?.spec?.url : null}"
-                  th:title="${l?.spec?.description != null and !#strings.isEmpty(l?.spec?.description) ? l?.spec?.description : l?.spec?.displayName}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  th:text="${l?.spec?.displayName}">链接</a
-                >
-              </div>
-            </div>
-            <p
-              class="mt-3 text-xs text-50"
-              th:if="${cfg?.friends?.note != null and !#strings.isEmpty(cfg?.friends?.note)}"
-              th:text="${cfg?.friends?.note}"
-            >
-              各自折腾，互相串门。
-            </p>
-          </section>
-
           <!-- 技术轨迹 -->
           <section
             class="card-base onload-animation"
@@ -1445,6 +1502,73 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
             <p class="mt-3 text-xs text-50">
               工具会变化，解决问题的方式会留下。
+            </p>
+          </section>
+
+          <!-- 我的朋友（数据取自本站友情链接，可随机）
+               2026-09-13：由「文字胶囊网格」改版为「带头像的卡片墙」，
+               并从「技术轨迹」上方移到下方（LQ 要求：技术轨迹卡片下面）。
+               形态：圆形 logo + 名称 + 单行描述，两列网格。
+               数据源仍是 Links 插件的 groups（服务端全量渲染，客户端洗牌后截前 N）。 -->
+          <section
+            class="card-base onload-animation"
+            th:if="${cfg?.friends?.enable != false and groups != null and !#lists.isEmpty(groups)}"
+          >
+            <div class="about-card-head">
+              <span class="about-head-icon">
+                <span
+                  class="icon-[material-symbols--group-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <h2 class="about-card-title text-90">我的朋友</h2>
+            </div>
+            <div
+              class="about-friends"
+              th:attr="data-shuffle=${cfg?.friends?.shuffle != false ? 'true' : null},data-count=${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
+            >
+              <div th:each="g : ${groups}" th:remove="tag">
+                <!-- hbfLogoOk 口径与页脚友链一致：logo 非空且是 http / // / / 开头 -->
+                <a
+                  class="about-friend"
+                  th:each="l : ${g?.links}"
+                  th:with="aboutLogoOk = ${l?.spec?.logo != null and (l?.spec?.logo.startsWith('http') or l?.spec?.logo.startsWith('//') or l?.spec?.logo.startsWith('/'))}"
+                  th:href="${l?.spec?.url != null and (l?.spec?.url.startsWith('http') or l?.spec?.url.startsWith('//') or l?.spec?.url.startsWith('/')) ? l?.spec?.url : null}"
+                  th:title="${l?.spec?.description != null and !#strings.isEmpty(l?.spec?.description) ? l?.spec?.description : l?.spec?.displayName}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <img
+                    th:if="${aboutLogoOk}"
+                    th:src="${l?.spec?.logo}"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    class="about-friend-logo"
+                  />
+                  <span th:unless="${aboutLogoOk}" class="about-friend-logo-ph">
+                    <span
+                      class="icon-[material-symbols--link-rounded]"
+                      aria-hidden="true"></span>
+                  </span>
+                  <span class="about-friend-body">
+                    <span
+                      class="about-friend-name"
+                      th:text="${l?.spec?.displayName}">链接</span
+                    >
+                    <span
+                      class="about-friend-desc"
+                      th:if="${l?.spec?.description != null and !#strings.isEmpty(l?.spec?.description)}"
+                      th:text="${l?.spec?.description}"></span>
+                  </span>
+                </a>
+              </div>
+            </div>
+            <p
+              class="mt-3 text-xs text-50"
+              th:if="${cfg?.friends?.note != null and !#strings.isEmpty(cfg?.friends?.note)}"
+              th:text="${cfg?.friends?.note}"
+            >
+              各自折腾，互相串门。
             </p>
           </section>
 
