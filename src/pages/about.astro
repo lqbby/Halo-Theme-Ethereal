@@ -107,14 +107,63 @@ import Canonical from "../components/misc/Canonical.astro";
         display: inline-flex;
         align-items: center;
         gap: 0.48rem;
-        margin-top: 0.75rem;
+        margin-top: 0.85rem;
         color: var(--content-meta);
         font-size: 0.76rem;
+        font-family: inherit;
+        line-height: 1.2;
       }
       .about-status .about-ico {
         width: 0.95rem;
         height: 0.95rem;
         color: var(--primary);
+      }
+      /* 绑定主题「在线状态」statusSettings 的胶囊形态（1.4.90）：
+         与侧栏头像卡的状态徽章同源，点击同样弹出切换模态框（profile-status.ts）。
+         胶囊描边/底色走 var(--primary) ⇒ 跟随主题色相与访客色相面板。 */
+      .about-status-pill {
+        gap: 0.5rem;
+        padding: 0.34rem 0.85rem;
+        appearance: none;
+        border: 1px solid
+          color-mix(in srgb, var(--primary) 22%, var(--line-divider));
+        border-radius: 999px;
+        background: color-mix(in srgb, var(--primary) 7%, transparent);
+        cursor: pointer;
+        transition:
+          color 0.18s,
+          border-color 0.18s,
+          background-color 0.18s,
+          box-shadow 0.18s;
+      }
+      .about-status-pill:hover {
+        border-color: color-mix(
+          in srgb,
+          var(--primary) 55%,
+          var(--line-divider)
+        );
+        background: color-mix(in srgb, var(--primary) 11%, transparent);
+        box-shadow: 0 0 0.6rem
+          color-mix(in srgb, var(--primary) 16%, transparent);
+      }
+      .about-status-pill:active {
+        transform: scale(0.97);
+      }
+      .about-status-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+      }
+      .about-status-ico {
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        flex: none;
+      }
+      .about-status-text {
+        color: var(--content-meta);
+        white-space: nowrap;
       }
 
       /* ================= ③ 页头按钮 =================
@@ -675,15 +724,9 @@ import Canonical from "../components/misc/Canonical.astro";
         color: var(--primary);
         outline: none;
       }
-      /* 技术轨迹在参考站里走**青色**系（.stack-list 的专属处理） */
-      .about-tag-chip {
-        border-color: color-mix(in srgb, #42c7b0 18%, var(--line-divider));
-        background: color-mix(in srgb, #42c7b0 7%, var(--card-bg));
-      }
-      .about-tag-chip:hover {
-        border-color: #42c7b0;
-        color: #159b8b;
-      }
+      /* 1.4.90：删掉参考站 .stack-list 的硬编码青色（#42c7b0 / #159b8b）覆写，
+         回归上方基础规则的 var(--primary) ⇒ 胶囊效果跟随主题色相
+         （含后台主题色与访客面板色相），符合本主题视觉语言。 */
 
       /* ================= ⑬ 保持联系 = 参考站 .profile-connect-list ================= */
       .about-connect-list {
@@ -1112,6 +1155,7 @@ import Canonical from "../components/misc/Canonical.astro";
     <section
       class="card-base about-hero-card onload-animation mb-4"
       th:with="ident=${cfg?.identity},
+        sts=${cfg?.sidebar?.profile?.statusSettings},
         hasPrimary=${!#strings.isEmpty(ident?.actionPrimaryLabel) and !#strings.isEmpty(ident?.actionPrimaryUrl)},
         hasSecondary=${!#strings.isEmpty(ident?.actionSecondaryLabel) and !#strings.isEmpty(ident?.actionSecondaryUrl)}"
     >
@@ -1146,7 +1190,105 @@ import Canonical from "../components/misc/Canonical.astro";
           >
             一句话简介
           </p>
-          <p class="about-status" th:if="${!#strings.isEmpty(ident?.status)}">
+          <!-- 状态：1.4.90 起优先绑定主题「在线状态」statusSettings（与侧栏头像卡
+               同源，点击同样弹出切换模态框，由 profile-status.ts 委托处理）；
+               未启用 / 未配置时回退 ident.status 静态文案（闪电图标行）。
+               图标/动效/配色类与 Profile.astro 的 th:case 分支逐字面量一致
+               （Tailwind 只认完整字面量 + 空白分隔，别运行时拼类名）。 -->
+          <button
+            type="button"
+            class="about-status about-status-pill"
+            th:if="${sts != null and sts?.enable != false}"
+            th:attr="data-status=${sts?.status ?: 'online'}"
+            th:switch="${sts?.status ?: 'online'}"
+            aria-label="切换当前状态"
+          >
+            <span th:case="energetic" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--sun-fill] text-amber-500 status-spin"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.energetic) ? sts?.energetic : '元气满满'}"
+                >元气满满</span
+              >
+            </span>
+            <span th:case="emo" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--sad-fill] text-violet-400 status-float"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.emo) ? sts?.emo : 'emo中'}"
+                >emo中</span
+              >
+            </span>
+            <span th:case="study" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--book-2-fill] text-sky-500 status-drift"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.study) ? sts?.study : '学习中'}"
+                >学习中</span
+              >
+            </span>
+            <span th:case="busy" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--fire-fill] text-orange-500 status-wiggle"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.busy) ? sts?.busy : '忙碌中'}"
+                >忙碌中</span
+              >
+            </span>
+            <span th:case="dnd" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--moon-fill] text-indigo-400 status-float"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.dnd) ? sts?.dnd : '请勿打扰'}"
+                >请勿打扰</span
+              >
+            </span>
+            <span th:case="sleep" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--moon-stars-fill] text-blue-500 status-pulse"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.sleep) ? sts?.sleep : '睡觉中'}"
+                >睡觉中</span
+              >
+            </span>
+            <span th:case="away" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--cloud-fill] text-neutral-400 status-drift"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.away) ? sts?.away : '暂时离开'}"
+                >暂时离开</span
+              >
+            </span>
+            <!-- 在线（默认分支） -->
+            <span th:case="*" class="about-status-item">
+              <span
+                class="about-status-ico icon-[mingcute--leaf-fill] text-green-500 status-pulse"
+              ></span>
+              <span
+                class="about-status-text"
+                th:text="${!#strings.isEmpty(sts?.online) ? sts?.online : '在线中'}"
+                >在线中</span
+              >
+            </span>
+          </button>
+          <p
+            class="about-status"
+            th:if="${(sts == null or sts?.enable == false) and !#strings.isEmpty(ident?.status)}"
+          >
             <span
               class="icon-[material-symbols--bolt-rounded] about-ico"
               aria-hidden="true"></span>
