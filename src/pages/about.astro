@@ -1074,7 +1074,16 @@ import Canonical from "../components/misc/Canonical.astro";
        · cfg          = 本页配置（主题设置 → 关于我）
        · aboutPosts   = 最新已发布文章（Finder 变量，用 ?. 空安全）
        · aboutMoments = 最新瞬间（瞬间插件注入 momentFinder；未装插件时短路为 null）
-       两组一起供「最近的提交」卡片用，客户端按 data-time 归并成一条时间线。 -->
+       两组一起供「最近的提交」卡片用，客户端按 data-time 归并成一条时间线。
+
+       🔴🔴 反面教材（1.4.83 踩过）：**别指望在这条 th:with 里算出来的变量
+       能被下面的卡片读到**。MainGridLayout 会把默认 slot 的全部子节点包进
+       <th:block th:replace="...wrapBlock">，而 th:insert/replace 的优先级
+       （100）晚于父容器的 processAllAttributes（200）⇒ 本元素的 th:with
+       （优先级 400）在 wrapBlock 展开时**已经离开作用域**，子树里读到的
+       只有 null 且**不报错**。所以 `groups` 曾在这里被引用了 4 处却从未生效：
+       「我的朋友」卡片与 subnav 友链计数**从 1.4.77 起一直没渲染过**。
+       结论：变量计算要放在**卡片自身**的属性上（见下方 friendsGroups）。 -->
   <div
     th:with="cfg=${theme.config?.extendPages?.about},
       aboutPosts=${postFinder?.list({page: 1, size: cfg?.activity?.count ?: 5})?.items},
@@ -1212,8 +1221,9 @@ import Canonical from "../components/misc/Canonical.astro";
           >友链</span
         >
         <em
-          th:if="${cfg?.nav?.linksCount != false and groups != null and !#lists.isEmpty(groups)}"
-          th:text="${#aggregates.sum(groups.![links.size()])}">0</em
+          th:with="navLinkCount = ${#aggregates.sum(linkFinder.groupBy().![links.size()])}"
+          th:if="${cfg?.nav?.linksCount != false and navLinkCount != null and navLinkCount > 0}"
+          th:text="${navLinkCount}">0</em
         >
       </a>
       <a
@@ -1509,10 +1519,21 @@ import Canonical from "../components/misc/Canonical.astro";
                2026-09-13：由「文字胶囊网格」改版为「带头像的卡片墙」，
                并从「技术轨迹」上方移到下方（LQ 要求：技术轨迹卡片下面）。
                形态：圆形 logo + 名称 + 单行描述，两列网格。
-               数据源仍是 Links 插件的 groups（服务端全量渲染，客户端洗牌后截前 N）。 -->
+               数据源：Links 插件的 linkFinder.groupBy()（服务端全量渲染，
+               客户端洗牌后截前 N）。
+
+               🔴🔴 2026-09-13（1.4.83 修 bug）：friendsGroups 必须在本 section
+               自身的 th:with 里算 —— **不能**依赖页面外层那条 th:with。
+               原因：MainGridLayout 把默认 slot 的全部子节点包进 <th:block>，
+               而 th:insert/replace（优先级 100）在父容器 processAllAttributes
+               之后才执行 ⇒ 外层 th:with 的局部变量对 wrapBlock 子树**全部失效**
+               （同因导致 subnav 的友链计数 <em> 也一直无输出）。
+               判据：Thymeleaf 属性优先级 insert/replace 1 → each 2 → if 3
+               → with 4 ⇒ 变量计算要放在**离消费点最近、且不被组件边界隔断**的元素上。 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.friends?.enable != false and groups != null and !#lists.isEmpty(groups)}"
+            th:with="friendsGroups = ${linkFinder.groupBy().![links.?[spec.url != null and (spec.url.startsWith('http') or spec.url.startsWith('//') or spec.url.startsWith('/'))]]}"
+            th:if="${cfg?.friends?.enable != false and friendsGroups != null and !#lists.isEmpty(friendsGroups)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1526,7 +1547,7 @@ import Canonical from "../components/misc/Canonical.astro";
               class="about-friends"
               th:attr="data-shuffle=${cfg?.friends?.shuffle != false ? 'true' : null},data-count=${cfg?.friends?.count != null ? cfg?.friends?.count : 6}"
             >
-              <div th:each="g : ${groups}" th:remove="tag">
+              <div th:each="g : ${friendsGroups}" th:remove="tag">
                 <!-- hbfLogoOk 口径与页脚友链一致：logo 非空且是 http / // / / 开头 -->
                 <a
                   class="about-friend"
