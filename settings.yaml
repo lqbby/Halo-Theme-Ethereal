@@ -2169,6 +2169,229 @@ spec:
               label: GitHub 活跃度
               value: true
               help: "贡献图/统计卡/语言分布（需在插件后台配置 GitHub 用户名）"
+        - $formkit: group
+          name: about
+          label: 关于我页面
+          help: "请先在「页面 → 自定义页面」新建一个页面（自定义模板选 about），然后在这里配置页面内容"
+          children:
+            - $formkit: attachment
+              name: avatar
+              label: 头像
+              accepts:
+                - "image/*"
+              aspectRatio: "1/1"
+              value: ""
+              help: "建议 1:1 正方形；留空则用站点图标"
+            - $formkit: text
+              name: name
+              label: 名称
+              value: ""
+              help: "页面大标题，留空则使用站点标题"
+            - $formkit: text
+              name: roles
+              label: 身份行
+              value: ""
+              help: "如：独立开发者 / 博客作者"
+            - $formkit: textarea
+              name: tagline
+              label: 一句话简介
+              value: ""
+              help: "显示在身份行下方的大字简介"
+            - $formkit: text
+              name: status
+              label: 状态行
+              value: ""
+              help: "如：正在构建效率工具，也在持续写作"
+            - $formkit: textarea
+              name: quote
+              label: 引语
+              value: ""
+              help: "README 卡片开头的引用"
+            - $formkit: textarea
+              name: intro
+              label: 正文
+              value: ""
+              help: "关于我正文，每行一段"
+            - $formkit: group
+              name: projects
+              label: 项目
+              children:
+                - $formkit: array
+                  name: items
+                  label: 项目列表
+                  help: "按顺序展示，建议 3~6 个"
+                  children:
+                    - $formkit: text
+                      name: title
+                      label: 名称
+                    - $formkit: textarea
+                      name: description
+                      label: 说明
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个"
+                    - $formkit: text
+                      name: link
+                      label: 链接
+                      help: "留空则卡片不可点击"
+            - $formkit: group
+              name: highlights
+              label: 更新摘要
+              children:
+                - $formkit: array
+                  name: items
+                  label: 摘要条目
+                  help: "对应更新日志里的重要节点，建议 3~4 条"
+                  children:
+                    - $formkit: text
+                      name: title
+                      label: 标题
+                    - $formkit: textarea
+                      name: description
+                      label: 说明
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                      help: "如 Aemeath V3.3.0，可留空"
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个"
+                    - $formkit: text
+                      name: link
+                      label: 链接
+                      help: "一般指向更新日志页面"
+            - $formkit: group
+              name: activity
+              label: 最近动态
+              children:
+                - $formkit: array
+                  name: items
+                  label: 动态条目
+                  help: "建议 3~5 条，最新的在上"
+                  children:
+                    - $formkit: text
+                      name: type
+                      label: 类型
+                      value: "文章"
+                      help: "如：文章 / 系统"
+                    - $formkit: text
+                      name: title
+                      label: 标题
+                    - $formkit: text
+                      name: link
+                      label: 链接
+            - $formkit: textarea
+              name: stack
+              label: 技术栈标签
+              value: ""
+              help: "每行一个，显示在侧边栏"
+            - $formkit: textarea
+              name: trajectory
+              label: 技术轨迹
+              value: ""
+              help: "每行一个，如 React"
+            - $formkit: textarea
+              name: contact
+              label: 联系方式
+              value: ""
+              help: "每行一条，格式：名称|链接（如 GitHub|https://github.com/xxx）"
+            - $formkit: text
+              name: footerEyebrow
+              label: 页脚小标题
+              value: "OPEN SOURCE, OPEN CHANNEL"
+            - $formkit: textarea
+              name: footerMotto
+              label: 页脚一句话
+              value: ""
+            - $formkit: textarea
+              name: footerLinks
+              label: 页脚链接
+              value: ""
+              help: "每行一条，格式：名称|链接，建议 2 条"
+        - $formkit: group
+          name: blogChangelog
+          label: 博客更新日志页面
+          help: "请先在「页面 → 自定义页面」新建一个页面（自定义模板选 blog-changelog），然后在这里配置页面内容"
+          children:
+            - $formkit: text
+              name: kicker
+              label: 顶部标识
+              value: "BLOG CHANGELOG / PUBLIC RECORD"
+            - $formkit: textarea
+              name: description
+              label: 页面说明
+              value: ""
+            - $formkit: textarea
+              name: versionRule
+              label: 版本规则说明
+              value: "Major 代表结构级升级 · Minor 代表新功能 · Patch 代表修复、内容与维护"
+            - $formkit: text
+              name: growthTitle
+              label: 成长轨迹标题
+              value: "博客成长轨迹"
+            - $formkit: text
+              name: growthSubtitle
+              label: 成长轨迹副标题
+              value: "从第一次上线到现在"
+            - $formkit: text
+              name: growthNote
+              label: 成长轨迹收尾句
+              value: "一步一个脚印，让热爱继续发光"
+            - $formkit: group
+              name: milestones
+              label: 成长轨迹节点
+              children:
+                - $formkit: array
+                  name: items
+                  label: 节点列表
+                  help: "按时间正序添加，最后一个会标记为当前版本"
+                  children:
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                    - $formkit: text
+                      name: date
+                      label: 日期
+                      help: "如 2026.07.08"
+                    - $formkit: text
+                      name: label
+                      label: 说明
+            - $formkit: group
+              name: days
+              label: 按日更新记录
+              children:
+                - $formkit: array
+                  name: items
+                  label: 记录列表
+                  help: "按日期倒序添加（最新在上）"
+                  children:
+                    - $formkit: text
+                      name: date
+                      label: 日期
+                      validation: required
+                      help: "如 2026 年 9 月 11 日"
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                    - $formkit: text
+                      name: title
+                      label: 标题
+                    - $formkit: textarea
+                      name: summary
+                      label: 一句话摘要
+                    - $formkit: textarea
+                      name: detail
+                      label: 详细说明
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个，显示在卡片底部"
+                    - $formkit: textarea
+                      name: entries
+                      label: 条目明细
+                      help: "每行一条，格式：分类|说明。留空则不显示展开区"
     - group: footer
       label: 页脚
       formSchema:

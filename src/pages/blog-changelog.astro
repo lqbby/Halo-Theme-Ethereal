@@ -1,0 +1,395 @@
+---
+// 博客更新日志页面模板（Halo 自定义页面，自定义模板选 blog-changelog）。
+// 数据来自主题设置「扩展页面 → 博客更新日志页面」→ theme.config.extendPages.blogChangelog。
+// 参考 rainzt.cn/blog-changelog 的「统计条 + 成长轨迹 + 按日时间线」结构，
+// 按本主题的设计令牌重做：卡底走 card-base、竖线与节点走 --line-divider / --primary，
+// 展开区用原生 <details>（无需 JS），条目明细与标签由 extend-pages.js 按行渲染。
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
+---
+
+<MainGridLayout
+  title="${singlePage.spec.title + ' - ' + site.title}"
+  description="${singlePage.spec.excerpt.raw ?: site.subtitle}"
+>
+  <Fragment slot="head">
+    <Canonical path="${singlePage.status.permalink}" />
+    <style is:global>
+      /* ===== 博客更新日志（cl- 前缀，避免与主题既有类冲突）===== */
+      .cl-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+      }
+      @media (min-width: 640px) {
+        .cl-stats {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .cl-stat {
+        border: 1px solid var(--line-color);
+        border-radius: 0.75rem;
+        padding: 0.75rem 0.875rem;
+        background: color-mix(in oklab, var(--primary) 4%, transparent);
+      }
+
+      /* 成长轨迹：横向里程碑（窄屏换行） */
+      .cl-milestones {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+      .cl-milestone {
+        position: relative;
+        flex: 1 1 8.5rem;
+        min-width: 8.5rem;
+        border: 1px solid var(--line-color);
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.8rem;
+        background: var(--card-bg);
+      }
+      .cl-milestone.is-current {
+        border-color: color-mix(in oklab, var(--primary) 50%, transparent);
+        background: color-mix(in oklab, var(--primary) 7%, transparent);
+        box-shadow: 0 2px 14px
+          color-mix(in oklab, var(--primary) 14%, transparent);
+      }
+
+      /* 按日时间线：日期列 + 竖线轨道 + 卡片 */
+      .cl-list {
+        position: relative;
+      }
+      .cl-entry {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.75rem;
+      }
+      @media (min-width: 768px) {
+        .cl-entry {
+          grid-template-columns: 7.5rem 1.5rem minmax(0, 1fr);
+        }
+      }
+      .cl-rail {
+        position: relative;
+      }
+      /* 竖线：首尾两段用渐变淡出，避免两端「断头」 */
+      .cl-rail::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        transform: translateX(-50%);
+        background: var(--line-divider);
+      }
+      .cl-entry:first-child .cl-rail::before {
+        top: 1.6rem;
+      }
+      .cl-entry:last-child .cl-rail::before {
+        bottom: calc(100% - 1.6rem);
+      }
+      .cl-dot {
+        position: absolute;
+        left: 50%;
+        top: 1.35rem;
+        width: 0.7rem;
+        height: 0.7rem;
+        border-radius: 9999px;
+        transform: translateX(-50%);
+        background: var(--primary);
+        box-shadow: 0 0 0 3px var(--card-bg);
+        z-index: 1;
+      }
+
+      .cl-card {
+        border: 1px solid var(--line-color);
+        border-radius: 0.9rem;
+        transition:
+          border-color 0.2s ease,
+          background-color 0.2s ease;
+      }
+      .cl-card:hover {
+        border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      }
+
+      /* 展开/收起：原生 details，箭头随开合旋转 */
+      .cl-details > summary {
+        list-style: none;
+        cursor: pointer;
+      }
+      .cl-details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .cl-details > summary .cl-caret {
+        transition: transform 0.2s ease;
+      }
+      .cl-details[open] > summary .cl-caret {
+        transform: rotate(90deg);
+      }
+      .cl-details[open] > summary {
+        margin-bottom: 0.75rem;
+      }
+    </style>
+  </Fragment>
+
+  <div
+    th:with="cfg=${theme.config?.extendPages?.blogChangelog},
+      ms=${cfg?.milestones?.items},
+      dayList=${cfg?.days?.items},
+      msCount=${ms != null ? #lists.size(ms) : 0},
+      dayCount=${dayList != null ? #lists.size(dayList) : 0},
+      curVer=${msCount > 0 ? ms[msCount - 1].version : ''},
+      firstDate=${msCount > 0 ? ms[0].date : ''},
+      lastDate=${dayCount > 0 ? dayList[0].date : ''}"
+    th:remove="tag"
+  >
+    <!-- ===== ① 页头 ===== -->
+    <section class="card-base onload-animation mb-4 px-6 py-7 md:px-9">
+      <p
+        class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase"
+        th:text="${cfg?.kicker != null and !#strings.isEmpty(cfg?.kicker) ? cfg?.kicker : 'BLOG CHANGELOG'}"
+      >
+        BLOG CHANGELOG
+      </p>
+      <h1
+        class="mt-2 mb-3 text-3xl font-bold text-90 md:text-4xl"
+        th:text="${singlePage.spec.title}"
+      >
+        博客更新日志
+      </h1>
+      <p
+        class="text-sm leading-relaxed text-75 md:text-base"
+        th:if="${cfg?.description != null and !#strings.isEmpty(cfg?.description)}"
+        th:text="${cfg?.description}"
+      >
+        页面说明
+      </p>
+      <p
+        class="mt-3 text-xs text-50"
+        th:if="${cfg?.versionRule != null and !#strings.isEmpty(cfg?.versionRule)}"
+        th:text="${cfg?.versionRule}"
+      >
+        版本规则
+      </p>
+
+      <!-- 统计条 -->
+      <div class="cl-stats mt-6">
+        <div class="cl-stat">
+          <strong
+            class="block font-mono text-lg font-bold text-(--primary)"
+            th:text="${curVer != '' ? curVer : '—'}">—</strong
+          >
+          <small class="text-[0.7rem] text-50">当前版本</small>
+        </div>
+        <div class="cl-stat">
+          <strong
+            class="block font-mono text-lg font-bold text-(--primary)"
+            th:text="${dayCount}">0</strong
+          >
+          <small class="text-[0.7rem] text-50">个更新日</small>
+        </div>
+        <div class="cl-stat">
+          <strong
+            class="block font-mono text-lg font-bold text-(--primary)"
+            th:text="${msCount}">0</strong
+          >
+          <small class="text-[0.7rem] text-50">个里程碑</small>
+        </div>
+        <div class="cl-stat">
+          <strong
+            class="block font-mono text-lg font-bold text-(--primary)"
+            th:text="${firstDate != '' ? firstDate : '—'}"
+          >
+            —
+          </strong>
+          <small class="text-[0.7rem] text-50">始于</small>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ② 返回条 ===== -->
+    <nav
+      class="card-base onload-animation mb-4 flex flex-wrap items-center justify-between gap-3 px-6 py-3.5 md:px-9"
+    >
+      <a
+        class="btn-regular inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors hover:text-(--primary)"
+        href="/about"
+      >
+        <span
+          class="icon-[material-symbols--arrow-back-rounded] text-sm"
+          aria-hidden="true"></span>
+        <span>关于我</span>
+      </a>
+      <span class="text-xs text-50">按日倒序 · 建站以来</span>
+    </nav>
+
+    <!-- ===== ③ 成长轨迹 ===== -->
+    <section
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      th:if="${msCount > 0}"
+    >
+      <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p
+            class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase"
+          >
+            GROWTH
+          </p>
+          <h2
+            class="mt-1 text-xl font-bold text-90"
+            th:text="${cfg?.growthTitle != null and !#strings.isEmpty(cfg?.growthTitle) ? cfg?.growthTitle : '博客成长轨迹'}"
+          >
+            博客成长轨迹
+          </h2>
+        </div>
+        <span
+          class="text-xs text-50"
+          th:if="${cfg?.growthSubtitle != null and !#strings.isEmpty(cfg?.growthSubtitle)}"
+          th:text="${cfg?.growthSubtitle}"
+        >
+          从第一次上线到现在
+        </span>
+      </div>
+
+      <ol class="cl-milestones">
+        <li
+          th:each="m, mStat : ${ms}"
+          class="cl-milestone"
+          th:classappend="${mStat.last ? ' is-current' : ''}"
+        >
+          <strong
+            class="block font-mono text-sm font-bold text-(--primary)"
+            th:text="${m?.version}">V0.0.0</strong
+          >
+          <span
+            class="mt-0.5 block font-mono text-[0.7rem] text-50"
+            th:text="${m?.date}">2026.01.01</span
+          >
+          <span
+            class="mt-1.5 block text-xs leading-snug text-75"
+            th:text="${m?.label}">说明</span
+          >
+        </li>
+      </ol>
+
+      <p
+        class="mt-5 flex items-center gap-1.5 text-xs text-50"
+        th:if="${cfg?.growthNote != null and !#strings.isEmpty(cfg?.growthNote)}"
+      >
+        <span th:text="${cfg?.growthNote}">一步一个脚印</span>
+        <span class="text-(--primary)">✦</span>
+      </p>
+    </section>
+
+    <!-- ===== ④ 按日更新记录 ===== -->
+    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p
+            class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase"
+          >
+            DAILY LOG
+          </p>
+          <h2 class="mt-1 text-xl font-bold text-90">按日更新记录</h2>
+        </div>
+        <span class="text-xs text-50">最新在上 · 点击「详细记录」可展开</span>
+      </div>
+
+      <p class="py-6 text-center text-sm text-50" th:if="${dayCount == 0}">
+        还没有记录，请到「主题设置 → 扩展页面 → 博客更新日志页面」里添加。
+      </p>
+
+      <ol class="cl-list flex flex-col gap-4">
+        <li th:each="d, dStat : ${dayList}" class="cl-entry">
+          <!-- 日期列（桌面端左列；窄屏在卡片内显示） -->
+          <div class="hidden pt-5 md:block">
+            <p class="font-mono text-xs font-bold text-90" th:text="${d?.date}">
+              2026 年 1 月 1 日
+            </p>
+            <p
+              class="mt-1 text-[0.7rem] text-50"
+              th:text="|第 ${dayCount - dStat.index} 次记录|"
+            >
+              第 1 次记录
+            </p>
+          </div>
+
+          <!-- 竖线轨道 + 节点 -->
+          <div class="cl-rail hidden md:block" aria-hidden="true">
+            <span class="cl-dot"></span>
+          </div>
+
+          <!-- 当天卡片 -->
+          <div class="cl-card mb-1 px-4 py-4">
+            <div class="mb-2 flex flex-wrap items-center gap-2">
+              <span
+                class="rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-(--btn-content)"
+                th:if="${d?.version != null and !#strings.isEmpty(d?.version)}"
+                th:text="${d?.version}"
+              >
+                V0.0.0
+              </span>
+              <h3 class="text-base font-bold text-90" th:text="${d?.title}">
+                标题
+              </h3>
+              <span class="text-[0.7rem] text-50 md:hidden" th:text="${d?.date}"
+                >日期</span
+              >
+            </div>
+
+            <p
+              class="mb-2 text-sm leading-relaxed text-75"
+              th:if="${d?.summary != null and !#strings.isEmpty(d?.summary)}"
+              th:text="${d?.summary}"
+            >
+              摘要
+            </p>
+
+            <p
+              class="mb-3 text-sm leading-relaxed text-50"
+              th:if="${d?.detail != null and !#strings.isEmpty(d?.detail)}"
+              th:text="${d?.detail}"
+            >
+              详细说明
+            </p>
+
+            <!-- 展开区：条目明细（extend-pages.js 按行渲染） -->
+            <details
+              class="cl-details"
+              th:if="${d?.entries != null and !#strings.isEmpty(d?.entries)}"
+            >
+              <summary
+                class="inline-flex items-center gap-1.5 text-xs font-bold text-(--primary)"
+              >
+                <span
+                  class="cl-caret icon-[material-symbols--chevron-right-rounded] text-sm"
+                  aria-hidden="true"></span>
+                <span>查看当天详细记录</span>
+              </summary>
+              <ol
+                class="flex flex-col gap-2"
+                th:data-lines="${d?.entries}"
+                data-lines-render="entries"
+              >
+              </ol>
+            </details>
+
+            <div
+              class="mt-3 flex flex-wrap gap-1.5"
+              th:if="${d?.tags != null and !#strings.isEmpty(d?.tags)}"
+              th:data-lines="${d?.tags}"
+              data-lines-render="tags"
+            >
+            </div>
+          </div>
+        </li>
+      </ol>
+    </section>
+  </div>
+
+  <script
+    is:inline
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/extend-pages.js?v=${ASSET_VERSION}`}
+    defer></script>
+</MainGridLayout>
