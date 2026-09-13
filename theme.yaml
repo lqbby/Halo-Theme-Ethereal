@@ -14,6 +14,15 @@ spec:
   issues: https://github.com/AloneNanNan/halo-theme-ethereal/issues
   customTemplates:
     page:
+      # ⚠️ 1.4.92 补：主题设置的「关于我页面」「博客更新日志页面」帮助文字都要求
+      # 「自定义页面 → 自定义模板选 about / blog-changelog」，但这两项此前从未在此声明
+      # ⇒ Halo 的自定义模板下拉里根本没有它们，页面无法用 UI 建出来（只能改库绑定）。
+      - name: "关于我"
+        description: "个人介绍页面（页面内容在主题设置「关于我页面」中配置）"
+        file: "about.html"
+      - name: "博客日志"
+        description: "博客更新日志页面（页面内容在主题设置「博客更新日志页面」中配置）"
+        file: "blog-changelog.html"
       - name: "朋友圈"
         description: "朋友圈动态页面"
         file: "friends.html"
@@ -34,7 +43,7 @@ spec:
         file: "statistics.html"
   settingName: "Ethereal-setting"
   configMapName: "Ethereal-configMap"
-  version: "1.4.91"
+  version: "1.4.92"
   requires: ">=2.25.0"
   license:
     - name: "MIT"
