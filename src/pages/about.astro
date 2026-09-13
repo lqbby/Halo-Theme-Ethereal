@@ -588,24 +588,20 @@ import Canonical from "../components/misc/Canonical.astro";
         line-height: 1.3;
       }
 
-      /* ================= ⑫ 我的朋友（带头像卡片墙）/ 技术轨迹（标签胶囊） =================
+      /* ================= ⑫ 我的朋友（带头像卡片墙）/ 技术栈（技能数据芯片） =================
          2026-09-13 改版：两个卡片原本共用 .about-friend / .about-tag-chip 一套胶囊样式，
          现在「我的朋友」升级为带头像卡片墙 ⇒ **必须解耦**，否则技术轨迹会被一起改掉。
-         · .about-friends / .about-friend*  → 卡片墙（圆形 logo + 名称 + 描述，2 列）
-         · .about-tag-list / .about-tag-chip → 仍是胶囊（保持参考站 .stack-list 青色系） */
+         · .about-friends / .about-friend* → 卡片墙（圆形 logo + 名称 + 描述，2 列）
+         · .about-skill-*                  → 技术栈芯片（见 ⑫b）
+         2026-09-13 二改：卡片改吃「技能」页数据，旧的 `.about-tag-list / .about-tag-chip`
+         与 `data-lines-render="stackTags"` 渲染器**已整条删除**（含 settings.yaml 的
+         `identity.trajectory` 设置项）⇒ 别再往本页加胶囊类名。 */
       .about-friends {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.4rem;
         margin-top: 0.8rem;
       }
-      .about-tag-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        margin-top: 0.8rem;
-      }
-
       /* ---- 友链卡片：圆形头像 + 名称 / 描述两行 ----
          视觉目标：像「一排名片」而不是「一排按钮」。
          · 圆形 logo 弱化轮廓，让名称成为主角
@@ -692,41 +688,141 @@ import Canonical from "../components/misc/Canonical.astro";
         text-overflow: ellipsis;
         white-space: nowrap;
       }
-      /* 胶囊本体（仅技术轨迹用，由 JS 生成 .about-tag-chip）。
-         ⚠️ 2026-09-13 起「我的朋友」已是卡片墙，**不再加入本规则** —— 
-         原来两者共用一套胶囊样式，改版时必须解耦，否则卡片被当胶囊渲染。 */
-      .about-tag-chip {
-        display: block;
+
+      /* ================= ⑫b 技术栈（数据 = 「技能」页同一份 entries.items） =================
+         侧栏只有 288px ⇒ 不能照搬技能页的大卡片，改成分组 + 紧凑芯片：
+         · 组头 = 分类名 + 计数（右对齐、tabular-nums）
+         · 芯片 = 16px 图标 + 名称（单行省略），flex-wrap 自适应
+         · 熟练度**不提现在颜色上**（曾分三档 ⇒ 同组里混三种底色、图标一亮一暗，
+           读起来像没对齐）⇒ 全部统一一套底色/描边/主色图标，精确等级只在
+           hover tooltip（title = 名称 · 等级 — 描述）里给，见下方 1.4.99 注。 */
+      .about-skill-groups {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        margin-top: 0.85rem;
+      }
+      .about-skill-group-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.3rem;
+      }
+      .about-skill-group-name {
+        color: var(--content-meta);
+        font-size: 0.62rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      .about-skill-group-count {
+        color: var(--content-meta);
+        opacity: 0.65;
+        font-size: 0.6rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .about-skill-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+      }
+      .about-skill-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.28rem;
+        min-width: 0;
         max-width: 100%;
-        padding: 0.28rem 0.5rem;
+        padding: 0.24rem 0.46rem 0.24rem 0.36rem;
         border: 1px solid
           color-mix(in srgb, var(--primary) 16%, var(--line-divider));
-        border-radius: 0.45rem;
-        background: color-mix(in srgb, var(--primary) 6%, var(--card-bg));
+        border-radius: 0.5rem;
+        background: color-mix(in srgb, var(--primary) 5%, var(--card-bg));
         color: var(--btn-content);
-        font-size: 0.65rem;
-        font-weight: 400;
+        font-size: 0.66rem;
         letter-spacing: -0.01em;
         line-height: 1.2;
-        text-align: center;
         text-decoration: none;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
         transition:
           color 0.18s,
           border-color 0.18s,
-          background-color 0.18s;
+          background-color 0.18s,
+          transform 0.18s;
       }
-      .about-tag-chip:hover {
-        border-color: var(--primary);
-        background: color-mix(in srgb, var(--primary) 10%, var(--card-bg));
+      /* 熟练度**不做视觉分级**（1.4.99）：
+         曾用 is-top/is-dim 让专家更亮、中级更灰，结果同一列表里出现三种底色+两种图标亮度，
+         读起来像「没对齐」而不是「有层级」⇒ 全部统一成一套底色/描边/图标色，
+         精确的熟练度只在 hover tooltip（title）里给，零视觉噪音。 */
+      @media (hover: hover) and (pointer: fine) {
+        .about-skill-chip:hover {
+          border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+          background: color-mix(in srgb, var(--primary) 12%, var(--card-bg));
+          color: var(--primary);
+          transform: translateY(-1px);
+        }
+      }
+      .about-skill-chip:focus-visible {
+        outline: 2px solid var(--primary);
+        outline-offset: 1px;
+      }
+      /* 图标：iconify 返回的 svg 自带 width/height ⇒ 用后代选择器压进 0.95rem 方框 */
+      .about-skill-icon {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        width: 0.95rem;
+        height: 0.95rem;
+        color: var(--primary);
+      }
+      .about-skill-icon :where(svg) {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .about-skill-icon-ph {
+        font-size: 0.6rem;
+        font-weight: 700;
+      }
+      .about-skill-name {
+        min-width: 0;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      /* 卡脚：一句文案 + 「全部 N 项 →」 */
+      .about-skill-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+      }
+      .about-skill-note {
+        min-width: 0;
+        overflow: hidden;
+        color: var(--content-meta);
+        font-size: 0.66rem;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .about-skill-more {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 0.15rem;
+        color: var(--content-meta);
+        font-size: 0.66rem;
+        text-decoration: none;
+        transition: color 0.18s;
+      }
+      .about-skill-more:hover,
+      .about-skill-more:focus-visible {
         color: var(--primary);
         outline: none;
       }
-      /* 1.4.90：删掉参考站 .stack-list 的硬编码青色（#42c7b0 / #159b8b）覆写，
-         回归上方基础规则的 var(--primary) ⇒ 胶囊效果跟随主题色相
-         （含后台主题色与访客面板色相），符合本主题视觉语言。 */
+      .about-skill-more-icon {
+        font-size: 0.8rem;
+      }
 
       /* ================= ⑬ 保持联系 = 参考站 .profile-connect-list ================= */
       .about-connect-list {
@@ -1183,6 +1279,7 @@ import Canonical from "../components/misc/Canonical.astro";
       aboutMomentCount=${aboutMoments != null ? #lists.size(aboutMoments) : 0},
       groups=${(pluginFinder == null or !pluginFinder.available('PluginLinks') or linkFinder == null) ? null : linkFinder.groupBy()},
       linksTotal=${groups != null and !#lists.isEmpty(groups) ? #aggregates.sum(groups.![links.size()]) : 0},
+      skillItems=${theme.config?.extendPages?.skills?.entries?.items},
       socials=${theme.config?.sidebar?.profile?.social_media}"
     th:remove="tag"
   >
@@ -1678,10 +1775,26 @@ import Canonical from "../components/misc/Canonical.astro";
 
         <!-- ---------- 侧列 ---------- -->
         <div class="about-col-side">
-          <!-- 技术轨迹 -->
+          <!-- 技术栈
+               2026-09-13 二改：卡片数据**只吃「技能」页**（图标 + 名称，按分类分组，
+               点芯片直达 /skills?category=xxx 的筛选结果）。
+               旧的手写文本胶囊（cfg.identity.trajectory + stackTags 渲染器
+               + .about-tag-list/.about-tag-chip + settings.yaml 设置项）已整条清除，
+               **没有回落分支了** —— 技能数据为空则整卡不渲染。
+               ⚠️ 本页 cfg 只覆盖 extendPages.about ⇒ 技能数据必须走完整路径
+               theme.config?.extendPages?.skills?.entries?.items
+               （已在顶层 th:with 里取成 skillItems，勿在本 section 上再叠）。
+               ⚠️ 同标签 th:if(3) 先于 th:with(4) ⇒ section 的 th:if 只能用外层变量，
+               分组计数（feCount…）只能给下层的 .about-skill-group 用。 -->
           <section
             class="card-base onload-animation"
-            th:if="${!#strings.isEmpty(cfg?.identity?.trajectory)}"
+            th:if="${skillItems != null and !#lists.isEmpty(skillItems)}"
+            th:with="feCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'frontend' ? 1 : 0]) : 0},
+              beCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'backend' ? 1 : 0]) : 0},
+              dbCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'database' ? 1 : 0]) : 0},
+              toolCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'tools' ? 1 : 0]) : 0},
+              otherCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'other' ? 1 : 0]) : 0},
+              skillTotal=${skillItems != null ? #lists.size(skillItems) : 0}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1689,17 +1802,205 @@ import Canonical from "../components/misc/Canonical.astro";
                   class="icon-[material-symbols--terminal-rounded]"
                   aria-hidden="true"></span>
               </span>
-              <h2 class="about-card-title text-90">技术轨迹</h2>
+              <h2 class="about-card-title text-90">技术栈</h2>
             </div>
-            <div
-              class="about-tag-list"
-              th:data-lines="${cfg?.identity?.trajectory}"
-              data-lines-render="stackTags"
-            >
+
+            <div class="about-skill-groups">
+              <!-- 前端开发 -->
+              <div class="about-skill-group" th:if="${feCount > 0}">
+                <div class="about-skill-group-head">
+                  <span
+                    class="about-skill-group-name"
+                    th:text="#{page.skills.frontend}">前端开发</span
+                  >
+                  <span class="about-skill-group-count" th:text="${feCount}"
+                    >6</span
+                  >
+                </div>
+                <div class="about-skill-chips">
+                  <a
+                    th:each="s : ${skillItems}"
+                    th:if="${s?.category == 'frontend'}"
+                    class="about-skill-chip"
+                    th:with="lv=${s.level == 'expert' ? #messages.msg('page.skills.expert') : (s.level == 'advanced' ? #messages.msg('page.skills.advanced') : (s.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (s.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}"
+                    th:title="${s?.name + (#strings.isEmpty(lv) ? '' : ' · ' + lv) + (#strings.isEmpty(s?.description) ? '' : ' — ' + s?.description)}"
+                    th:href="@{/skills(category='frontend')}"
+                  >
+                    <span
+                      class="about-skill-icon"
+                      th:if="${s?.icon?.value != null}"
+                      th:utext="${s?.icon?.value}"></span>
+                    <span
+                      class="about-skill-icon about-skill-icon-ph"
+                      th:unless="${s?.icon?.value != null}"
+                      th:text="${#strings.substring(s?.name ?: '?', 0, 1)}"
+                      >S</span
+                    >
+                    <span class="about-skill-name" th:text="${s?.name}"
+                      >Astro</span
+                    >
+                  </a>
+                </div>
+              </div>
+
+              <!-- 后端开发 -->
+              <div class="about-skill-group" th:if="${beCount > 0}">
+                <div class="about-skill-group-head">
+                  <span
+                    class="about-skill-group-name"
+                    th:text="#{page.skills.backend}">后端开发</span
+                  >
+                  <span class="about-skill-group-count" th:text="${beCount}"
+                    >4</span
+                  >
+                </div>
+                <div class="about-skill-chips">
+                  <a
+                    th:each="s : ${skillItems}"
+                    th:if="${s?.category == 'backend'}"
+                    class="about-skill-chip"
+                    th:with="lv=${s.level == 'expert' ? #messages.msg('page.skills.expert') : (s.level == 'advanced' ? #messages.msg('page.skills.advanced') : (s.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (s.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}"
+                    th:title="${s?.name + (#strings.isEmpty(lv) ? '' : ' · ' + lv) + (#strings.isEmpty(s?.description) ? '' : ' — ' + s?.description)}"
+                    th:href="@{/skills(category='backend')}"
+                  >
+                    <span
+                      class="about-skill-icon"
+                      th:if="${s?.icon?.value != null}"
+                      th:utext="${s?.icon?.value}"></span>
+                    <span
+                      class="about-skill-icon about-skill-icon-ph"
+                      th:unless="${s?.icon?.value != null}"
+                      th:text="${#strings.substring(s?.name ?: '?', 0, 1)}"
+                      >S</span
+                    >
+                    <span class="about-skill-name" th:text="${s?.name}"
+                      >Java</span
+                    >
+                  </a>
+                </div>
+              </div>
+
+              <!-- 数据库 -->
+              <div class="about-skill-group" th:if="${dbCount > 0}">
+                <div class="about-skill-group-head">
+                  <span
+                    class="about-skill-group-name"
+                    th:text="#{page.skills.database}">数据库</span
+                  >
+                  <span class="about-skill-group-count" th:text="${dbCount}"
+                    >2</span
+                  >
+                </div>
+                <div class="about-skill-chips">
+                  <a
+                    th:each="s : ${skillItems}"
+                    th:if="${s?.category == 'database'}"
+                    class="about-skill-chip"
+                    th:with="lv=${s.level == 'expert' ? #messages.msg('page.skills.expert') : (s.level == 'advanced' ? #messages.msg('page.skills.advanced') : (s.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (s.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}"
+                    th:title="${s?.name + (#strings.isEmpty(lv) ? '' : ' · ' + lv) + (#strings.isEmpty(s?.description) ? '' : ' — ' + s?.description)}"
+                    th:href="@{/skills(category='database')}"
+                  >
+                    <span
+                      class="about-skill-icon"
+                      th:if="${s?.icon?.value != null}"
+                      th:utext="${s?.icon?.value}"></span>
+                    <span
+                      class="about-skill-icon about-skill-icon-ph"
+                      th:unless="${s?.icon?.value != null}"
+                      th:text="${#strings.substring(s?.name ?: '?', 0, 1)}"
+                      >S</span
+                    >
+                    <span class="about-skill-name" th:text="${s?.name}"
+                      >PostgreSQL</span
+                    >
+                  </a>
+                </div>
+              </div>
+
+              <!-- 开发工具 -->
+              <div class="about-skill-group" th:if="${toolCount > 0}">
+                <div class="about-skill-group-head">
+                  <span
+                    class="about-skill-group-name"
+                    th:text="#{page.skills.tools}">开发工具</span
+                  >
+                  <span class="about-skill-group-count" th:text="${toolCount}"
+                    >8</span
+                  >
+                </div>
+                <div class="about-skill-chips">
+                  <a
+                    th:each="s : ${skillItems}"
+                    th:if="${s?.category == 'tools'}"
+                    class="about-skill-chip"
+                    th:with="lv=${s.level == 'expert' ? #messages.msg('page.skills.expert') : (s.level == 'advanced' ? #messages.msg('page.skills.advanced') : (s.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (s.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}"
+                    th:title="${s?.name + (#strings.isEmpty(lv) ? '' : ' · ' + lv) + (#strings.isEmpty(s?.description) ? '' : ' — ' + s?.description)}"
+                    th:href="@{/skills(category='tools')}"
+                  >
+                    <span
+                      class="about-skill-icon"
+                      th:if="${s?.icon?.value != null}"
+                      th:utext="${s?.icon?.value}"></span>
+                    <span
+                      class="about-skill-icon about-skill-icon-ph"
+                      th:unless="${s?.icon?.value != null}"
+                      th:text="${#strings.substring(s?.name ?: '?', 0, 1)}"
+                      >S</span
+                    >
+                    <span class="about-skill-name" th:text="${s?.name}"
+                      >Docker</span
+                    >
+                  </a>
+                </div>
+              </div>
+
+              <!-- 其他技能 -->
+              <div class="about-skill-group" th:if="${otherCount > 0}">
+                <div class="about-skill-group-head">
+                  <span
+                    class="about-skill-group-name"
+                    th:text="#{page.skills.other}">其他技能</span
+                  >
+                  <span class="about-skill-group-count" th:text="${otherCount}"
+                    >3</span
+                  >
+                </div>
+                <div class="about-skill-chips">
+                  <a
+                    th:each="s : ${skillItems}"
+                    th:if="${s?.category == 'other'}"
+                    class="about-skill-chip"
+                    th:with="lv=${s.level == 'expert' ? #messages.msg('page.skills.expert') : (s.level == 'advanced' ? #messages.msg('page.skills.advanced') : (s.level == 'intermediate' ? #messages.msg('page.skills.intermediate') : (s.level == 'beginner' ? #messages.msg('page.skills.beginner') : '')))}"
+                    th:title="${s?.name + (#strings.isEmpty(lv) ? '' : ' · ' + lv) + (#strings.isEmpty(s?.description) ? '' : ' — ' + s?.description)}"
+                    th:href="@{/skills(category='other')}"
+                  >
+                    <span
+                      class="about-skill-icon"
+                      th:if="${s?.icon?.value != null}"
+                      th:utext="${s?.icon?.value}"></span>
+                    <span
+                      class="about-skill-icon about-skill-icon-ph"
+                      th:unless="${s?.icon?.value != null}"
+                      th:text="${#strings.substring(s?.name ?: '?', 0, 1)}"
+                      >S</span
+                    >
+                    <span class="about-skill-name" th:text="${s?.name}"
+                      >自托管</span
+                    >
+                  </a>
+                </div>
+              </div>
             </div>
-            <p class="mt-3 text-xs text-50">
-              工具会变化，解决问题的方式会留下。
-            </p>
+
+            <div class="about-skill-foot">
+              <p class="about-skill-note">工具会变化，解决问题的方式会留下。</p>
+              <a class="about-skill-more" th:href="@{/skills}">
+                <span>全部 <span th:text="${skillTotal}">23</span> 项</span>
+                <span
+                  class="about-skill-more-icon icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
+              </a>
+            </div>
           </section>
 
           <!-- 我的朋友（数据取自本站友情链接，可随机）

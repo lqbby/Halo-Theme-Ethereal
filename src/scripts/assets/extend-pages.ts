@@ -1,6 +1,6 @@
 // @ts-nocheck —— 与 timeline.js 同款：配合模板里 th:data-* 多行字段在客户端渲染。
 // 用于「关于我」与「博客更新日志」两个自定义页面：模板把多行文本写进 data-lines，
-// 这里按行拆分后生成 chips / paragraphs / entries / tags / stackTags /
+// 这里按行拆分后生成 chips / paragraphs / entries / tags /
 // projTech / stubRows。
 //
 // 为什么要客户端渲染：settings.yaml 里这些字段是 textarea（每行一条），
@@ -119,15 +119,6 @@
       lines.forEach(function (line) {
         var span = document.createElement("span");
         span.className = CLS_TAG;
-        span.textContent = line;
-        frag.appendChild(span);
-      });
-    } else if (kind === "stackTags") {
-      // 「关于我 → 技术轨迹」= 参考站 .stack-list span（青色系胶囊，
-      // 样式见 about.astro 的 .about-tag-chip）
-      lines.forEach(function (line) {
-        var span = document.createElement("span");
-        span.className = "about-tag-chip";
         span.textContent = line;
         frag.appendChild(span);
       });

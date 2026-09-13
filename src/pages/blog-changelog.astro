@@ -1,11 +1,20 @@
 ---
 // 博客更新日志页面模板（Halo 自定义页面，自定义模板选 blog-changelog）。
 // 数据来自主题设置「扩展页面 → 博客更新日志页面」→ theme.config.extendPages.blogChangelog。
-// 参考 rainzt.cn/blog-changelog 的「统计条 + 成长轨迹 + 按日时间线」结构，
+// 参考 rainzt.cn/blog-changelog 的「统计条 + 成长轨迹 + 版本时间线」结构，
 // 按本主题的设计令牌重做：卡底走 card-base、竖线与节点走 --line-divider / --primary，
 // 展开区用原生 <details>（无需 JS），条目明细与标签由 extend-pages.js 按行渲染。
+//
+// 🔴 2026-09-13 重构（1.5.0）：记录会随发版一直涨（一天可能好几条），旧版「全量渲染 +
+// 无分组」撑不住 ⇒ 三件事：
+//   ① 服务端分页（?page=N，每页 days.pageSize 条，默认 20）⇒ DOM 不随总条数膨胀；
+//   ② 按「日期前 7 位」（YYYY.MM）变化时插一条分组行 ⇒ 零日期解析，格式不符就不出标题；
+//   ③ 详细说明 / 明细 / 标签全部收进 <details> ⇒ 折叠态每条约 2 行，一屏能扫十几条。
+// ⚠️ 分组行放在 entry **外面**（list 的直接子节点），否则它会占掉三列网格的一行、
+//    把 .cl-rail 的竖线起点与节点位置全部顶偏；首尾条目改用显式 .is-first/.is-last。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import QueryPagination from "../components/control/QueryPagination.astro";
 ---
 
 <MainGridLayout
@@ -55,7 +64,30 @@ import Canonical from "../components/misc/Canonical.astro";
           color-mix(in oklab, var(--primary) 14%, transparent);
       }
 
-      /* 按日时间线：日期列 + 竖线轨道 + 卡片 */
+      /* 年月分隔行（跨整行 —— .cl-entry 是三列网格，故必须 grid-column: 1/-1） */
+      .cl-grouphdr {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        grid-column: 1 / -1;
+        margin: 0.15rem 0 -0.35rem;
+        color: var(--primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+      .cl-grouphdr i {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          color-mix(in oklab, var(--primary) 38%, transparent),
+          transparent
+        );
+      }
+
+      /* 版本时间线：日期列 + 竖线轨道 + 卡片 */
       .cl-list {
         position: relative;
       }
@@ -66,13 +98,14 @@ import Canonical from "../components/misc/Canonical.astro";
       }
       @media (min-width: 768px) {
         .cl-entry {
-          grid-template-columns: 7.5rem 1.5rem minmax(0, 1fr);
+          grid-template-columns: 6.5rem 1.5rem minmax(0, 1fr);
         }
       }
       .cl-rail {
         position: relative;
       }
-      /* 竖线：首尾两段用渐变淡出，避免两端「断头」 */
+      /* 竖线：首尾两段用渐变淡出，避免两端「断头」
+         ⚠️ 别用 :first-child/:last-child —— 分组行也在 .cl-list 里，会顶掉这个选择器 */
       .cl-rail::before {
         content: "";
         position: absolute;
@@ -83,16 +116,16 @@ import Canonical from "../components/misc/Canonical.astro";
         transform: translateX(-50%);
         background: var(--line-divider);
       }
-      .cl-entry:first-child .cl-rail::before {
-        top: 1.6rem;
+      .cl-entry.is-first .cl-rail::before {
+        top: 1.5rem;
       }
-      .cl-entry:last-child .cl-rail::before {
-        bottom: calc(100% - 1.6rem);
+      .cl-entry.is-last .cl-rail::before {
+        bottom: calc(100% - 1.5rem);
       }
       .cl-dot {
         position: absolute;
         left: 50%;
-        top: 1.35rem;
+        top: 1.25rem;
         width: 0.7rem;
         height: 0.7rem;
         border-radius: 9999px;
@@ -140,8 +173,15 @@ import Canonical from "../components/misc/Canonical.astro";
       msCount=${ms != null ? #lists.size(ms) : 0},
       dayCount=${dayList != null ? #lists.size(dayList) : 0},
       curVer=${msCount > 0 ? ms[msCount - 1].version : ''},
-      firstDate=${msCount > 0 ? ms[0].date : ''},
-      lastDate=${dayCount > 0 ? dayList[0].date : ''}"
+      firstDate=${msCount > 0 ? ms[0].date : (dayCount > 0 ? dayList[dayCount - 1].date : '')},
+      lastDate=${dayCount > 0 ? dayList[0].date : ''},
+      pageSize=${cfg?.days?.pageSize != null ? #conversions.convert(cfg?.days?.pageSize, 'java.lang.Integer') : 20},
+      totalPages=${pageSize gt 0 and dayCount gt 0 ? (dayCount + pageSize - 1) / pageSize : 1},
+      rawPage=${param.page != null and param.page.length gt 0 and param.page[0] matches '\d+' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
+      curPage=${rawPage gt totalPages ? totalPages : (rawPage lt 1 ? 1 : rawPage)},
+      startIndex=${(curPage - 1) * pageSize},
+      endIndex=${startIndex + pageSize gt dayCount ? dayCount : startIndex + pageSize},
+      pagedList=${pageSize gt 0 and dayCount gt 0 ? dayList.subList(startIndex, endIndex) : dayList}"
     th:remove="tag"
   >
     <!-- ===== ① 页头 ===== -->
@@ -187,7 +227,7 @@ import Canonical from "../components/misc/Canonical.astro";
             class="block font-mono text-lg font-bold text-(--primary)"
             th:text="${dayCount}">0</strong
           >
-          <small class="text-[0.7rem] text-50">个更新日</small>
+          <small class="text-[0.7rem] text-50">条版本记录</small>
         </div>
         <div class="cl-stat">
           <strong
@@ -282,36 +322,57 @@ import Canonical from "../components/misc/Canonical.astro";
       </p>
     </section>
 
-    <!-- ===== ④ 按日更新记录 ===== -->
+    <!-- ===== ④ 版本更新记录（服务端分页 + 年月分组 + 折叠卡片） ===== -->
     <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
       <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p
             class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase"
           >
-            DAILY LOG
+            RELEASES
           </p>
-          <h2 class="mt-1 text-xl font-bold text-90">按日更新记录</h2>
+          <h2 class="mt-1 text-xl font-bold text-90">版本更新记录</h2>
         </div>
-        <span class="text-xs text-50">最新在上 · 点击「详细记录」可展开</span>
+        <span class="text-xs text-50">
+          最新在上 · 每页 <span th:text="${pageSize}">20</span> 条 · 点「详细记录」展开
+        </span>
       </div>
 
       <p class="py-6 text-center text-sm text-50" th:if="${dayCount == 0}">
         还没有记录，请到「主题设置 → 扩展页面 → 博客更新日志页面」里添加。
       </p>
 
-      <ol class="cl-list flex flex-col gap-4">
-        <li th:each="d, dStat : ${dayList}" class="cl-entry">
-          <!-- 日期列（桌面端左列；窄屏在卡片内显示） -->
-          <div class="hidden pt-5 md:block">
-            <p class="font-mono text-xs font-bold text-90" th:text="${d?.date}">
-              2026 年 1 月 1 日
-            </p>
-            <p
-              class="mt-1 text-[0.7rem] text-50"
-              th:text="|第 ${dayCount - dStat.index} 次记录|"
+      <div class="cl-list flex flex-col gap-4">
+        <div
+          th:each="d, dStat : ${pagedList}"
+          class="cl-entry"
+          th:classappend="${(dStat.index == 0 ? ' is-first' : '') + (dStat.last ? ' is-last' : '')}"
+        >
+          <!-- 年月分组行：与「上一条的日期前 7 位」不同才输出。
+               跨整行（grid-column: 1/-1）⇒ 不挤压日期列/轨道的网格行，竖线起点不受影响。
+               ⚠️ th:if(3) 先于 th:with(4) ⇒ 这里只能用内联表达式，抽变量读不到。
+               🔴🔴 `matches` 是**全长匹配**（= Java `String.matches`），不是「包含」！
+                  故守卫必须写成完整的 10 位 `\d{4}\D\d{2}\D\d{2}`；写成 7 位 `\d{4}\D\d{2}`
+                  永远匹配不上 `2026.09.13` ⇒ 分组行整块静默不渲染（1.5.0 踩过）。
+               ⚠️ `pagedList[index - 1]` 用三元兜住 index==0 —— 同 friends.astro 的
+                  `iterStat.index > 0 ? allItems.items[iterStat.index - 1] : null`
+                  日期格式不符（含空日期）时整行不渲染，后面的 substring 不会被求值。 -->
+          <div
+            class="cl-grouphdr"
+            th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
+              and (dStat.index == 0
+                ? true
+                : #strings.substring(d?.date ?: '', 0, 7) != #strings.substring(pagedList[dStat.index - 1].date ?: '', 0, 7))}"
+          >
+            <span th:text="${#strings.substring(d?.date ?: '', 0, 7)}"
+              >2026.09</span
             >
-              第 1 次记录
+            <i aria-hidden="true"></i>
+          </div>
+          <!-- 日期列（桌面端左列；窄屏在卡片内显示） -->
+          <div class="hidden pt-4 md:block">
+            <p class="font-mono text-xs font-bold text-90" th:text="${d?.date}">
+              2026.09.13
             </p>
           </div>
 
@@ -320,9 +381,9 @@ import Canonical from "../components/misc/Canonical.astro";
             <span class="cl-dot"></span>
           </div>
 
-          <!-- 当天卡片 -->
-          <div class="cl-card mb-1 px-4 py-4">
-            <div class="mb-2 flex flex-wrap items-center gap-2">
+          <!-- 当天卡片：标题 + 一句话摘要常显；详细说明 / 明细 / 标签全收进折叠区 -->
+          <div class="cl-card mb-1 px-4 py-3.5">
+            <div class="flex flex-wrap items-center gap-2">
               <span
                 class="rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 font-mono text-[0.7rem] font-bold text-(--btn-content)"
                 th:if="${d?.version != null and !#strings.isEmpty(d?.version)}"
@@ -330,7 +391,10 @@ import Canonical from "../components/misc/Canonical.astro";
               >
                 V0.0.0
               </span>
-              <h3 class="text-base font-bold text-90" th:text="${d?.title}">
+              <h3
+                class="text-[0.95rem] font-bold text-90"
+                th:text="${d?.title}"
+              >
                 标题
               </h3>
               <span class="text-[0.7rem] text-50 md:hidden" th:text="${d?.date}"
@@ -339,25 +403,18 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
 
             <p
-              class="mb-2 text-sm leading-relaxed text-75"
+              class="mt-1.5 text-sm leading-relaxed text-75"
               th:if="${d?.summary != null and !#strings.isEmpty(d?.summary)}"
               th:text="${d?.summary}"
             >
               摘要
             </p>
 
-            <p
-              class="mb-3 text-sm leading-relaxed text-50"
-              th:if="${d?.detail != null and !#strings.isEmpty(d?.detail)}"
-              th:text="${d?.detail}"
-            >
-              详细说明
-            </p>
-
-            <!-- 展开区：条目明细（extend-pages.js 按行渲染） -->
             <details
-              class="cl-details"
-              th:if="${d?.entries != null and !#strings.isEmpty(d?.entries)}"
+              class="cl-details mt-2"
+              th:if="${(d?.detail != null and !#strings.isEmpty(d?.detail))
+                or (d?.entries != null and !#strings.isEmpty(d?.entries))
+                or (d?.tags != null and !#strings.isEmpty(d?.tags))}"
             >
               <summary
                 class="inline-flex items-center gap-1.5 text-xs font-bold text-(--primary)"
@@ -365,26 +422,42 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span
                   class="cl-caret icon-[material-symbols--chevron-right-rounded] text-sm"
                   aria-hidden="true"></span>
-                <span>查看当天详细记录</span>
+                <span>详细记录</span>
               </summary>
+
+              <p
+                class="mb-3 text-sm leading-relaxed text-50"
+                th:if="${d?.detail != null and !#strings.isEmpty(d?.detail)}"
+                th:text="${d?.detail}"
+              >
+                详细说明
+              </p>
+
+              <!-- 条目明细（extend-pages.js 按行渲染） -->
               <ol
                 class="flex flex-col gap-2"
+                th:if="${d?.entries != null and !#strings.isEmpty(d?.entries)}"
                 th:data-lines="${d?.entries}"
                 data-lines-render="entries"
               >
               </ol>
-            </details>
 
-            <div
-              class="mt-3 flex flex-wrap gap-1.5"
-              th:if="${d?.tags != null and !#strings.isEmpty(d?.tags)}"
-              th:data-lines="${d?.tags}"
-              data-lines-render="tags"
-            >
-            </div>
+              <div
+                class="mt-3 flex flex-wrap gap-1.5"
+                th:if="${d?.tags != null and !#strings.isEmpty(d?.tags)}"
+                th:data-lines="${d?.tags}"
+                data-lines-render="tags"
+              >
+              </div>
+            </details>
           </div>
-        </li>
-      </ol>
+        </div>
+      </div>
+
+      <!-- 分页：走查询参数式（?page=N），与技能页同一套组件 -->
+      <QueryPagination
+        class="onload-animation mt-7 mb-0 flex flex-row justify-center gap-3"
+      />
     </section>
   </div>
 

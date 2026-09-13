@@ -1,0 +1,96 @@
+{
+  "_comment": "「博客更新日志」页的真相源（1:1 对应主题设置 extendPages.blogChangelog）。改完用 node scripts/push-changelog.mjs 推到 Halo。days.items 必须按日期倒序（最新的在最上面），date 必须是 YYYY.MM.DD（模板用全长正则守卫，格式不符整行不渲染）。",
+  "kicker": "BLOG CHANGELOG / PUBLIC RECORD",
+  "description": "这里记录博客本身的每一次变更 —— 主题迭代、插件升级、内容侧调整。按日倒序，最新的在最上面。",
+  "versionRule": "Major 代表结构级升级 · Minor 代表新功能 · Patch 代表修复、内容与维护",
+  "growthTitle": "博客成长轨迹",
+  "growthSubtitle": "从第一次上线到现在",
+  "growthNote": "一步一个脚印，让热爱继续发光",
+  "days": {
+    "items": [
+      {
+        "date": "2026.09.13",
+        "version": "v1.5.1",
+        "title": "修复更新日志页「整页截断」与「年月分组行不显示」",
+        "summary": "两个互不相关的缺陷：th:classappend 里写了两个紧邻的 ${}，Thymeleaf 把它当成一个表达式解析失败，页面返回 200 但正文在异常处被截断；日期格式守卫写成了 7 位模式，而 matches 是全长匹配，永远匹配不上 10 位的日期，导致分组行一直不渲染。",
+        "detail": "出包前的静态检查（grep 产物、node --check）查不出「表达式能不能被解析」这一类问题 —— 所以补了一个用真 Thymeleaf 逐个解析 th: 属性的校验脚本，出包前必跑。",
+        "tags": "主题\n修复\n调试",
+        "entries": "修 th:classappend：两个紧邻的 ${} 合成一个 SpEL 字符串拼接\n修年月分组守卫：\\d{4}\\D\\d{2} → \\d{4}\\D\\d{2}\\D\\d{2}（matches 是全长匹配，模式长度必须等于日期长度）\n新增 scripts/validate-th.mjs：用真 Thymeleaf 校验全部 th 表达式（产物 28 个模板 / 25009 条属性）\n新增 scripts/check-th-expressions.mjs：无需 JVM 的兜底检查（抓「紧邻 ${}${}」与花括号不配对）"
+      },
+      {
+        "date": "2026.09.13",
+        "version": "v1.5.0",
+        "title": "更新日志页改版：服务端分页 + 年月分组 + 折叠卡片",
+        "summary": "原来一次性渲染全部记录，条目一多页面就会线性变重。这版按「记录会一直涨」重做：每页 20 条走 ?page=N 服务端分页，每进一个新的月份插一行年月分组，详情、标签、明细全部收进折叠区 —— 折叠态每条只占两行。",
+        "detail": "分页复用技能页那套查询参数式组件；年月分组行必须放在条目内部并跨整列（条目是三列网格），否则会顶掉首尾竖线的选择器。",
+        "tags": "主题\n布局\n更新日志",
+        "entries": "服务端分页 ?page=N + 新增设置项「每页条数」（默认 20）\n年月分组行：与上一条的月份不同才输出，横跨整条记录\n详情 / 标签 / 明细收进原生 details，折叠态每条约两行\n去掉「第 N 次记录」倒序编号（分页后没有意义）"
+      },
+      {
+        "date": "2026.09.12",
+        "version": "v1.4.70",
+        "title": "新增「关于我」与「博客更新日志」两个自定义页面",
+        "summary": "参考 rainzt.cn 的结构与气质，但用本主题自己的设计令牌重做； 音乐播放器、友链 / 朋友圈 tab、服务器状态这些站点特有模块按三栏布局裁掉。",
+        "detail": "只用了本主题已有的设计语言（card-base / --primary / onload-animation），没有新造一套样式。",
+        "tags": "主题\n自定义页面",
+        "entries": "新增 about.astro：身份卡 / README / 项目 / 更新摘要 / 最近动态 / 关注方向\n新增 blog-changelog.astro：统计条 / 成长轨迹 / 按日时间线（原生 details 展开）\n新增 extend-pages.js：多行字段按行渲染为 chips / 标签 / 链接 / 段落\nsettings.yaml：扩展页面新增两组共 24 个字段"
+      },
+      {
+        "date": "2026.09.12",
+        "version": "v1.4.69",
+        "title": "文章卡片瀑布流：余数行左对齐",
+        "summary": "卡片数不被列数整除时（末页常见），最后 n % colCount 张强制落在最左边，让空缺出现在右下角而不是左下角。",
+        "detail": "纯贪心取「第一个最矮列」会把余数行推到右侧，底部左边空一大块，观感像错位 —— 实测 5 张 3 列从 1/2/2 变成 2/2/1。",
+        "tags": "主题\n布局\n瀑布流",
+        "entries": "applyMasonry 增加 tailCount / tailStart 判断，其余仍走贪心\n顺带修掉容器恒多 16px 的尾随 gap"
+      },
+      {
+        "date": "2026.09.12",
+        "version": "plugin-cdn-cache v1.0.3",
+        "title": "CDN 缓存刷新插件：保存主题设置后自动刷新",
+        "summary": "Halo 核心没有主题设置变更事件，改为监听主题配置所在的 ConfigMap； 主题设置影响全站，因此默认走域名级整站刷新。",
+        "detail": "URL 级刷新覆盖不到文章页，所以用 purge_host —— 只作用于指定域名，不会波及图床的长期缓存。",
+        "tags": "插件\nCDN\nEdgeOne",
+        "entries": "新增 ThemeSettingListener：监听 ConfigMap，按 metadata.version 去重\nCdnRefreshService 增加 refreshHosts，EdgeOne 侧走 purge_host\n设置页新增「主题设置刷新」分组（开关 / 整站刷新 / 域名）"
+      },
+      {
+        "date": "2026.09.11",
+        "version": "v1.4.63",
+        "title": "canonical 全覆盖与重复内容修复",
+        "summary": "尾斜杠造成的重复内容、canonical 缺失、死链一并修掉。",
+        "detail": "唯一实现点是 Canonical.astro + 注入脚本，刻意排除无需索引的页面。",
+        "tags": "主题\nSEO",
+        "entries": "canonical 全站覆盖，改用 permalink 而非页面名推断\n独立页面 slug 从拼音改回英文"
+      }
+    ]
+  },
+  "milestones": {
+    "items": [
+      {
+        "version": "初版",
+        "date": "2026.07.22",
+        "label": "主题仓库起始：基于 Fuwari 二次开发"
+      },
+      {
+        "version": "v1.4.58",
+        "date": "2026.09.11",
+        "label": "进入密集迭代：组件、i18n、性能一轮清理"
+      },
+      {
+        "version": "v1.4.63",
+        "date": "2026.09.11",
+        "label": "canonical 全覆盖、尾斜杠重复内容与死链修复"
+      },
+      {
+        "version": "v1.4.70",
+        "date": "2026.09.12",
+        "label": "新增「关于我」与「博客更新日志」页面"
+      },
+      {
+        "version": "v1.5.1",
+        "date": "2026.09.13",
+        "label": "更新日志改版（分页 / 分组 / 折叠），并补上表达式校验这道关"
+      }
+    ]
+  }
+}

@@ -15,7 +15,9 @@
     "astro": "astro",
     "check": "astro check",
     "format": "prettier --write . && pnpm readme:halo",
-    "prepare": "husky"
+    "prepare": "husky",
+    "verify:th": "node scripts/validate-th.mjs",
+    "verify:th-expr": "node scripts/check-th-expressions.mjs"
   },
   "prettier": {
     "plugins": [

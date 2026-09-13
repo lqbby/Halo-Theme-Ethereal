@@ -2197,12 +2197,6 @@ spec:
                 博客跑在群晖 NAS 上，前台是基于 Fuwari 二次开发的 Ethereal 主题 —— 从配色、布局到小组件都自己改，版本号一直在往前滚。
                 平时写点工具类网站的推荐和使用记录，顺手把踩过的坑整理成主题补丁或插件。
               introSubtitle: 公开 · 持续更新
-              trajectory: |-
-                自建 Halo 博客
-                Fuwari 主题二次开发
-                Halo 插件开发
-                自托管与反向代理
-                CDN 与边缘缓存调优
             nav:
               profileLabel: 个人资料
               changelogLabel: 博客日志
@@ -2318,11 +2312,6 @@ spec:
                   label: 关于我右上小字
                   value: "公开 · 持续更新"
                   help: "显示在「关于我」卡片右上角的小字，留空则不显示"
-                - $formkit: textarea
-                  name: trajectory
-                  label: 技术轨迹
-                  value: "自建 Halo 博客\nFuwari 主题二次开发\nHalo 插件开发\n自托管与反向代理\nCDN 与边缘缓存调优"
-                  help: "每行一个，如 React"
 
             # ─────────── ② 顶部导航 ───────────
             - $formkit: group
@@ -2689,6 +2678,13 @@ spec:
               name: days
               label: 按日更新记录
               children:
+                - $formkit: number
+                  name: pageSize
+                  label: 每页条数
+                  value: 20
+                  min: 1
+                  max: 200
+                  help: "版本记录会一直增长，页面按此分页（只渲染当前页，不受总条数影响）。建议 10~30"
                 - $formkit: array
                   name: items
                   label: 记录列表
@@ -2698,7 +2694,7 @@ spec:
                       name: date
                       label: 日期
                       validation: required
-                      help: "如 2026 年 9 月 11 日"
+                      help: "务必用 2026.09.13 这种格式（页面按前 7 位 2026.09 分月分组）"
                     - $formkit: text
                       name: version
                       label: 版本号
