@@ -100,6 +100,26 @@ function summarize(label, obj) {
 }
 
 // ---------- main ----------
+/**
+ * 键顺序无关的深比较。
+ * ⚠️ 不能直接用 JSON.stringify 比 —— Halo 侧会把 ConfigMap 的组字符串重新序列化，
+ * 对象键顺序会变，直接比字符串会得出「不一致」的假阳性。
+ * 但 days.items / milestones.items 是**数组**，顺序有意义（就是渲染顺序）⇒ 只对
+ * object 的键排序，数组保持原序。
+ */
+function canon(v) {
+  if (Array.isArray(v)) return v.map(canon);
+  if (v && typeof v === "object") {
+    return Object.fromEntries(
+      Object.keys(v)
+        .sort()
+        .map((k) => [k, canon(v[k])]),
+    );
+  }
+  return v;
+}
+const eq = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+
 const raw = JSON.parse(readFileSync(CHANGELOG, "utf8"));
 const payload = {};
 for (const [k, v] of Object.entries(raw))
@@ -119,8 +139,13 @@ const ext = JSON.parse(root.data.extendPages);
 const before = ext.blogChangelog;
 summarize("线上", before);
 
-const same = JSON.stringify(before) === JSON.stringify(payload);
+const same = eq(before, payload);
 if (same) {
+  if (JSON.stringify(before) !== JSON.stringify(payload)) {
+    console.log(
+      "  ℹ️ 仅对象键顺序不同（Halo 重新序列化所致），内容等价 ⇒ 视为一致。",
+    );
+  }
   console.log("\n✅ 线上与本仓库一致，无需推送。");
   process.exit(0);
 }
@@ -140,8 +165,7 @@ if (JSON.stringify(bm) !== JSON.stringify(am))
   console.log(`  ~ milestones ${JSON.stringify(bm)} → ${JSON.stringify(am)}`);
 for (const k of Object.keys(payload)) {
   if (["days", "milestones"].includes(k)) continue;
-  if (JSON.stringify(before?.[k]) !== JSON.stringify(payload[k]))
-    console.log(`  ~ ${k}`);
+  if (!eq(before?.[k], payload[k])) console.log(`  ~ ${k}`);
 }
 
 if (!APPLY) {
@@ -193,7 +217,7 @@ try {
   console.log("🔎 回读校验 …");
   const { root: back } = readConfigMap();
   const backExt = JSON.parse(back.data.extendPages);
-  const ok = JSON.stringify(backExt.blogChangelog) === JSON.stringify(payload);
+  const ok = eq(backExt.blogChangelog, payload);
   const scopeOk = Object.keys(back.data).filter(
     (k) => back.data[k] !== root.data[k],
   );
