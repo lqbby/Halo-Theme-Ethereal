@@ -2,21 +2,25 @@
 /**
  * 归并「博客更新日志」：逐版本原始记录 → 发布用的批次记录
  *
- *   node scripts/merge-changelog.mjs              # 生成 changelog.json（默认每 10 个版本一条）
- *   node scripts/merge-changelog.mjs --size 5     # 换批次大小
- *   node scripts/merge-changelog.mjs --check      # 只比对，不写盘
- *   node scripts/merge-changelog.mjs --groups     # 只打印分组，方便核对边界
+ *   node scripts/merge-changelog.mjs            # 生成 changelog.json（默认按「整十版本号」收口）
+ *   node scripts/merge-changelog.mjs --check    # 只比对，不写盘
+ *   node scripts/merge-changelog.mjs --groups   # 只打印分组，方便核对边界
+ *   node scripts/merge-changelog.mjs --size 5   # 改用「每 N 条一组」（旧模式，备用）
  *
  * 输入：changelog.raw.json      逐版本原始记录（append-only，summary/detail 都在这）
- *      changelog.batches.json   批次文案（key = 该批最高的版本号；缺省则自动兜底）
+ *      changelog.batches.json   批次文案（key = 批次版本号；缺省则自动兜底）
  * 输出：changelog.json          发布版 = 主题设置 extendPages.blogChangelog 的真相源
  *                              → 再用 node scripts/push-changelog.mjs --apply 推到 Halo
  *
- * 批次规则（方案 A）：**从最老开始每 N 条一组**，边界只受「更老的记录」影响，
- * 所以往后追加新版本时，已有批次的边界**永不变动**；最新一批是「正在累积」的那批。
+ * 批次规则（默认）：**按版本号的「整十」收口** —— 收口点 = 补丁位是 10 的倍数（.0 也算），
+ * 每条版本归入「它之后最近的那个整十」，于是标签长这样：v1.4.10 / v1.4.20 / v1.4.30 …
+ * ⚠️ 收口点是**版本空间里的位置**，不要求该版本真实发布过（如 1.4.20 从未发布，
+ *    1.4.11~1.4.18 仍然归入 v1.4.20 这一批）。补丁位 91~99 会滚到下一个 minor 的 .0
+ *    （所以 1.4.91~1.5.0 归入 v1.5.0）。
+ * ⭐ 最后一批（还没凑到一个整十 = 正在累积的那批）用**该批最高真实版本号**命名。
  *
  * 每条合并记录：
- *   version  = 该批最高的主题版本号（如 v1.5.1）
+ *   version  = 批次版本号（整十收口；累积批用真实最高版本号）
  *   date     = 该批最新那天的日期
  *   entries  = 逐个版本的「版本号 · 标题」要点列表（保留明细）
  *   tags     = 该批 tags 的并集（去重，保持首次出现顺序）
@@ -37,8 +41,9 @@ const argv = process.argv.slice(2);
 const CHECK = argv.includes("--check");
 const GROUPS_ONLY = argv.includes("--groups");
 const sizeArg = argv.indexOf("--size");
+const MODE = sizeArg >= 0 ? "count" : "decade"; // 默认按整十版本号收口
 const SIZE = sizeArg >= 0 ? Number(argv[sizeArg + 1]) : 10;
-if (!Number.isInteger(SIZE) || SIZE < 1) {
+if (MODE === "count" && (!Number.isInteger(SIZE) || SIZE < 1)) {
   console.error(`✖ --size 需要一个正整数，收到：${argv[sizeArg + 1]}`);
   process.exit(1);
 }
@@ -100,14 +105,67 @@ function labelOf(items) {
     .version;
 }
 
+/**
+ * 版本空间的「收口点」：把补丁位向上取整到 10 的倍数。
+ *   1.3.85 → v1.3.90   1.4.0 → v1.4.0   1.4.4 → v1.4.10   1.4.18 → v1.4.20
+ *   1.4.91 → 补丁位 91 向上取整得 100 ⇒ 滚到下一个 minor ⇒ v1.5.0
+ * ⚠️ 返回的是**版本空间里的位置**，不保证该版本真实发布过（1.4.20 / 1.4.50 就没发过）。
+ */
+function boundaryLabel(x) {
+  const sv = semver(x);
+  if (!sv) return null; // 插件等非主题记录：跟随当前批次
+  let [maj, min, pat] = sv;
+  pat = Math.ceil(pat / 10) * 10;
+  while (pat >= 100) {
+    min += 1;
+    pat -= 100;
+  }
+  return `v${maj}.${min}.${pat}`;
+}
+
+/** 按「整十版本号」切桶；返回 [{ label, items, closed }]（closed = 该批已收到收口点） */
+function chunkByDecade(items) {
+  const out = [];
+  let cur = [];
+  let curLabel = null;
+  for (const it of items) {
+    const b = boundaryLabel(it);
+    if (b === null) {
+      cur.push(it); // 插件记录：不参与边界判断，跟着当前批次
+      continue;
+    }
+    if (curLabel === null) {
+      curLabel = b;
+    } else if (b !== curLabel) {
+      out.push({ label: curLabel, items: cur, closed: true });
+      cur = [];
+      curLabel = b;
+    }
+    cur.push(it);
+  }
+  if (cur.length) {
+    // 最后一批：若已收到收口点就沿用整十标签，否则它是「正在累积」的那批 ⇒ 用真实最高版本号
+    const closed = cur.some((x) => x.version === curLabel);
+    out.push({ label: closed ? curLabel : labelOf(cur), items: cur, closed });
+  }
+  return out;
+}
+
+function chunkByCount(items, size) {
+  const out = [];
+  for (let i = 0; i < items.length; i += size) {
+    const g = items.slice(i, i + size);
+    out.push({ label: labelOf(g), items: g, closed: i + size < items.length });
+  }
+  return out;
+}
+
 function build() {
   const asc = [...rawItems].sort(cmpAsc);
-  const groups = [];
-  for (let i = 0; i < asc.length; i += SIZE)
-    groups.push(asc.slice(i, i + SIZE));
+  const groups =
+    MODE === "count" ? chunkByCount(asc, SIZE) : chunkByDecade(asc);
 
-  const merged = groups.map((g) => {
-    const label = labelOf(g);
+  const merged = groups.map(({ label, items: g }) => {
     const last = g[g.length - 1];
     const copy = batches[label] ?? {};
     const firsts = g.map((x) => String(x.title ?? "").trim()).filter(Boolean);
@@ -145,13 +203,16 @@ function build() {
 const { groups, merged } = build();
 
 if (GROUPS_ONLY) {
+  const how =
+    MODE === "count"
+      ? `每 ${SIZE} 条一组`
+      : "按整十版本号收口（v1.4.10 / v1.4.20 / …）";
   console.log(
-    `批次大小 = ${SIZE}；原始 ${rawItems.length} 条 → 归并后 ${merged.length} 条\n`,
+    `切法 = ${how}；原始 ${rawItems.length} 条 → 归并后 ${merged.length} 条\n`,
   );
-  groups.forEach((g, i) => {
-    const label = labelOf(g);
+  groups.forEach(({ label, items: g, closed }, i) => {
     console.log(
-      `  ${String(i + 1).padStart(2)}. [${String(g.length).padStart(2)}条] ${g[0].version} ~ ${g[g.length - 1].version}   →   ${label}  (${g[g.length - 1].date})`,
+      `  ${String(i + 1).padStart(2)}. [${String(g.length).padStart(2)}条] ${g[0].version} ~ ${g[g.length - 1].version}   →   ${label}  (${g[g.length - 1].date})${closed ? "" : "   ← 正在累积"}`,
     );
   });
   const missing = merged
@@ -195,7 +256,7 @@ if (CHECK) {
 
 writeFileSync(OUT, next, "utf8");
 console.log(
-  `✅ 原始 ${rawItems.length} 条 → 归并 ${merged.length} 条（每批 ${SIZE}）`,
+  `✅ 原始 ${rawItems.length} 条 → 归并 ${merged.length} 条（${MODE === "count" ? `每 ${SIZE} 条一组` : "按整十版本号收口"}）`,
 );
 console.log(`   ${OUT}`);
 console.log(`   下一步：node scripts/push-changelog.mjs           # dry-run`);
