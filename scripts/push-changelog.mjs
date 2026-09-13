@@ -184,6 +184,28 @@ const av = new Set(
 );
 for (const v of av) if (!bv.has(v)) console.log(`  + day   ${v}`);
 for (const v of bv) if (!av.has(v)) console.log(`  − day   ${v}`);
+// 两边版本号都在、但内容被改写的（如批次归并：10 条压成 1 条，版本号不变但正文全变）
+// —— 只比「版本号的集合」看不出这类改动，必须逐条比内容，否则 dry-run 会静默漏报。
+const beforeMap = new Map(
+  (before?.days?.items ?? []).map((x) => [x.version + "@" + x.date, x]),
+);
+for (const [k, was] of beforeMap) {
+  if (!av.has(k)) continue;
+  const now = (payload.days?.items ?? []).find(
+    (x) => x.version + "@" + x.date === k,
+  );
+  if (!now || eq(was, now)) continue;
+  const bits = [];
+  if (was.title !== now.title) bits.push("标题");
+  if (was.summary !== now.summary) bits.push("概述");
+  if (was.detail !== now.detail) bits.push("详述");
+  if (was.tags !== now.tags) bits.push("标签");
+  if (was.entries !== now.entries)
+    bits.push(
+      `要点 ${String(was.entries ?? "").split("\n").length}→${String(now.entries ?? "").split("\n").length} 行`,
+    );
+  console.log(`  ~ day   ${k}  （改写：${bits.join(" / ")}）`);
+}
 const bm = (before?.milestones?.items ?? []).map((x) => x.version);
 const am = (payload.milestones?.items ?? []).map((x) => x.version);
 if (JSON.stringify(bm) !== JSON.stringify(am))
