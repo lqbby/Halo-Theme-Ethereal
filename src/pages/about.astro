@@ -830,6 +830,13 @@ import Canonical from "../components/misc/Canonical.astro";
         font-size: 0.62rem;
         line-height: 1.5;
       }
+      /* 1.4.94：数据源超过 10 分钟没更新时脚注转琥珀，提示「看的是旧数据」 */
+      .about-card-foot[data-stale="1"] {
+        color: #c5782e;
+      }
+      :root.dark .about-card-foot[data-stale="1"] {
+        color: #e19a45;
+      }
 
       /* ================= ⑯ 服务器状态 = 参考站 .server-status / .server-stat ================= */
       .about-stub-chip {
@@ -955,6 +962,34 @@ import Canonical from "../components/misc/Canonical.astro";
         transform: scaleX(var(--meter-scale, 0));
         transform-origin: 0;
         transition: transform 0.42s;
+      }
+      /* 1.4.94：高负载分级 —— 数值与进度条一起转琥珀（≥85%）/ 红（≥95%），
+         让「存储 96% 快满了」和「CPU 12%」不再长得一模一样。 */
+      .about-stub-row[data-level="warn"] .about-stub-val {
+        color: #c5782e;
+      }
+      .about-stub-row[data-level="warn"] .about-stub-bar > i {
+        background: linear-gradient(90deg, #f0c064, #e19a45);
+      }
+      .about-stub-row[data-level="danger"] .about-stub-val {
+        color: #d0523f;
+      }
+      .about-stub-row[data-level="danger"] .about-stub-bar > i {
+        background: linear-gradient(90deg, #ef8b6f, #d0523f);
+      }
+      :root.dark .about-stub-row[data-level="warn"] .about-stub-val {
+        color: #e8b055;
+      }
+      :root.dark .about-stub-row[data-level="danger"] .about-stub-val {
+        color: #ef8368;
+      }
+      /* 未接入数据源（还没拿到 data-server-state）时的占位观感：
+         数值退到次要色、进度条压暗 —— 看起来像「待接入」而不是「负载 0%」 */
+      .about-stub-list:not([data-server-state]) .about-stub-val {
+        color: var(--content-meta);
+      }
+      .about-stub-list:not([data-server-state]) .about-stub-bar > i {
+        opacity: 0.4;
       }
 
       /* ================= ⑰ 页脚卡 = 参考站 .profile-footer ================= */

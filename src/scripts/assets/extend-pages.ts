@@ -46,6 +46,15 @@
     memory: "icon-[material-symbols--memory-alt-rounded]",
     disk: "icon-[material-symbols--database]",
     system: "icon-[material-symbols--dns]",
+    // 1.4.94 扩展：自托管常见的几类指标。数据源 items[].key 写这些名字即自动配图标，
+    // 不写也能用（会落到默认图标）。⚠️ 新增图标名必须同步登记到 global.css 的 @source inline，
+    // 否则 Tailwind 扫不到、图标不渲染且不报错。
+    net: "icon-[material-symbols--swap-vert-rounded]",
+    network: "icon-[material-symbols--swap-vert-rounded]",
+    load: "icon-[material-symbols--speed-rounded]",
+    temp: "icon-[material-symbols--device-thermostat]",
+    swap: "icon-[material-symbols--swap-horiz-rounded]",
+    uptime: "icon-[material-symbols--schedule-rounded]",
   };
   // 行内没写「名称|key」时按行序兜底
   var STUB_ORDER = ["cpu", "mem", "disk", "system"];
@@ -190,21 +199,77 @@
     if (kind === "stubRows") applyServerStatus(el);
   }
 
-  // ============ 服务器状态：拉取只读 JSON 并回填（每 60s 一次） ============
+  // ============ 服务器状态：拉取只读 JSON 并回填 ============
   // 数据源来自主题设置「服务器状态 → 数据源地址」；为空则完全不发请求，保持占位。
   // ⚠️ 必须带 cache-buster（?t=时间戳）：EdgeOne 的缓存键忽略 Vary: Origin，
   //    缓存命中那一份响应里**没有** Access-Control-Allow-Origin，浏览器会直接
   //    拒读；带唯一查询串强制 MISS 回源才能拿到 CORS 头。
+  //
+  // 1.4.94 起改为「自适应轮询」（原为固定 setInterval 60s）：
+  //   ① 标签页在后台时**不发请求**（回到前台立刻补一次并复位退避）——
+  //      监控卡片挂在 about 页，用户常开着标签页不动，省下的是 NAS 上那份 cron 产物的无效拉取；
+  //   ② 连续失败按 60s → 120s → 300s 退避，成功立即复位，数据源长期挂掉时不再每分钟空打。
+  var SERVER_INTERVAL = 60000;
+  var SERVER_BACKOFF = [60000, 120000, 300000];
+  var SERVER_STALE_MS = 10 * 60 * 1000;
+
+  /** 数据源的 updated（unix 秒或毫秒）→ 相对时间文案；不可用返回空串 */
+  function relativeTime(ts) {
+    var ms = toMs(ts);
+    if (ms === null) return "";
+    var diff = Date.now() - ms;
+    if (diff < 0) diff = 0;
+    if (diff < 60000) return "刚刚";
+    if (diff < 3600000) return Math.floor(diff / 60000) + " 分钟前";
+    if (diff < 86400000) return Math.floor(diff / 3600000) + " 小时前";
+    return Math.floor(diff / 86400000) + " 天前";
+  }
+
+  /** unix 秒/毫秒 → 毫秒时间戳；非法值返回 null */
+  function toMs(ts) {
+    var n = Number(ts);
+    if (!isFinite(n) || n <= 0) return null;
+    return n < 1e12 ? n * 1000 : n;
+  }
+
   function applyServerStatus(el) {
     var url = (el.getAttribute("data-server-url") || "").trim();
     if (!url) return;
 
     var section = el.closest("section") || el.parentNode;
+    var timer = null;
+    var failures = 0;
+
+    function stop() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      document.removeEventListener("visibilitychange", onVisible);
+    }
+
+    function schedule(delay) {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(load, delay);
+    }
+
+    function onVisible() {
+      // 回到前台立刻补一次（并复位退避），避免一直看着旧数据
+      if (!document.hidden) {
+        failures = 0;
+        load();
+      }
+    }
 
     function load() {
       // Swup 换页后旧节点会被摘下 -> 顺手停掉定时器
       if (!document.contains(el)) {
-        if (el.__serverTimer) clearInterval(el.__serverTimer);
+        stop();
+        return;
+      }
+      // 后台标签页不请求
+      if (document.hidden) {
+        schedule(SERVER_INTERVAL);
         return;
       }
       var bust = (url.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
@@ -214,16 +279,24 @@
           return res.json();
         })
         .then(function (data) {
+          failures = 0;
           paintServerStatus(el, section, data);
+          schedule(SERVER_INTERVAL);
         })
         .catch(function () {
           markServerOffline(el, section);
+          failures += 1;
+          schedule(
+            SERVER_BACKOFF[Math.min(failures, SERVER_BACKOFF.length - 1)],
+          );
         });
     }
 
-    if (el.__serverTimer) clearInterval(el.__serverTimer);
+    // 同一个容器重复初始化（Swup 换页重跑 render）时先卸掉上一轮的定时器与监听
+    if (el.__serverStop) el.__serverStop();
+    el.__serverStop = stop;
+    document.addEventListener("visibilitychange", onVisible);
     load();
-    el.__serverTimer = setInterval(load, 60000);
   }
 
   // 行与数据项的对应：行内写了 "名称|key" 就按 key 找，否则按顺序取第 i 项
@@ -271,6 +344,12 @@
       if (strong && !strong.textContent) strong.textContent = item.label || "";
       // 明细写在指标名下方；为空时由 CSS 的 small:empty 收掉高度
       if (small) small.textContent = item.detail || "";
+
+      // 1.4.94：高负载分级 —— ≥95% 危险 / ≥85% 警告，CSS 按 data-level 把数值与进度条
+      // 一起转琥珀/红。避免"存储 96% 快满了"和"CPU 12%"长得一模一样。
+      var level = pct >= 95 ? "danger" : pct >= 85 ? "warn" : "";
+      if (level) row.setAttribute("data-level", level);
+      else row.removeAttribute("data-level");
     });
 
     // 状态标签：用户留空时补一个；有真实数据就切成「在线」态
@@ -281,21 +360,39 @@
       var head = section.querySelector(".about-card-head");
       if (head) head.appendChild(chip);
     }
-    if (chip && data && data.status) {
+    // 1.4.94：数据源自报 online:false（HTTP 通了但服务离线）时也走离线态，
+    // 文案优先用数据源的 status，其次「离线」。
+    if (chip && data && data.online === false) {
+      chip.textContent = data.status || "离线";
+      chip.classList.remove("about-stub-chip--live");
+      chip.setAttribute("data-state", "offline");
+    } else if (chip && data && data.status) {
       chip.textContent = data.status;
       chip.classList.add("about-stub-chip--live");
       chip.removeAttribute("data-state");
     }
 
     // 脚注：更新于 / 运行时长
+    // 1.4.94：优先用数据源的 updated（unix 秒/毫秒）算**相对时间**（刚刚 / N 分钟前），
+    // 绝对时间挂到 title 上；超过 10 分钟没更新则标 data-stale（CSS 转琥珀），
+    // 让"数据卡住了"和"数据正常"一眼可分。
     var foot = section.querySelector("[data-server-foot]");
     if (foot && data) {
       var bits = [];
-      if (data.updatedText) bits.push("更新于 " + data.updatedText);
+      var rel = relativeTime(data.updated);
+      if (rel) bits.push("更新于 " + rel);
+      else if (data.updatedText) bits.push("更新于 " + data.updatedText);
       if (data.uptimeDays) bits.push("已运行 " + data.uptimeDays + " 天");
       if (bits.length) {
         foot.textContent = bits.join(" · ");
         foot.removeAttribute("hidden");
+      }
+      if (data.updatedText) foot.setAttribute("title", data.updatedText);
+      var ms = toMs(data.updated);
+      if (ms !== null && Date.now() - ms > SERVER_STALE_MS) {
+        foot.setAttribute("data-stale", "1");
+      } else {
+        foot.removeAttribute("data-stale");
       }
     }
     el.setAttribute("data-server-state", "live");
@@ -312,6 +409,8 @@
     if (foot) {
       foot.textContent = "数据源暂时取不到，稍后自动重试";
       foot.removeAttribute("hidden");
+      foot.removeAttribute("data-stale");
+      foot.removeAttribute("title");
     }
     el.setAttribute("data-server-state", "offline");
   }

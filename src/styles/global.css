@@ -19,7 +19,7 @@
    同样：类名必须是完整字面量，空格分隔。
    （原「保持联系」textarea 的那组品牌图标已随该字段一并移除 —— 现在社交图标
    走「个人简介小组件」的 iconify SVG 值，不再需要 CSS 类名。） */
-@source inline("icon-[material-symbols--auto-awesome-rounded] icon-[material-symbols--history-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] icon-[material-symbols--memory-rounded] icon-[material-symbols--memory-alt-rounded] icon-[material-symbols--arrow-outward-rounded]");
+@source inline("icon-[material-symbols--auto-awesome-rounded] icon-[material-symbols--history-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] icon-[material-symbols--memory-rounded] icon-[material-symbols--memory-alt-rounded] icon-[material-symbols--arrow-outward-rounded] icon-[material-symbols--dns] icon-[material-symbols--swap-vert-rounded] icon-[material-symbols--speed-rounded] icon-[material-symbols--device-thermostat] icon-[material-symbols--swap-horiz-rounded] icon-[material-symbols--schedule-rounded]");
 
 @utility is-home {
   &.enable-banner #banner-wrapper {
