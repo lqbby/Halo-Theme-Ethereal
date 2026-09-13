@@ -21,6 +21,7 @@
  *
  * 每条合并记录：
  *   version  = 批次版本号（整十收口；累积批用真实最高版本号）
+ *   badge    = 角标文字（未收口的收尾批自动为「累积中」；其余不输出该字段）
  *   date     = 该批最新那天的日期
  *   entries  = 逐个版本的「版本号 · 标题」要点列表（保留明细）
  *   tags     = 该批 tags 的并集（去重，保持首次出现顺序）
@@ -47,6 +48,10 @@ if (MODE === "count" && (!Number.isInteger(SIZE) || SIZE < 1)) {
   console.error(`✖ --size 需要一个正整数，收到：${argv[sizeArg + 1]}`);
   process.exit(1);
 }
+const HOW =
+  MODE === "count"
+    ? `每 ${SIZE} 条一组`
+    : "按整十版本号收口（v1.4.10 / v1.4.20 / …）";
 
 const raw = JSON.parse(readFileSync(RAW, "utf8"));
 const batches = existsSync(BATCHES)
@@ -165,13 +170,16 @@ function build() {
   const groups =
     MODE === "count" ? chunkByCount(asc, SIZE) : chunkByDecade(asc);
 
-  const merged = groups.map(({ label, items: g }) => {
+  const merged = groups.map(({ label, items: g, closed }) => {
     const last = g[g.length - 1];
     const copy = batches[label] ?? {};
     const firsts = g.map((x) => String(x.title ?? "").trim()).filter(Boolean);
+    // 角标：未收口的收尾批自动标「累积中」；batches.json 里写了 badge 则以它为准（写 "" 可压掉）
+    const badge = copy.badge ?? (closed ? "" : "累积中");
     return {
       date: last.date,
       version: label,
+      ...(badge ? { badge } : {}),
       title:
         copy.title ??
         `${g.length} 个版本：${firsts[0] ?? label} … ${firsts[firsts.length - 1] ?? label}`,
@@ -203,16 +211,12 @@ function build() {
 const { groups, merged } = build();
 
 if (GROUPS_ONLY) {
-  const how =
-    MODE === "count"
-      ? `每 ${SIZE} 条一组`
-      : "按整十版本号收口（v1.4.10 / v1.4.20 / …）";
   console.log(
-    `切法 = ${how}；原始 ${rawItems.length} 条 → 归并后 ${merged.length} 条\n`,
+    `切法 = ${HOW}；原始 ${rawItems.length} 条 → 归并后 ${merged.length} 条\n`,
   );
   groups.forEach(({ label, items: g, closed }, i) => {
     console.log(
-      `  ${String(i + 1).padStart(2)}. [${String(g.length).padStart(2)}条] ${g[0].version} ~ ${g[g.length - 1].version}   →   ${label}  (${g[g.length - 1].date})${closed ? "" : "   ← 正在累积"}`,
+      `  ${String(i + 1).padStart(2)}. [${String(g.length).padStart(2)}条] ${g[0].version} ~ ${g[g.length - 1].version}   →   ${label}  (${g[g.length - 1].date})${closed ? "" : "   ← 正在累积（自动带角标）"}`,
     );
   });
   const missing = merged
@@ -233,9 +237,10 @@ void days;
 const out = {
   _comment:
     "「博客更新日志」页的真相源（1:1 对应主题设置 extendPages.blogChangelog）。" +
-    `本文件由 scripts/merge-changelog.mjs 从 changelog.raw.json 按「每 ${SIZE} 个版本一条」生成，**不要手改** ——` +
+    `本文件由 scripts/merge-changelog.mjs 从 changelog.raw.json 生成（切法：${HOW}），**不要手改** ——` +
     "改原文案请编 changelog.batches.json，加新版本请编 changelog.raw.json，然后重跑 merge。" +
-    "days.items 必须按日期倒序（最新的在最上面），date 必须是 YYYY.MM.DD（模板用全长正则守卫，格式不符整行不渲染）。",
+    "days.items 必须按日期倒序（最新的在最上面），date 必须是 YYYY.MM.DD（模板用全长正则守卫，格式不符整行不渲染）。" +
+    "「尚未收口的最后一批」会自动带 badge=累积中（可在 changelog.batches.json 里用 badge 覆盖，或写空串压掉）。",
   ...rest,
   days: { ...(days ?? {}), items: merged },
 };
@@ -256,7 +261,7 @@ if (CHECK) {
 
 writeFileSync(OUT, next, "utf8");
 console.log(
-  `✅ 原始 ${rawItems.length} 条 → 归并 ${merged.length} 条（${MODE === "count" ? `每 ${SIZE} 条一组` : "按整十版本号收口"}）`,
+  `✅ 原始 ${rawItems.length} 条 → 归并 ${merged.length} 条 · 切法：${HOW}`,
 );
 console.log(`   ${OUT}`);
 console.log(`   下一步：node scripts/push-changelog.mjs           # dry-run`);

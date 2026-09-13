@@ -1,5 +1,5 @@
 {
-  "_comment": "「博客更新日志」页的真相源（1:1 对应主题设置 extendPages.blogChangelog）。本文件由 scripts/merge-changelog.mjs 从 changelog.raw.json 按「每 10 个版本一条」生成，**不要手改** ——改原文案请编 changelog.batches.json，加新版本请编 changelog.raw.json，然后重跑 merge。days.items 必须按日期倒序（最新的在最上面），date 必须是 YYYY.MM.DD（模板用全长正则守卫，格式不符整行不渲染）。",
+  "_comment": "「博客更新日志」页的真相源（1:1 对应主题设置 extendPages.blogChangelog）。本文件由 scripts/merge-changelog.mjs 从 changelog.raw.json 生成（按整十版本号收口（v1.4.10 / v1.4.20 / …）），**不要手改** ——改原文案请编 changelog.batches.json，加新版本请编 changelog.raw.json，然后重跑 merge。days.items 必须按日期倒序（最新的在最上面），date 必须是 YYYY.MM.DD（模板用全长正则守卫，格式不符整行不渲染）。「尚未收口的最后一批」会自动带 badge=累积中（可在 changelog.batches.json 里用 badge 覆盖，或写空串压掉）。",
   "kicker": "BLOG CHANGELOG / PUBLIC RECORD",
   "description": "这里记录博客本身的每一次变更 —— 主题迭代、插件升级、内容侧调整。按日倒序，最新的在最上面。",
   "versionRule": "Major 代表结构级升级 · Minor 代表新功能 · Patch 代表修复、内容与维护",
@@ -40,6 +40,7 @@
       {
         "date": "2026.09.13",
         "version": "v1.5.1",
+        "badge": "累积中",
         "title": "修复更新日志页「整页截断」与「年月分组行不显示」",
         "summary": "改版后立刻暴露两个隐蔽的 Thymeleaf 表达式缺陷：`th:classappend` 里两个紧邻的 `${}` 被当成一个表达式解析失败（页面返回 200 但正文截断）；日期守卫写成了 7 位模式，而 `matches` 是全长匹配、永远匹配不上 10 位日期。两者一并修掉，并新增出包前必跑的表达式校验脚本。",
         "detail": "本批次仍在累积中（当前 1 个版本）。两个缺陷都不长在「看得见」的地方：一个是 th:classappend 里两个紧邻的 ${}（中间只有空白）被 Thymeleaf 当成一个表达式，解析失败后页面**返回 200 但正文在异常处截断**；另一个是日期守卫写成 7 位模式，而 matches 是**全长匹配**（Java `String.matches`），永远匹配不上 10 位的日期，导致分组行一直不渲染。两者都补了用真 Thymeleaf 逐个解析 th: 属性的校验脚本，从此出包前必跑。",

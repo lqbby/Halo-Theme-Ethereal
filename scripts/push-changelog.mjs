@@ -200,11 +200,16 @@ for (const [k, was] of beforeMap) {
   if (was.summary !== now.summary) bits.push("概述");
   if (was.detail !== now.detail) bits.push("详述");
   if (was.tags !== now.tags) bits.push("标签");
+  if (was.badge !== now.badge)
+    bits.push(
+      `角标 ${JSON.stringify(was.badge ?? "")}→${JSON.stringify(now.badge ?? "")}`,
+    );
   if (was.entries !== now.entries)
     bits.push(
       `要点 ${String(was.entries ?? "").split("\n").length}→${String(now.entries ?? "").split("\n").length} 行`,
     );
-  console.log(`  ~ day   ${k}  （改写：${bits.join(" / ")}）`);
+  // ⚠️ bits 为空 = 有字段变了但没进上面的比对清单 ⇒ 绝不能打印空括号，否则 dry-run 又变成「静默」
+  console.log(`  ~ day   ${k}  （改写：${bits.join(" / ") || "其它字段"}）`);
 }
 const bm = (before?.milestones?.items ?? []).map((x) => x.version);
 const am = (payload.milestones?.items ?? []).map((x) => x.version);

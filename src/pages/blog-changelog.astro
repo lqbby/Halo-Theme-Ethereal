@@ -163,6 +163,45 @@ import QueryPagination from "../components/control/QueryPagination.astro";
       .cl-details[open] > summary {
         margin-bottom: 0.75rem;
       }
+
+      /* 「累积中」角标：只给尚未收口的收尾批次（merge-changelog.mjs 自动打标） */
+      .cl-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid color-mix(in oklab, var(--primary) 32%, transparent);
+        border-radius: 9999px;
+        padding: 0.06rem 0.5rem 0.06rem 0.42rem;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--primary);
+        background: color-mix(in oklab, var(--primary) 12%, transparent);
+      }
+      .cl-badge::before {
+        content: "";
+        width: 0.36rem;
+        height: 0.36rem;
+        border-radius: 9999px;
+        background: var(--primary);
+        animation: cl-pulse 1.7s ease-in-out infinite;
+      }
+      @keyframes cl-pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.3;
+          transform: scale(0.65);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cl-badge::before {
+          animation: none;
+        }
+      }
     </style>
   </Fragment>
 
@@ -397,6 +436,14 @@ import QueryPagination from "../components/control/QueryPagination.astro";
               >
                 标题
               </h3>
+              <!-- 角标：如「累积中」（由 merge-changelog.mjs 写进数据的 badge 字段） -->
+              <span
+                class="cl-badge"
+                th:if="${d?.badge != null and !#strings.isEmpty(d?.badge)}"
+                th:text="${d?.badge}"
+              >
+                累积中
+              </span>
               <span class="text-[0.7rem] text-50 md:hidden" th:text="${d?.date}"
                 >日期</span
               >

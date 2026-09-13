@@ -2699,6 +2699,10 @@ spec:
                       name: version
                       label: 版本号
                     - $formkit: text
+                      name: badge
+                      label: 角标
+                      help: "显示在版本号右侧的小胶囊，如「累积中」；留空则不显示。由 merge-changelog.mjs 自动给「尚未收口的最后一批」写上"
+                    - $formkit: text
                       name: title
                       label: 标题
                     - $formkit: textarea
