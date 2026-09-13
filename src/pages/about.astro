@@ -1470,7 +1470,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <!-- 本人项目 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.projects?.items != null and !#lists.isEmpty(cfg?.projects?.items)}"
+            th:if="${cfg?.projects?.enable != false and cfg?.projects?.items != null and !#lists.isEmpty(cfg?.projects?.items)}"
           >
             <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -1540,7 +1540,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <!-- 更新摘要 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.highlights?.items != null and !#lists.isEmpty(cfg?.highlights?.items)}"
+            th:if="${cfg?.highlights?.enable != false and cfg?.highlights?.items != null and !#lists.isEmpty(cfg?.highlights?.items)}"
           >
             <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>

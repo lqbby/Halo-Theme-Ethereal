@@ -2179,7 +2179,7 @@ spec:
         - $formkit: group
           name: about
           label: 关于我页面
-          help: "配置项按页面卡片顺序排列：身份卡 / 顶部导航 / 本人项目 / 更新摘要 / 最近的提交 / 我的朋友 / 服务器状态 / 页脚。首次使用请先在「页面 → 自定义页面」新建一个页面，并把「自定义模板」选为「关于我」，然后回到这里配置内容"
+          help: "配置项按页面卡片顺序排列：① 身份卡与简介 ② 顶部导航 ③ 本人项目 ④ 更新摘要 ⑤ 最近的提交 ⑥ 我的朋友 / 保持联系 ⑦ 服务器状态 ⑧ 页脚。首次使用请先在「页面 → 自定义页面」新建一个页面，并把「自定义模板」选为「关于我」，然后回到这里配置内容。各卡片的「显示」开关关闭后，其下方的从属设置项会自动隐藏"
           value:
             identity:
               avatar: https://avatars.githubusercontent.com/u/93820952?v=4
@@ -2194,7 +2194,7 @@ spec:
               quote: ""
               intro: |-
                 这里记录我在自托管、主题定制与插件开发上的折腾。
-                博客跑在群晖 NAS 上，前台是基于 Fuwari 二次开发的 Ethereal 主题 —— 从配色、布局到小组件都自己改，版本号已经累到 1.4.70。
+                博客跑在群晖 NAS 上，前台是基于 Fuwari 二次开发的 Ethereal 主题 —— 从配色、布局到小组件都自己改，版本号一直在往前滚。
                 平时写点工具类网站的推荐和使用记录，顺手把踩过的坑整理成主题补丁或插件。
               introSubtitle: 公开 · 持续更新
               trajectory: |-
@@ -2216,9 +2216,11 @@ spec:
             # ⇒ 全新安装或点「重置」时这三组没有默认值（其余五组有）。
             # ⚠️ 只补标量、**不补 items 数组**（数组是整体替换语义，不写更安全）。
             projects:
+              enable: true
               moreLabel: 全部项目 →
               moreUrl: ""
             highlights:
+              enable: true
               moreLabel: 按日查看 →
               moreUrl: /blog-changelog
             activity:
@@ -2227,7 +2229,6 @@ spec:
               count: 5
             friends:
               enable: true
-              shuffle: true
               count: 6
               note: 各自折腾，互相串门。
               contactEnable: true
@@ -2251,7 +2252,7 @@ spec:
             # ─────────── ① 身份卡 · 简介 · 技术轨迹 ───────────
             - $formkit: group
               name: identity
-              label: 身份卡与个人简介
+              label: ① 身份卡与个人简介
               help: "身份卡（头像 / 名称 / 身份行 / 状态 / 两个按钮）+ README 式简介（引语 / 正文 / 右上小字）+ 技术轨迹"
               children:
                 - $formkit: attachment
@@ -2326,7 +2327,7 @@ spec:
             # ─────────── ② 顶部导航 ───────────
             - $formkit: group
               name: nav
-              label: 顶部导航
+              label: ② 顶部导航
               help: "身份卡下方的导航胶囊；「个人资料」固定指向当前页面，其余项的链接留空即隐藏该项"
               children:
                 - $formkit: text
@@ -2373,21 +2374,34 @@ spec:
             # ─────────── ③ 本人项目 ───────────
             - $formkit: group
               name: projects
-              label: 本人项目
+              label: ③ 本人项目
               children:
+                - $formkit: switch
+                  name: enable
+                  id: about_projects_enable
+                  key: about_projects_enable
+                  label: 显示「本人项目」
+                  value: true
+                  help: "关闭后整张卡片隐藏；列表内容会保留，重新打开即恢复"
                 - $formkit: text
                   name: moreLabel
+                  key: about_projects_moreLabel
+                  if: "$get(about_projects_enable).value"
                   label: 右上角链接文字
                   value: "全部项目 →"
                   help: "留空则不显示"
                 - $formkit: text
                   name: moreUrl
+                  key: about_projects_moreUrl
+                  if: "$get(about_projects_enable).value"
                   label: 右上角链接地址
                   value: ""
                 - $formkit: array
                   name: items
+                  key: about_projects_items
+                  if: "$get(about_projects_enable).value"
                   label: 项目列表
-                  help: "按顺序展示，建议 3~6 个"
+                  help: "按顺序展示，建议 3~6 个；全部删除则卡片自动隐藏"
                   children:
                     - $formkit: text
                       name: title
@@ -2424,21 +2438,34 @@ spec:
             # ─────────── ④ 更新摘要 ───────────
             - $formkit: group
               name: highlights
-              label: 更新摘要
+              label: ④ 更新摘要
               children:
+                - $formkit: switch
+                  name: enable
+                  id: about_highlights_enable
+                  key: about_highlights_enable
+                  label: 显示「更新摘要」
+                  value: true
+                  help: "关闭后整张卡片隐藏；列表内容会保留，重新打开即恢复"
                 - $formkit: text
                   name: moreLabel
+                  key: about_highlights_moreLabel
+                  if: "$get(about_highlights_enable).value"
                   label: 右上角链接文字
                   value: "按日查看 →"
                   help: "留空则不显示"
                 - $formkit: text
                   name: moreUrl
+                  key: about_highlights_moreUrl
+                  if: "$get(about_highlights_enable).value"
                   label: 右上角链接地址
                   value: "/blog-changelog"
                 - $formkit: array
                   name: items
+                  key: about_highlights_items
+                  if: "$get(about_highlights_enable).value"
                   label: 摘要条目
-                  help: "对应更新日志里的重要节点，建议 3~4 条"
+                  help: "对应更新日志里的重要节点，建议 3~4 条；全部删除则卡片自动隐藏"
                   children:
                     - $formkit: text
                       name: title
@@ -2479,20 +2506,26 @@ spec:
             # ─────────── ⑤ 最近的提交 ───────────
             - $formkit: group
               name: activity
-              label: 最近的提交
+              label: ⑤ 最近的提交
               help: "数据自动取自本站最新文章 + 最新瞬间，无需手填；客户端按发布时间归并成一条时间线"
               children:
                 - $formkit: switch
                   name: enable
+                  id: about_activity_enable
+                  key: about_activity_enable
                   label: 显示「最近的提交」
                   value: true
                 - $formkit: text
                   name: subtitle
+                  key: about_activity_subtitle
+                  if: "$get(about_activity_enable).value"
                   label: 标题下小字
                   value: "写下来的，才会留下"
                   help: "留空则不显示"
                 - $formkit: number
                   name: count
+                  key: about_activity_count
+                  if: "$get(about_activity_enable).value"
                   label: 各取几条
                   value: 5
                   min: 2
@@ -2503,58 +2536,72 @@ spec:
             # ─────────── ⑥ 我的朋友 / 保持联系 ───────────
             - $formkit: group
               name: friends
-              label: 我的朋友 / 保持联系
-              help: "「我的朋友」数据取自本站友情链接；「保持联系」数据取自「侧边栏 → 个人简介小组件 → 社交媒体」，在那边增删即可，这里不用重复维护"
+              label: ⑥ 我的朋友 / 保持联系
+              help: "「我的朋友」数据取自本站友情链接（由配套插件端点服务端随机下发，每次进页自然不同）；「保持联系」数据取自「侧边栏 → 个人简介小组件 → 社交媒体」，在那边增删即可，这里不用重复维护"
               children:
                 - $formkit: switch
                   name: enable
+                  id: about_friends_enable
+                  key: about_friends_enable
                   label: 显示「我的朋友」
                   value: true
                   help: "需已安装友链插件且有审核通过的链接，否则卡片自动隐藏"
-                - $formkit: switch
-                  name: shuffle
-                  label: 每次刷新随机排序
-                  value: true
                 - $formkit: number
                   name: count
+                  key: about_friends_count
+                  if: "$get(about_friends_enable).value"
                   label: 展示数量
                   value: 6
                   min: 3
                   max: 12
                   step: 1
+                  help: "每次进页从全部友链里随机取这么多条"
                 - $formkit: text
                   name: note
+                  key: about_friends_note
+                  if: "$get(about_friends_enable).value"
                   label: 卡片底部小字
                   value: "各自折腾，互相串门。"
                   help: "留空则不显示"
                 - $formkit: switch
                   name: contactEnable
+                  id: about_contact_enable
+                  key: about_contact_enable
                   label: 显示「保持联系」
                   value: true
+                  help: "数据源同上；社交媒体为空时卡片自动隐藏"
 
             # ─────────── ⑦ 服务器状态 ───────────
             - $formkit: group
               name: server
-              label: 服务器状态
+              label: ⑦ 服务器状态
               help: "数据源是一份只读 JSON；未配置时卡片保持占位（— / 0%）"
               children:
                 - $formkit: switch
                   name: enable
+                  id: about_server_enable
+                  key: about_server_enable
                   label: 显示「服务器状态」
                   help: "关闭后整张卡片隐藏；数据源地址留空时卡片保持占位"
                   value: true
                 - $formkit: text
                   name: badge
+                  key: about_server_badge
+                  if: "$get(about_server_enable).value"
                   label: 状态小标签
                   value: "待接入"
                   help: "标题右侧小圆标；取到数据后会被数据源里的状态文案替换，留空则自动生成"
                 - $formkit: textarea
                   name: rows
+                  key: about_server_rows
+                  if: "$get(about_server_enable).value"
                   label: 监控指标
                   value: "处理器\n内存\n存储"
                   help: "每行一个指标名；也可写「名称|key」把这一行绑到数据源的某个字段。可用 key：cpu（处理器）/ mem（内存）/ disk（存储）/ system（系统）/ net（网络）/ load（负载）/ temp（温度）/ swap（交换分区）/ uptime（运行时长）——图标按 key 自动匹配，未列出的 key 用默认图标。system 行不显示进度条。不写 key 时按行序对应 cpu / mem / disk。指标占用 ≥85% 转琥珀、≥95% 转红"
                 - $formkit: text
                   name: dataUrl
+                  key: about_server_dataUrl
+                  if: "$get(about_server_enable).value"
                   label: 数据源地址
                   value: "https://sun.lqbby.com/custom/server-status.json"
                   help: "只读 JSON 的地址，留空则保持占位（— / 0%）。形状：{status: 状态文案, online: true/false, updated: unix 时间戳（秒或毫秒，用于算「更新于 N 分钟前」，超过 10 分钟没更新脚注转琥珀）, updatedText: 绝对时间文案（鼠标悬停显示）, uptimeDays: 运行天数, items: [{key, label, percent, text, detail}]}。items 里 key 对应上面的指标 key，percent 驱动进度条，text 是右侧数值，detail 是指标名下的小字"
@@ -2562,7 +2609,7 @@ spec:
             # ─────────── ⑧ 页脚 ───────────
             - $formkit: group
               name: footer
-              label: 页脚
+              label: ⑧ 页脚
               children:
                 - $formkit: text
                   name: eyebrow
@@ -2593,7 +2640,7 @@ spec:
         - $formkit: group
           name: blogChangelog
           label: 博客更新日志页面
-          help: "请先在「页面 → 自定义页面」新建一个页面（自定义模板选 blog-changelog），然后在这里配置页面内容"
+          help: "请先在「页面 → 自定义页面」新建一个页面（自定义模板选「博客日志」），然后在这里配置页面内容。若「自定义模板」下拉里没有这一项，说明主题版本过旧（低于 1.4.92），升级主题即可"
           children:
             - $formkit: text
               name: kicker
