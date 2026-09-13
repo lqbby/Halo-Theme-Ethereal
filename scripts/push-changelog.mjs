@@ -17,7 +17,14 @@
  *   - 写之前整份 ConfigMap 落盘到 <halo root>/_cm_backup_Ethereal-configMap.<ts>.json（唯一回滚手段）
  *   - 写完回读，逐组比对「只有 extendPages 变了」
  */
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  writeFileSync,
+  mkdirSync,
+  existsSync,
+  readdirSync,
+  rmSync,
+} from "node:fs";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
@@ -88,7 +95,25 @@ function backup(root) {
   const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
   const p = join(dir, `_cm_backup_Ethereal-configMap.${ts}.json`);
   writeFileSync(p, JSON.stringify(root, null, 2), "utf8");
+  prune(dir, 3); // 只留最新 3 份，防无限堆积
   return p;
+}
+
+function prune(dir, keep) {
+  const olds = readdirSync(dir)
+    .filter(
+      (f) =>
+        f.startsWith("_cm_backup_Ethereal-configMap") && f.endsWith(".json"),
+    )
+    .sort()
+    .reverse();
+  for (const f of olds.slice(keep)) {
+    try {
+      rmSync(join(dir, f));
+    } catch {
+      /* ignore */
+    }
+  }
 }
 
 function summarize(label, obj) {
