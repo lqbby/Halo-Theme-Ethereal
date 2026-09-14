@@ -25,12 +25,12 @@ const COLLAPSE_THRESHOLD = 20;
     class={className}
     style={style}
   >
-    <div class="tgs-grid">
+    <div class="flex flex-wrap gap-2 pl-3">
       <a
         th:each="tag : ${tags}"
         th:href="@{${tag.status.permalink}}"
         th:title="${tag.spec.displayName}"
-        class="tgs-pill"
+        class="btn-regular h-8 rounded-lg px-3 text-sm"
         th:text="${tag.spec.displayName}"
       >
         Tag
@@ -38,138 +38,3 @@ const COLLAPSE_THRESHOLD = 20;
     </div>
   </WidgetLayout>
 </div>
-
-<style is:global>
-  /* ===== 标签小组件：视觉优化 =====
-     设计要点：
-     - 配色：全部由 --primary 与 --card-bg 混合派生（color-mix），不引入新色，自动跟随主题色相 / 深浅模式。
-     - 结构：胶囊左侧的小圆点用 ::before 伪元素，不进入 DOM（不干扰屏幕阅读器与复制文本）。
-     - 状态：hover 上浮 + 光晕、active 下压、focus-visible 焦点环、aria-current 选中态。
-     - 无障碍：文字用 --deep-text 保证 4.5:1；焦点环用 --focus-ring 保证 3:1；支持 reduced-motion。
-     - 布局：tgs-grid 内边距为 hover 上浮与阴影预留空间（外壳 collapse-wrapper 是 overflow-hidden）。
-  */
-  .tgs-grid {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding: 0.5rem 0.375rem 0.625rem 0.75rem;
-
-    --tgs-ease: cubic-bezier(0.22, 1, 0.36, 1);
-    --tgs-surface: color-mix(in oklab, var(--primary) 7%, var(--card-bg));
-    --tgs-surface-hover: color-mix(
-      in oklab,
-      var(--primary) 14%,
-      var(--card-bg)
-    );
-    --tgs-surface-active: color-mix(
-      in oklab,
-      var(--primary) 20%,
-      var(--card-bg)
-    );
-    --tgs-edge: color-mix(in oklab, var(--primary) 28%, transparent);
-    --tgs-edge-hover: color-mix(in oklab, var(--primary) 55%, transparent);
-    --tgs-glow: color-mix(in oklab, var(--primary) 40%, transparent);
-    --tgs-dot: color-mix(in oklab, var(--primary) 68%, transparent);
-  }
-
-  html.dark .tgs-grid {
-    --tgs-surface: color-mix(in oklab, var(--primary) 12%, var(--card-bg));
-    --tgs-surface-hover: color-mix(
-      in oklab,
-      var(--primary) 20%,
-      var(--card-bg)
-    );
-    --tgs-surface-active: color-mix(
-      in oklab,
-      var(--primary) 26%,
-      var(--card-bg)
-    );
-    --tgs-edge: color-mix(in oklab, var(--primary) 36%, transparent);
-    --tgs-edge-hover: color-mix(in oklab, var(--primary) 62%, transparent);
-    --tgs-glow: color-mix(in oklab, var(--primary) 48%, transparent);
-    --tgs-dot: color-mix(in oklab, var(--primary) 82%, transparent);
-  }
-
-  .tgs-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3125rem;
-    min-height: 2rem;
-    padding: 0.25rem 0.75rem 0.25rem 0.625rem;
-    border: 1px solid var(--tgs-edge);
-    border-radius: 0.625rem;
-    background: var(--tgs-surface);
-    color: var(--deep-text);
-    font-size: 0.875rem;
-    font-weight: 500;
-    letter-spacing: 0.01em;
-    line-height: 1;
-    text-decoration: none;
-    transition:
-      background-color 0.2s var(--tgs-ease),
-      border-color 0.2s var(--tgs-ease),
-      box-shadow 0.2s var(--tgs-ease),
-      transform 0.2s var(--tgs-ease);
-  }
-
-  .tgs-pill::before {
-    content: "";
-    flex: none;
-    width: 0.3125rem;
-    height: 0.3125rem;
-    border-radius: 50%;
-    background: var(--tgs-dot);
-    transition:
-      background-color 0.2s var(--tgs-ease),
-      transform 0.2s var(--tgs-ease);
-  }
-
-  .tgs-pill:hover {
-    background: var(--tgs-surface-hover);
-    border-color: var(--tgs-edge-hover);
-    box-shadow: 0 3px 9px -3px var(--tgs-glow);
-    transform: translateY(-2px);
-  }
-
-  .tgs-pill:hover::before {
-    background: var(--primary);
-    transform: scale(1.25);
-  }
-
-  .tgs-pill:active {
-    background: var(--tgs-surface-active);
-    border-color: var(--tgs-edge-hover);
-    box-shadow: none;
-    transform: translateY(0) scale(0.97);
-  }
-
-  .tgs-pill:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: 2px;
-  }
-
-  .tgs-pill[aria-current="page"],
-  .tgs-pill[aria-current="true"] {
-    background: var(--tgs-surface-active);
-    border-color: var(--tgs-edge-hover);
-    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 12%, transparent);
-  }
-
-  .tgs-pill[aria-current="page"]::before,
-  .tgs-pill[aria-current="true"]::before {
-    background: var(--primary);
-    transform: scale(1.25);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .tgs-pill,
-    .tgs-pill::before {
-      transition: none;
-    }
-    .tgs-pill:hover,
-    .tgs-pill:active {
-      transform: none;
-    }
-  }
-</style>
