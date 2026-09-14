@@ -2217,6 +2217,7 @@ spec:
               enable: true
               moreLabel: 按日查看 →
               moreUrl: /blog-changelog
+              count: 3
             activity:
               enable: true
               subtitle: 写下来的，才会留下
@@ -2428,6 +2429,7 @@ spec:
             - $formkit: group
               name: highlights
               label: ④ 更新摘要
+              help: "卡片自动同步「博客更新日志」页的最新批次记录（同一个数据源），通常不需要在这里维护条目"
               children:
                 - $formkit: switch
                   name: enable
@@ -2449,12 +2451,21 @@ spec:
                   if: "$get(about_highlights_enable).value"
                   label: 右上角链接地址
                   value: "/blog-changelog"
+                - $formkit: number
+                  name: count
+                  key: about_highlights_count
+                  if: "$get(about_highlights_enable).value"
+                  label: 显示条数
+                  value: 3
+                  min: 1
+                  max: 10
+                  help: "自动同步「博客更新日志」页的最新记录，这里控制最多显示几条（默认 3）"
                 - $formkit: array
                   name: items
                   key: about_highlights_items
                   if: "$get(about_highlights_enable).value"
-                  label: 摘要条目
-                  help: "对应更新日志里的重要节点，建议 3~4 条；全部删除则卡片自动隐藏"
+                  label: 兜底条目
+                  help: "正常情况下卡片会自动同步更新日志，用不到这里；仅当更新日志没有任何记录时才回退显示这些手填条目，全部留空则卡片隐藏"
                   children:
                     - $formkit: text
                       name: title

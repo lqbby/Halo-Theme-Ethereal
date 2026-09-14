@@ -561,6 +561,48 @@ import Canonical from "../components/misc/Canonical.astro";
         line-height: 1.2;
         white-space: nowrap;
       }
+      /* ---------- 更新摘要（自动同步模式）的两个 chip 变体 ----------
+         与「博客更新日志」页同一套语义：日期走等宽弱化，累积中走主色胶囊 + 呼吸点。
+         ⚠️ 仅在「自动同步」的条目上使用；手填兜底条目仍照旧只显示版本号胶囊。 */
+      .about-chip.is-date {
+        font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+        border: 1px solid var(--line-divider);
+        background: transparent;
+        color: var(--content-meta);
+      }
+      .about-chip.is-live {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.24rem;
+        border: 1px solid color-mix(in srgb, var(--primary) 32%, transparent);
+        background: color-mix(in srgb, var(--primary) 14%, transparent);
+        color: var(--primary);
+        font-weight: 600;
+      }
+      .about-chip.is-live::before {
+        content: "";
+        width: 0.28rem;
+        height: 0.28rem;
+        border-radius: 9999px;
+        background: currentColor;
+        animation: about-live-pulse 1.7s ease-in-out infinite;
+      }
+      @keyframes about-live-pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.3;
+          transform: scale(0.65);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .about-chip.is-live::before {
+          animation: none;
+        }
+      }
 
       /* ================= ⑪ 卡头 = 参考站 .profile-panel__header / .profile-side-heading ================= */
       .about-card-head {
@@ -1280,7 +1322,13 @@ import Canonical from "../components/misc/Canonical.astro";
       groups=${(pluginFinder == null or !pluginFinder.available('PluginLinks') or linkFinder == null) ? null : linkFinder.groupBy()},
       linksTotal=${groups != null and !#lists.isEmpty(groups) ? #aggregates.sum(groups.![links.size()]) : 0},
       skillItems=${theme.config?.extendPages?.skills?.entries?.items},
-      socials=${theme.config?.sidebar?.profile?.social_media}"
+      socials=${theme.config?.sidebar?.profile?.social_media},
+      clAll=${theme.config?.extendPages?.blogChangelog?.days?.items},
+      clTotal=${clAll != null ? #lists.size(clAll) : 0},
+      clLimit=${cfg?.highlights?.count != null ? #conversions.convert(cfg?.highlights?.count, 'java.lang.Integer') : 3},
+      clCap=${clLimit != null and clLimit gt 0 ? clLimit : 3},
+      clSync=${clTotal gt 0 ? (clTotal gt clCap ? clAll.subList(0, clCap) : clAll) : null},
+      clSyncCount=${clSync != null ? #lists.size(clSync) : 0}"
     th:remove="tag"
   >
     <!-- ================= ① 身份卡 =================
@@ -1634,10 +1682,14 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
           </section>
 
-          <!-- 更新摘要 -->
+          <!-- 更新摘要：**自动同步**「博客更新日志」页的最新批次记录
+               （theme.config.extendPages.blogChangelog.days.items，两页同源 = changelog.json → 推库），
+               取前 clSyncCount 条（默认 3，由设置里的「显示条数」控制）。
+               ⚠️ 更新日志没数据时才回退到下面手填的 highlights.items（老配置不丢、卡片不会变空）。
+               同步条目全部服务端直出，零 JS 依赖。 -->
           <section
             class="card-base onload-animation"
-            th:if="${cfg?.highlights?.enable != false and cfg?.highlights?.items != null and !#lists.isEmpty(cfg?.highlights?.items)}"
+            th:if="${cfg?.highlights?.enable != false and (clSyncCount gt 0 or (cfg?.highlights?.items != null and !#lists.isEmpty(cfg?.highlights?.items)))}"
           >
             <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
@@ -1648,6 +1700,13 @@ import Canonical from "../components/misc/Canonical.astro";
                   <span>LATEST CHANGES</span>
                 </p>
                 <h2 class="about-card-title mt-1 text-90">更新摘要</h2>
+                <p
+                  class="about-card-meta mt-1"
+                  th:if="${clSyncCount gt 0}"
+                  th:text="${'自动同步自「博客更新日志」· 最新 ' + clSyncCount + ' 条'}"
+                >
+                  自动同步自「博客更新日志」
+                </p>
               </div>
               <a
                 class="about-section-link"
@@ -1660,7 +1719,65 @@ import Canonical from "../components/misc/Canonical.astro";
                 >
               </a>
             </div>
-            <div class="about-tile-list">
+            <!-- ① 同步模式：直接取自更新日志的最新批次，
+                 版本号 / 日期 /「累积中」角标 与更新日志页保持同一套语义与视觉 -->
+            <div class="about-tile-list" th:if="${clSyncCount gt 0}">
+              <a
+                class="about-tile"
+                th:each="d, dst : ${clSync}"
+                th:with="dIcon=${dst.index == 0
+                  ? 'icon-[material-symbols--history-rounded]'
+                  : (dst.index == 1
+                    ? 'icon-[material-symbols--update-rounded]'
+                    : 'icon-[material-symbols--edit-note-rounded]')}"
+                th:href="${!#strings.isEmpty(cfg?.highlights?.moreUrl) ? cfg?.highlights?.moreUrl : '/blog-changelog'}"
+              >
+                <span class="about-tile__icon">
+                  <span th:class="${dIcon}" aria-hidden="true"></span>
+                </span>
+                <span class="about-tile__body">
+                  <strong class="about-tile__title" th:text="${d?.title}"
+                    >标题</strong
+                  >
+                  <span
+                    class="about-tile__desc"
+                    th:if="${!#strings.isEmpty(d?.summary)}"
+                    th:text="${d?.summary}">摘要</span
+                  >
+                  <span
+                    class="about-chip-list"
+                    th:if="${!#strings.isEmpty(d?.date)
+                      or !#strings.isEmpty(d?.version)
+                      or !#strings.isEmpty(d?.badge)}"
+                  >
+                    <span
+                      class="about-chip is-date"
+                      th:if="${!#strings.isEmpty(d?.date)}"
+                      th:text="${d?.date}">2026.09.13</span
+                    >
+                    <span
+                      class="about-chip"
+                      th:if="${!#strings.isEmpty(d?.version)}"
+                      th:text="${d?.version}">v0.0.0</span
+                    >
+                    <span
+                      class="about-chip is-live"
+                      th:if="${!#strings.isEmpty(d?.badge)}"
+                      th:text="${d?.badge}">累积中</span
+                    >
+                  </span>
+                </span>
+                <span
+                  class="about-tile__arrow icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
+              </a>
+            </div>
+
+            <!-- ② 兜底模式：更新日志暂无数据时，沿用下方手填条目 -->
+            <div
+              class="about-tile-list"
+              th:if="${clSyncCount == 0 and cfg?.highlights?.items != null and !#lists.isEmpty(cfg?.highlights?.items)}"
+            >
               <!-- 同「本人项目」：留空按序号轮换，和左边那张卡的图标序列不重叠 -->
               <a
                 class="about-tile"
