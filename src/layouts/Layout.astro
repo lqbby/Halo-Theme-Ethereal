@@ -155,8 +155,32 @@ const i18nInlineScript = `<script th:inline="javascript">
 // （暂缓）：曾尝试在输出前用 #strings.replace 将 "</" 替换为 "<\/" 堵 script 闭合，
 // 但表达式字面量中的 "</" 会使 attoparser 在模板解析阶段抛错（全站 500），
 // 且 #strings.replace 参数为 Map 也会类型不匹配。维持审计建议原状。
+// 🚀 性能：`${theme.config}` 全量序列化会把「扩展页面」里的大块**内容数据**注入到**每一个页面**。
+// 实测线上：整份 JSON 92 KB，其中 extendPages 占 48 KB（52%）——光「技能」条目的内联 SVG 图标就 35 KB。
+// 而这些数据只由**服务端** Thymeleaf 模板消费（skills / about / blog-changelog / timeline / statistics
+// 的 th:with、th:if），客户端脚本**零引用**（extend-pages.js 从 DOM 的 data-* 读取，不读本 JSON）
+// —— 已在构建产物里穷尽核验：所有 `.extendPages` 命中都在 templates/*.html 的 th:* 表达式里。
+// 故改为显式白名单注入，剔除 extendPages ⇒ 每页内联 JSON 92 KB → ~44 KB。
+// ⚠️ 维护点：settings.yaml 新增顶层 group 时**必须**同步加进下面的白名单，否则客户端读不到该配置。
+const themeConfigKeys = [
+  "mods",
+  "layout",
+  "style",
+  "sidebar",
+  "post",
+  "footer",
+  "links",
+  "external_link",
+  "performance",
+  "auth",
+  "friends",
+  "base",
+];
+const themeConfigMap = themeConfigKeys
+  .map((k) => `'${k}': theme.config?.${k}`)
+  .join(", ");
 const themeSettingScript = `<script type="application/json" id="theme-config" th:inline="javascript">
-       /*[[\${theme.config}]]*/
+       /*[[\${ { ${themeConfigMap} } }]]*/
     </script>`;
 ---
 

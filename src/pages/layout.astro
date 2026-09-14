@@ -41,8 +41,28 @@ import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
 
+// 🚀 性能：同 src/layouts/Layout.astro —— 剔除 extendPages 那份只在服务端消费的大块内容数据
+// （实测占整份 JSON 的 52%）。两个外壳必须保持一致，否则插件页仍会背全量配置。
+// ⚠️ 维护点：settings.yaml 新增顶层 group 时两处白名单都要同步。
+const themeConfigKeys = [
+  "mods",
+  "layout",
+  "style",
+  "sidebar",
+  "post",
+  "footer",
+  "links",
+  "external_link",
+  "performance",
+  "auth",
+  "friends",
+  "base",
+];
+const themeConfigMap = themeConfigKeys
+  .map((k) => `'${k}': theme.config?.${k}`)
+  .join(", ");
 const themeSettingScript = `<script type="application/json" id="theme-config" th:inline="javascript">
-       /*[[\${theme.config}]]*/
+       /*[[\${ { ${themeConfigMap} } }]]*/
     </script>`;
 
 // th:block 无法作为 Astro JSX 标签（含冒号），按 halo:comment 惯例用字符串注入
