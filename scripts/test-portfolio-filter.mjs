@@ -10,6 +10,8 @@
 //
 // 断言：初始读 ?tag= 深链、平台/类型胶囊切换 + 再点取消、标签 ✕ 清除、
 //       推荐区隐藏、计数联动、空态与「查看全部」显隐、aria-pressed。
+//       §9 回归（1.5.18）：**同一 window 内 eval 两次**模拟「进详情页再回来」，
+//       断言回访后筛选与点击委托仍然有效（修复前 guardOnce 会短路整个 IIFE ⇒ 必红）。
 //
 // 运行：
 //   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
@@ -197,6 +199,83 @@ check(
   allCards().filter((el) => el.classList.contains("list-item-enter")).length,
   3,
 );
+
+// 9) 回访本页（1.5.18 回归核心）
+//
+// 症状：进项目详情页再回来 / 浏览器后退，胶囊没有激活态、卡片不再按筛选显隐
+//       （整页「全部项目」裸奔）—— 等于本页的筛选功能整体失效。
+// 根因：顶层 `if (guardOnce("portfolio-filter")) return;` 的状态存在 window.__etherealOnce
+//       上、**跨 Swup 换页持久**；第二次进入时 SwupScriptsPlugin 虽克隆重执行了脚本，
+//       却在这里直接 return ⇒ 初始化（setPills / setTagChip / apply）与点击委托全都不跑。
+// 修法：监听器仍只绑一次（bindGlobal 由 guardOnce 把门），但 init() 每次脚本执行都跑。
+// ⚠️ 必须在**同一个 window** 里 eval 两次（中间重建 DOM 模拟换页）才能复现 —— 换新
+//    window 会因为 __etherealOnce 归零而假绿。
+{
+  console.log("── 9) 回访（同一 window 内 eval 两次）──");
+  const dom2 = new JSDOM(HTML, {
+    url: URL_WITH_TAG,
+    runScripts: "outside-only",
+  });
+  const w2 = dom2.window;
+  const d2 = w2.document;
+  const pristineBody = d2.body.innerHTML; // 首次 eval 前的干净 DOM
+  const bundleCode = readFileSync(BUNDLE, "utf8");
+
+  const v2 = () =>
+    Array.from(d2.querySelectorAll("#pf-all [data-list-item]"))
+      .map((el, i) => (el.style.display === "none" ? -1 : i))
+      .filter((i) => i >= 0);
+  const clickPill2 = (dim, value) => {
+    const btn = d2.querySelector(
+      `[data-pf-dim="${dim}"][data-pf-value="${value}"]`,
+    );
+    if (!btn) throw new Error(`找不到胶囊 ${dim}=${value}`);
+    btn.dispatchEvent(
+      new w2.MouseEvent("click", { bubbles: true, cancelable: true }),
+    );
+  };
+
+  // 首次进入
+  w2.eval(bundleCode);
+  check("回访·首刷按 ?tag=Tech 生效", v2().join(","), "0,2");
+
+  // 模拟换页回访：同一 window 内重建 DOM，再执行一次脚本
+  d2.body.innerHTML = pristineBody;
+  w2.eval(bundleCode);
+
+  check(
+    "回访·守卫 key 仍持久（正是病灶来源）",
+    w2.__etherealOnce && w2.__etherealOnce["portfolio-filter"],
+    true,
+  );
+  check("回访·重放后仍按 ?tag=Tech 生效", v2().join(","), "0,2");
+  check(
+    "回访·标签 chip 仍显示",
+    d2.getElementById("pf-active-tag").hidden,
+    false,
+  );
+  check(
+    "回访·计数已按筛选重算",
+    d2.getElementById("pf-all-count").textContent,
+    "2",
+  );
+  check("回访·推荐区仍隐藏", d2.getElementById("pf-featured").hidden, true);
+
+  // 🔴 回归核心：回访后点击必须仍然能过滤（修复前事件委托被 guard 一起短路 ⇒ 点了没反应）
+  const beforeCount = v2().length;
+  clickPill2("platform", "web");
+  check("回访·点击平台胶囊生效", v2().join(","), "0");
+  check("回访·点击前确有卡片（证明不是空 DOM 假绿）", beforeCount, 2);
+  check(
+    "回访·平台胶囊激活态正确",
+    d2
+      .querySelector('[data-pf-dim="platform"][data-pf-value="web"]')
+      .getAttribute("aria-pressed"),
+    "true",
+  );
+  clickPill2("platform", "web"); // 再点取消
+  check("回访·再点取消仍生效", v2().join(","), "0,2");
+}
 
 console.log(failures === 0 ? "\n全部通过 ✅" : `\n${failures} 项失败 ❌`);
 process.exit(failures === 0 ? 0 : 1);

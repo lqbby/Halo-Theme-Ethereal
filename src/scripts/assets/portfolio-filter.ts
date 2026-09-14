@@ -17,11 +17,24 @@
 //
 // 说明：筛选状态**不写回 URL**（与参考站一致），避免与 Swup 的 history/popstate 打架；
 // 但初始化时读一次 ?platform/type/tag，保证详情页技术栈 chip 的深链（?tag=Tech）仍生效。
-import { guardOnce } from "../../utils/once";
+//
+// ── 1.5.18 修复：回访本页后筛选/胶囊失效（「点进去再回来就不筛选了」） ──
+// 🔴🔴 病灶与 /bangumis 同款（1.5.17 修）：`guardOnce("portfolio-filter")` 的状态存在
+//   window.__etherealOnce 上，而 **Swup 换页不会清它**。此前把整个 IIFE 罩在
+//   `if (guardOnce("portfolio-filter")) return;` 之下 ⇒ 首次访问设下 key 后，回访时脚本
+//   虽被 SwupScriptsPlugin 克隆重执行、却直接 return —— 初始化（setPills / setTagChip /
+//   `apply()` 按 state 切显隐）与点击委托**全都不再执行**，于是胶囊没有激活态、卡片也
+//   不再过滤（表现为整页「全部项目」裸奔）。
+// ✅ 正解：拆两层 —— 「只该绑一次」的全局监听器关进 `bindGlobal()`（由 guardOnce 把门），
+//   「每次进入都要重放」的 `init()` 无条件执行：重读 URL 参数 → 重算胶囊/标签指示 →
+//   重新 `apply()`。`apply()` 幂等（只按 state 重写 style.display / 计数 / 空态），
+//   重复执行零副作用、不动 DOM 结构（故卡片首屏的错峰入场动画不会被重播）。
+//   两个触发源同时挂着：裸 `init()` 覆盖「Swup 重执行本脚本」与直刷首屏，
+//   `onPageView` 覆盖「脚本按 src 被缓存、不再重执行」的换页。
+//   （不再挂 astro:after-swap：上面两个触发源已覆盖全部进入路径，避免一次换页跑三遍。）
+import { guardOnce, onPageView } from "../../utils/once";
 
 (function () {
-  if (guardOnce("portfolio-filter")) return;
-
   var ALL = "__all__";
   var state = { platform: "", type: "", tag: "" };
 
@@ -131,41 +144,48 @@ import { guardOnce } from "../../utils/once";
     apply(animate);
   }
 
-  function reset() {
+  /* ── 初始化（每次进入本页都要重放） ─────────────────────────────────── */
+
+  // ⚠️ 本页无分页（全量渲染 + 客户端过滤），故无需像 /bangumis 那样复位页码。
+  // ⚠️ 本页**不剥** .onload-animation：卡片首屏错峰入场靠它；apply() 只改
+  //    style.display，不 remove/insert 节点，重复执行不会重播动画。
+  function init() {
     readUrl();
     refresh(false);
   }
 
-  document.addEventListener("click", function (e) {
-    var target = e.target;
-    if (!target || !target.closest) return;
+  /* ── 全局监听器（document 级委托，只绑一次） ────────────────────────── */
 
-    var chip = target.closest("[data-pf-dim]");
-    if (chip) {
-      var root = document.getElementById("pf-filter");
-      if (!root || !root.contains(chip)) return;
-      var dim = chip.getAttribute("data-pf-dim");
-      var val = chip.getAttribute("data-pf-value");
-      if (!dim) return;
-      // 点「全部」= 清空该维度；点已激活的胶囊 = 再点一次取消（切回全部）
-      state[dim] = val === ALL || state[dim] === val ? "" : val || "";
-      refresh(true);
-      return;
-    }
+  function bindGlobal() {
+    document.addEventListener("click", function (e) {
+      var target = e.target;
+      if (!target || !target.closest) return;
 
-    if (target.closest("#pf-active-tag")) {
-      state.tag = "";
-      refresh(true);
-    }
-  });
+      var chip = target.closest("[data-pf-dim]");
+      if (chip) {
+        var root = document.getElementById("pf-filter");
+        if (!root || !root.contains(chip)) return;
+        var dim = chip.getAttribute("data-pf-dim");
+        var val = chip.getAttribute("data-pf-value");
+        if (!dim) return;
+        // 点「全部」= 清空该维度；点已激活的胶囊 = 再点一次取消（切回全部）
+        state[dim] = val === ALL || state[dim] === val ? "" : val || "";
+        refresh(true);
+        return;
+      }
 
-  // 初始化
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", reset);
-  } else {
-    reset();
+      if (target.closest("#pf-active-tag")) {
+        state.tag = "";
+        refresh(true);
+      }
+    });
   }
 
-  // 换页后按新 URL 重新应用（SwupScriptsPlugin 会重执行本脚本，但已被 guardOnce 拦下）
-  document.addEventListener("astro:after-swap", reset);
+  // 🔴 顺序即契约：先补全局监听器（跨换页只绑一次），再无条件下重放初始化。
+  if (!guardOnce("portfolio-filter")) bindGlobal();
+  init();
+
+  // 兜底：若某些 Swup 版本按 src 缓存脚本、不再重执行，page:view 仍会触发。
+  // 与上面的 init() 重复执行是安全的（幂等）。
+  onPageView("portfolio-filter", init);
 })();

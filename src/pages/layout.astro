@@ -10,6 +10,7 @@
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
 import ConfigCarrier from "../components/ConfigCarrier.astro";
+import PageTruncationGuard from "../components/misc/PageTruncationGuard.astro";
 import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import {
   DEFAULT_THEME,
@@ -146,6 +147,10 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
 
     <!-- 插件页自身的 head 片段（title / meta / 样式等） -->
     <Fragment set:html={headSlot} />
+    <!-- 半截页面自救：与 src/layouts/Layout.astro 同款（「两个外壳」纪律）。
+         插件页（如 /bangumis、/schedule-calendar）同样走 Halo 的 chunked 流式输出、
+         同样会被 EdgeOne 缓存成坏对象，故这里也必须有守卫 + 正文末尾哨兵。 -->
+    <PageTruncationGuard />
   </head>
   <body
     class="relative min-h-screen transition"
@@ -203,5 +208,8 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     <!-- Halo 核心页脚注入（备案/统计等）；halo: 前缀元素无法直接写 JSX，按
          halo:comment 惯例用字符串注入，避免 Astro 把 <halo:footer /> 改写为 <halo :footer> -->
     <Fragment set:html={"<halo:footer />"} />
+    <!-- 页面完整性哨兵：文档最末元素，与 <head> 的 PageTruncationGuard 配对。
+         ⚠️ 必须与 src/layouts/Layout.astro 的同款哨兵保持同一个 id。 -->
+    <div id="ethereal-page-end" hidden></div>
   </body>
 </html>

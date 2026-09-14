@@ -1,5 +1,6 @@
 ---
 import ConfigCarrier from "../components/ConfigCarrier.astro";
+import PageTruncationGuard from "../components/misc/PageTruncationGuard.astro";
 import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import WelcomePopup from "../components/control/WelcomePopup.astro";
 import WaveEffect from "../components/WaveEffect.astro";
@@ -615,6 +616,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         } catch (e) {}
       })();
     </script>
+    <!-- 半截页面自救（截断的 chunked 响应会被边缘缓存成「正常」200，导致正文整块消失）。
+         必须内联在 <head>：要早于任何可能的截断点，且不能被 Astro 挪到文档末尾。
+         配套哨兵 #ethereal-page-end 见 <body> 末尾。 -->
+    <PageTruncationGuard />
   </head>
   <!-- is-home 服务端初值仅作首帧兜底（避免 JS 运行前无 FOUC 感知）；运行期以
        客户端 isHomePath（utils/banner-sync.ts）为权威，换页时由 syncHomeClass 纠正 -->
@@ -951,5 +956,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     <script>
       import "../scripts/app";
     </script>
+    <!-- 页面完整性哨兵：必须是文档最末的**元素**（配合 <head> 的 PageTruncationGuard）。
+         文档被截断 ⇒ 哨兵不存在 ⇒ 守卫带随机参数重载一次自愈。
+         ⚠️ 插件页外壳 src/pages/layout.astro 必须有同款哨兵，改一处必须同步另一处。 -->
+    <div id="ethereal-page-end" hidden></div>
   </body>
 </html>
