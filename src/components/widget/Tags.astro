@@ -7,8 +7,7 @@ interface Props {
 }
 
 const className = Astro.props.class;
-// 未传时保持 undefined（Astro 会把 undefined 渲染成字面量 style="undefined"）
-const style = Astro.props.style || undefined;
+const style = Astro.props.style;
 const COLLAPSED_HEIGHT = "7.5rem";
 const COLLAPSE_THRESHOLD = 20;
 ---
@@ -26,13 +25,12 @@ const COLLAPSE_THRESHOLD = 20;
     class={className}
     style={style}
   >
-    <div class="flex flex-wrap gap-2 pl-3 pr-1 pt-2 pb-1">
+    <div class="flex flex-wrap gap-2 pl-3">
       <a
         th:each="tag : ${tags}"
         th:href="@{${tag.status.permalink}}"
         th:title="${tag.spec.displayName}"
-        th:style="|color: ${tag.spec.color ?: 'var(--primary)'}; border-color: color-mix(in srgb, ${tag.spec.color ?: 'var(--primary)'} 35%, transparent); background: color-mix(in srgb, ${tag.spec.color ?: 'var(--primary)'} 12%, transparent)|"
-        class="tag-chip inline-flex h-8 items-center rounded-lg border px-3 text-sm font-medium transition"
+        class="btn-regular h-8 rounded-lg px-3 text-sm"
         th:text="${tag.spec.displayName}"
       >
         Tag
@@ -40,4 +38,3 @@ const COLLAPSE_THRESHOLD = 20;
     </div>
   </WidgetLayout>
 </div>
-<!-- 标签胶囊配色与 hover 动效统一走全局 .tag-chip（src/styles/components.css） -->

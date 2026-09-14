@@ -143,12 +143,15 @@
       0 6px 22px rgb(0 0 0 / 0.35);
   }
 
-  /* 标签胶囊（全站统一）：颜色跟随标签配置 tag.spec.color（由 th:style 注入
-     color/background/border），hover 上浮 + 同色光晕；无颜色时回退主题色。
-     根因历史：① 组件 class 上的 Tailwind `hover:-translate-y-0.5`（utilities 层）
-        会在优先级上覆盖本处 scale，导致实际仍是上浮且被 card-base overflow-hidden
-        裁掉顶部；已去掉该工具类。② 上浮会越界，故在 Tags.astro 标签容器加
-        pt-2/pr-1/pb-1 缓冲，使上浮与光晕都落在卡片内不被裁剪 */
+  /* 标签胶囊：hover 上浮 + 同色光晕（用 currentColor，随各自文字色走）。
+     唯一消费方 = /tags 标签云页（`class="tag-item tag-chip"`，页面级 .tag-item
+     自带 --tag-depth 渐深配色；它所在卡片有 px-9 py-6 内边距，自带上浮缓冲）。
+     根因历史：组件 class 上的 Tailwind `hover:-translate-y-0.5`（utilities 层）
+       优先级高于本处 transform，曾导致位移被 card-base 的 overflow-hidden 裁掉；
+       已去掉该工具类。
+     ⚠️ 侧边栏「标签」小组件（components/widget/Tags.astro）2026-09-14 已按上游
+       还原成 `btn-regular` 朴素胶囊 ⇒ **不再**使用本类、也不再注入 tag.spec.color；
+       当初为它在组件容器加的 pt-2/pr-1/pb-1 缓冲与配色注入说明已一并删除。 */
   .tag-chip {
     transition:
       transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
