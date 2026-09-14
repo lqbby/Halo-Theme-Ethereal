@@ -231,11 +231,13 @@ const { pagination = "posts" } = Astro.props;
   /* ===== 紧凑卡片样式（标题缩小、元信息缩小、摘要字号）=====
      适用：网格模式（全断点）+ 列表模式移动端（两者观感统一）。
      注：网格为全断点、列表仅在移动端生效，断点不同无法共用选择器，
-     故分别声明、保持规则体一致，避免修改时遗漏 */
+     故分别声明、保持规则体一致，避免修改时遗漏。
+     1.5.14：标题字号 1.35rem/1.75rem → 1.15rem/1.5rem（LQ 反馈偏大），
+     行高同比收窄，箭头 top 定位与箭头字号已随之调整 */
   /* 网格：标题缩小、去掉装饰条 */
   #post-list-container.post-grid-mode .post-card-title {
-    font-size: 1.35rem !important;
-    line-height: 1.75rem !important;
+    font-size: 1.15rem !important;
+    line-height: 1.5rem !important;
     margin-bottom: 0.5rem !important;
   }
   #post-list-container.post-grid-mode .post-card-title::before {
@@ -247,9 +249,11 @@ const { pagination = "posts" } = Astro.props;
   #post-list-container .post-card-arrow {
     top: calc(100% - 2.25rem / 2) !important;
   }
-  /* 网格：标题行高收窄为 1.35rem/1.75rem，末行中心相应下移 */
+  /* 网格：标题行高 1.15rem/1.5rem，末行中心相应上移；
+     箭头字号随标题等比收小（2rem→1.75rem），避免小标题旁挂大箭头 */
   #post-list-container.post-grid-mode .post-card-arrow {
-    top: calc(100% - 1.75rem / 2) !important;
+    top: calc(100% - 1.5rem / 2) !important;
+    font-size: 1.75rem !important;
   }
   /* 网格：元信息与统计缩小（统计去胶囊底后需略大的间距才不成一坨） */
   #post-list-container.post-grid-mode .post-meta {
@@ -310,8 +314,8 @@ const { pagination = "posts" } = Astro.props;
 
     /* 列表模式标题缩小、隐藏装饰条（与网格一致） */
     #post-list-container.post-list-mode .post-card-title {
-      font-size: 1.35rem !important;
-      line-height: 1.75rem !important;
+      font-size: 1.15rem !important;
+      line-height: 1.5rem !important;
       margin-bottom: 0.5rem !important;
     }
     #post-list-container.post-list-mode .post-card-title::before {
