@@ -4,25 +4,36 @@
 // 筛选 tab 因此硬编码在下方。封面来自 B 站 CDN 且带 Referer 防盗链，<img> 必须
 // referrerpolicy="no-referrer"，否则跨域加载失败显示坏图。
 //
-// 就地筛选：本页自 1.5.10 起改用与 /equipments、/photos 同一套机制（list-filter.js）——
-// 「筛选框 + 列表框」一起包进 [data-list-region]，点胶囊只替换这块 HTML，不跳转、不整页重载。
-// 相比旧的自研内联脚本（已删）：
-//   · 激活态改由**服务端**按 typeNum/status 渲染 ⇒ 不再手写 setActiveTab，bare /bangumis
-//     （无参数）也能靠服务端默认值正确高亮；
-//   · 卡片入场改由 list-item-enter 逐卡淡入（替换后挂类），不再整体淡入（旧版为避免白闪
-//     曾彻底禁用动画）；
-//   · 不再写 history（与 Swup 的 history.state/popstate 彻底解耦）。
+// ── 1.5.16 重构：交互对齐 Firefly 的 bilibili 页，数据模型仍受插件约束 ────────────
+// 参考 https://docs-firefly.cuteleaf.cn/zh/guide/bilibili.html 的「搜索 / 筛选 / 排序 /
+// 分页 / 详情弹窗 / LQIP」六件套，但**筛选维度保持本主题既定顺序**：类型(追番/追剧) →
+// 状态(全部/想看/在看/已看)，并对齐现有主题样式（胶囊、卡片、圆角、语义色）。
+//
+// 数据来源的关键约束（决定了架构）：
+//   1) 插件的 Bangumi 模型**没有 status 字段**（见 BangumiFinder#parseBangumiItem），
+//      状态只能在请求时按 follow_status 过滤 ⇒ 「状态」筛选必须走服务端，无法纯客户端。
+//   2) B 站 follow/list 接口 ps 上限 = 30（ps=100 直接 code -400），单次请求拿不到全量。
+//   3) 因此：**类型 / 状态两组仍用「就地筛选」（list-filter.js 局部 PJAX，走服务端分页取数、
+//      但取的是该组合的全量）**；而「搜索 / 排序 / 分页」是纯客户端，作用于本页已渲染的
+//      全量卡片（bangumiFinder.getBiliDataAll 一次性取回，卡片带 data-* 供脚本索引）。
+// 搜索框与排序器放在**框一（头部卡片）**内、[data-list-region] 之外 —— 这样点胶囊触发
+// region 替换时它们不会被换掉，查询词与排序态天然保留，无需任何前端状态同步。
+//
+// getBiliDataAll 是插件的阻塞型 API（内部 .block() 逐页取，跟随 friends.astro 的
+// linkFeedFinder.list() 同一条已验证通路）。带 pluginFinder 守卫：插件缺失时不解析
+// bangumiFinder，否则整块卡片消失（与 about.astro 的 Finder 约定一致）。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
-import Pagination from "../components/control/Pagination.astro";
 import "../styles/list-filter.css";
+import "../styles/bangumi.css";
 
 // 筛选胶囊点击交给 list-filter.js 做局部 PJAX，故打 data-no-swup 让 Swup 别接管。
 const noSwup = { "data-no-swup": "1" };
 
-// 统计指标数组：图标名以字面量留在源码（勿动态拼接），Tailwind/Iconify 内容扫描才能生成图标规则
+// 卡片浮层下的四个互动指标：图标名以字面量留在源码（勿动态拼接），Tailwind/Iconify
+// 内容扫描才能生成图标规则。
 const stats = [
   {
     icon: "icon-[material-symbols--favorite-outline-rounded]",
@@ -45,6 +56,30 @@ const stats = [
     text: "5000",
   },
 ];
+
+// 详情弹窗里的四项统计（JS 按 data-* 回填）。图标名同样保持字面量。
+const modalStats = [
+  {
+    icon: "icon-[material-symbols--favorite-outline-rounded]",
+    label: "追番",
+    key: "follow",
+  },
+  {
+    icon: "icon-[material-symbols--play-circle-outline-rounded]",
+    label: "播放",
+    key: "view",
+  },
+  {
+    icon: "icon-[material-symbols--comment-outline-rounded]",
+    label: "弹幕",
+    key: "danmaku",
+  },
+  {
+    icon: "icon-[material-symbols--monetization-on-outline-rounded]",
+    label: "硬币",
+    key: "coin",
+  },
+];
 ---
 
 <MainGridLayout
@@ -60,9 +95,10 @@ const stats = [
       th:remove="tag"
       th:with="
       curType=${bangumis.typeNum},
-      curStatus=${bangumis.status}"
+      curStatus=${bangumis.status},
+      allBangumis=${pluginFinder != null and pluginFinder.available('plugin-bilibili-bangumi') ? bangumiFinder.getBiliDataAll(curType, curStatus) : null}"
     >
-      <!-- 框一：头部（完全静态：标题 + 副标题，无动态数据；在 region 之外，筛选时保持不动） -->
+      <!-- 框一：头部（标题 + 副标题 + 搜索/排序；在 region 之外，筛选时保持不动 ⇒ 查询词与排序态不丢） -->
       <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
         <PageHeader
           containerClass="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
@@ -73,9 +109,69 @@ const stats = [
           label="我的追番"
           sepShowIfExpr="${false}"
         />
+
+        <!-- 工具栏：搜索（按标题）+ 排序（默认顺序 / 评分 / 追番人数）。
+             排序是纯客户端重排，故「默认顺序」恒等于插件返回顺序（LQ 既定顺序）。 -->
+        <div class="bangumi-toolbar">
+          <div class="bangumi-search">
+            <span
+              aria-hidden="true"
+              class="icon-[material-symbols--search-rounded] bangumi-search-icon"
+            ></span>
+            <input
+              type="search"
+              data-bangumi-search
+              autocomplete="off"
+              spellcheck="false"
+              th:placeholder="#{page.bangumi.searchPlaceholder}"
+              th:aria-label="#{page.bangumi.searchPlaceholder}"
+              placeholder="搜索番剧标题"
+            />
+            <button
+              type="button"
+              data-bangumi-search-clear
+              hidden
+              th:aria-label="#{page.bangumi.searchClear}"
+              aria-label="清空搜索"
+              class="bangumi-search-clear"
+            >
+              <span
+                aria-hidden="true"
+                class="icon-[material-symbols--close-rounded]"></span>
+            </button>
+          </div>
+
+          <div class="bangumi-sort">
+            <span
+              aria-hidden="true"
+              class="icon-[material-symbols--sort-rounded] bangumi-sort-icon"
+            ></span>
+            <select
+              data-bangumi-sort
+              th:aria-label="#{page.bangumi.sortLabel}"
+              aria-label="排序"
+            >
+              <option
+                value="default"
+                selected
+                th:text="#{page.bangumi.sortDefault}">默认顺序</option
+              >
+              <option value="score" th:text="#{page.bangumi.sortScore}"
+                >评分</option
+              >
+              <option value="follow" th:text="#{page.bangumi.sortFollow}"
+                >追番人数</option
+              >
+            </select>
+            <span
+              aria-hidden="true"
+              class="icon-[material-symbols--expand-more-rounded] bangumi-sort-caret"
+            ></span>
+          </div>
+        </div>
       </section>
 
-      <!-- 就地筛选区：筛选框 + 列表框整体可替换。计数行/已筛选徽章/分页都在 region 内，
+      <!-- 就地筛选区：筛选框 + 列表框整体可替换。计数行/已筛选徽章/CSS 分页都在 region 内，
            替换后随新参数一起重算；胶囊的激活态同样由服务端渲染 ⇒ 前端零状态同步。 -->
       <div id="bangumi-region" data-list-region="1">
         <!-- 框二：筛选菜单（类型 + 状态两组；点胶囊只替换本 region） -->
@@ -134,45 +230,76 @@ const stats = [
 
         <!-- 框三：番剧网格（随 region 一起被替换） -->
         <section class="card-base px-6 py-6 md:px-9">
-          <div id="bangumi-list">
-            <!-- 计数行：总数量 + 已筛选徽章（随框三整体替换，无需额外同步） -->
+          <div id="bangumi-list" data-bangumi-list="1">
+            <!-- 计数行：当前可见数量 + 已筛选徽章（数量与徽章都由脚本按搜索/筛选态更新） -->
             <div
-              th:if="${bangumis != null}"
+              th:if="${allBangumis != null}"
               class="mb-5 flex flex-wrap items-center gap-2"
             >
               <span
+                aria-hidden="true"
                 class="icon-[material-symbols--favorite-outline-rounded] text-lg text-(--primary)"
               ></span>
               <span
                 class="text-sm font-semibold text-75"
-                th:text="#{page.bangumi.subtitleCount(${bangumis.total})}"
-                >共 142 部</span
+                data-bangumi-count
+                th:data-count-template="#{page.bangumi.subtitleCount('%d')}"
+                th:text="#{page.bangumi.subtitleCount(${#lists.size(allBangumis)})}"
+                >共 0 部</span
               >
               <span
-                th:if="${bangumis.typeNum != 1 or bangumis.status != 0}"
                 class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
+                data-bangumi-filtered-badge
+                th:data-base="${(curType != 1 or curStatus != 0) ? '1' : '0'}"
+                th:classappend="${(curType != 1 or curStatus != 0) ? '' : ' hidden'}"
                 th:text="#{common.filtered}">已筛选</span
               >
             </div>
 
-            <!-- 追番卡片网格 -->
+            <!-- 番剧卡片网格。卡片是 <a> 指向 B 站（无 JS 时优雅降级为直接跳转），
+                 有 JS 时左键点击被拦下改开详情弹窗。data-* 供脚本做搜索 / 排序 / 弹窗回填。 -->
             <div
-              th:if="${bangumis != null and not #lists.isEmpty(bangumis.items)}"
+              th:if="${allBangumis != null and not #lists.isEmpty(allBangumis)}"
+              data-bangumi-grid="1"
               class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
             >
               <a
-                th:each="bangumi, bangumiStat : ${bangumis.items}"
+                th:each="bangumi, bangumiStat : ${allBangumis}"
                 th:href="${bangumi.spec.url}"
                 target="_blank"
                 rel="noopener noreferrer"
                 th:title="${bangumi.spec.title}"
+                th:aria-label="${bangumi.spec.title}"
                 data-list-item="1"
+                data-bangumi-card="1"
+                th:data-index="${bangumiStat.index}"
+                th:data-title="${bangumi.spec.title}"
+                th:data-type="${bangumi.spec.type}"
+                th:data-area="${bangumi.spec.area}"
+                th:data-total="${bangumi.spec.totalCount}"
+                th:data-score="${bangumi.spec.score}"
+                th:data-follow="${bangumi.spec.follow}"
+                th:data-view="${bangumi.spec.view}"
+                th:data-danmaku="${bangumi.spec.danmaku}"
+                th:data-coin="${bangumi.spec.coin}"
+                th:data-des="${bangumi.spec.des}"
+                th:data-cover="${bangumi.spec.cover}"
+                th:data-url="${bangumi.spec.url}"
                 th:style="|animation-delay: min(calc(var(--content-delay) + ${bangumiStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
                 class="card-base btn-card-outline group relative block overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
               >
                 <div
-                  class="relative w-full overflow-hidden bg-(--btn-regular-bg)"
+                  class="bangumi-cover relative w-full overflow-hidden bg-(--btn-regular-bg)"
                 >
+                  <!-- LQIP：先用同一张（插件已裁到 220×280 的小图）模糊铺底，图片 onload 后
+                       由 .is-ready 隐藏该层 —— 同 URL 命中浏览器缓存，不产生第二次请求。 -->
+                  <div
+                    aria-hidden="true"
+                    th:style="|background-image:url('${bangumi.spec.cover}')|"
+                    class="bangumi-cover-lqip pointer-events-none absolute inset-0 scale-110 bg-cover bg-center blur-lg"
+                  >
+                  </div>
+
                   <!-- 封面 -->
                   <img
                     th:src="${bangumi.spec.cover}"
@@ -180,7 +307,7 @@ const stats = [
                     th:attr="loading=${bangumiStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${bangumiStat.index == 0 ? 'high' : 'auto'}"
                     decoding="async"
                     referrerpolicy="no-referrer"
-                    class="aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
+                    class="bangumi-cover-img relative aspect-[11/14] w-full object-cover transition duration-500 group-hover:scale-105"
                   />
 
                   <!-- 左上：类型角标 -->
@@ -241,23 +368,24 @@ const stats = [
               </a>
             </div>
 
-            <!-- 空状态 -->
+            <!-- 空状态一：该「类型 + 状态」组合下没有任何数据 -->
             <div
-              th:if="${bangumis == null or #lists.isEmpty(bangumis.items)}"
+              th:if="${allBangumis == null or #lists.isEmpty(allBangumis)}"
               class="py-16 text-center text-50"
             >
               <span
+                aria-hidden="true"
                 class="icon-[material-symbols--inbox-rounded] text-5xl text-30"
               ></span>
               <p
-                th:if="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+                th:if="${bangumis != null and (curType != 1 or curStatus != 0)}"
                 class="mt-4"
                 th:text="#{page.bangumi.emptyFiltered}"
               >
                 该筛选条件下暂无追番
               </p>
               <p
-                th:unless="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+                th:unless="${bangumis != null and (curType != 1 or curStatus != 0)}"
                 class="mt-4"
                 th:text="#{page.bangumi.empty}"
               >
@@ -265,9 +393,115 @@ const stats = [
               </p>
             </div>
 
-            <Pagination context="bangumis" class="mt-4" />
+            <!-- 空状态二：有数据但被搜索词筛空（默认隐藏，由脚本切换） -->
+            <div
+              data-bangumi-empty-search
+              hidden
+              class="py-16 text-center text-50"
+            >
+              <span
+                aria-hidden="true"
+                class="icon-[material-symbols--search-off-rounded] text-5xl text-30"
+              ></span>
+              <p class="mt-4" th:text="#{page.bangumi.emptySearch}">
+                没有找到匹配的番剧
+              </p>
+            </div>
+
+            <!-- 客户端分页容器（由脚本渲染；总数/页码文案走 data-* 透传，脚本不碰 i18n） -->
+            <nav
+              data-bangumi-pager
+              hidden
+              aria-label="#{pagination.label}"
+              th:data-prev-label="#{pagination.previous}"
+              th:data-next-label="#{pagination.next}"
+              th:data-page-label="#{pagination.page('%d')}"
+              class="bangumi-pager"
+            >
+            </nav>
           </div>
         </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- 详情弹窗：放在 region 之外（PJAX 只换 region，弹窗实例不被销毁），
+       内容全部由脚本从被点卡片的 data-* 回填。 -->
+  <div id="bangumi-modal" class="bangumi-modal">
+    <div class="bangumi-modal-backdrop" data-bangumi-modal-close></div>
+    <div
+      class="bangumi-modal-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="bangumi-modal-title"
+    >
+      <button
+        type="button"
+        class="bangumi-modal-close"
+        data-bangumi-modal-close
+        th:aria-label="#{page.bangumi.close}"
+        aria-label="关闭"
+      >
+        <span aria-hidden="true" class="icon-[material-symbols--close-rounded]"
+        ></span>
+      </button>
+
+      <div class="bangumi-modal-cover">
+        <div aria-hidden="true" class="bangumi-modal-lqip" data-modal-lqip>
+        </div>
+        <img data-modal-img alt="" referrerpolicy="no-referrer" />
+        <span class="bangumi-modal-score" data-modal-score hidden></span>
+      </div>
+
+      <div class="bangumi-modal-body">
+        <h2
+          id="bangumi-modal-title"
+          class="bangumi-modal-title"
+          data-modal-title
+        >
+          标题
+        </h2>
+
+        <div class="bangumi-modal-meta">
+          <span class="bangumi-modal-chip" data-modal-type hidden></span>
+          <span class="bangumi-modal-chip" data-modal-area hidden></span>
+          <span class="bangumi-modal-chip" data-modal-total hidden></span>
+        </div>
+
+        <div class="bangumi-modal-stats">
+          {
+            modalStats.map((stat) => (
+              <div class="bangumi-modal-stat">
+                <span
+                  aria-hidden="true"
+                  class={`${stat.icon} bangumi-modal-stat-icon`}
+                />
+                <span
+                  class="bangumi-modal-stat-value"
+                  data-modal-stat={stat.key}
+                >
+                  -
+                </span>
+                <span class="bangumi-modal-stat-label">{stat.label}</span>
+              </div>
+            ))
+          }
+        </div>
+
+        <p class="bangumi-modal-des" data-modal-des></p>
+
+        <a
+          class="bangumi-modal-link"
+          data-modal-link
+          target="_blank"
+          rel="noopener noreferrer"
+          href="#"
+        >
+          <span
+            aria-hidden="true"
+            class="icon-[mingcute--bilibili-fill] text-lg"></span>
+          <span th:text="#{page.bangumi.watchOnBilibili}">前往 B 站观看</span>
+        </a>
       </div>
     </div>
   </div>
@@ -275,5 +509,9 @@ const stats = [
   <!-- 就地筛选脚本（装备/相册/追番共用；放在 region 之外，避免被替换掉不再执行） -->
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/list-filter.js?v=${ASSET_VERSION}`}
+    defer></script>
+  <!-- 搜索 / 排序 / 客户端分页 / 详情弹窗 / LQIP -->
+  <script
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/bangumi-filter.js?v=${ASSET_VERSION}`}
     defer></script>
 </MainGridLayout>

@@ -28,8 +28,25 @@
   animation: list-item-in var(--dur-entry, 300ms) ease both;
 }
 
+/* ==========================================================================
+   局部 PJAX 拉取中的「加载中」态（list-filter.ts 在 fetch 前后加/摘 .is-swapping）
+   --------------------------------------------------------------------------
+   追番页取全量时服务端要逐页打 B 站接口（可能 1~3s），无反馈的话点击像没生效。
+   只降透明度 + 屏蔽指针，不做骨架屏（内容马上会被整块替换，骨架反而更闪）。
+   ========================================================================== */
+
+[data-list-region].is-swapping {
+  opacity: 0.55;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .list-item-enter {
     animation: none;
+  }
+
+  [data-list-region].is-swapping {
+    transition: none;
   }
 }

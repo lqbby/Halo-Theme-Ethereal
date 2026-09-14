@@ -1,0 +1,487 @@
+@reference "./global.css";
+
+/* ==========================================================================
+   追番页 /bangumis 专属样式（1.5.16 重构）
+   --------------------------------------------------------------------------
+   覆盖四块：① 工具栏（搜索 + 排序）② 卡片封面 LQIP ③ 客户端分页 ④ 详情弹窗。
+   除 LQIP / 分页 / 弹窗三个「脚本生成或脚本切换」的节点外，其余布局仍走 Tailwind
+   工具类（写在页面里，随页面一起被内容扫描），这里只补工具类不好表达的部分。
+   颜色一律取主题语义变量（--primary / --card-bg / --btn-regular-bg …），
+   深色模式由 variables.css 的 .dark 覆写自动跟随，无需另写深色分支（唯二例外见下）。
+   ========================================================================== */
+
+/* ── ① 工具栏：搜索框 + 排序器 ───────────────────────────────────────── */
+
+.bangumi-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.bangumi-search,
+.bangumi-sort {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 2.75rem;
+  border-radius: var(--radius-large);
+  background: var(--btn-regular-bg);
+  color: var(--btn-content);
+  transition: background-color 0.2s ease;
+}
+
+.bangumi-search {
+  flex: 1 1 15rem;
+  min-width: 0;
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+}
+
+.bangumi-search:focus-within {
+  background: var(--btn-regular-bg-hover);
+}
+
+.bangumi-search-icon {
+  flex: none;
+  font-size: 1.15rem;
+  opacity: 0.75;
+}
+
+.bangumi-search input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.9rem;
+  color: var(--deep-text);
+  appearance: none;
+}
+
+.bangumi-search input::placeholder {
+  color: var(--btn-content);
+  opacity: 0.7;
+}
+
+/* 去掉 type=search 的原生清除按钮，统一用我们自己的 × */
+.bangumi-search input::-webkit-search-cancel-button,
+.bangumi-search input::-webkit-search-decoration {
+  appearance: none;
+}
+
+.bangumi-search-clear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.75;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+}
+
+.bangumi-search-clear:hover {
+  opacity: 1;
+  background: var(--btn-regular-bg-active);
+}
+
+.bangumi-search-clear[hidden] {
+  display: none;
+}
+
+.bangumi-sort {
+  flex: none;
+  gap: 0.4rem;
+  padding: 0 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.bangumi-sort-icon {
+  font-size: 1.15rem;
+  opacity: 0.75;
+}
+
+.bangumi-sort select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  outline: none;
+  padding: 0 1.1rem 0 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.bangumi-sort select option {
+  color: var(--deep-text);
+  background: var(--card-bg);
+}
+
+.bangumi-sort-caret {
+  position: absolute;
+  right: 0.6rem;
+  pointer-events: none;
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+
+/* ── ② 封面 LQIP ───────────────────────────────────────────────────── */
+
+/* 模糊铺底：图片 onload 后由脚本给容器加 .is-ready ⇒ 该层直接摘掉（省一次合成） */
+.bangumi-cover.is-ready .bangumi-cover-lqip {
+  display: none;
+}
+
+/* 脚本给「JS 运行时仍未加载完」的图片挂 --pending（默认 opacity:1 是给无 JS 场景的
+   兜底：不带脚本时图片正常显示，只是少了淡入）。淡入动画复用 img 上的
+   Tailwind `transition duration-500`，故这里只切透明度。 */
+.bangumi-cover-img--pending {
+  opacity: 0;
+}
+
+/* ── ③ 客户端分页 ───────────────────────────────────────────────────── */
+
+.bangumi-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  margin-top: 1.5rem;
+}
+
+.bangumi-pager[hidden] {
+  display: none;
+}
+
+.bangumi-pager-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 0.625rem;
+  background: var(--btn-regular-bg);
+  color: var(--btn-content);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.bangumi-pager-btn:hover:not(:disabled) {
+  background: var(--btn-regular-bg-hover);
+}
+
+.bangumi-pager-btn:active:not(:disabled) {
+  transform: scale(0.92);
+}
+
+.bangumi-pager-btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.bangumi-pager-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.bangumi-pager-btn[aria-current="page"] {
+  background: var(--primary);
+  color: #fff;
+}
+
+/* --primary 在深色下本身偏亮，白字对比不足 ⇒ 用深字（与主题 primary 胶囊一致） */
+.dark .bangumi-pager-btn[aria-current="page"] {
+  color: rgb(0 0 0 / 0.7);
+}
+
+.bangumi-pager-gap {
+  min-width: 1.25rem;
+  text-align: center;
+  color: var(--btn-content);
+  opacity: 0.6;
+  user-select: none;
+}
+
+.bangumi-pager-btn .iconify,
+.bangumi-pager-btn span {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+/* ── ④ 详情弹窗 ─────────────────────────────────────────────────────── */
+
+.bangumi-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+}
+
+.bangumi-modal.is-open {
+  display: block;
+}
+
+/* 打开时锁滚动；<html> 上的类由脚本在 pagehide / pageshow / astro:after-swap 清理 */
+html.bangumi-modal-open {
+  overflow: hidden;
+}
+
+.bangumi-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgb(0 0 0 / 0.55);
+  backdrop-filter: blur(3px);
+  animation: bangumi-modal-fade 0.2s ease both;
+}
+
+.bangumi-modal-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: 17rem 1fr;
+  width: min(52rem, calc(100vw - 2rem));
+  max-height: min(85vh, 46rem);
+  overflow: hidden;
+  border-radius: var(--radius-large);
+  background: var(--card-bg);
+  box-shadow: 0 24px 60px -12px rgb(0 0 0 / 0.45);
+  animation: bangumi-modal-pop 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.bangumi-modal-close {
+  position: absolute;
+  right: 0.6rem;
+  top: 0.6rem;
+  z-index: 3;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.45);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.bangumi-modal-close:hover {
+  background: rgb(0 0 0 / 0.7);
+}
+
+.bangumi-modal-cover {
+  position: relative;
+  min-height: 12rem;
+  background: var(--btn-regular-bg);
+}
+
+.bangumi-modal-lqip {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(16px);
+  transform: scale(1.15);
+}
+
+.bangumi-modal-cover img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bangumi-modal-score {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 2;
+  border-radius: 0.375rem;
+  background: var(--primary);
+  padding: 0.15rem 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bangumi-modal-score[hidden] {
+  display: none;
+}
+
+.bangumi-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: 1.75rem 1.75rem 1.5rem;
+}
+
+.bangumi-modal-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.4;
+  color: var(--deep-text);
+}
+
+.bangumi-modal-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+}
+
+.bangumi-modal-chip {
+  border-radius: 0.375rem;
+  background: var(--btn-regular-bg);
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--btn-content);
+}
+
+.bangumi-modal-chip[hidden] {
+  display: none;
+}
+
+.bangumi-modal-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.bangumi-modal-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: 0.75rem;
+  background: var(--btn-regular-bg);
+  padding: 0.6rem 0.35rem;
+}
+
+.bangumi-modal-stat-icon {
+  font-size: 1.15rem;
+  color: var(--primary);
+}
+
+.bangumi-modal-stat-value {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--deep-text);
+}
+
+.bangumi-modal-stat-label {
+  font-size: 0.7rem;
+  color: var(--btn-content);
+}
+
+.bangumi-modal-des {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--btn-content);
+  max-height: 9rem;
+  overflow-y: auto;
+}
+
+.bangumi-modal-des:empty {
+  display: none;
+}
+
+.bangumi-modal-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  align-self: flex-start;
+  margin-top: auto;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  padding: 0.55rem 1.15rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #fff;
+  text-decoration: none;
+  transition:
+    filter 0.15s ease,
+    transform 0.1s ease;
+}
+
+.bangumi-modal-link:hover {
+  filter: brightness(1.06);
+}
+
+.bangumi-modal-link:active {
+  transform: scale(0.97);
+}
+
+.dark .bangumi-modal-link {
+  color: rgb(0 0 0 / 0.7);
+}
+
+/* 窄屏：封面在上、正文在下 */
+@media (max-width: 640px) {
+  .bangumi-modal-card {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+    width: calc(100vw - 1.5rem);
+    max-height: 88vh;
+  }
+
+  .bangumi-modal-cover {
+    min-height: 0;
+    max-height: 11rem;
+  }
+}
+
+@keyframes bangumi-modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes bangumi-modal-pop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bangumi-modal-backdrop,
+  .bangumi-modal-card,
+  .bangumi-cover-img {
+    animation: none !important;
+    transition: none !important;
+  }
+}

@@ -8,6 +8,12 @@
 //   [data-list-region]      被替换的容器（只换它的 innerHTML；本身留在 DOM 里）
 //   [data-list-filter] a    筛选胶囊（点它触发局部加载）
 //   [data-list-item]        列表项（替换后挂 .list-item-enter 做入场反馈）
+//   [data-list-region].is-swapping  拉取中态（样式在 list-filter.css）
+//
+// 对外事件：替换完成后在 document 上派发 `ethereal:list-swapped`（detail.region）。
+//   给页面级脚本一个「region 已是新 DOM」的确定时机 —— 追番页的 bangumi-filter.ts
+//   靠它重建卡片索引并重放搜索/排序态。不用 MutationObserver 是因为 observer 会被
+//   页面脚本自己渲染的分页 DOM 反复触发，需要额外写过滤条件才不自激。
 //
 // 关键设计：
 //  - **筛选胶囊在 region 内部**：激活态（`bg-(--primary)`）完全由服务端按查询参数渲染
@@ -100,8 +106,17 @@ import { guardOnce } from "../../utils/once";
       if (controller) controller.abort();
     }, FETCH_TIMEOUT);
 
-    function bail() {
+    // 拉取期间给 region 一个「加载中」态：追番页取全量时服务端要逐页打 B 站接口，
+    // 可能 1~3s，没有反馈点击就像没生效（equipments/photos 很快，闪一下就过去）。
+    region.classList.add("is-swapping");
+
+    function settle() {
       clearTimeout(timer);
+      region.classList.remove("is-swapping");
+    }
+
+    function bail() {
+      settle();
       if (mySeq === seq) window.location.href = url;
     }
 
@@ -115,8 +130,11 @@ import { guardOnce } from "../../utils/once";
         return res.text();
       })
       .then(function (html) {
-        clearTimeout(timer);
-        if (mySeq !== seq) return; // 已被更新的请求取代
+        if (mySeq !== seq) {
+          clearTimeout(timer); // 已被更新的请求取代：loading 态交给后者收尾
+          return;
+        }
+        settle();
         var doc = new DOMParser().parseFromString(html, "text/html");
         var incoming = doc.querySelector("[data-list-region]");
         if (!incoming) {
@@ -138,6 +156,14 @@ import { guardOnce } from "../../utils/once";
 
         focusBack(region, href, nth);
         playEnter(region);
+
+        // region 已换新 DOM：派发通知，让页面的客户端脚本重建索引
+        // （追番页的 bangumi-filter.js 靠它重放搜索/排序态；其余页面无监听者，零成本）
+        document.dispatchEvent(
+          new CustomEvent("ethereal:list-swapped", {
+            detail: { region: region },
+          }),
+        );
       })
       .catch(function () {
         bail();
