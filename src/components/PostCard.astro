@@ -1,5 +1,4 @@
 ---
-import PostMeta from "./PostMeta.astro";
 import { imageSuffixThWith } from "../utils/image-suffix";
 ---
 
@@ -11,17 +10,41 @@ import { imageSuffixThWith } from "../utils/image-suffix";
   <div
     class="post-card-content relative flex w-full flex-col pb-6 pl-6 pr-6 pt-6 md:pb-6 md:pl-9 md:pt-7"
   >
+    <!-- eyebrow：左=分类 chip（主色浅底、无图标），右=等宽字体日期。
+         去掉了原来的日历/图钉/书本三颗小图标 —— 一行只留两个信息点 -->
+    <div
+      class="post-card-eyebrow mb-3 flex flex-wrap items-center gap-x-2 gap-y-1"
+    >
+      <a
+        th:each="category, categoryStat : ${post.categories}"
+        th:href="@{${category.status.permalink}}"
+        class="post-card-cat"
+        th:text="${category.spec.displayName}">分类</a
+      >
+      <!-- 无封面卡没有封面可挂旗标 ⇒ eyebrow 里补一个置顶标识兜底 -->
+      <span
+        class="post-card-pin-chip"
+        th:if="${coverEmpty and post.spec.pinned == true}"
+      >
+        <span class="icon-[material-symbols--pinboard]"></span>
+        <span>置顶</span>
+      </span>
+      <time
+        class="post-card-date text-50 ml-auto"
+        th:text="${#dates.format(post.spec.publishTime, 'yyyy-MM-dd')}"
+        >2026-01-01</time
+      >
+    </div>
+
     <a
       th:href="@{${post.status.permalink}}"
-      class="post-card-title relative group mb-3 block w-full text-3xl font-bold text-90 transition before:absolute before:-left-[18px] before:top-2 before:hidden before:h-5 before:w-1 before:rounded-md before:bg-(--primary) hover:text-(--primary) active:text-(--title-active) dark:hover:text-(--primary) dark:active:text-(--title-active) md:before:block"
+      class="post-card-title group relative mb-3 block w-full text-3xl font-bold text-90 transition before:absolute before:-left-[18px] before:top-2 before:h-5 before:w-1 before:rounded-md before:bg-(--primary) before:opacity-0 before:transition hover:text-(--primary) active:text-(--title-active) dark:hover:text-(--primary) dark:active:text-(--title-active)"
     >
       <span th:text="${post.spec.title}">Post title</span>
       <span
         class="post-card-arrow icon-[material-symbols--chevron-right-rounded] absolute z-30 hidden -translate-x-1 -translate-y-1/2 text-[2rem] text-(--primary) opacity-0 transition group-hover:translate-x-0 group-hover:opacity-100 top-1/2 md:inline"
       ></span>
     </a>
-
-    <PostMeta hideTags={true} hideUpdateDate={true} class="post-meta mb-4" />
 
     <div
       class="post-card-excerpt grow mb-3.5 pr-4 text-75 transition"
@@ -31,76 +54,81 @@ import { imageSuffixThWith } from "../utils/image-suffix";
       Excerpt
     </div>
 
-    <!-- 底部标签：firefly 同款药丸 chip + # 前缀，超出 3 个折叠为 +N -->
+    <!-- 底栏：标签（左）+ 统计（右），上方一条虚线把正文与元信息分开。
+         统计去掉胶囊底 ⇒ 不再与标签抢权重 -->
     <div
-      class="post-card-bottom-tags mb-3 flex flex-wrap items-center gap-1.5"
-      th:if="${not #lists.isEmpty(post.tags)}"
+      class="post-card-foot mt-auto flex flex-wrap items-center gap-x-3 gap-y-2"
     >
-      <a
-        th:each="tag, tagStat : ${post.tags}"
-        th:if="${tagStat.index < 3}"
-        th:href="@{${tag.status.permalink}}"
-        th:aria-label="${tag.spec.displayName}"
-        class="post-card-tag inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+      <!-- 标签：保留极淡底药丸 chip + # 前缀，超出 2 个折叠为 +N -->
+      <div
+        class="post-card-bottom-tags flex flex-wrap items-center gap-1.5"
+        th:if="${not #lists.isEmpty(post.tags)}"
       >
-        <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
-      </a>
-      <span
-        th:if="${#lists.size(post.tags) > 3}"
-        th:title="|还有 ${#lists.size(post.tags) - 3} 个标签|"
-        class="post-card-tag post-card-tag-more inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
-      >
-        +<span th:text="${#lists.size(post.tags) - 3}">2</span>
-      </span>
-    </div>
-
-    <!-- 底部统计：浏览/评论/点赞（轻量胶囊：图标+数字合一，去竖线用 gap；
-         主题化配色走 PostList.astro 的 .post-card-stat 全局样式） -->
-    <div
-      class="post-card-stats mt-auto flex flex-wrap items-center gap-2 text-sm transition"
-    >
-      <span
-        th:if="${post.stats != null}"
-        class="post-card-stat inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
-      >
-        <span
-          class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
-        ></span>
-        <span class="leading-none" th:text="${post.stats.visit}">0</span>
-      </span>
-      <a
-        th:if="${post.stats != null}"
-        th:href="${post.status.permalink + '#comment'}"
-        th:aria-label="评论"
-        class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
-      >
-        <span class="icon-[mdi--comment-text-outline] text-base leading-none"
-        ></span>
-        <span class="leading-none" th:text="${post.stats.comment}">0</span>
-      </a>
-      <!-- 点赞：真实点赞按钮（调 Halo upvote API，见 post-card-like.js）；跟随后台
-           文章操作栏"启用点赞"开关；hover 描边→实心，liked 态由脚本实心点亮 -->
-      <button
-        type="button"
-        th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
-        th:attr="data-post=${post.metadata.name}"
-        th:data-count="${post.stats.upvote}"
-        aria-label="点赞"
-        class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none px-2.5 py-1 text-sm"
-      >
-        <span class="relative inline-flex text-base leading-none">
-          <span
-            class="stat-heart-outline icon-[material-symbols--favorite-outline-rounded]"
-          ></span>
-          <span
-            class="stat-heart-filled icon-[material-symbols--favorite-rounded] absolute inset-0 opacity-0"
-          ></span>
-        </span>
-        <span
-          class="post-card-like-count leading-none"
-          th:text="${post.stats.upvote}">0</span
+        <a
+          th:each="tag, tagStat : ${post.tags}"
+          th:if="${tagStat.index < 2}"
+          th:href="@{${tag.status.permalink}}"
+          th:aria-label="${tag.spec.displayName}"
+          class="post-card-tag inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
         >
-      </button>
+          <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
+        </a>
+        <span
+          th:if="${#lists.size(post.tags) > 2}"
+          th:title="|还有 ${#lists.size(post.tags) - 2} 个标签|"
+          class="post-card-tag post-card-tag-more inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+        >
+          +<span th:text="${#lists.size(post.tags) - 2}">2</span>
+        </span>
+      </div>
+
+      <!-- 统计：浏览/评论/点赞，纯「图标 + 数字」，无底色（hover 变主色）。
+           点赞是真实按钮（调 Halo upvote API，见 post-card-like.js），跟随
+           后台文章操作栏"启用点赞"开关；liked 态由脚本实心点亮 -->
+      <div
+        class="post-card-stats ml-auto flex flex-wrap items-center gap-3 text-sm text-50 transition"
+      >
+        <span
+          th:if="${post.stats != null}"
+          class="post-card-stat inline-flex items-center gap-1.5"
+        >
+          <span
+            class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="${post.stats.visit}">0</span>
+        </span>
+        <a
+          th:if="${post.stats != null}"
+          th:href="${post.status.permalink + '#comment'}"
+          th:aria-label="评论"
+          class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5"
+        >
+          <span class="icon-[mdi--comment-text-outline] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="${post.stats.comment}">0</span>
+        </a>
+        <button
+          type="button"
+          th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
+          th:attr="data-post=${post.metadata.name}"
+          th:data-count="${post.stats.upvote}"
+          aria-label="点赞"
+          class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent"
+        >
+          <span class="relative inline-flex text-base leading-none">
+            <span
+              class="stat-heart-outline icon-[material-symbols--favorite-outline-rounded]"
+            ></span>
+            <span
+              class="stat-heart-filled icon-[material-symbols--favorite-rounded] absolute inset-0 opacity-0"
+            ></span>
+          </span>
+          <span
+            class="post-card-like-count leading-none"
+            th:text="${post.stats.upvote}">0</span
+          >
+        </button>
+      </div>
     </div>
   </div>
 
@@ -109,8 +137,25 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     th:href="@{${post.status.permalink}}"
     th:aria-label="${post.spec.title}"
     th:with={imageSuffixThWith("p?.card_cover_width ?: 400")}
-    class="post-card-cover group relative mx-4 -mb-2 mt-4 w-[calc(100%-2rem)] max-h-[20vh] overflow-hidden rounded-xl active:scale-95 aspect-[16/9] md:aspect-auto md:absolute md:bottom-3 md:right-3 md:top-3 md:mx-0 md:mb-0 md:mt-0 md:max-h-none md:w-(--post-card-cover-width)"
+    class="post-card-cover group relative mx-4 -mb-2 mt-4 w-[calc(100%-2rem)] max-h-[20vh] overflow-hidden rounded-[0.875rem] active:scale-95 aspect-[16/10] md:aspect-auto md:absolute md:bottom-3 md:right-3 md:top-3 md:mx-0 md:mb-0 md:mt-0 md:max-h-none md:w-(--post-card-cover-width)"
   >
+    <!-- scrim：图片底部与下方标题区柔和过渡（hover 加深） -->
+    <span class="post-card-scrim" aria-hidden="true"></span>
+    <!-- 序号：hover 浮出（纯装饰，零数据成本） -->
+    <span
+      class="post-card-index"
+      aria-hidden="true"
+      th:text="${#numbers.formatInteger(postStat.count, 2)}">01</span
+    >
+    <!-- 置顶旗标：置顶卡在封面右上角挂主色旗标（卡片外框的 outline 环由 CSS 保留） -->
+    <span
+      class="post-card-flag"
+      th:if="${post.spec.pinned == true}"
+      aria-hidden="true"
+    >
+      <span class="icon-[material-symbols--pinboard]"></span>
+      <span>置顶</span>
+    </span>
     <div
       class="pointer-events-none absolute z-10 h-full w-full transition group-hover:bg-black/30 group-active:bg-black/50"
     >
@@ -132,20 +177,27 @@ import { imageSuffixThWith } from "../utils/image-suffix";
   </a>
 
   <!-- 无封面占位封面：仅桌面端网格（非瀑布流）显示，保证与有封面卡片等高协调。
-       其余场景（移动端 / 列表 / 瀑布流）由 CSS 隐藏，改用主题色按钮 -->
+       其余场景（移动端 / 列表 / 瀑布流）由 CSS 隐藏，改用主题色按钮。
+       改版：主色对角渐变 + 细点阵纹理 + 大号序号（不再是灰块） -->
   <a
     th:if="${coverEmpty}"
     th:href="@{${post.status.permalink}}"
     th:aria-label="${post.spec.title}"
-    class="post-card-cover post-card-cover-placeholder group relative mx-4 -mb-2 mt-4 w-[calc(100%-2rem)] max-h-[20vh] overflow-hidden rounded-xl active:scale-95 aspect-[16/9] md:aspect-auto md:absolute md:bottom-3 md:right-3 md:top-3 md:mx-0 md:mb-0 md:mt-0 md:max-h-none md:w-(--post-card-cover-width)"
+    class="post-card-cover post-card-cover-placeholder group relative mx-4 -mb-2 mt-4 w-[calc(100%-2rem)] max-h-[20vh] overflow-hidden rounded-[0.875rem] active:scale-95 aspect-[16/10] md:aspect-auto md:absolute md:bottom-3 md:right-3 md:top-3 md:mx-0 md:mb-0 md:mt-0 md:max-h-none md:w-(--post-card-cover-width)"
   >
-    <div
-      class="pointer-events-none absolute inset-0 z-10 flex h-full w-full items-center justify-center transition group-hover:bg-black/10 group-active:bg-black/20"
+    <span
+      class="post-card-flag"
+      th:if="${post.spec.pinned == true}"
+      aria-hidden="true"
     >
-      <span
-        class="icon-[material-symbols--article-outline-rounded] scale-90 text-4xl text-white/80 transition group-hover:scale-100"
-      ></span>
-    </div>
+      <span class="icon-[material-symbols--pinboard]"></span>
+      <span>置顶</span>
+    </span>
+    <span
+      class="post-card-bigno"
+      aria-hidden="true"
+      th:text="${'#' + #numbers.formatInteger(postStat.count, 2)}">#07</span
+    >
   </a>
 
   <!-- 无封面主题色块按钮：列表模式与瀑布流下显示（Firefly 原版做法）。
