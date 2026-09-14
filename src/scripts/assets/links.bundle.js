@@ -4,7 +4,7 @@ import { copyText } from "../../utils/clipboard";
 // 直接读 window.i18nResources，不依赖全局助手已注入）
 import { t } from "../../utils/i18n";
 // 友链页脚本合并（构建产物：public/assets/links.bundle.js，源码在 src/scripts/assets/，esbuild 编译，勿手改产物）
-// 由 requirements / collapse / copy / link-apply / random-visit 合并，各 IIFE 守卫独立保留；
+// 由 requirements / collapse / copy / link-apply / random-visit / link-filter 合并，各 IIFE 守卫独立保留；
 // link-apply 与 random-visit 的原 th:if 门控移除，改由内部守卫（元素不存在即不绑定/不执行）
 
 // 渲染友链须知和免责申明列表
@@ -603,4 +603,137 @@ import { t } from "../../utils/i18n";
       doRandomVisit(btn);
     });
   });
+})();
+
+// 友链就地筛选（搜索框 + 分组胶囊）：点击/输入即就地刷新卡片列表，不跳转、不重载。
+// 交互参考 cuteleaf/friends 的 friend-filter 自定义元素（点击分类胶囊就地重渲染 + 淡入）。
+// 关键设计：
+//  - 分组筛选完全在客户端做 ⇒ 全部分组恒渲染（links.astro 已去掉 param.group 的 SSR 过滤），
+//    任何过滤状态都能就地还原，不受 URL 参数影响。
+//  - 卡片 = a[data-link-group]，分组区 = section[data-link-section]，均由 SSR 输出。
+//  - 事件委托 + guardOnce：Swup 换页后 DOM 重建，委托依然生效，逻辑只绑一次；
+//    换页后靠 astro:after-swap 把新页面重置回初始态（全部 + 空搜索）。
+(function () {
+  // 只绑一次：同 random-visit，不守卫会让多个闭包各持状态重复响应。
+  if (guardOnce("link-filter")) return;
+
+  // 「全部」胶囊的哨兵值（与 SSR 的 data-link-group-filter="__all__" 对应）
+  var ALL = "__all__";
+
+  // 激活态样式由页面级 CSS 的 .link-chip.is-active 承担（见 links.astro <style is:global>），
+  // 这里只维护状态钩子与 aria-pressed。
+  function filterEl() {
+    return document.getElementById("links-filter");
+  }
+
+  function setActive(btn) {
+    var filter = filterEl();
+    if (!filter) return;
+    var chips = filter.querySelectorAll("[data-link-group-filter]");
+    for (var i = 0; i < chips.length; i++) {
+      var on = chips[i] === btn;
+      chips[i].classList.toggle("is-active", on);
+      chips[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
+  function currentGroup() {
+    var filter = filterEl();
+    if (!filter) return ALL;
+    var active = filter.querySelector("[data-link-group-filter].is-active");
+    return active ? active.getAttribute("data-link-group-filter") : ALL;
+  }
+
+  // animate：true 才重播卡片入场动画（用户点击/输入触发）；
+  // 初次挂载为 false，避免与页面 .onload-animation 的入场动画打架。
+  function applyFilter(animate) {
+    var grid = document.getElementById("links-grid");
+    if (!grid) return;
+
+    var group = currentGroup();
+    var input = document.getElementById("links-search");
+    var query = ((input && input.value) || "").trim().toLowerCase();
+
+    var sections = grid.querySelectorAll("[data-link-section]");
+    var visibleTotal = 0;
+
+    for (var s = 0; s < sections.length; s++) {
+      var section = sections[s];
+      var groupName = section.getAttribute("data-link-section") || "";
+      var groupOk = group === ALL || group === groupName;
+      var cards = section.querySelectorAll("a[data-link-group]");
+      var shown = 0;
+
+      for (var c = 0; c < cards.length; c++) {
+        var card = cards[c];
+        // 命中范围 = 卡片全文（名称/描述/URL）+ 所属分组名
+        // （等价参考页的 name / desc / tags 三路匹配）
+        var haystack = (
+          (card.textContent || "") +
+          " " +
+          groupName
+        ).toLowerCase();
+        var match = groupOk && (!query || haystack.indexOf(query) !== -1);
+
+        if (match) {
+          card.style.display = "";
+          card.classList.remove("link-card-enter");
+          if (animate) {
+            void card.offsetWidth; // 强制回流，确保重新加类时动画从头重播
+            card.classList.add("link-card-enter");
+          }
+          shown++;
+        } else {
+          card.style.display = "none";
+          card.classList.remove("link-card-enter");
+        }
+      }
+
+      section.style.display = groupOk && shown > 0 ? "" : "none";
+      visibleTotal += shown;
+    }
+
+    var empty = document.getElementById("links-empty");
+    if (empty) empty.classList.toggle("hidden", visibleTotal > 0);
+  }
+
+  // 重置为新页面初始态：首个胶囊 =「全部」（SSR 默认），搜索清空
+  function reset() {
+    var filter = filterEl();
+    if (!filter) return;
+    var chips = filter.querySelectorAll("[data-link-group-filter]");
+    if (!chips.length) return;
+    setActive(chips[0]);
+    var input = document.getElementById("links-search");
+    if (input) input.value = "";
+    applyFilter(false);
+  }
+
+  document.addEventListener("click", function (e) {
+    var target = e.target;
+    if (!(target instanceof Element)) return;
+    var btn = target.closest("[data-link-group-filter]");
+    if (!btn) return;
+    var filter = filterEl();
+    if (!filter || !filter.contains(btn)) return;
+    e.preventDefault();
+    setActive(btn);
+    applyFilter(true);
+  });
+
+  document.addEventListener("input", function (e) {
+    var target = e.target;
+    if (!target || target.id !== "links-search") return;
+    applyFilter(true);
+  });
+
+  // 初始化
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", reset);
+  } else {
+    reset();
+  }
+
+  // 换页后重置（SwupScriptsPlugin 会重执行本脚本，但已被 guardOnce 拦下 ⇒ 靠此监听每次重新应用）
+  document.addEventListener("astro:after-swap", reset);
 })();

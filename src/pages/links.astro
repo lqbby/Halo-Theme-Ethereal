@@ -2,7 +2,6 @@
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import CopyButton from "../components/CopyButton.astro";
-import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 ---
 
@@ -44,6 +43,77 @@ import PageHeader from "../components/control/PageHeader.astro";
         color: var(--primary);
         text-decoration: underline;
       }
+
+      /* ── 友链就地筛选（搜索框 + 分组胶囊）：点击/输入即刷新卡片列表，不跳转、不重载 ──
+         参考 cuteleaf/friends 的交互（friend-filter 自定义元素）。
+         注意：本块是「未分层」的作者样式，天然胜过 Tailwind @layer 里的 .btn-card
+         背景/hover，故激活态无需 !important。 */
+      .links-search {
+        position: relative;
+      }
+      .links-search-icon {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        translate: 0 -50%;
+        font-size: 1.125rem;
+        color: color-mix(in oklab, var(--deep-text) 45%, transparent);
+        pointer-events: none;
+      }
+      .links-search-input {
+        width: 100%;
+        border-radius: 0.75rem;
+        border: 1px solid var(--line-divider);
+        background: transparent;
+        padding: 0.625rem 0.875rem 0.625rem 2.5rem;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: var(--deep-text);
+        outline: none;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .links-search-input::placeholder {
+        color: color-mix(in oklab, var(--deep-text) 40%, transparent);
+      }
+      .links-search-input:focus-visible {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px
+          color-mix(in oklab, var(--primary) 22%, transparent);
+      }
+      /* 胶囊激活态：与 FilterTab 激活样式一致（primary 底 + 反色文字）；
+         显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时「激活色」被顶掉 */
+      .link-chip.is-active,
+      .link-chip.is-active:hover {
+        background: var(--primary);
+        color: #fff;
+        border-color: transparent;
+      }
+      .dark .link-chip.is-active,
+      .dark .link-chip.is-active:hover {
+        color: rgb(0 0 0 / 0.7);
+      }
+      /* 「点击刷新」的入场反馈：筛选后卡片重新出现时上移淡入。
+         用独立动画名（而非复用 fade-in-up），以便再次点击时可靠重播 */
+      @keyframes links-card-in {
+        from {
+          opacity: 0;
+          translate: 0 0.75rem;
+        }
+        to {
+          opacity: 1;
+          translate: 0 0;
+        }
+      }
+      .link-card-enter {
+        animation: links-card-in var(--dur-entry, 300ms) ease both;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .link-card-enter {
+          animation: none;
+        }
+      }
     </style>
   </Fragment>
 
@@ -58,7 +128,6 @@ import PageHeader from "../components/control/PageHeader.astro";
       subExpr="#{page.links.subtitleCount(${#aggregates.sum(groups.![links.size()])})}"
       subShowIfExpr="${groups != null and not #lists.isEmpty(groups)}"
       sub="0 个链接"
-      filteredExpr="${not #lists.isEmpty(param.group)}"
     >
       <button
         th:if="${theme.config?.links?.features?.enable_random_visit != false && not #lists.isEmpty(groups)}"
@@ -79,24 +148,60 @@ import PageHeader from "../components/control/PageHeader.astro";
       </button>
     </PageHeader>
 
-    <FilterTabs
-      showIfExpr="${not #lists.isEmpty(groups)}"
-      allHrefExpr="@{/links}"
-      allActiveExpr="#lists.isEmpty(param.group)"
-      eachExpr="group : ${groups}"
-      tabTemplate={{
-        hrefExpr: "@{/links(group=${group.spec.displayName})}",
-        activeExpr: "#lists.contains(param.group, group.spec.displayName)",
-        labelExpr: "${group.spec.displayName}",
-        countExpr: "${#lists.size(group.links)}",
-        showIfExpr: "${not #lists.isEmpty(group.links)}",
-      }}
-    />
+    <!-- 搜索框 + 分组胶囊：点击/输入即就地刷新卡片列表（不跳转、不重载；行为见 links.bundle.js）
+         胶囊由 <a href="/links?group=…"> 改为 <button>，分组筛选完全在客户端完成 ⇒ 全部分组
+         恒渲染，任何过滤状态都能就地还原（不再依赖 param.group 的 SSR 过滤）。 -->
+    <div th:if="${not #lists.isEmpty(groups)}" class="mb-6">
+      <div class="links-search mb-3">
+        <span
+          class="links-search-icon icon-[material-symbols--search]"
+          aria-hidden="true"></span>
+        <input
+          id="links-search"
+          type="text"
+          autocomplete="off"
+          spellcheck="false"
+          th:placeholder="#{page.links.searchPlaceholder}"
+          th:aria-label="#{page.links.searchPlaceholder}"
+          placeholder="搜索友链..."
+          class="links-search-input"
+        />
+      </div>
+      <div id="links-filter" class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          class="btn-card link-chip is-active h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+          data-link-group-filter="__all__"
+          aria-pressed="true"
+        >
+          <span th:text="#{common.all}">全部</span>
+        </button>
+        <div class="contents" th:each="group : ${groups}">
+          <button
+            th:if="${not #lists.isEmpty(group.links)}"
+            type="button"
+            class="btn-card link-chip h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+            th:attr="data-link-group-filter=${group.spec.displayName}"
+            aria-pressed="false"
+          >
+            <span th:text="${group.spec.displayName}">Group</span>
+            <span class="ml-1 text-30" th:text="${#lists.size(group.links)}"
+              >0</span
+            >
+          </button>
+        </div>
+      </div>
+    </div>
 
-    <div th:if="${not #lists.isEmpty(groups)}" class="space-y-8">
+    <div
+      th:if="${not #lists.isEmpty(groups)}"
+      id="links-grid"
+      class="space-y-8"
+    >
       <section
         th:each="group, groupStat : ${groups}"
-        th:if="${(#lists.isEmpty(param.group) or #lists.contains(param.group, group.spec.displayName)) and not #lists.isEmpty(group.links)}"
+        th:if="${not #lists.isEmpty(group.links)}"
+        th:attr="data-link-section=${group.spec.displayName}"
         th:style="|animation-delay: min(calc(var(--content-delay) + ${groupStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
         class="onload-animation"
       >
@@ -165,6 +270,19 @@ import PageHeader from "../components/control/PageHeader.astro";
           </a>
         </div>
       </section>
+    </div>
+
+    <!-- 就地筛选「无结果」（JS 控制显隐；与下方「暂无友情链接」是两件事） -->
+    <div
+      id="links-empty"
+      th:if="${not #lists.isEmpty(groups)}"
+      class="hidden py-12 text-center"
+    >
+      <span class="icon-[material-symbols--search-off-rounded] text-4xl text-30"
+      ></span>
+      <p class="mt-3 text-sm text-50" th:text="#{page.links.noResult}">
+        找不到相关结果。
+      </p>
     </div>
 
     <div th:if="${#lists.isEmpty(groups)}" class="py-12 text-center text-50">
