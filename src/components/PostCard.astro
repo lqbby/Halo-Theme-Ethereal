@@ -54,14 +54,14 @@ import { imageSuffixThWith } from "../utils/image-suffix";
       </span>
     </div>
 
-    <!-- 底部统计：浏览/评论/点赞（轻量胶囊：图标+数字合一，去竖线用 gap；
-         主题化配色走 PostList.astro 的 .post-card-stat 全局样式） -->
+    <!-- 底部统计：浏览/评论/点赞（纯「图标 + 数字」，无胶囊底；前景走 text-50
+         中性灰，与上方标签 chip 拉开权重。配色细则见 PostList.astro 的 .post-card-stat） -->
     <div
-      class="post-card-stats mt-auto flex flex-wrap items-center gap-2 text-sm transition"
+      class="post-card-stats mt-auto flex flex-wrap items-center gap-3 text-sm text-50 transition"
     >
       <span
         th:if="${post.stats != null}"
-        class="post-card-stat inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
+        class="post-card-stat inline-flex items-center gap-1.5"
       >
         <span
           class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
@@ -72,7 +72,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
         th:if="${post.stats != null}"
         th:href="${post.status.permalink + '#comment'}"
         th:aria-label="评论"
-        class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5 rounded-full px-2.5 py-1"
+        class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5"
       >
         <span class="icon-[mdi--comment-text-outline] text-base leading-none"
         ></span>
@@ -86,7 +86,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
         th:attr="data-post=${post.metadata.name}"
         th:data-count="${post.stats.upvote}"
         aria-label="点赞"
-        class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 rounded-full border-none px-2.5 py-1 text-sm"
+        class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent"
       >
         <span class="relative inline-flex text-base leading-none">
           <span

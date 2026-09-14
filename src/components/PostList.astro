@@ -63,18 +63,19 @@ const { pagination = "posts" } = Astro.props;
     color: var(--primary);
   }
 
-  /* ===== 卡片底部统计胶囊（浏览/评论/点赞）：图标+数字合一，中性 hue 底 +
-        主题色前景（对齐 meta-icon 惯例） ===== */
-  #post-list-container .post-card-stats .post-card-stat {
-    background: var(--btn-regular-bg);
-    color: var(--btn-content);
-    transition:
-      background 0.15s ease,
-      color 0.15s ease;
+  /* ===== 卡片底部统计（浏览/评论/点赞）：纯「图标 + 数字」，无胶囊底 =====
+     原先统计与上方标签同为药丸，但底色更实（--btn-regular-bg 不透明 vs 标签 8% 半透明）
+     ⇒ 底栏读起来像「第二行标签」，且比标签更抢眼。去掉底色 + 前景改中性灰
+     （跟随 .post-card-stats 的 text-50，与日期同一档灰度）后：
+     标签＝分类（带色 chip）、统计＝数值（素色），权重拉开、不再打架。 */
+  #post-list-container .post-card-stat {
+    background: transparent;
+    color: inherit;
+    transition: color 0.15s ease;
   }
-  /* 可点击的评论项：hover 底加深 + 前景变主色 */
-  #post-list-container a.post-card-stat:hover {
-    background: var(--btn-regular-bg-hover);
+  /* 可点击项（评论链接 / 点赞按钮）：hover 前景变主色 */
+  #post-list-container a.post-card-stat:hover,
+  #post-list-container .post-card-stat-like:hover {
     color: var(--primary);
   }
   /* 点赞为可点击按钮：显示手型指针（其余胶囊是展示/链接） */
@@ -87,6 +88,10 @@ const { pagination = "posts" } = Astro.props;
     transition: opacity 0.15s ease;
   }
   #post-list-container .post-card-stat-like .stat-heart-filled {
+    color: var(--primary);
+  }
+  /* 已点赞：数字一并转主色，与实心心形呼应 */
+  #post-list-container .post-card-stat-like.liked {
     color: var(--primary);
   }
   #post-list-container .post-card-stat-like:hover .stat-heart-outline,
@@ -246,11 +251,14 @@ const { pagination = "posts" } = Astro.props;
   #post-list-container.post-grid-mode .post-card-arrow {
     top: calc(100% - 1.75rem / 2) !important;
   }
-  /* 网格：元信息与统计缩小 */
-  #post-list-container.post-grid-mode .post-meta,
-  #post-list-container.post-grid-mode .post-card-stats {
+  /* 网格：元信息与统计缩小（统计去胶囊底后需略大的间距才不成一坨） */
+  #post-list-container.post-grid-mode .post-meta {
     font-size: 0.8rem !important;
     gap: 0.5rem !important;
+  }
+  #post-list-container.post-grid-mode .post-card-stats {
+    font-size: 0.8rem !important;
+    gap: 0.75rem !important;
   }
 
   /* 摘要行数：list/grid 均由配置 --post-desc-lines 控制（0 = 不截断） */
@@ -311,10 +319,13 @@ const { pagination = "posts" } = Astro.props;
     }
 
     /* 列表模式元信息/统计缩小（与网格一致） */
-    #post-list-container.post-list-mode .post-meta,
-    #post-list-container.post-list-mode .post-card-stats {
+    #post-list-container.post-list-mode .post-meta {
       font-size: 0.8rem !important;
       gap: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-stats {
+      font-size: 0.8rem !important;
+      gap: 0.75rem !important;
     }
 
     /* 列表模式摘要字号与网格一致 */
