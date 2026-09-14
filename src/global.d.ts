@@ -20,5 +20,8 @@ declare global {
     // 当前文章 URL 同步（scripts/assets/post-share.ts）
     __etherealSyncCurrentPostUrl?: () => void;
     __etherealSyncCurrentPostUrlBound?: boolean;
+    // 相册页「就地筛选」替换列表区后重建 PhotoSwipe 灯箱
+    // （content-media.ts → app.ts 暴露，public/assets/list-filter.js 调用）
+    __etherealRefreshPhotosGallery?: () => void;
   }
 }

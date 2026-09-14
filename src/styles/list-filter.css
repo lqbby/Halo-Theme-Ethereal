@@ -1,0 +1,35 @@
+@reference "./global.css";
+
+/* ==========================================================================
+   「就地筛选」列表项入场反馈（equipments / photos / bangumis / portfolio 共用）
+   --------------------------------------------------------------------------
+   交互参考 /links 的友链就地筛选：点筛选胶囊 → 列表就地重渲染并淡入上移。
+   要点：
+     - 用独立 keyframes（不复用 fade-in-up），否则 `animationend` 的全局委托会把
+       它当成 `.onload-animation` 剥离，下一次点击无法重播。
+     - fill: both —— 动画起点即 opacity:0，避免「先满帧后淡入」的闪一下。
+     - 只做 opacity + translate（合成器属性），不触发重排。
+     - `.list-item-enter` 由 list-filter.ts / portfolio-filter.ts 在**替换完成后**
+       挂到 `[data-list-item]` 上（服务端渲染的 HTML 里没有这个类）。
+   ========================================================================== */
+
+@keyframes list-item-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.list-item-enter {
+  animation: list-item-in var(--dur-entry, 300ms) ease both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-item-enter {
+    animation: none;
+  }
+}

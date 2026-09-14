@@ -79,4 +79,19 @@ function destroyAll() {
   photosGalleryLightbox = undefined;
 }
 
-export { armLazyLightbox, initContentLightbox, initPhotosGallery, destroyAll };
+// 相册页「就地筛选」用：/photos 的分组胶囊会局部替换 #photos-gallery 所在的列表区，
+// 而 PhotoSwipeLightbox 绑定的是**被替换掉的旧元素**（且 initPhotosGallery 有单例守卫，
+// 不会自己重建）⇒ 替换后必须销毁旧实例再重新 init，否则点图打不开灯箱。
+function refreshPhotosGallery() {
+  photosGalleryLightbox?.destroy?.();
+  photosGalleryLightbox = undefined;
+  void initPhotosGallery();
+}
+
+export {
+  armLazyLightbox,
+  initContentLightbox,
+  initPhotosGallery,
+  refreshPhotosGallery,
+  destroyAll,
+};

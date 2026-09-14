@@ -34,6 +34,7 @@ interface Props {
   eachExpr?: string;
   tabTemplate?: TabItem;
   items?: TabItem[];
+  linkAttrs?: Record<string, string>;
 }
 
 const {
@@ -50,6 +51,7 @@ const {
   tabTemplate,
   items = [],
   class: className = "mb-6 flex flex-wrap gap-2",
+  linkAttrs,
 } = Astro.props;
 ---
 
@@ -63,15 +65,26 @@ const {
     countShowIfExpr={allCountShowIfExpr}
     size={size}
     countClass={countClass}
+    attrs={linkAttrs}
   />
   {
     eachExpr && tabTemplate ? (
       <div class="contents" th:each={eachExpr}>
-        <FilterTab {...tabTemplate} size={size} countClass={countClass} />
+        <FilterTab
+          {...tabTemplate}
+          size={size}
+          countClass={countClass}
+          attrs={linkAttrs}
+        />
       </div>
     ) : (
       items.map((item) => (
-        <FilterTab {...item} size={size} countClass={countClass} />
+        <FilterTab
+          {...item}
+          size={size}
+          countClass={countClass}
+          attrs={linkAttrs}
+        />
       ))
     )
   }

@@ -39,6 +39,7 @@ import { initProfileStatus } from "../utils/profile-status";
 import {
   armLazyLightbox,
   initPhotosGallery,
+  refreshPhotosGallery,
   destroyAll,
 } from "../utils/content-media";
 
@@ -714,6 +715,11 @@ if (!(window as any).__etherealScrollDown) {
 init();
 armLazyLightbox();
 void initPhotosGallery();
+
+// 相册页「就地筛选」（templates/assets/list-filter.js）会替换 #photos-gallery 所在的列表区，
+// 而灯箱绑的是被换掉的旧元素 ⇒ 该脚本替换后需要重建灯箱。它是独立的经典脚本产物，
+// 拿不到本模块作用域，故把重建函数挂到 window 供其调用（元素不存在时函数内即空转）。
+(window as any).__etherealRefreshPhotosGallery = refreshPhotosGallery;
 
 if (window?.swup?.hooks) {
   setupSwup();

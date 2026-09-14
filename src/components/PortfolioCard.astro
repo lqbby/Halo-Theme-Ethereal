@@ -9,13 +9,33 @@
 //       + 正文（标签行 / 标题 / 摘要 / 技术栈 / 底部元信息）。
 // 封面用 object-fit: contain 而非 cover——本项目封面多为 GitHub OG 图
 // （2:1、白底、图内含仓库名），正方形裁切会把仓库名切碎。
+//
+// 就地筛选（1.5.10）：列表页改为纯客户端过滤（全量渲染 + 点胶囊切显隐），
+// 故本卡片额外输出客户端可读的筛选键：
+//   data-list-item                     「就地筛选」脚本统一钩子（入场动画）
+//   data-pf-platform / data-pf-type    平台 / 类型的**原始 key**（不是展示名）
+//   [data-pf-tag] 隐藏节点             每个 tag / techStack 一个（插件对 tags 与
+//                                      techStacks 做 Or 匹配，故两者都算标签过滤命中）
+// 标签用「一个节点一个值」而不是拼成字符串：避免分隔符与标签内容撞车。
 ---
 
 <article
   th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
   class="pf-card onload-animation"
+  data-list-item="1"
   th:classappend="${project.featured == true ? ' pf-card--featured' : ''}"
+  th:attr="data-pf-platform=${project.platform},data-pf-type=${project.type}"
 >
+  <span
+    th:each="pfTag : ${project.tags}"
+    data-pf-tag="1"
+    class="hidden"
+    th:text="${pfTag}"></span>
+  <span
+    th:each="pfTag : ${project.techStacks}"
+    data-pf-tag="1"
+    class="hidden"
+    th:text="${pfTag}"></span>
   <a
     th:if="${not #strings.isEmpty(project.cover)}"
     th:href="@{/portfolio/{slug}(slug=${project.slug})}"

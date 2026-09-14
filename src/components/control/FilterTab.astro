@@ -8,6 +8,8 @@
 // - showIfExpr/withExpr/countShowIfExpr   完整表达式（含 ${}），如 `${frontendCount > 0}`
 // - size           默认 `sm`（h-9）；`lg`（h-10）。两者均带 shrink-0，适配 photos 横向滚动容器
 // - countClass     计数 span 样式，默认 `ml-1 text-30`；photos 传 `ml-2 text-xs opacity-70`
+// - attrs          额外透传到 <a> 的原生属性（如 `{ "data-no-swup": "1" }`，告诉 Swup 别接管
+//                  本次点击，交给就地筛选脚本）。默认空对象 ⇒ 不影响既有页面输出。
 interface Props {
   hrefExpr?: string;
   activeExpr?: string;
@@ -19,6 +21,7 @@ interface Props {
   label?: string;
   countClass?: string;
   size?: "sm" | "lg";
+  attrs?: Record<string, string>;
 }
 
 const {
@@ -32,6 +35,7 @@ const {
   label,
   countClass = "ml-1 text-30",
   size = "sm",
+  attrs = {},
 } = Astro.props;
 
 const tabClass = `btn-card shrink-0 rounded-xl px-3 text-sm font-bold text-75 ${
@@ -48,6 +52,7 @@ const activeAppend = activeExpr
   th:href={hrefExpr}
   th:classappend={activeAppend}
   class={tabClass}
+  {...attrs}
 >
   <span th:text={labelExpr}>{label}</span>
   {

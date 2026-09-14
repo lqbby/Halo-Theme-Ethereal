@@ -1,9 +1,18 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
-import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import PortfolioCard from "../components/PortfolioCard.astro";
+import "../styles/list-filter.css";
+
+// 就地筛选（1.5.10）：本页**全量渲染**（listBy 不再传平台/类型/标签条件）+ 纯客户端过滤，
+// 点胶囊 0 请求、瞬时切显隐，与 /links 的友链筛选同一交互。
+//
+// 为什么能纯客户端：项目集没有服务端分页（listBy 直接取 1..999），全部项目都在 DOM 里，
+// 任何过滤组合都能就地还原 —— 不需要像 /equipments、/photos 那样回服务端取新 HTML。
+// 副作用：筛选不再由 URL 驱动（胶囊从 <a href> 变 <button>）；但 `?platform/type/tag=`
+// 深链仍可用 —— portfolio-filter.js 初始化时读一次查询参数（详情页的技术栈 chip 就靠它）。
+const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
 ---
 
 <MainGridLayout
@@ -19,13 +28,10 @@ import PortfolioCard from "../components/PortfolioCard.astro";
     th:remove="tag"
     th:with="platformLabels=${projectFinder.platformLabels()},
              typeLabels=${projectFinder.typeLabels()},
-             platform=${#strings.isEmpty(param.platform) ? '' : param.platform},
-             type=${#strings.isEmpty(param.type) ? '' : param.type},
-             tag=${#strings.isEmpty(param.tag) ? '' : param.tag},
-             projects=${projectFinder.listBy('', platform, type, tag, 1, 999)}"
+             projects=${projectFinder.listBy('', '', '', '', 1, 999)}"
   >
     <section class="card-base mb-4 px-6 py-6 md:px-9 onload-animation">
-      <!-- 标题区域 -->
+      <!-- 标题区域（客户端筛选 ⇒ 不传 filteredExpr，同 wishes 页） -->
       <PageHeader
         containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
         titleExpr="${projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')}"
@@ -36,122 +42,132 @@ import PortfolioCard from "../components/PortfolioCard.astro";
         subExpr="#{page.portfolio.subtitleCount(${projects.total})}"
         subShowIfExpr="${projects != null}"
         sub="0 个项目"
-        filteredExpr="${not #strings.isEmpty(platform) or not #strings.isEmpty(type) or not #strings.isEmpty(tag)}"
       />
 
-      <!-- 平台筛选：计数为 0 的选项不渲染（后台默认选项常含未使用的项，
-           全列出来会让这一行在窄内容栏里堆成多排噪声）。
-           showIfExpr 与 countExpr 都不能引用彼此——FilterTab 的 th:if 先于
-           th:with 执行，故 showIfExpr 里直接调 Finder，不用 withExpr 的变量。 -->
-      <FilterTabs
-        showIfExpr="${platformLabels != null and not platformLabels.isEmpty()}"
-        class="mb-4 flex flex-wrap gap-2"
-        allHrefExpr="@{/portfolio(type=${type}, tag=${tag})}"
-        allActiveExpr="#strings.isEmpty(platform)"
-        allLabelExpr="#{page.portfolio.allPlatforms}"
-        allLabel="全部平台"
-        eachExpr="entry : ${platformLabels.entrySet()}"
-        tabTemplate={{
-          hrefExpr:
-            "@{/portfolio(platform=${entry.key}, type=${type}, tag=${tag})}",
-          activeExpr: "#strings.equals(platform, entry.key)",
-          labelExpr: "${entry.value}",
-          countExpr: "${platformCount.total}",
-          showIfExpr:
-            "${projectFinder.listByPlatform(entry.key, 1, 1).total > 0}",
-          withExpr:
-            "platformCount=${projectFinder.listByPlatform(entry.key, 1, 1)}",
-        }}
-      />
+      <!-- 筛选胶囊（平台 / 类型两维，各含「全部」；点击就地切显隐，见 portfolio-filter.js）
+           showIfExpr 与 counts 都不能引用彼此——th:if 先于 th:with 执行，故 th:if 里直接调
+           Finder。计数为 0 的选项不渲染（后台默认选项常含未使用的项）。 -->
+      <div id="pf-filter">
+        <div
+          th:if="${platformLabels != null and not platformLabels.isEmpty()}"
+          class="mb-4 flex flex-wrap gap-2"
+        >
+          <button
+            type="button"
+            class="btn-card pf-chip is-active h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+            data-pf-dim="platform"
+            data-pf-value="__all__"
+            aria-pressed="true"
+            th:text="#{page.portfolio.allPlatforms}"
+          >
+            全部平台
+          </button>
+          <button
+            th:each="entry : ${platformLabels.entrySet()}"
+            th:if="${projectFinder.listByPlatform(entry.key, 1, 1).total > 0}"
+            th:with="pfCount=${projectFinder.listByPlatform(entry.key, 1, 1)}"
+            type="button"
+            class="btn-card pf-chip h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+            th:attr="data-pf-dim='platform',data-pf-value=${entry.key}"
+            aria-pressed="false"
+          >
+            <span th:text="${entry.value}">Platform</span>
+            <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
+          </button>
+        </div>
 
-      <!-- 类型筛选 -->
-      <FilterTabs
-        showIfExpr="${typeLabels != null and not typeLabels.isEmpty()}"
-        class="mb-6 flex flex-wrap gap-2"
-        allHrefExpr="@{/portfolio(platform=${platform}, tag=${tag})}"
-        allActiveExpr="#strings.isEmpty(type)"
-        allLabelExpr="#{page.portfolio.allTypes}"
-        allLabel="全部类型"
-        eachExpr="entry : ${typeLabels.entrySet()}"
-        tabTemplate={{
-          hrefExpr:
-            "@{/portfolio(platform=${platform}, type=${entry.key}, tag=${tag})}",
-          activeExpr: "#strings.equals(type, entry.key)",
-          labelExpr: "${entry.value}",
-          countExpr: "${typeCount.total}",
-          showIfExpr: "${projectFinder.listByType(entry.key, 1, 1).total > 0}",
-          withExpr: "typeCount=${projectFinder.listByType(entry.key, 1, 1)}",
-        }}
-      />
+        <div
+          th:if="${typeLabels != null and not typeLabels.isEmpty()}"
+          class="mb-6 flex flex-wrap gap-2"
+        >
+          <button
+            type="button"
+            class="btn-card pf-chip is-active h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+            data-pf-dim="type"
+            data-pf-value="__all__"
+            aria-pressed="true"
+            th:text="#{page.portfolio.allTypes}"
+          >
+            全部类型
+          </button>
+          <button
+            th:each="entry : ${typeLabels.entrySet()}"
+            th:if="${projectFinder.listByType(entry.key, 1, 1).total > 0}"
+            th:with="pfCount=${projectFinder.listByType(entry.key, 1, 1)}"
+            type="button"
+            class="btn-card pf-chip h-9 shrink-0 rounded-xl px-3 text-sm font-bold text-75"
+            th:attr="data-pf-dim='type',data-pf-value=${entry.key}"
+            aria-pressed="false"
+          >
+            <span th:text="${entry.value}">Type</span>
+            <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
+          </button>
+        </div>
+      </div>
 
-      <!-- 标签筛选生效指示：详情页的技术栈 / 标签 chip 用同一个 `tag` 参数
-           （插件对 tags 与 techStacks 做 Or 匹配），点 ✕ 只去掉标签条件、
-           保留平台与类型，其余筛选不被牵连 -->
-      <div th:if="${not #strings.isEmpty(tag)}" class="pf-active">
+      <!-- 标签筛选中（详情页的技术栈 / 标签 chip 用同一个 `tag` 参数进来）：
+           初始隐藏，由脚本按 URL 参数 / 点 ✕ 切显隐；✕ 只去掉标签条件、保留平台与类型 -->
+      <div id="pf-active-tag" class="pf-active" hidden>
         <span class="pf-active__label" th:text="#{page.portfolio.tagFilter}"
           >标签筛选</span
         >
-        <a
-          th:href="@{/portfolio(platform=${platform}, type=${type})}"
+        <button
+          type="button"
           class="pf-active__chip"
           th:aria-label="${#messages.msg('page.portfolio.clearTagFilter')}"
         >
           <span class="icon-[material-symbols--sell-rounded]"></span>
-          <span th:text="${tag}">Tech</span>
+          <span data-pf-tag-text="1">Tech</span>
           <span class="icon-[material-symbols--close-rounded] pf-active__x"
           ></span>
-        </a>
+        </button>
       </div>
 
       <!-- 页面内网格用容器查询分档：双侧栏布局下内容栏只有约 348px，
            视口媒体查询会误判成"宽屏"而排多列。容器查询挂在 .pf-page 上，
            卡片按「窄栏横向 / 宽栏纵向多列」两种形态自适应（见页面样式）。 -->
-      <div class="pf-page">
-        <!-- 推荐项目（仅无筛选时展示） -->
-        <div
-          th:remove="tag"
-          th:if="${#strings.isEmpty(platform) and #strings.isEmpty(type) and #strings.isEmpty(tag)}"
-        >
+      <div id="pf-page" class="pf-page">
+        <!-- 推荐项目（有筛选时整体隐藏，由脚本切） -->
+        <div th:remove="tag" th:with="featured=${projectFinder.featured(1, 6)}">
           <div
-            th:remove="tag"
-            th:with="featured=${projectFinder.featured(1, 6)}"
+            id="pf-featured"
+            th:if="${featured != null and not featured.items.isEmpty()}"
           >
-            <div th:if="${featured != null and not featured.items.isEmpty()}">
-              <h2 class="pf-sec">
-                <span class="pf-sec__bar"></span>
-                <span class="pf-sec__title"
-                  ><span
-                    class="icon-[material-symbols--star-rounded] pf-sec__icon"
-                  ></span>
-                  <span th:text="#{page.portfolio.featuredProjects}"
-                    >推荐项目</span
-                  ></span
-                >
-                <span class="pf-sec__line"></span>
-              </h2>
-              <div class="pf-grid">
-                <div
-                  class="contents"
-                  th:each="project, stat : ${featured.items}"
-                >
-                  <PortfolioCard />
-                </div>
+            <h2 class="pf-sec">
+              <span class="pf-sec__bar"></span>
+              <span class="pf-sec__title"
+                ><span
+                  class="icon-[material-symbols--star-rounded] pf-sec__icon"
+                ></span>
+                <span th:text="#{page.portfolio.featuredProjects}"
+                  >推荐项目</span
+                ></span
+              >
+              <span class="pf-sec__line"></span>
+            </h2>
+            <div class="pf-grid">
+              <div class="contents" th:each="project, stat : ${featured.items}">
+                <PortfolioCard />
               </div>
             </div>
           </div>
         </div>
 
         <!-- 全部项目：带分区标题，避免推荐区与全部区的同一项目看起来像重复渲染 -->
-        <div th:if="${projects != null and not projects.items.isEmpty()}">
-          <h2
-            class="pf-sec"
-            th:classappend="${#strings.isEmpty(platform) and #strings.isEmpty(type) and #strings.isEmpty(tag) ? '' : ' pf-sec--first'}"
-          >
+        <div
+          id="pf-all"
+          th:if="${projects != null and not projects.items.isEmpty()}"
+        >
+          <h2 id="pf-all-head" class="pf-sec">
             <span class="pf-sec__bar"></span>
             <span class="pf-sec__title" th:text="#{page.portfolio.allProjects}"
               >全部项目</span
             >
-            <span class="pf-sec__count" th:text="${projects.total}">0</span>
+            <span
+              id="pf-all-count"
+              class="pf-sec__count"
+              th:text="${projects.total}">0</span
+            >
             <span class="pf-sec__line"></span>
           </h2>
           <div class="pf-grid">
@@ -161,10 +177,11 @@ import PortfolioCard from "../components/PortfolioCard.astro";
           </div>
         </div>
 
-        <!-- 空状态 -->
+        <!-- 空状态：常渲染、初始隐藏（有项目时），由脚本按可见数量切显隐 -->
         <div
-          th:if="${projects == null or projects.items.isEmpty()}"
+          id="pf-empty"
           class="pf-empty"
+          th:attr="hidden=${projects != null and not #lists.isEmpty(projects.items) ? 'hidden' : null}"
         >
           <span
             class="icon-[material-symbols--folder-open-rounded] pf-empty__icon"
@@ -173,15 +190,21 @@ import PortfolioCard from "../components/PortfolioCard.astro";
             暂无项目
           </p>
           <a
-            th:if="${not #strings.isEmpty(platform) or not #strings.isEmpty(type) or not #strings.isEmpty(tag)}"
+            id="pf-empty-clear"
             th:href="@{/portfolio}"
             class="pf-empty__link"
+            hidden
             th:text="#{page.portfolio.viewAll}">查看全部</a
           >
         </div>
       </div>
     </section>
   </div>
+
+  <!-- 选中态 / 显隐全靠客户端（见 portfolio-filter.js） -->
+  <script
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/portfolio-filter.js?v=${ASSET_VERSION}`}
+    defer></script>
 </MainGridLayout>
 
 <style is:global>
@@ -196,13 +219,37 @@ import PortfolioCard from "../components/PortfolioCard.astro";
      「桌面窄栏」。
      ⚠️ 曾经做过「窄栏横向卡（封面缩成左侧小色带）」——已废弃：480px 级手机上
      封面只剩 104×52，GitHub OG 图缩到那个尺寸字全糊；而且实测在 482px 下
-     2 列纵向卡的行高（3 行 ≈770px）反而比横向卡单列（5 张 ≈808px）更省。
+     2 列纵向卡的行高（3 行 ≈770px）比横向卡单列（5 张 ≈808px）更省。
      封面一律 width:100% + height:auto（contain 语义），不裁切：本项目封面
      多为 GitHub OG 图（2:1、白底、图内含仓库名），裁切会把仓库名切碎。
      ========================================================================== */
 
   .pf-page {
     container-type: inline-size;
+  }
+
+  /* ── 筛选胶囊激活态（就地筛选，交互见 portfolio-filter.js） ──
+     本块是「未分层」的作者样式，天然胜过 Tailwind @layer 里的 .btn-card 背景/hover，
+     故激活态无需 !important；显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时
+     激活色被顶掉。 */
+  .pf-chip.is-active,
+  .pf-chip.is-active:hover {
+    background: var(--primary);
+    color: #fff;
+    border-color: transparent;
+  }
+  .dark .pf-chip.is-active,
+  .dark .pf-chip.is-active:hover {
+    color: rgb(0 0 0 / 0.7);
+  }
+
+  /* hidden 属性优先于组件自身 display：.pf-active / .pf-empty 都是 display:flex，
+     不写这条会被未分层的规则盖掉（Tailwind 的 hidden 工具类同理）。 */
+  .pf-active[hidden],
+  .pf-empty[hidden],
+  .pf-empty__link[hidden],
+  #pf-featured[hidden] {
+    display: none;
   }
 
   /* ── 标签筛选生效指示（详情页 chip 点进来的落点） ── */
@@ -224,12 +271,15 @@ import PortfolioCard from "../components/PortfolioCard.astro";
     gap: 0.25rem;
     height: 2rem;
     padding: 0 0.4375rem 0 0.625rem;
+    border: 0;
     border-radius: 0.625rem;
     background: color-mix(in oklab, var(--primary) 12%, transparent);
     color: var(--primary);
+    font-family: inherit;
     font-size: 0.8125rem;
     font-weight: 700;
-    text-decoration: none;
+    line-height: 1;
+    cursor: pointer;
     transition:
       background-color 0.2s ease,
       transform 0.15s ease;
