@@ -63,59 +63,21 @@ const { pagination = "posts" } = Astro.props;
     color: var(--primary);
   }
 
-  /* ===== eyebrow：左分类 chip（主色浅底、无图标）/ 右等宽日期 =====
-     改版去掉了日历/图钉/书本三颗小图标 —— 一行只留两个信息点 */
-  #post-list-container .post-card-cat {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.1rem 0.45rem;
-    border-radius: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--primary);
-    background: color-mix(in oklab, var(--primary) 12%, transparent);
-    transition: background 0.15s ease;
+  /* ===== 卡片底部统计胶囊（浏览/评论/点赞）：图标+数字合一，中性 hue 底 +
+        主题色前景（对齐 meta-icon 惯例） ===== */
+  #post-list-container .post-card-stats .post-card-stat {
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+    transition:
+      background 0.15s ease,
+      color 0.15s ease;
   }
-  #post-list-container a.post-card-cat:hover {
-    background: color-mix(in oklab, var(--primary) 22%, transparent);
-  }
-  #post-list-container .post-card-pin-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.2rem;
-    padding: 0.1rem 0.45rem;
-    border-radius: 0.4rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    line-height: 1.4;
-    color: var(--on-primary);
-    background: var(--primary);
-  }
-  #post-list-container .post-card-date {
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.75rem;
-    font-weight: 500;
-  }
-
-  /* ===== 底栏：标签（左）+ 统计（右），上方一条虚线分隔正文与元信息 =====
-     统计改「纯图标 + 数字」、去胶囊底 ⇒ 与标签（极淡底）不再同权重 */
-  #post-list-container .post-card-foot {
-    padding-top: 0.65rem;
-    border-top: 1px dashed
-      color-mix(in oklab, var(--primary) 24%, var(--line-divider));
-  }
-  #post-list-container .post-card-stat {
-    background: transparent;
-    color: inherit;
-    transition: color 0.15s ease;
-  }
-  /* 可点击的统计项（评论 / 点赞）：hover 变主色 */
-  #post-list-container a.post-card-stat:hover,
-  #post-list-container .post-card-stat-like:hover {
+  /* 可点击的评论项：hover 底加深 + 前景变主色 */
+  #post-list-container a.post-card-stat:hover {
+    background: var(--btn-regular-bg-hover);
     color: var(--primary);
   }
-  /* 点赞为可点击按钮：显示手型指针（其余是展示/链接） */
+  /* 点赞为可点击按钮：显示手型指针（其余胶囊是展示/链接） */
   #post-list-container .post-card-stat-like {
     cursor: pointer;
   }
@@ -125,10 +87,6 @@ const { pagination = "posts" } = Astro.props;
     transition: opacity 0.15s ease;
   }
   #post-list-container .post-card-stat-like .stat-heart-filled {
-    color: var(--primary);
-  }
-  /* 已点赞：数字一并转主色，与实心心形呼应 */
-  #post-list-container .post-card-stat-like.liked {
     color: var(--primary);
   }
   #post-list-container .post-card-stat-like:hover .stat-heart-outline,
@@ -158,80 +116,6 @@ const { pagination = "posts" } = Astro.props;
     box-shadow: 0 2px 18px color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
-  /* ===== 封面装饰：scrim / 序号 / 置顶旗标 ===== */
-  /* scrim：图片底部与下方标题区柔和过渡（hover 略微加深） */
-  #post-list-container .post-card-scrim {
-    position: absolute;
-    inset: auto 0 0 0;
-    z-index: 1;
-    height: 46%;
-    opacity: 0.85;
-    background: linear-gradient(to top, var(--card-bg), transparent);
-    pointer-events: none;
-    transition: opacity 0.3s ease;
-  }
-  #post-list-container .post-card:hover .post-card-scrim {
-    opacity: 1;
-  }
-  /* 序号：hover 浮出（纯装饰，零数据成本） */
-  #post-list-container .post-card-index {
-    position: absolute;
-    top: 0.6rem;
-    left: 0.6rem;
-    z-index: 5;
-    padding: 0.05rem 0.4rem;
-    border-radius: 0.4rem;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 0.68rem;
-    font-weight: 700;
-    line-height: 1.5;
-    letter-spacing: 0.06em;
-    color: #fff;
-    background: rgba(0, 0, 0, 0.42);
-    backdrop-filter: blur(6px);
-    opacity: 0;
-    translate: 0 -0.25rem;
-    pointer-events: none;
-    transition:
-      opacity 0.25s ease,
-      translate 0.25s ease;
-  }
-  #post-list-container .post-card:hover .post-card-index {
-    opacity: 1;
-    translate: 0 0;
-  }
-  /* 置顶旗标：挂在封面右上角（卡片外框的 outline 环由上方规则保留） */
-  #post-list-container .post-card-flag {
-    position: absolute;
-    top: 0.6rem;
-    right: 0.6rem;
-    z-index: 6;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.12rem 0.5rem;
-    border-radius: 999px;
-    font-size: 0.7rem;
-    font-weight: 700;
-    line-height: 1.5;
-    color: var(--on-primary);
-    background: var(--primary);
-    box-shadow: 0 0.2rem 0.8rem
-      color-mix(in oklab, var(--primary) 40%, transparent);
-    pointer-events: none;
-  }
-
-  /* 标题左竖条：仅 hover 淡入 + scaleY 展开（静止时不再是噪音）。
-     基础态由 PostCard 的 before:opacity-0 给出，此处只补 transform 与 hover */
-  #post-list-container .post-card-title::before {
-    transform: scaleY(0.4);
-    transform-origin: center;
-  }
-  #post-list-container .post-card:hover .post-card-title::before {
-    opacity: 1;
-    transform: scaleY(1);
-  }
-
   /* ===== 网格（grid）布局容器 ===== */
   #post-list-container.post-grid-mode {
     display: grid;
@@ -253,9 +137,9 @@ const { pagination = "posts" } = Astro.props;
   }
 
   /* 封面：移到卡片顶部。默认内缩（grid-cover-inset）：按卡片内边距内缩、四角圆角。
-     封面固定为 16:10 统一高度（改版：原 2:1 偏扁，16:10 让图更有存在感），
-     不随等高网格拉伸；剩余高度由内容区吸收，摘要下方留白（见下方内容区规则）。
-     开启「封面高度自适应」时由 .grid-cover-fill 覆盖为 flex-grow 吸收 */
+     封面固定为 2:1 统一高度，不随等高网格拉伸；剩余高度由内容区吸收，
+     摘要下方留白（见下方内容区规则）。开启「封面高度自适应」时由
+     .grid-cover-fill 覆盖为 flex-grow 吸收 */
   #post-list-container.post-grid-mode .post-card-cover {
     position: relative !important;
     top: auto !important;
@@ -264,9 +148,9 @@ const { pagination = "posts" } = Astro.props;
     left: auto !important;
     width: calc(100% - 2rem) !important;
     max-height: none !important;
-    aspect-ratio: 16 / 10 !important;
+    aspect-ratio: 2 / 1 !important;
     margin: 1rem 1rem 0 !important;
-    border-radius: 0.875rem !important;
+    border-radius: 0.75rem !important;
     flex-shrink: 0 !important;
   }
 
@@ -286,52 +170,14 @@ const { pagination = "posts" } = Astro.props;
     border-radius: var(--radius-large) var(--radius-large) 0 0 !important;
   }
 
-  /* 无封面占位封面：主色对角渐变 + 细点阵纹理 + 大号序号（改版：不再是灰块）。
+  /* 无封面占位封面：主题色渐变背景。
      默认隐藏，仅桌面端网格（非瀑布流）下显示（移动端/列表/瀑布流用主题色按钮） */
   #post-list-container .post-card-cover-placeholder {
     display: none !important;
-    background:
-      radial-gradient(
-          circle at 1px 1px,
-          color-mix(in oklab, var(--primary) 26%, transparent) 1px,
-          transparent 0
-        )
-        0 0 / 14px 14px,
-      linear-gradient(
-        135deg,
-        color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
-        color-mix(in oklab, var(--primary) 6%, var(--card-bg))
-      );
-  }
-  #post-list-container .post-card-bigno {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 2.6rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: color-mix(in oklab, var(--primary) 75%, transparent);
-    transition: transform 0.3s ease;
-  }
-  #post-list-container .post-card-cover-placeholder:hover .post-card-bigno {
-    transform: scale(1.04);
-  }
-  /* 无封面主题色按钮（瀑布流 / 移动端）：同款主色渐变，与占位封面观感统一 */
-  #post-list-container .post-card-enter-btn {
     background: linear-gradient(
       135deg,
-      color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
-      color-mix(in oklab, var(--primary) 6%, var(--card-bg))
-    );
-  }
-  #post-list-container .post-card-enter-btn:hover {
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--primary) 30%, var(--card-bg)),
-      color-mix(in oklab, var(--primary) 10%, var(--card-bg))
+      var(--btn-regular-bg-hover),
+      var(--btn-regular-bg)
     );
   }
   @media (min-width: 768px) {
@@ -355,8 +201,8 @@ const { pagination = "posts" } = Astro.props;
   }
 
   /* 内容区：占满整卡宽度，去掉列表模式的右侧封面留白。
-     等高网格中由内容区吸收剩余高度（flex-grow: 1），封面保持固定 16:10；
-     内容区内部底栏靠 mt-auto 贴底，摘要与底栏之间自然留白 */
+     等高网格中由内容区吸收剩余高度（flex-grow: 1），封面保持固定 2:1；
+     内容区内部 stats 靠 mt-auto 贴底，摘要与统计之间自然留白 */
   #post-list-container.post-grid-mode .post-card-content {
     width: 100% !important;
     padding: 0.75rem 1rem 1rem !important;
@@ -387,10 +233,8 @@ const { pagination = "posts" } = Astro.props;
     line-height: 1.75rem !important;
     margin-bottom: 0.5rem !important;
   }
-  /* 网格：装饰条内缩到内容区左侧留白内（基础值 -18px 会被卡片 overflow 裁掉）。
-     显隐仍走上面的「仅 hover 淡入」规则，不再常显 */
   #post-list-container.post-grid-mode .post-card-title::before {
-    left: -0.75rem !important;
+    display: none !important;
   }
   /* hover 箭头垂直对齐标题末行：末行中心 = 100% - 行高/2，配合
      base 的 -translate-y-1/2（箭头中心 = top 值），多行标题也落在
@@ -403,9 +247,10 @@ const { pagination = "posts" } = Astro.props;
     top: calc(100% - 1.75rem / 2) !important;
   }
   /* 网格：元信息与统计缩小 */
+  #post-list-container.post-grid-mode .post-meta,
   #post-list-container.post-grid-mode .post-card-stats {
     font-size: 0.8rem !important;
-    gap: 0.6rem !important;
+    gap: 0.5rem !important;
   }
 
   /* 摘要行数：list/grid 均由配置 --post-desc-lines 控制（0 = 不截断） */
@@ -465,10 +310,11 @@ const { pagination = "posts" } = Astro.props;
       display: none !important;
     }
 
-    /* 列表模式统计缩小（与网格一致） */
+    /* 列表模式元信息/统计缩小（与网格一致） */
+    #post-list-container.post-list-mode .post-meta,
     #post-list-container.post-list-mode .post-card-stats {
       font-size: 0.8rem !important;
-      gap: 0.6rem !important;
+      gap: 0.5rem !important;
     }
 
     /* 列表模式摘要字号与网格一致 */
