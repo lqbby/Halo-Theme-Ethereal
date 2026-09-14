@@ -103,6 +103,13 @@ const { pagination = "posts" } = Astro.props;
     opacity: 1;
   }
 
+  /* 字数单位「字」（1.5.15）：字号略小 + 负 margin 吃掉一部分 gap-1.5
+     （0.375rem → 净 0.125rem），让它贴着数字、不跟「图标 + 数字」并列成两个独立项 */
+  #post-list-container .post-card-stat-unit {
+    font-size: 0.9em;
+    margin-left: -0.25rem;
+  }
+
   /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）=====
      ⚠️ 置顶高亮必须独立于访客样式切换：访客切布局（列表/网格/瀑布流）只改容器类
      与卡片定位，不得改变置顶卡片的描边/光晕。本规则写在 #post-list-container 的

@@ -54,10 +54,15 @@ import { imageSuffixThWith } from "../utils/image-suffix";
       </span>
     </div>
 
-    <!-- 底部统计：浏览/评论/点赞（纯「图标 + 数字」，无胶囊底；前景走 text-50
-         中性灰，与上方标签 chip 拉开权重。配色细则见 PostList.astro 的 .post-card-stat） -->
+    <!-- 底部统计：浏览/评论/点赞/字数（纯「图标 + 数字」，无胶囊底；前景走 text-50
+         中性灰，与上方标签 chip 拉开权重。配色细则见 PostList.astro 的 .post-card-stat）
+         postWordCount = extra-api 插件按篇字数（插件启动时就缓存好 ⇒ 卡片零请求）。
+         ⚠️ 守卫必须内联且**短路**：pluginFinder 缺失 / 插件未装时绝不能去解析
+         extraApiStatsFinder，否则整页 SpEL 异常（200 但正文截断）。
+         取不到（含新文章尚未进插件缓存）时给 0 ⇒ 该项整条不渲染，不会显示「0 字」 -->
     <div
       class="post-card-stats mt-auto flex flex-wrap items-center gap-3 text-sm text-50 transition"
+      th:with="postWordCount = ${pluginFinder != null and pluginFinder.available('extra-api', '3.*') ? extraApiStatsFinder.getPostWordCount({name: post.metadata.name}) : 0}"
     >
       <span
         th:if="${post.stats != null}"
@@ -101,6 +106,20 @@ import { imageSuffixThWith } from "../utils/image-suffix";
           th:text="${post.stats.upvote}">0</span
         >
       </button>
+
+      <!-- 字数：内容体量而非互动量，放末尾不挤占三个熟悉的互动指标；
+           单位「字」字号略小并贴近数字（见 PostList.astro 的 .post-card-stat-unit），
+           否则 gap-1.5 会把它读成一个独立项 -->
+      <span
+        th:if="${postWordCount > 0}"
+        class="post-card-stat inline-flex items-center gap-1.5"
+      >
+        <span
+          class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
+        ></span>
+        <span class="leading-none" th:text="${postWordCount}">0</span>
+        <span class="post-card-stat-unit leading-none">字</span>
+      </span>
     </div>
   </div>
 
