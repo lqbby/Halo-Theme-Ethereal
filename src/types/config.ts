@@ -521,7 +521,14 @@ export interface Footer {
   friendLinks?: FooterFriendLinks;
 }
 
-/** 页脚友情链接卡片墙（数据来自 Links 插件，插件未安装时不渲染） */
+/**
+ * 页脚友情链接卡片墙。
+ *
+ * 数据链路（2026-09-14 起）：列表**不再服务端直出**，改由 footer-friends.js 调
+ * 「Ethereal 配套」插件的随机端点 friends/random 取 N 条随机友链填入；服务端只输出
+ * 外壳（标题 / 申请按钮 / 总数 / 空容器）。因此 Links 插件与配套插件
+ * （metadata.name = `ethereal-companion`）同时可用、且总开关打开时才渲染。
+ */
 export interface FooterFriendLinks {
   /** 总开关，默认关闭 */
   enable_friend_links?: boolean;
@@ -535,7 +542,8 @@ export interface FooterFriendLinks {
   /** 是否显示「申请友链」按钮（默认开启），固定跳转 /links */
   show_apply_btn?: boolean;
   /**
-   * 最多显示条数，0 表示全部显示。
+   * 随机展示条数（每次从全部友链里随机挑这么多条）；0 / 空表示不带 size 参数，
+   * 由插件侧 `friendsRandom.defaultSize` 决定条数。
    * 注意：Halo FormKit 的 number 字段实际存出来的可能是字符串，模板侧必须
    * 先做类型转换（见 FooterFriendLinks.astro 的 hbfMaxItems）再参与比较，
    * 所以这里放宽为 number | string，避免写出看似安全的数值比较。

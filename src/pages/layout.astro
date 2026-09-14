@@ -187,6 +187,19 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
       <Footer />
     </div>
 
+    {
+      /* 页脚友链随机渲染（源码 src/scripts/assets/footer-friends.ts）。
+         🔴🔴 插件页外壳**也必须挂**：本外壳同样渲染 <Footer />（上面的友链块），
+         但**不走** MainGridLayout ⇒ 漏了这里，插件页（如 /bangumis、/schedule-calendar）
+         页脚的友链会永远是空的（「两个外壳」老坑，对照 ConfigCarrier）。
+         门控条件必须与 MainGridLayout / FooterFriendLinks 的 <nav> th:if 完全一致。
+         ⚠️ 插件页不加载 Swup，所以本脚本在这里只在 DOMContentLoaded 跑一次，无需幂等顾虑。 */
+    }
+    <script
+      th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${ASSET_VERSION}`}
+      defer></script>
+
     <!-- Halo 核心页脚注入（备案/统计等）；halo: 前缀元素无法直接写 JSX，按
          halo:comment 惯例用字符串注入，避免 Astro 把 <halo:footer /> 改写为 <halo :footer> -->
     <Fragment set:html={"<halo:footer />"} />

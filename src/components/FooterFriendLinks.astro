@@ -1,41 +1,46 @@
 ---
-// 页脚友情链接卡片墙：数据来自 Links 插件（PluginLinks），服务端渲染。
-// 由 Footer.astro 渲染在页脚分隔线之下、版权信息之上。
-// 整块是 <nav> 地标（aria-label 复用标题词条），样式见文件末尾的 is:global 块。
+// 页脚友情链接卡片墙（**随机版**，2026-09-14 改造）。由 Footer.astro 渲染在页脚
+// 分隔线之下、版权信息之上；整块是 <nav> 地标（aria-label 复用标题词条），
+// 样式见文件末尾的 is:global 块。
 //
-// 改动前必读的三点（放在 frontmatter 而非 HTML 注释里：后者会被构建剥离，
-// 且 prettier 会把相邻 HTML 注释合并到同一行）：
+// 数据链路（改动前必读）：
+//   · **链接列表不再由 Thymeleaf 直出**。改为客户端调「Ethereal 配套」插件的随机
+//     端点 GET /apis/api.recent-comments.halo.run/v1alpha1/friends/random?size=N，
+//     由插件在服务端随机挑 N 条返回（见插件 EtherealFriendsRandomEndpoint）。
+//     好处：① 每次进页/换页都是不同的一批；② 页脚体积与友链总数无关。
+//   · 脚本 public/assets/footer-friends.js（源码 src/scripts/assets/footer-friends.ts），
+//     由 MainGridLayout.astro 按同一开关条件下发（脚本本身幂等，见其头部注释）。
 //
-// 1) 插件未安装 / 未开启时整块跳过。th:if（优先级 300）先于同元素 th:with（400）执行，
-//    所以开关关闭时 hbfGroupedLinks 不会求值，也就不会触发一次链接查询。
+// 所以本模板只负责三件事：
+//   1) 门控：插件在 + 总开关开，否则整块不输出；
+//   2) 头部：标题 / 申请按钮 / **总数**（总数仍走 linkFinder 直出，无 JS 也准确）；
+//   3) 输出**空**列表容器（带 data-hbf-endpoint / data-hbf-size）+ 「更多」箭头。
 //
-// 2) 两个已经踩过的 SpEL 坑：
-//    - SpEL 不支持范围下标（方括号里写起止索引那种切片写法），下标只接受单个 Integer，
-//      写错在「解析期」就抛 SpelParseException，与三元分支实际是否走到无关；
-//      列表切片一律用 List.subList(from, to)（含头不含尾）。
-//    - #aggregates.sum(...) 返回 BigDecimal，且集合为空时返回 null（不是 0），
-//      所以 hbfTotal 必须自己做空集合兜底；它对 null 容器 / 含 null 元素的集合
-//      还会直接抛 IllegalArgumentException。本处不必额外判空——插件保证每个分组的
-//      links 恒为非 null（LinkFinderImpl 以 getOrDefault(..., List.of()) 兜底）。
+// ⚠️ 四条必须遵守的约束：
+//   ① 门控顺序：th:if（优先级 300）先于同元素 th:with（400）执行 ⇒ 开关关闭时
+//      hbfGroupedLinks 不会求值、也就不会触发一次链接查询。顺序不能调换。
+//   ② hbfGroupedLinks 只用于**算总数**（url 过滤口径与旧版一致：网址为空 /
+//      非 http、//、/ 开头的整条剔除）。旧版的「截断偏移 / 卡片渲染」逻辑已随
+//      随机化一并删除，故不再需要 subList 切片。
+//   ③ #aggregates.sum(...) 返回 BigDecimal，集合为空时返回 null（不是 0），
+//      故 hbfTotal 必须自己空集合兜底。
+//   ④ 一页里有**两份**页脚（桌面版在 #swup-container 内、移动版在外），本组件
+//      两份都会渲染 ⇒ 脚本按 data-hbf-endpoint 去重、只发一次请求。
 //
-// 3) 变量口径：
-//    - hbfGroupedLinks：url 过滤条件只在这里写一遍（网址为空 / 非 http、//、/ 开头的
-//      整条剔除），后面的总数、截断偏移、卡片渲染全部基于它，口径天然一致。
-//      它是投影后的「按分组切好的链接列表」List<List<LinkVo>>，已不含分组对象。
-//    - hbfMaxItems：#strings.isEmpty 对 null / 空串都成立，避免清空输入框后拿 "" 去转数字。
-//
-// 4) 两种形态（2026-09-13 新增 compact）：
-//    - 默认（standalone）：页脚分隔线之下的独立块，居中、纵向三行（标题/列表/更多）。
-//    - compact=true：嵌进「卡片页脚」的顶行中间空白处。由 Footer.astro 传 prop 控制。
-//      紧凑形态**不重复渲染标题与申请按钮的完整版**（那里空间有限、且卡片已有身份区），
-//      只保留「小标题 + 内联卡片列表」，并用 CSS 变量收窄尺寸以贴合卡片行高。
-//      ⚠️ 同一个组件在一页里可能出现两次（独立块 + 卡片内），但二选一由 Footer.astro
-//         的 th:if 保证：card 样式下只输出 compact 版，否则只输出 standalone 版。
+// 两种形态（2026-09-13 新增 compact）：
+//   - 默认（standalone）：页脚分隔线之下的独立块，居中、纵向三行（标题/列表/更多）。
+//   - compact=true：嵌进「卡片页脚」的顶行中间空白处。由 Footer.astro 传 prop 控制。
+//     紧凑形态保留「小标题 + 申请按钮 + 内联胶囊列表」，CSS 变量收窄尺寸贴合卡片行高。
 const { compact = false } = Astro.props as { compact?: boolean };
+
+// 「Ethereal 配套」插件的随机友链端点（CustomEndpoint，GroupVersion 见插件源码）。
+// 页面内静态路由，不随主题 base 变化（Halo 在站点根挂 /apis）。
+const FRIENDS_ENDPOINT =
+  "/apis/api.recent-comments.halo.run/v1alpha1/friends/random";
 ---
 
 <nav
-  th:if="${pluginFinder.available('PluginLinks') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
+  th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
   class:list={["hbf-root w-full", compact && "hbf-compact"]}
   th:aria-label="#{footer.friendLinks.title}"
   aria-label="友情链接"
@@ -101,45 +106,24 @@ const { compact = false } = Astro.props as { compact?: boolean };
       >
     </span>
   </div>
-  <div class="hbf-list" th:if="${hbfTotal > 0}">
-    <!-- hbfOffset：前面所有分组的有效链接数之和，把 max_items 当成跨分组的全局上限；
-         切片只能用 subList(from, to)，原因见文件顶部注释第 2 条。 -->
-    <span
-      th:each="hbfValidLinks, hbfGroupStat : ${hbfGroupedLinks}"
-      th:remove="tag"
-      th:with="hbfOffset = ${hbfGroupStat.index == 0 ? 0 : #aggregates.sum(hbfGroupedLinks.subList(0, hbfGroupStat.index).![size()])}"
-    >
-      <!-- hbfLogoOk 只算一次，供下面 img / 占位块共用，避免同一段 4 条件判据写成镜像两份。
-           th:with（400）晚于同元素的 th:each（200）与 th:if（300）执行，且对子元素可见。 -->
-      <a
-        th:each="hbfLink, hbfStat : ${hbfValidLinks}"
-        th:if="${hbfMaxItems == 0 or (hbfOffset + hbfStat.index) < hbfMaxItems}"
-        th:with="hbfLogoOk = ${hbfLink.spec.logo != null and (hbfLink.spec.logo.startsWith('http') or hbfLink.spec.logo.startsWith('//') or hbfLink.spec.logo.startsWith('/'))}"
-        th:href="${hbfLink.spec.url}"
-        target="_blank"
-        rel="noopener noreferrer"
-        th:title="${not #strings.isEmpty(hbfLink.spec.description) ? hbfLink.spec.description : hbfLink.spec.displayName}"
-        class="hbf-item"
-      >
-        <img
-          th:if="${hbfLogoOk}"
-          th:src="${hbfLink.spec.logo}"
-          alt=""
-          loading="lazy"
-          decoding="async"
-          class="hbf-logo"
-        />
-        <span th:unless="${hbfLogoOk}" class="hbf-logo-ph">
-          <span class="icon-[material-symbols--link-rounded] text-xs"></span>
-        </span>
-        <span class="hbf-name" th:text="${hbfLink.spec.displayName}">Link</span>
-      </a>
-    </span>
+  <!-- 列表容器：**刻意留空**，条目由 footer-friends.js 调配套插件的随机端点填入
+       （见文件顶部说明）。三个属性是脚本的契约：
+         · data-hbf-endpoint：端点地址（脚本靠它去重 + 发起请求）
+         · data-hbf-size：随机条数；0 ⇒ 不带 size 参数，用插件侧配置的默认条数
+         · th:if hbfTotal > 0：一条友链都没有时不输出空列表（头部仍显示，与旧版一致） -->
+  <div
+    class="hbf-list"
+    th:if="${hbfTotal > 0}"
+    data-hbf-endpoint={FRIENDS_ENDPOINT}
+    th:data-hbf-size="${hbfMaxItems}"
+  >
     <!-- 「更多」箭头：2026-09-13 起**并入胶囊行**（原来是独立一行）。
-         作为 flex 行的最后一个子项，它会自动跟在最后一个胶囊后面，
-         换行时也自然跟随，不再出现「上下两排左对齐、箭头单独居中」的割裂感。 -->
+         作为 flex 行的最后一个子项，它会自动跟在最后一个胶囊后面，换行时也自然跟随。
+         ⚠️ 它由**服务端**直出（条件 = 总数 > 随机条数），脚本只负责把随机条目
+             insertBefore 到它前面 —— 所以 data-hbf-more 是必须的锚点，别删。 -->
     <a
       class="hbf-more-btn"
+      data-hbf-more
       th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}"
       th:href="@{/links}"
       th:title="#{footer.friendLinks.moreTitle(${hbfTotal})}"
@@ -159,6 +143,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
       </span>
     </a>
   </div>
+  <!-- 无 JS（或端点取不到）时的兜底入口：列表为空，但「全部友链」仍可达 -->
+  <noscript>
+    <p class="mt-2 text-xs text-50">
+      <!-- 复用「更多」的无障碍词条（= 查看全部友链），不新增 i18n key -->
+      <a th:href="@{/links}" th:text="#{footer.friendLinks.moreAria}"
+        >查看全部友链</a
+      >
+    </p>
+  </noscript>
 </nav>
 
 <style is:global>

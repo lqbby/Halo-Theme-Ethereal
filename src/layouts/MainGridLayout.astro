@@ -600,4 +600,17 @@ const {
     th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && ((theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish) == null || (theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish))}"
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${ASSET_VERSION}`}
     defer></script>
+
+  {
+    /* 页脚友情链接「随机」渲染（源码 src/scripts/assets/footer-friends.ts）。
+      门控条件必须与 components/FooterFriendLinks.astro 的 <nav> th:if **完全一致**
+      （PluginLinks + Ethereal 配套 + 总开关），否则会出现「脚本在跑但容器不在」或反之。
+      放在布局层而不是组件里：一页有两份页脚（桌面/移动），放组件里会下发两次。
+      🔴 脚本必须幂等 —— @swup/scripts-plugin 每次 content:replace 会重建并重执行
+        整个 document 的所有 <script>（详见脚本头部注释）。 */
+  }
+  <script
+    th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${ASSET_VERSION}`}
+    defer></script>
 </Layout>
