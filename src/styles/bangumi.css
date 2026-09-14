@@ -29,7 +29,9 @@
   border-radius: var(--radius-large);
   background: var(--btn-regular-bg);
   color: var(--btn-content);
-  transition: background-color 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .bangumi-search {
@@ -39,8 +41,15 @@
   padding: 0 0.75rem;
 }
 
-.bangumi-search:focus-within {
+.bangumi-search:hover {
   background: var(--btn-regular-bg-hover);
+}
+
+/* 焦点环用 --focus-ring（WCAG 2.4.11 的 3:1），与主题 tag-chip / btn-card 一致 */
+.bangumi-search:focus-within,
+.bangumi-sort:focus-within {
+  background: var(--btn-regular-bg-hover);
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
 .bangumi-search-icon {
@@ -107,6 +116,10 @@
   white-space: nowrap;
 }
 
+.bangumi-sort:hover {
+  background: var(--btn-regular-bg-hover);
+}
+
 .bangumi-sort-icon {
   font-size: 1.15rem;
   opacity: 0.75;
@@ -126,6 +139,12 @@
 .bangumi-sort select option {
   color: var(--deep-text);
   background: var(--card-bg);
+}
+
+/* 原生 select 无键盘焦点样式（outline:none）⇒ 用容器上的 :focus-within 兜住；
+   这里只补 select 自身的键盘可操作性提示。 */
+.bangumi-sort select:focus-visible {
+  outline: none;
 }
 
 .bangumi-sort-caret {
@@ -225,6 +244,24 @@
 .bangumi-pager-btn span {
   font-size: 1.25rem;
   line-height: 1;
+}
+
+/* 窄屏：收窄按钮与间距，避免 7 个页码 + 前后翻页换行两次 */
+@media (max-width: 480px) {
+  .bangumi-pager {
+    gap: 0.25rem;
+    margin-top: 1.25rem;
+  }
+
+  .bangumi-pager-btn {
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.35rem;
+  }
+
+  .bangumi-pager-gap {
+    min-width: 0.75rem;
+  }
 }
 
 /* ── ④ 详情弹窗 ─────────────────────────────────────────────────────── */
@@ -336,6 +373,7 @@ html.bangumi-modal-open {
   flex-direction: column;
   gap: 0.75rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 1.75rem 1.75rem 1.5rem;
 }
 
@@ -405,6 +443,7 @@ html.bangumi-modal-open {
   color: var(--btn-content);
   max-height: 9rem;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .bangumi-modal-des:empty {

@@ -28,11 +28,18 @@
 //    重放当前搜索/排序态 —— 比 MutationObserver 干净，也不会被自己渲染的分页按钮触发死循环。
 //  - 弹窗的滚动锁挂在 <html> 上，而 <html> 不在 Swup 的替换范围内 ⇒ 必须在
 //    pagehide / pageshow / astro:after-swap 三处清理，否则 bfcache 回退后页面锁死无法滚动。
-import { guardOnce } from "../../utils/once";
+//
+// 1.5.17 修复「进详情页再回来就不分页」：
+//   SwupScriptsPlugin 会在**每次换页**时克隆重执行本脚本，而 window.__etherealOnce
+//   是跨换页持久的。此前把整个 IIFE 关在 `if (guardOnce("bangumi-filter")) return;` 里，
+//   首次访问设下 key 后，回访时脚本虽被重执行却直接 return ⇒ 底部的 apply()（按页切显隐）
+//   再也不跑 ⇒ 卡片全显示、分页器消失。
+//   现在拆成两层：**文档级监听只绑一次**（bindGlobal），而 init()（重读 DOM 状态 +
+//   initCovers + apply）在**每次脚本执行**与**每次 Swup page:view**都跑一次。
+//   apply() 幂等（顺序未变时不动 DOM），重复执行无副作用。
+import { guardOnce, onPageView } from "../../utils/once";
 
 (function () {
-  if (guardOnce("bangumi-filter")) return;
-
   var PAGE_SIZE = 12;
   var SVG_PREV =
     '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>';
@@ -268,6 +275,25 @@ import { guardOnce } from "../../utils/once";
     renderPager(state.page, pages);
   }
 
+  /* ── 每次进入本页的初始化 ──────────────────────────────────────────── */
+
+  // 必须每次访问都跑（见文件头 1.5.17 说明）：既不关在 guardOnce 里，也不只依赖
+  // 某一次脚本执行 —— 两条通路都接上（脚本重执行 + Swup page:view），互为兜底。
+  function init() {
+    // page:view 每页都会触发；不在追番页时 grid/list 都不存在，直接跳过
+    if (!grid() && !listRoot()) return;
+    // 搜索词 / 排序从 DOM 重读：SSR 每次进入都渲染初始态，避免把上次访问的
+    // 残留 state 带到新 DOM（脚本未重执行、只走 page:view 时尤其重要）
+    var input = document.querySelector("[data-bangumi-search]");
+    if (input) state.q = input.value || "";
+    var sel = document.querySelector("[data-bangumi-sort]");
+    if (sel) state.sort = sel.value || "default";
+    state.page = 1;
+    initCovers();
+    syncSearchClear();
+    apply();
+  }
+
   function syncSearchClear() {
     var btn = document.querySelector("[data-bangumi-search-clear]");
     if (btn) btn.hidden = state.q === "";
@@ -407,123 +433,133 @@ import { guardOnce } from "../../utils/once";
   }
 
   /* ── 事件（全部委托到 document：region 被替换后依然生效） ──────────── */
+  // 只绑一次：本脚本每次换页都会被克隆重执行，不加守卫会随导航次数线性累积监听器。
+  function bindGlobal() {
+    document.addEventListener(
+      "click",
+      function (e) {
+        var t = e.target;
+        if (!t || !t.closest) return;
 
-  document.addEventListener(
-    "click",
-    function (e) {
-      var t = e.target;
-      if (!t || !t.closest) return;
-
-      // 卡片：左键且无修饰键 → 拦下改为开详情弹窗（其余情况交给浏览器开新标签，
-      // 无 JS 时也是直接跳 B 站，属刻意保留的降级路径）
-      var card = t.closest("[data-bangumi-card]");
-      if (
-        card &&
-        e.button === 0 &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.shiftKey &&
-        !e.altKey
-      ) {
-        e.preventDefault();
-        openModal(card);
-        return;
-      }
-
-      if (t.closest("[data-bangumi-modal-close]")) {
-        e.preventDefault();
-        closeModal();
-        return;
-      }
-
-      var pageEl = t.closest("[data-bangumi-page]");
-      if (pageEl) {
-        e.preventDefault();
-        var p = parseInt(pageEl.getAttribute("data-bangumi-page"), 10);
-        if (!isNaN(p) && p !== state.page) {
-          state.page = p;
-          apply();
-          scrollToList();
+        // 卡片：左键且无修饰键 → 拦下改为开详情弹窗（其余情况交给浏览器开新标签，
+        // 无 JS 时也是直接跳 B 站，属刻意保留的降级路径）
+        var card = t.closest("[data-bangumi-card]");
+        if (
+          card &&
+          e.button === 0 &&
+          !e.metaKey &&
+          !e.ctrlKey &&
+          !e.shiftKey &&
+          !e.altKey
+        ) {
+          e.preventDefault();
+          openModal(card);
+          return;
         }
-        return;
-      }
 
-      if (t.closest("[data-bangumi-search-clear]")) {
-        e.preventDefault();
-        var input = document.querySelector("[data-bangumi-search]");
-        if (input) {
-          input.value = "";
-          try {
-            input.focus({ preventScroll: true });
-          } catch (e2) {
-            /* 忽略 */
+        if (t.closest("[data-bangumi-modal-close]")) {
+          e.preventDefault();
+          closeModal();
+          return;
+        }
+
+        var pageEl = t.closest("[data-bangumi-page]");
+        if (pageEl) {
+          e.preventDefault();
+          var p = parseInt(pageEl.getAttribute("data-bangumi-page"), 10);
+          if (!isNaN(p) && p !== state.page) {
+            state.page = p;
+            apply();
+            scrollToList();
           }
+          return;
         }
-        state.q = "";
+
+        if (t.closest("[data-bangumi-search-clear]")) {
+          e.preventDefault();
+          var input = document.querySelector("[data-bangumi-search]");
+          if (input) {
+            input.value = "";
+            try {
+              input.focus({ preventScroll: true });
+            } catch (e2) {
+              /* 忽略 */
+            }
+          }
+          state.q = "";
+          state.page = 1;
+          syncSearchClear();
+          apply();
+        }
+      },
+      false,
+    );
+
+    document.addEventListener(
+      "input",
+      function (e) {
+        var el = e.target;
+        if (!el || !el.matches || !el.matches("[data-bangumi-search]")) return;
+        state.q = el.value || "";
         state.page = 1;
         syncSearchClear();
         apply();
-      }
-    },
-    false,
-  );
+      },
+      false,
+    );
 
-  document.addEventListener(
-    "input",
-    function (e) {
-      var el = e.target;
-      if (!el || !el.matches || !el.matches("[data-bangumi-search]")) return;
-      state.q = el.value || "";
-      state.page = 1;
-      syncSearchClear();
-      apply();
-    },
-    false,
-  );
+    document.addEventListener(
+      "change",
+      function (e) {
+        var el = e.target;
+        if (!el || !el.matches || !el.matches("[data-bangumi-sort]")) return;
+        state.sort = el.value || "default";
+        state.page = 1;
+        apply();
+      },
+      false,
+    );
 
-  document.addEventListener(
-    "change",
-    function (e) {
-      var el = e.target;
-      if (!el || !el.matches || !el.matches("[data-bangumi-sort]")) return;
-      state.sort = el.value || "default";
-      state.page = 1;
-      apply();
-    },
-    false,
-  );
+    document.addEventListener(
+      "keydown",
+      function (e) {
+        if (e.key !== "Escape") return;
+        var root = modalRoot();
+        if (root && root.classList.contains("is-open")) closeModal();
+      },
+      false,
+    );
 
-  document.addEventListener(
-    "keydown",
-    function (e) {
-      if (e.key !== "Escape") return;
-      var root = modalRoot();
-      if (root && root.classList.contains("is-open")) closeModal();
-    },
-    false,
-  );
+    // list-filter.js 在 region 替换完成后派发：重建索引 + 重放当前搜索/排序态。
+    // 筛选组合变了 = 新数据集 ⇒ 回到第一页（搜索词 / 排序在选择器里，天然保留）。
+    document.addEventListener(
+      "ethereal:list-swapped",
+      function () {
+        if (!grid()) return; // 列表区在本页才处理（equipments/photos 也派发本事件）
+        state.page = 1;
+        initCovers();
+        apply();
+      },
+      false,
+    );
 
-  // list-filter.js 在 region 替换完成后派发：重建索引 + 重放当前搜索/排序态
-  document.addEventListener(
-    "ethereal:list-swapped",
-    function () {
-      initCovers();
-      apply();
-    },
-    false,
-  );
-
-  function cleanup() {
-    closeModal();
-    document.documentElement.classList.remove("bangumi-modal-open");
+    function cleanup() {
+      closeModal();
+      document.documentElement.classList.remove("bangumi-modal-open");
+    }
+    document.addEventListener("astro:after-swap", cleanup, false);
+    window.addEventListener("pagehide", cleanup, false);
+    window.addEventListener("pageshow", cleanup, false);
   }
-  document.addEventListener("astro:after-swap", cleanup, false);
-  window.addEventListener("pagehide", cleanup, false);
-  window.addEventListener("pageshow", cleanup, false);
 
   /* ── 初始化 ───────────────────────────────────────────────────────── */
 
-  initCovers();
-  syncSearchClear();
-  apply();
+  // 监听器只绑一次（跨换页持久）；init 每次脚本执行都跑一次 —— SwupScriptsPlugin
+  // 重执行本脚本 = 「进入本页」的天然时机（首屏也走这条）。
+  if (!guardOnce("bangumi-filter")) bindGlobal();
+  init();
+
+  // 兜底：若某些 Swup 版本按 src 缓存脚本、不再重执行，page:view 仍会触发。
+  // 与上面的 init() 重复执行是安全的（apply 幂等：顺序未变时不动 DOM、不闪）。
+  onPageView("bangumi-filter", init);
 })();

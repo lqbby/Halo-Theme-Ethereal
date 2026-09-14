@@ -243,6 +243,7 @@ const modalStats = [
               <span
                 class="text-sm font-semibold text-75"
                 data-bangumi-count
+                aria-live="polite"
                 th:data-count-template="#{page.bangumi.subtitleCount('%d')}"
                 th:text="#{page.bangumi.subtitleCount(${#lists.size(allBangumis)})}"
                 >共 0 部</span
@@ -412,7 +413,8 @@ const modalStats = [
             <nav
               data-bangumi-pager
               hidden
-              aria-label="#{pagination.label}"
+              th:aria-label="#{pagination.label}"
+              aria-label="分页"
               th:data-prev-label="#{pagination.previous}"
               th:data-next-label="#{pagination.next}"
               th:data-page-label="#{pagination.page('%d')}"

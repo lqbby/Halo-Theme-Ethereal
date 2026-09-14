@@ -32,13 +32,44 @@
    局部 PJAX 拉取中的「加载中」态（list-filter.ts 在 fetch 前后加/摘 .is-swapping）
    --------------------------------------------------------------------------
    追番页取全量时服务端要逐页打 B 站接口（可能 1~3s），无反馈的话点击像没生效。
-   只降透明度 + 屏蔽指针，不做骨架屏（内容马上会被整块替换，骨架反而更闪）。
+   ⚠️ 降透明加在**直接子元素**上而不是 region 自身：region 上的 ::after 转圈才不会被
+      父级 opacity 一起打到 0.5（父级 opacity 会建立层叠上下文，子元素无法逃逸）。
+   缓存命中的切换根本不进这个态（瞬时换 DOM）。
    ========================================================================== */
 
+[data-list-region] {
+  position: relative;
+}
+
 [data-list-region].is-swapping {
-  opacity: 0.55;
   pointer-events: none;
+}
+
+[data-list-region].is-swapping > * {
+  opacity: 0.5;
   transition: opacity 0.2s ease;
+}
+
+[data-list-region].is-swapping::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: -0.875rem;
+  border: 2.5px solid var(--primary);
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: list-swap-spin 0.7s linear infinite;
+  pointer-events: none;
+  z-index: 6;
+}
+
+@keyframes list-swap-spin {
+  to {
+    rotate: 360deg;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -46,7 +77,13 @@
     animation: none;
   }
 
-  [data-list-region].is-swapping {
+  [data-list-region].is-swapping > * {
     transition: none;
+  }
+
+  /* 降级为「静态半环」：仍能看出在等待，但不旋转 */
+  [data-list-region].is-swapping::after {
+    border-top-color: var(--primary);
+    animation: none;
   }
 }
