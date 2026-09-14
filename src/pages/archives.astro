@@ -10,6 +10,18 @@ import Canonical from "../components/misc/Canonical.astro";
 // - 无参数：显示全部，与旧行为等价
 // - ?category=<slug>：仅显示 spec.categories 含该 slug 的文章
 // - ?uncategorized：显示未分类文章（spec.categories 为空或缺失）
+//
+// 🔴🔴 分页陷阱（本页历史 bug）：Halo 的 ${archives} 是
+//   UrlContextListResult<PostArchiveVo> —— **按文章分页**，页大小取自系统设置
+//   「归档页文章显示条数」（默认 10），主题侧无法覆盖（archivesRoute 也不认 size/pageSize 参数）。
+//   因此"只在当前页内做行级 th:if 过滤"必然漏掉第 2 页起的文章：分类角标用全站
+//   category.postCount，列表却只有当页命中 ⇒ 出现「角标写 3 篇 / 列表 0 篇」的自相矛盾。
+// 修法：行级 th:if 只用于**首屏 SSR**（无 JS 时也能看到当页命中）；有 JS 时由脚本把其余
+//   分页全部拉下来合并成完整数据集（loadFull），筛选在**完整数据**上做（buildFilteredHtml），
+//   与分页设置无关。为此服务端额外输出两个契约属性：
+//   - #archive-list 的 data-archive-total-pages：总页数，供脚本知道要补几页
+//   - 每个文章行 <a> 的 data-archive-cats：该文分类 slug 列表（SpEL List.toString → "[ai, diy]"）
+//     ⚠️ 必须与行级 th:if 用的 post.categories.![spec.slug] 同源，否则 SSR 与客户端筛选不一致。
 // NOTE(Halo 2.26/SpringEL 7)：列表选择/投影（.?[]/![...]）内部无法解析 Thymeleaf
 // 上下文变量（param 按根对象属性查找抛 EL1008E，见 archive 页曾崩溃日志），
 // 故谓词以**行级 th:if** 求值（迭代内顶层 context 可用，links/timeline 先例验证），
@@ -84,9 +96,13 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       </div>
     </div>
 
-    <!-- 框三：归档列表（局部 PJAX 刷新容器：分类菜单切换只替换 #archive-list 内内容） -->
+    <!-- 框三：归档列表（局部 PJAX 刷新容器：分类菜单切换只替换 #archive-list 内内容）
+         data-archive-total-pages 供脚本补齐后续分页（见头部注释：筛选必须覆盖全部分页） -->
     <div class="card-base px-8 py-6">
-      <div id="archive-list">
+      <div
+        id="archive-list"
+        th:attr="data-archive-total-pages=${archives.totalPages}"
+      >
         <div class="contents" th:each="archive : ${archives.items}">
           <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对 -->
           <div
@@ -120,7 +136,7 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
                 th:each="post : ${month.posts}"
                 th:if={`\${${postMatchRow}}`}
                 th:href="@{${post.status.permalink}}"
-                th:attr="aria-label=${post.spec.title}, data-archive-row=${post.spec.slug}, data-year=${archive.year}"
+                th:attr="aria-label=${post.spec.title}, data-archive-row=${post.spec.slug}, data-year=${archive.year}, data-archive-cats=${post.categories == null ? '' : post.categories.![spec.slug]}"
                 class="group btn-plain block! h-10 w-full rounded-lg hover:text-[initial]"
               >
                 <div class="flex h-full flex-row items-center justify-start">
@@ -174,10 +190,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           </div>
         </div>
 
-        <!-- 筛选结果为空：行全部被过滤时脚本显示；初始隐藏避免无脚本时闪烁 -->
+        <!-- 筛选结果为空：行全部被过滤时脚本显示；初始隐藏避免无脚本时闪烁。
+             ⚠️ 不加 th:if="${filterActive}" —— 该块必须**任何模式下都存在**，否则脚本在
+             「未筛选的第 1 页」点分类时，快照里取不到它，筛选空态就没法显示。 -->
         <div
           id="archive-empty-filter"
-          th:if="${filterActive}"
           hidden
           class="flex flex-col items-center justify-center gap-3 py-16 text-center"
         >
@@ -189,9 +206,8 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           </div>
         </div>
 
-        <!-- 分页仅「全部」态显示：筛选（category/uncategorized）是在当前页内做
-             行级过滤，archives.totalPages 仍是未筛选的页数（如全部 2 页），筛选后
-             实际常不足 1 页，若继续显示会误导为「还有第 2 页」。 -->
+        <!-- 分页仅「全部」态显示：筛选态由脚本把全部分页合并成一份完整结果，已无分页可言
+             （继续显示会误导为「还有第 2 页」）。 -->
         <div th:if="${not filterActive}" class="contents">
           <Pagination context="archives" class="mt-4" />
         </div>
@@ -225,9 +241,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   </style>
 
   <!-- 局部 PJAX：分类菜单点击只刷新框三 #archive-list，框一/框二保持不动。
-       流程：阻止 Swup 整页换页 → fetch 目标页 → DOMParser 提取 #archive-list →
-       innerHTML 替换 → pushState → 切换激活态 → 重跑筛选态补丁。
-       筛选态补丁（run）：按已渲染行统计各年可见数、隐藏空年份、显隐空态、更新副标题。 -->
+       - 筛选态（?category / ?uncategorized）：先 loadFull() 把**全部分页**拉下来缓存，
+         再 buildFilteredHtml() 在完整数据上过滤 → 完整替换容器（无分页）。
+         首次筛选拉 N-1 页，之后筛选 0 请求、瞬时完成。
+       - 全部态：fetch 未筛选第 1 页 → DOMParser 提取 #archive-list → innerHTML 替换（保留分页）。
+       共同收尾：pushState → 切换激活态 → run() 重算各年可见数/隐藏空年份/显隐空态/副标题。 -->
   <script is:inline>
     // @ts-nocheck 浏览器运行时脚本
     (function () {
@@ -239,6 +257,12 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       // 局部加载进行中标记：退场过渡/拉取期间忽略重复点击，避免重叠切换。
       var loading = false;
       var exitTimer = null;
+      // 全量缓存：一次拉齐所有分页（未筛选）后的「年份 → 分组/行」索引
+      // { years: { "2026": { group: Element, rows: [Element, ...] } } }
+      var fullCache = null;
+      var fullLoading = null;
+      // 筛选空态块快照：筛选态重建 #archive-list 时补回尾部
+      var emptyFilterHTML = "";
 
       function tr(key, fallback) {
         var i18n = window.__etherealI18n;
@@ -246,6 +270,161 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       }
       function fmt(msg, n) {
         return String(msg).replace("{0}", n);
+      }
+      function hasFilterParams(sp) {
+        return sp.has("category") || sp.has("uncategorized");
+      }
+      function toArray(list) {
+        var out = [];
+        for (var i = 0; i < list.length; i++) out.push(list[i]);
+        return out;
+      }
+
+      // 归档路由基址：去掉尾斜杠与 /page/N，用于拼后续分页 URL（不硬编码 /archives）。
+      function archiveBasePath() {
+        var p = decodeURIComponent(window.location.pathname);
+        p = p.replace(/\/+$/, "").replace(/\/page\/\d+$/, "");
+        return p || "/archives";
+      }
+      function totalPages() {
+        var box = document.getElementById("archive-list");
+        var n = box
+          ? parseInt(box.getAttribute("data-archive-total-pages") || "1", 10)
+          : 1;
+        return n > 1 ? n : 1;
+      }
+      // 行的分类 slug：服务端写成 SpEL List.toString 的 "[ai, diy]"（未分类为空串）。
+      function rowCats(a) {
+        var v = (a.getAttribute("data-archive-cats") || "").trim();
+        if (!v || v === "[]") return [];
+        v = v.replace(/^\[/, "").replace(/\]$/, "");
+        var parts = v.split(",");
+        var out = [];
+        for (var i = 0; i < parts.length; i++) {
+          var s = parts[i].trim();
+          if (s) out.push(s);
+        }
+        return out;
+      }
+      function rowMatches(a, slug, uncategorized) {
+        var cats = rowCats(a);
+        if (uncategorized) return cats.length === 0;
+        return !!slug && cats.indexOf(slug) !== -1;
+      }
+
+      // 收集一页容器里的「年份 → 该年份全部行」，多页结果按年份累加（月份层级不参与合并，
+      // 因为 .contents 是 display:contents，合并月份容器视觉无差异）。
+      function collectYears(container, into) {
+        toArray(container.querySelectorAll("[data-archive-year-row]")).forEach(
+          function (group) {
+            var y = group.getAttribute("data-year") || "";
+            if (!into[y]) into[y] = { group: group, rows: [] };
+            toArray(group.querySelectorAll("[data-archive-row]")).forEach(
+              function (a) {
+                into[y].rows.push(a);
+              },
+            );
+          },
+        );
+      }
+
+      // 🔴 拉齐全部分页（未筛选）并缓存：第一个筛选动作时执行一次，之后筛选纯本地、零请求。
+      // 当前 DOM 恰好是「未筛选第 1 页」时直接复用，省一次请求。
+      function loadFull() {
+        if (fullCache) return Promise.resolve(fullCache);
+        if (fullLoading) return fullLoading;
+        var base = archiveBasePath();
+        var total = totalPages();
+        var cur = new URL(window.location.href);
+        var reuseCurrent =
+          !hasFilterParams(cur.searchParams) &&
+          !/\/page\/\d+\/?$/.test(cur.pathname);
+        var jobs = [];
+        for (var k = 1; k <= total; k++) {
+          if (k === 1 && reuseCurrent) {
+            jobs.push(Promise.resolve(document.getElementById("archive-list")));
+          } else {
+            jobs.push(
+              fetch(k === 1 ? base : base + "/page/" + k)
+                .then(function (r) {
+                  if (!r.ok) throw new Error("HTTP " + r.status);
+                  return r.text();
+                })
+                .then(function (html) {
+                  return new DOMParser()
+                    .parseFromString(html, "text/html")
+                    .getElementById("archive-list");
+                }),
+            );
+          }
+        }
+        fullLoading = Promise.all(jobs)
+          .then(function (containers) {
+            var years = {};
+            containers.forEach(function (c) {
+              if (c) collectYears(c, years);
+            });
+            fullCache = { years: years };
+            fullLoading = null;
+            return fullCache;
+          })
+          .catch(function (e) {
+            fullLoading = null;
+            throw e;
+          });
+        return fullLoading;
+      }
+
+      // 用缓存渲染筛选结果：年份倒序、只保留命中行，并补回筛选空态块（无分页）。
+      function buildFilteredHtml(slug, uncategorized) {
+        var years = fullCache ? fullCache.years : {};
+        var keys = [];
+        for (var y in years) {
+          if (Object.prototype.hasOwnProperty.call(years, y)) keys.push(y);
+        }
+        keys.sort(function (a, b) {
+          return b.localeCompare(a);
+        });
+        var out = [];
+        keys.forEach(function (y) {
+          var entry = years[y];
+          var rows = entry.rows.filter(function (a) {
+            return rowMatches(a, slug, uncategorized);
+          });
+          if (!rows.length) return;
+          var g = entry.group.cloneNode(true);
+          var holders = toArray(g.children).filter(function (el) {
+            return el.classList && el.classList.contains("contents");
+          });
+          holders.slice(1).forEach(function (h) {
+            h.parentNode.removeChild(h);
+          });
+          var holder = holders[0];
+          if (!holder) {
+            holder = document.createElement("div");
+            holder.className = "contents";
+            g.appendChild(holder);
+          }
+          holder.innerHTML = rows
+            .map(function (a) {
+              return a.outerHTML;
+            })
+            .join("");
+          var cnt = g.querySelector("[data-archive-year-count]");
+          if (cnt) cnt.textContent = "";
+          g.style.display = "";
+          // 保留 SSR 里年份分组外面那层 <div class="contents">（display:contents 的纯结构层），
+          // 让重建后的层级与线上完全一致，避免任何基于层级的样式/选择器失配。
+          out.push('<div class="contents">' + g.outerHTML + "</div>");
+        });
+        return out.join("") + emptyFilterHTML;
+      }
+
+      // 就地重绘筛选结果（不换页）：入口直接带筛选参数时用，切 tab 走 loadArchive。
+      function applyFilterToDom(slug, uncategorized) {
+        var list = document.getElementById("archive-list");
+        if (!list || !fullCache) return;
+        list.innerHTML = buildFilteredHtml(slug, uncategorized);
       }
 
       // 筛选态补丁：仅依据 #archive-list 内已渲染行，统计各年可见数、隐藏空年份、
@@ -286,7 +465,6 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
 
         if (active) {
           var catName = null;
-          var catCount = null;
           if (params.has("category")) {
             var slug = params.get("category");
             var tabBox = document.getElementById("archive-filter-tabs");
@@ -304,22 +482,19 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
             if (tab) {
               var labelSpan = tab.querySelector("span");
               catName = labelSpan ? labelSpan.textContent : slug;
-              var cc = tab.querySelector(".archive-cat-count");
-              catCount = cc ? cc.textContent : null;
             }
             if (catName == null) catName = slug;
           } else if (params.has("uncategorized")) {
             catName = tr("page.archives.uncategorized", "Uncategorized");
-            catCount = String(rows.length);
           }
+          // 计数一律取「当前实际渲染的行数」——合并全部分页后它就等于该分类的全站篇数。
+          // 旧实现取分类角标（全站值）而列表只过滤当页，会出现「角标 3 篇 / 列表 0 篇」。
           var sub = document.getElementById("archive-subtitle");
           if (sub && catName) {
-            var displayCount =
-              catCount != null && catCount !== "" ? catCount : "0";
             sub.textContent =
               catName +
               " · " +
-              fmt(tr("page.archives.subtitleCount", "{0} posts"), displayCount);
+              fmt(tr("page.archives.subtitleCount", "{0} posts"), rows.length);
           }
         }
       }
@@ -341,9 +516,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         });
       }
 
-      // 局部加载：fetch 目标页完整 HTML → 提取 #archive-list → 替换当前容器。
+      // 局部加载：分类 tab 点击 → 只替换框三 #archive-list，框一/框二保持不动。
+      // 筛选态：目标 URL 带 category/uncategorized ⇒ 用本地全量缓存渲染（覆盖全部分页）；
+      // 全部态：fetch 未筛选第 1 页完整 HTML → 提取 #archive-list → 替换（保留分页）。
       // 目标页无 #archive-list（如浏览器后退到非归档页）则整页跳转兜底。
-      // 过渡：点击立即退场淡出（与 fetch 并行，对齐 Swup 点击即反馈），fetch 完成
+      // 过渡：点击立即退场淡出（与取数并行，对齐 Swup 点击即反馈），取数完成
       // 且退场结束即换入新内容并重播主题 fade-in-up（onload-animation）。
       function loadArchive(url) {
         if (loading) return;
@@ -355,6 +532,10 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           window.location.href = url;
           return;
         }
+
+        var target = new URL(url, window.location.origin);
+        var slug = target.searchParams.get("category");
+        var uncategorized = target.searchParams.has("uncategorized");
 
         var incoming = null;
         var exitDone = false;
@@ -400,6 +581,31 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         exitTimer = setTimeout(onExit, 400);
         current.classList.add("archive-list-exit");
 
+        // 整体兜底：任何取数失败/超时都退回整页跳转（仍能看到服务端按当页过滤的结果）。
+        function fail() {
+          if (exitTimer) {
+            clearTimeout(exitTimer);
+            exitTimer = null;
+          }
+          loading = false;
+          window.location.href = url;
+        }
+
+        // 筛选态：数据来自本地全量缓存（loadFull 已把后续分页拉齐）⇒ 绝不只搜当前页；
+        // 第二次起筛选是 0 请求、瞬时完成。
+        if (hasFilterParams(target.searchParams)) {
+          loadFull()
+            .then(function () {
+              var box = document.createElement("div");
+              box.innerHTML = buildFilteredHtml(slug, uncategorized);
+              incoming = box;
+              swap();
+            })
+            .catch(fail);
+          return;
+        }
+
+        // 全部态：拉未筛选第 1 页后局部替换（保留分页）。
         // 请求超时兜底：弱网 fetch 挂起时 loading 恒 true，后续 tab 点击被丢弃、
         // 后退 URL 与 UI 不一致；超时后 abort → catch 整页跳转兜底。
         var controller = new AbortController();
@@ -425,8 +631,7 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           })
           .catch(function () {
             clearTimeout(fetchTimer);
-            loading = false;
-            window.location.href = url;
+            fail();
           });
       }
 
@@ -444,8 +649,26 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       }
 
       function init() {
+        // 空态块快照：筛选态重建 #archive-list 时补回（该块现已任何模式下都渲染）。
+        var emptyBox = document.getElementById("archive-empty-filter");
+        emptyFilterHTML = emptyBox ? emptyBox.outerHTML : "";
         bindTabs();
         run();
+        // 入口即带筛选参数（直接分享链接 / 刷新 / 后退）：SSR 只渲了第 1 页的命中行，
+        // 必须异步补齐后续分页再重绘，否则仍旧是「只在当前页里搜」的老毛病。
+        var params = new URL(window.location.href).searchParams;
+        if (hasFilterParams(params)) {
+          var slug = params.get("category");
+          var uncategorized = params.has("uncategorized");
+          loadFull()
+            .then(function () {
+              applyFilterToDom(slug, uncategorized);
+              run();
+            })
+            .catch(function () {
+              /* 取数失败：保留 SSR 当页结果，不打断阅读 */
+            });
+        }
       }
 
       if (document.readyState === "loading") {
