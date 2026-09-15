@@ -26,7 +26,20 @@ const style = Astro.props.style || undefined;
                        支持 `num` 参数：num>0 时**只渲染、不写库、不自增**（已实测），
                        所以数字可外部注入而人物动画原样保留。
                        注意 num=0 会被服务端当作「无 num」→ 回落成自增，故 visit 为 0 时不带该参数。
-     - 性能：img 走 loading=lazy + 视口懒加载；自绘模式另有 sessionStorage 每会话一次的缓存
+     - ⭐⭐ counter_source = site 时**不再直接请求主题图**，改走「贴片精灵模式」（1.5.24 起）：
+       数字仍由本站 SSR 出（零请求），字形则用 Moe-Counter 的 `@demo` 端点一次取回、本地拼。
+       为什么必须用 @demo：`/get/@:id` 一律带 `cache-control: no-store`（**每次页面加载都重拉**），
+       而服务端对内置调试名 `demo` 有特判 `res.set("cache-control", "max-age=31536000")`；
+       @demo 返回的正是「10 个字形并排」的 SVG（`<use x="cellW * d">` 顺序 0→9，字形是
+       base64 GIF 内嵌在 <defs>）⇒ 天生就是一张**URL 恒定、可缓存一年**的精灵图，
+       用 background-position 就能切出任一位数字。
+       净效果：首访 1 个请求（moebooru 约 10.9KB gzip），**之后每次导航 0 个外部请求**
+       （连 304 都没有）—— 比「直接拉主题图」按十次导航算省约 76%。
+       任何环节失败（超时 / 解析不到字形 / 非 200）都自动回落到服务端主题图，行为与旧版一致。
+       注意：@demo 的体积随主题变化（moebooru 16KB / asoul 33KB / capoo-1 76KB / miku 99KB），
+       位数多的大主题首访成本更高 —— 这是「之后永久 0 请求」的一次性代价。
+     - 性能：img 走 loading=lazy + 视口懒加载；贴片精灵同样等进入视口才请求；
+       自绘模式另有 sessionStorage 每会话一次的缓存
      - 配置：侧栏小组件的 counter_api / counter_name / counter_theme / counter_source（见 settings.yaml）
 
      ⚠️ th:with 里变量不能互相引用（Thymeleaf 用旧 context 逐个求值），
@@ -61,6 +74,9 @@ const style = Astro.props.style || undefined;
         decoding="async"
         th:alt="#{widget.moeCounter.title}"
       />
+      <!-- 贴片精灵模式：数字来自站点统计（SSR 出），字形由 @demo 精灵图本地拼（见脚本注释） -->
+      <div id="moe-counter-sprite" class="moe-cnt-sprite" role="img" hidden>
+      </div>
       <!-- 自绘模式：主题 token 渲染的数字方块（counter_theme = native 时启用） -->
       <div id="moe-counter-digits" class="moe-cnt-digits" hidden></div>
       <div class="moe-cnt-caption">
@@ -176,6 +192,147 @@ const style = Astro.props.style || undefined;
         });
     }
 
+    // ---- 贴片精灵模式：数字来自站点统计，字形来自 Moe-Counter 的 @demo 端点 ----
+    // 服务端对 `@:id` 一律给 cache-control: no-store（每次页面加载都重拉），
+    // 只对内置调试名 `demo` 特判成 max-age=31536000。@demo 返回的正是「10 个字形并排」的
+    // SVG（<use x="cellW * d"> 顺序 0→9）⇒ 天生一张「URL 恒定 + 可缓存一年」的精灵图，
+    // 靠 background-position 就能切出任一位数字。
+    // 于是「数字零请求 + 字形首访一次、之后吃缓存」= 之后每次导航 0 个外部请求。
+    var SPRITE_TIMEOUT = 6000; // 超时即回落，别让侧栏空等
+    var SPRITE_MAX_H = 120; // 单个字形最大高度（px）：位数变化时高度不会忽大忽小
+
+    // cellW / cellH = 单个字形的原始像素尺寸（取服务端 SVG 里 <image> 的宽高）
+    function renderSprite(el, root, text, demoUrl, cellW, cellH) {
+      if (!(cellW > 0) || !(cellH > 0)) return false;
+      var aspect = cellW / cellH;
+      var n = text.length;
+
+      // 撑满可用宽度但不超过 SPRITE_MAX_H：位数再多也不会顶破侧栏
+      var cs = window.getComputedStyle ? window.getComputedStyle(root) : null;
+      var pad = cs
+        ? parseFloat(cs.paddingLeft || 0) + parseFloat(cs.paddingRight || 0)
+        : 0;
+      var avail = (root.clientWidth || 315) - pad;
+      if (!(avail > 0)) avail = 291;
+      if (avail > 315) avail = 315; // 与原版 img 的 max-width 对齐
+      var h = Math.min(SPRITE_MAX_H, avail / (n * aspect));
+      if (!(h > 0)) h = SPRITE_MAX_H;
+
+      el.style.setProperty("--moe-glyph-w", h * aspect + "px");
+      el.style.setProperty("--moe-glyph-h", h + "px");
+      el.style.setProperty("--moe-sprite", 'url("' + demoUrl + '")');
+      // 数字本身是文本语义 ⇒ 整块当一张图报读，里面每位都 aria-hidden
+      el.setAttribute("aria-label", text);
+
+      var frag = document.createDocumentFragment();
+      for (var i = 0; i < n; i++) {
+        var span = document.createElement("span");
+        span.className = "moe-cnt-glyph";
+        span.setAttribute("aria-hidden", "true");
+        // 第 d 位 = 精灵图里第 d 个字形，CSS 用 background-position 左移 d 格
+        span.style.setProperty(
+          "--moe-glyph-d",
+          String(text.charCodeAt(i) - 48),
+        );
+        frag.appendChild(span);
+      }
+      el.innerHTML = "";
+      el.appendChild(frag);
+      return true;
+    }
+
+    function initSpriteMode(
+      root,
+      imgEl,
+      digitsEl,
+      spriteEl,
+      api,
+      name,
+      theme,
+      num,
+    ) {
+      var demoUrl = api + "/get/@demo?theme=" + encodeURIComponent(theme);
+      var finished = false;
+      var ctrl =
+        typeof AbortController !== "undefined" ? new AbortController() : null;
+      var timer = setTimeout(function () {
+        if (ctrl) ctrl.abort();
+        fallback();
+      }, SPRITE_TIMEOUT);
+
+      // 任一环节不顺：退回「服务端主题图」这条老路（组合逻辑与 1.5.23 完全一致）
+      function fallback() {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        spriteEl.hidden = true;
+        spriteEl.innerHTML = "";
+        console.info("[MoeCounter] @demo 精灵图不可用，回落到服务端主题图");
+        initThemeMode(root, imgEl, api, name, theme, num);
+      }
+
+      function start() {
+        fetch(demoUrl, ctrl ? { signal: ctrl.signal } : undefined)
+          .then(function (res) {
+            if (!res.ok) throw new Error("HTTP " + res.status);
+            return res.text();
+          })
+          .then(function (svg) {
+            if (finished) return;
+            clearTimeout(timer);
+            // 直接读 <defs> 里第一个 <image> 的宽高 —— 比按 viewBox/10 推算更稳，
+            // 也不依赖任何主题的长宽比（换主题不用改代码）
+            var tag = /<image\b[^>]*>/.exec(svg);
+            var w = tag && /\bwidth="([\d.]+)"/.exec(tag[0]);
+            var h = tag && /\bheight="([\d.]+)"/.exec(tag[0]);
+            if (!w || !h) throw new Error("拿不到字形尺寸");
+            if (
+              !renderSprite(
+                spriteEl,
+                root,
+                num,
+                demoUrl,
+                parseFloat(w[1]),
+                parseFloat(h[1]),
+              )
+            ) {
+              throw new Error("渲染失败");
+            }
+            finished = true;
+            root.setAttribute("data-state", "sprite");
+            spriteEl.hidden = false;
+            if (imgEl) imgEl.hidden = true;
+            digitsEl.hidden = true;
+          })
+          .catch(function (e) {
+            console.warn(
+              "[MoeCounter] @demo 精灵图失败:",
+              e && e.message ? e.message : e,
+            );
+            fallback();
+          });
+      }
+
+      // 侧栏在移动端位于首屏之下 ⇒ 与原版 img 的 loading=lazy 等价，别抢带宽
+      if (typeof IntersectionObserver === "undefined") {
+        start();
+        return;
+      }
+      var io = new IntersectionObserver(
+        function (entries) {
+          for (var i = 0; i < entries.length; i++) {
+            if (entries[i].isIntersecting) {
+              io.disconnect();
+              start();
+              return;
+            }
+          }
+        },
+        { rootMargin: "200px" },
+      );
+      io.observe(root);
+    }
+
     function initMoeCounter() {
       var root = document.getElementById("moe-counter-root");
       if (!root) return;
@@ -206,9 +363,21 @@ const style = Astro.props.style || undefined;
         return;
       }
 
-      // ---- 原版模式：加载服务端主题 SVG（自包含，含看板娘贴图）----
+      // counter_source = site（num 有值）⇒ 走贴片精灵，顺带把「每次导航重拉主题图」彻底去掉
+      var spriteEl = document.getElementById("moe-counter-sprite");
+      if (num && spriteEl) {
+        initSpriteMode(root, imgEl, digitsEl, spriteEl, api, name, theme, num);
+        return;
+      }
+
+      initThemeMode(root, imgEl, api, name, theme, num);
+    }
+
+    // ---- 原版模式：加载服务端主题 SVG（自包含，含看板娘贴图）----
+    function initThemeMode(root, imgEl, api, name, theme, num) {
       if (!imgEl) return;
       root.setAttribute("data-state", "theme");
+      imgEl.hidden = false;
       imgEl.addEventListener("load", function () {
         root.setAttribute("data-state", "ready");
       });
@@ -255,11 +424,37 @@ const style = Astro.props.style || undefined;
   }
 
   /* 原版 SVG 内部用 prefers-color-scheme 自降亮度；「站点暗色 + 系统亮色」这种
-     错配场景它不会降，这里补一刀，保证深色卡片上不刺眼 */
+     错配场景它不会降，这里补一刀，保证深色卡片上不刺眼
+     （贴片精灵的 SVG 同样带那段 media query ⇒ 两个模式要同一套补偿，别只改一处） */
   @media (prefers-color-scheme: light) {
-    html.dark .moe-cnt-img {
+    html.dark .moe-cnt-img,
+    html.dark .moe-cnt-glyph {
       filter: brightness(0.62);
     }
+  }
+
+  /* ---- 贴片精灵模式：本地拼数字（字形来自 @demo 精灵图，一个 URL 用一年） ---- */
+  .moe-cnt-sprite {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  .moe-cnt-sprite[hidden] {
+    display: none !important;
+  }
+
+  .moe-cnt-glyph {
+    width: var(--moe-glyph-w, 3rem);
+    height: var(--moe-glyph-h, 6.6rem);
+    background-image: var(--moe-sprite, none);
+    background-repeat: no-repeat;
+    /* 整张图 = 10 个等宽字形并排 ⇒ 按 10 倍字形宽铺开，再左移 d 格切出第 d 位 */
+    background-size: calc(var(--moe-glyph-w, 3rem) * 10)
+      var(--moe-glyph-h, 6.6rem);
+    background-position: calc(
+        var(--moe-glyph-w, 3rem) * var(--moe-glyph-d, 0) * -1
+      )
+      0;
   }
 
   /* ---- 自绘模式：数字方块 ---- */

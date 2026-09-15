@@ -1199,7 +1199,7 @@ spec:
                       value: "moe"
                     - label: 站点统计（Halo 访问量）
                       value: "site"
-                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）。1.5.24 起该模式的字形改用 Moe-Counter 的 @demo 精灵图本地拼：首访取一次即被浏览器缓存一年，之后每次导航零外部请求；若 @demo 取不到则自动回落到直接请求主题图"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_name
@@ -1505,7 +1505,7 @@ spec:
                       value: "moe"
                     - label: 站点统计（Halo 访问量）
                       value: "site"
-                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）。1.5.24 起该模式的字形改用 Moe-Counter 的 @demo 精灵图本地拼：首访取一次即被浏览器缓存一年，之后每次导航零外部请求；若 @demo 取不到则自动回落到直接请求主题图"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_name
