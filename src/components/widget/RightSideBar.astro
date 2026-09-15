@@ -7,6 +7,7 @@ import Profile from "./Profile.astro";
 import RecentComments from "./RecentComments.astro";
 import Schedule from "./Schedule.astro";
 import SiteStats from "./SiteStats.astro";
+import SteamCard from "./SteamCard.astro";
 import Tags from "./Tags.astro";
 import Weather from "./Weather.astro";
 import TOC from "./TOC.astro";
@@ -74,6 +75,9 @@ const thClassappend = Astro.props["th:classappend"] || "";
         </div>
         <div class="contents" th:case="'schedule'">
           <Schedule />
+        </div>
+        <div class="contents" th:case="'steam'">
+          <SteamCard />
         </div>
         <div class="contents" th:case="'recent-comments'">
           <RecentComments />

@@ -1071,6 +1071,8 @@ spec:
                       value: weather
                     - label: 最近日程
                       value: schedule
+                    - label: Steam 游戏状态
+                      value: steam
                     - label: 自定义HTML
                       value: html
                 - $formkit: checkbox
@@ -1308,6 +1310,30 @@ spec:
                   preserve: true
                   label: HTML
                   value: "<p>自定义HTML</p>"
+                - $formkit: number
+                  if: "$value.value === 'steam'"
+                  name: steam_recent_count
+                  key: widget_steam_recent_count
+                  preserve: true
+                  label: 最近游玩条数
+                  min: 1
+                  max: 6
+                  value: 3
+                  help: "侧边栏列宽固定 17.5rem（内容宽 260px），条数过多会把吸顶区顶出视口，建议 3 条"
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_show_stats
+                  key: widget_steam_show_stats
+                  preserve: true
+                  label: 显示统计（游戏数 / 总时长 / 近两周）
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_enable_link
+                  key: widget_steam_enable_link
+                  preserve: true
+                  label: 游戏条目可点击跳转 Steam 商店
+                  value: true
             - $formkit: array
               name: rightWidgets
               label: 右侧边栏小部件
@@ -1334,6 +1360,8 @@ spec:
                       value: weather
                     - label: 最近日程
                       value: schedule
+                    - label: Steam 游戏状态
+                      value: steam
                     - label: 访客计数
                       value: moe-counter
                     - label: 最近评论
@@ -1493,6 +1521,30 @@ spec:
                   preserve: true
                   label: HTML
                   value: "<p>自定义HTML</p>"
+                - $formkit: number
+                  if: "$value.value === 'steam'"
+                  name: steam_recent_count
+                  key: right_widget_steam_recent_count
+                  preserve: true
+                  label: 最近游玩条数
+                  min: 1
+                  max: 6
+                  value: 3
+                  help: "右侧栏宽 17.5rem；文章页只显示前 2 个右侧小组件，排太靠后会看不到"
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_show_stats
+                  key: right_widget_steam_show_stats
+                  preserve: true
+                  label: 显示统计（游戏数 / 总时长 / 近两周）
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_enable_link
+                  key: right_widget_steam_enable_link
+                  preserve: true
+                  label: 游戏条目可点击跳转 Steam 商店
+                  value: true
         - $formkit: group
           name: profile
           label: 个人简介小组件

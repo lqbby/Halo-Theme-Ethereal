@@ -1,0 +1,283 @@
+---
+/**
+ * Steam 侧边栏小组件
+ * ----------------------------------------------------------------------------
+ * 数据源 = halo-plugin-steam 的**全局 Finder** `steamFinder`（非页面级模板变量）
+ * ⇒ 可在任意路由的侧边栏使用。字段名全部按插件 jar 常量池核对过：
+ *   getProfile()      → summary.personaName / summary.avatarMedium|avatarFull /
+ *                       summary.profileUrl / summary.personaState / summary.lastLogoff
+ *                       playing / statusText / steamLevel
+ *   getStats()        → totalGames / totalPlaytimeFormatted / recentPlaytimeFormatted
+ *   getRecentGames(n) → name / headerImageUrl / playtimeFormatted /
+ *                       lastPlayedFormatted / appId / inLibrary / delisted
+ *   （badges 未用于侧边栏：勋章墙在 260px 宽下会挤成两行以上，价值密度低，
+ *     需要看勋章请用 /steam 页）
+ *
+ * 尺寸基准与自适应策略见 src/styles/steam-widget.css 顶部注释。
+ *
+ * ⚠️ 两条必须遵守的求值规则（都在本项目踩过）：
+ *   1) 同一 `th:with` 里的变量**不能互相引用** —— Thymeleaf 是用「旧的 context」
+ *      逐个求值后再写进新 context 的，`b=${f(a)}` 会读不到 a。
+ *   2) `th:if`(优先级 3) 早于 `th:with`(4) ⇒ 根节点的守卫**不能**读自己声明的变量，
+ *      必须直接用 `steamFinder` / `pluginFinder` 原始变量（SiteStats 同款处理）。
+ *      反过来 `th:with`(4) + `th:title`(5) / `th:text`(7) 在同一标签上是安全的。
+ */
+import WidgetLayout from "./WidgetLayout.astro";
+// ⚠️ widget/ 在 src/ 下有两层，必须 ../../styles/
+import "../../styles/steam-widget.css";
+
+interface Props {
+  class?: string;
+  style?: string;
+}
+
+const className = Astro.props.class;
+// 未传时保持 undefined（Astro 会把 undefined 渲染成字面量 style="undefined"）
+const style = Astro.props.style || undefined;
+---
+
+<div
+  class="contents"
+  th:if="${pluginFinder != null and pluginFinder.available('steam') and steamFinder != null}"
+  th:with="
+    sp=${steamFinder != null},
+    profile=${sp ? steamFinder.getProfile() : null},
+    stats=${sp ? steamFinder.getStats() : null},
+    recentGames=${sp ? steamFinder.getRecentGames(widget.steam_recent_count != null ? #conversions.convert(widget.steam_recent_count, 'java.lang.Integer') : 3) : null}
+  "
+>
+  <WidgetLayout
+    name="Steam"
+    nameKey="widget.steam.title"
+    id="steam"
+    class={className}
+    style={style}
+  >
+    <div class="flex flex-col gap-1">
+      <!-- ① 身份行：整行可点 → Steam 个人主页。
+             离线/在线/正在游戏全部由插件给的 statusText 表达（与插件原版一致），
+             状态点只作辅助色标。 -->
+      <a
+        th:if="${profile != null}"
+        th:with="p=${profile}"
+        th:href="${p?.summary?.profileUrl}"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-4 active:bg-(--btn-plain-bg-active)"
+        th:aria-label="#{widget.steam.profileAria}"
+      >
+        <span class="steam-w-avatar">
+          <!-- avatarMedium(64px) 足够 36px 显示且是 2x 图；avatarFull(184px) 作兜底 -->
+          <img
+            th:src="${p?.summary?.avatarMedium ?: p?.summary?.avatarFull}"
+            th:alt="${p?.summary?.personaName}"
+            alt=""
+            loading="lazy"
+            width="36"
+            height="36"
+          />
+          <span
+            class="steam-w-avatar__dot"
+            th:classappend="${p?.playing ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
+            th:title="${p?.statusText}"></span>
+        </span>
+
+        <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+          <span
+            class="truncate text-sm font-medium text-neutral-700 dark:text-neutral-300"
+            th:text="${p?.summary?.personaName}">Steam User</span
+          >
+          <!-- 状态行：离线时把「上次在线」放进 title 提示，保持单行不换行 -->
+          <span
+            class="truncate text-xs"
+            th:classappend="${p?.playing
+              ? ' font-medium text-neutral-700 dark:text-neutral-300'
+              : ' text-neutral-500 dark:text-neutral-400'}"
+            th:with="lastOnline=${p?.summary?.lastLogoff != null
+              ? #dates.format(new java.util.Date(p.summary.lastLogoff * 1000), 'MM-dd HH:mm')
+              : null}"
+            th:title="${lastOnline != null ? #messages.msg('widget.steam.lastSeen') + ' ' + lastOnline : null}"
+            th:text="${p?.statusText}">离线</span
+          >
+        </span>
+
+        <!-- 等级胶囊：沿用 /steam 页的 .steam-pill 视觉（语义色同源） -->
+        <span
+          class="shrink-0 rounded-md bg-(--btn-regular-bg) px-2 py-0.5 text-xs font-bold text-(--btn-content)"
+          th:if="${p?.steamLevel}"
+          th:text="${'Lv.' + p.steamLevel}">Lv.0</span
+        >
+      </a>
+
+      <!-- ② 统计三格：游戏数 / 总时长 / 近两周时长。
+             260px 下用 3 等分 + truncate，数值过长（如 1,234.5 小时）也不撑破。 -->
+      <div
+        class="mt-0.5 grid grid-cols-3 gap-1.5"
+        th:if="${widget.steam_show_stats != false and stats != null}"
+      >
+        <div
+          class="flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-(--btn-regular-bg) px-1 py-1.5"
+        >
+          <span
+            class="w-full truncate text-center text-sm font-bold text-neutral-900 dark:text-neutral-100"
+            th:text="${stats.totalGames}">0</span
+          >
+          <span
+            class="w-full truncate text-center text-[0.625rem] text-neutral-500 dark:text-neutral-400"
+            th:text="#{widget.steam.statGames}">游戏</span
+          >
+        </div>
+        <div
+          class="flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-(--btn-regular-bg) px-1 py-1.5"
+        >
+          <span
+            class="w-full truncate text-center text-sm font-bold text-neutral-900 dark:text-neutral-100"
+            th:text="${stats.totalPlaytimeFormatted}"
+            th:title="${stats.totalPlaytimeFormatted}">—</span
+          >
+          <span
+            class="w-full truncate text-center text-[0.625rem] text-neutral-500 dark:text-neutral-400"
+            th:text="#{widget.steam.statTotal}">总时长</span
+          >
+        </div>
+        <div
+          class="flex min-w-0 flex-col items-center gap-0.5 rounded-lg bg-(--btn-regular-bg) px-1 py-1.5"
+        >
+          <span
+            class="w-full truncate text-center text-sm font-bold text-neutral-900 dark:text-neutral-100"
+            th:text="${stats.recentPlaytimeFormatted}"
+            th:title="${stats.recentPlaytimeFormatted}">—</span
+          >
+          <span
+            class="w-full truncate text-center text-[0.625rem] text-neutral-500 dark:text-neutral-400"
+            th:text="#{widget.steam.statRecent}">近两周</span
+          >
+        </div>
+      </div>
+
+      <!-- ③ 最近游玩：行内「封面(定宽) + 名称 + 时长」。
+             enableGameLink 关时 th:href 求值为 null ⇒ Thymeleaf 把 href/target/rel
+             一并摘掉，<a> 退化成不可聚焦的静态行（与插件「换成 div」等价，省一份结构）。 -->
+      <div
+        class="flex flex-col gap-1"
+        th:if="${recentGames != null and !recentGames.isEmpty()}"
+      >
+        <a
+          th:each="game : ${recentGames}"
+          class="steam-w-game group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-4 active:bg-(--btn-plain-bg-active)"
+          th:href="${widget.steam_enable_link != false ? 'https://store.steampowered.com/app/' + game.appId : null}"
+          th:target="${widget.steam_enable_link != false ? '_blank' : null}"
+          th:rel="${widget.steam_enable_link != false ? 'noopener noreferrer' : null}"
+        >
+          <span class="steam-w-cover">
+            <img
+              th:src="${game.headerImageUrl != null and !#strings.isEmpty(game.headerImageUrl)
+                ? game.headerImageUrl
+                : null}"
+              th:alt="${game.name}"
+              alt=""
+              loading="lazy"
+              width="72"
+              height="34"
+            />
+            <span
+              class="steam-w-cover__ph icon-[material-symbols--sports-esports]"
+              aria-hidden="true"></span>
+          </span>
+
+          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <span
+              class="line-clamp-2 text-[0.8125rem] font-medium leading-snug text-neutral-700 dark:text-neutral-300"
+              th:text="${game.name}">Game</span
+            >
+            <span
+              class="truncate text-[0.6875rem] text-neutral-500 dark:text-neutral-400"
+            >
+              <span th:text="${game.playtimeFormatted}">0h</span>
+              <span
+                th:if="${game.lastPlayedFormatted != null and !#strings.isEmpty(game.lastPlayedFormatted)}"
+                th:text="${' · ' + game.lastPlayedFormatted}"></span>
+            </span>
+          </span>
+        </a>
+      </div>
+
+      <!-- ④ 空态 / 失败态：都只用一行，避免侧边栏出现大片留白 -->
+      <p
+        class="flex items-center gap-2 rounded-lg px-3 py-2 text-xs text-neutral-500 dark:text-neutral-400"
+        th:if="${recentGames != null and recentGames.isEmpty()}"
+      >
+        <span
+          class="icon-[material-symbols--joystick] text-base"
+          aria-hidden="true"></span>
+        <span th:text="#{widget.steam.empty}">最近两周没有游玩记录</span>
+      </p>
+
+      <p
+        class="steam-w-fail flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
+        th:if="${recentGames == null}"
+      >
+        <span
+          class="icon-[material-symbols--error-outline] text-base"
+          aria-hidden="true"></span>
+        <span th:text="#{widget.steam.fail}"
+          >Steam 数据获取失败，请检查插件配置</span
+        >
+      </p>
+
+      <!-- ⑤ 底部入口：指向主题自带的 /steam 全量页（站内跳转，非外链）。
+             整行可点但视觉更轻，避免与身份行抢权重。 -->
+      <a
+        th:if="${profile != null}"
+        th:href="@{/steam}"
+        class="group mt-0.5 flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium text-neutral-500 transition-all hover:bg-(--btn-plain-bg-hover) hover:text-(--primary) active:bg-(--btn-plain-bg-active) dark:text-neutral-400"
+      >
+        <span th:text="#{widget.steam.viewPage}">查看全部</span>
+        <span
+          class="icon-[material-symbols--arrow-forward-rounded] text-sm transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"></span>
+      </a>
+    </div>
+  </WidgetLayout>
+</div>
+
+<script is:inline th:inline="none">
+  (function () {
+    // 封面兜底：src 缺失 / CDN 404 时打 is-broken，露出占位图标。
+    // Swup 换页后容器重渲染、本内联脚本同步重执行 ⇒ 不需要 guardOnce；
+    // 只需保证重复执行幂等（dataset 标记 + 纯 classList 操作）。
+    function markBroken() {
+      var boxes = document.querySelectorAll(".steam-w-cover");
+      for (var i = 0; i < boxes.length; i++) {
+        var img = boxes[i].querySelector("img");
+        if (!img) continue;
+        // 无 src 的 <img> 也是 complete=true / naturalWidth=0
+        if (img.complete && img.naturalWidth === 0) {
+          boxes[i].classList.add("is-broken");
+        }
+      }
+    }
+
+    function bindCovers() {
+      var imgs = document.querySelectorAll(".steam-w-cover > img");
+      for (var i = 0; i < imgs.length; i++) {
+        var img = imgs[i];
+        if (img.dataset.swCoverBound) continue;
+        img.dataset.swCoverBound = "1";
+        img.addEventListener("load", function () {
+          if (this.naturalWidth > 0) {
+            var box = this.closest(".steam-w-cover");
+            if (box) box.classList.remove("is-broken");
+          }
+        });
+        img.addEventListener("error", function () {
+          var box = this.closest(".steam-w-cover");
+          if (box) box.classList.add("is-broken");
+        });
+      }
+    }
+
+    markBroken();
+    bindCovers();
+  })();
+</script>

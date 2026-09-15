@@ -8,6 +8,7 @@ import PopularPosts from "./PopularPosts.astro";
 import Profile from "./Profile.astro";
 import Schedule from "./Schedule.astro";
 import SiteStats from "./SiteStats.astro";
+import SteamCard from "./SteamCard.astro";
 import Tags from "./Tags.astro";
 import Weather from "./Weather.astro";
 
@@ -92,6 +93,9 @@ const thClassappend = Astro.props["th:classappend"] || "";
         </div>
         <div class="contents" th:case="'schedule'">
           <Schedule class="onload-animation" />
+        </div>
+        <div class="contents" th:case="'steam'">
+          <SteamCard class="onload-animation" />
         </div>
         <div
           th:case="'html'"
