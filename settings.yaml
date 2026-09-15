@@ -1224,6 +1224,25 @@ spec:
                   label: 计数器主题
                   value: "moebooru"
                   help: "Moe-Counter 主题名，默认 moebooru（看板娘数字）；可换 3d-num / miku / capoo-1 / minecraft 等。填 native 则改用主题配色自绘数字方块（不带看板娘）"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_padding
+                  key: widget_counter_padding
+                  preserve: true
+                  label: 补零位数
+                  value: "7"
+                  options:
+                    - label: 不补零
+                      value: "0"
+                    - label: 5 位
+                      value: "5"
+                    - label: 6 位
+                      value: "6"
+                    - label: 7 位（Moe-Counter 默认，推荐）
+                      value: "7"
+                    - label: 8 位
+                      value: "8"
+                  help: "不足位数时在前面补 0：7 位时 3743 会显示成 0003743 —— 这与 Moe-Counter 服务端的默认观感一致（服务端 padding 默认就是 7），也是原版主题图的样式。只影响 native 自绘与 @demo 精灵图这两种本地渲染；原版主题图由服务端补零，此处不生效"
                 - $formkit: text
                   if: "$value.value === 'music'"
                   name: title
@@ -1530,6 +1549,25 @@ spec:
                   label: 计数器主题
                   value: "moebooru"
                   help: "Moe-Counter 主题名，默认 moebooru（看板娘数字）；可换 3d-num / miku / capoo-1 / minecraft 等。填 native 则改用主题配色自绘数字方块（不带看板娘）"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_padding
+                  key: right_widget_counter_padding
+                  preserve: true
+                  label: 补零位数
+                  value: "7"
+                  options:
+                    - label: 不补零
+                      value: "0"
+                    - label: 5 位
+                      value: "5"
+                    - label: 6 位
+                      value: "6"
+                    - label: 7 位（Moe-Counter 默认，推荐）
+                      value: "7"
+                    - label: 8 位
+                      value: "8"
+                  help: "不足位数时在前面补 0：7 位时 3743 会显示成 0003743 —— 这与 Moe-Counter 服务端的默认观感一致（服务端 padding 默认就是 7），也是原版主题图的样式。只影响 native 自绘与 @demo 精灵图这两种本地渲染；原版主题图由服务端补零，此处不生效"
                 - $formkit: number
                   if: "$value.value === 'schedule'"
                   name: limit

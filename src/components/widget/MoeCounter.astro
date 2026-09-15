@@ -38,9 +38,15 @@ const style = Astro.props.style || undefined;
        任何环节失败（超时 / 解析不到字形 / 非 200）都自动回落到服务端主题图，行为与旧版一致。
        注意：@demo 的体积随主题变化（moebooru 16KB / asoul 33KB / capoo-1 76KB / miku 99KB），
        位数多的大主题首访成本更高 —— 这是「之后永久 0 请求」的一次性代价。
+     - ⭐ 补零：Moe-Counter 服务端默认 padding = 7（index.js，取值域 0–16），themify 里
+       `count.toString().padStart(padding, '0')` ⇒ 2997 渲染成 0002997。@demo 精灵图只提供
+       「10 个字形」，不含补零逻辑 ⇒ 补零必须在本地做，否则精灵模式会比原版主题图少几位
+       前导 0（2026-09-15 LQ 反馈「前面几个 0 怎么没有」）。位数由 counter_padding 控制，
+       0 = 不补零；原版主题图由服务端补零，该设置对它不生效。
      - 性能：img 走 loading=lazy + 视口懒加载；贴片精灵同样等进入视口才请求；
        自绘模式另有 sessionStorage 每会话一次的缓存
-     - 配置：侧栏小组件的 counter_api / counter_name / counter_theme / counter_source（见 settings.yaml）
+     - 配置：侧栏小组件的 counter_api / counter_name / counter_theme / counter_source /
+       counter_padding（见 settings.yaml）
 
      ⚠️ th:with 里变量不能互相引用（Thymeleaf 用旧 context 逐个求值），
      所以 moeVisit 里把「来源」表达式重复写了一遍，而不是引用同一 th:with 的 moeSource。 */
@@ -63,7 +69,7 @@ const style = Astro.props.style || undefined;
     <div
       id="moe-counter-root"
       class="moe-cnt-root"
-      th:attr="data-api=${moeApi}, data-name=${moeName}, data-theme=${moeTheme}, data-num=${moeVisit != null ? moeVisit : ''}"
+      th:attr="data-api=${moeApi}, data-name=${moeName}, data-theme=${moeTheme}, data-num=${moeVisit != null ? moeVisit : ''}, data-pad=${widget?.counter_padding}"
     >
       <!-- 原版模式：服务端主题 SVG（可含看板娘贴图） -->
       <img
@@ -116,6 +122,25 @@ const style = Astro.props.style || undefined;
       } catch (e) {}
     }
 
+    // ---- 补零：对齐 Moe-Counter 服务端的默认 padding ----
+    // 服务端 index.js 的 padding 默认 7（0–16），themify 里 padStart(padding, '0') ⇒
+    // 2997 渲染成 0002997。@demo 精灵图只给「10 个字形」，不含补零 ⇒ 必须自己补，
+    // 否则精灵模式比原版主题图少几位前导 0。
+    var DEFAULT_PAD = 7;
+    var MAX_PAD = 16;
+
+    function padCount(text, pad) {
+      if (!/^\d+$/.test(text)) return text;
+      var s = text;
+      while (s.length < pad) s = "0" + s;
+      return s;
+    }
+
+    // 前导 0 是纯视觉补位 ⇒ 读屏只该听到真实数字
+    function stripPad(text) {
+      return text.replace(/^0+(?=\d)/, "");
+    }
+
     function showError(root) {
       var err = document.getElementById("moe-counter-error");
       if (err) err.hidden = false;
@@ -123,13 +148,17 @@ const style = Astro.props.style || undefined;
     }
 
     // ---- 自绘模式：逐位渲染成「里程表」小方块 ----
-    function renderDigits(digitsEl, num) {
-      var text = String(num);
+    function renderDigits(digitsEl, num, pad) {
+      var text = padCount(String(num), pad);
       if (!/^\d+$/.test(text)) return false;
+      // 前导 0 只是补位 ⇒ 弱化成灰（.is-empty），有效数字仍用主题色，
+      // 7 位数字时才一眼看出「真正存了多大」
+      var firstSig = text.search(/[1-9]/);
+      if (firstSig < 0) firstSig = text.length - 1;
       var frag = document.createDocumentFragment();
       for (var i = 0; i < text.length; i++) {
         var span = document.createElement("span");
-        span.className = "moe-cnt-digit";
+        span.className = "moe-cnt-digit" + (i < firstSig ? " is-empty" : "");
         span.textContent = text.charAt(i);
         span.style.animationDelay = i * 45 + "ms";
         frag.appendChild(span);
@@ -141,23 +170,23 @@ const style = Astro.props.style || undefined;
 
     // num 有值时（counter_source = site）：数字来自站点统计，直接渲染即可，
     // 不必再请求 Moe-Counter —— 顺带避免 /record 自增污染计数器
-    function initNativeMode(root, imgEl, digitsEl, api, name, num) {
+    function initNativeMode(root, imgEl, digitsEl, api, name, num, pad) {
       root.setAttribute("data-state", "native");
       if (imgEl) imgEl.hidden = true;
       digitsEl.hidden = false;
 
-      if (num && renderDigits(digitsEl, num)) return;
+      if (num && renderDigits(digitsEl, num, pad)) return;
 
       var sessionKey = SESSION_PREFIX + name;
       var lastKey = LAST_PREFIX + name;
 
       // 本会话已取过：直接复用，避免同一访客反复 +1
       var sessionVal = readStore(window.sessionStorage, sessionKey);
-      if (sessionVal && renderDigits(digitsEl, sessionVal)) return;
+      if (sessionVal && renderDigits(digitsEl, sessionVal, pad)) return;
 
       // 先垫上次已知值，避免加载空白
       var lastVal = readStore(window.localStorage, lastKey);
-      if (lastVal) renderDigits(digitsEl, lastVal);
+      if (lastVal) renderDigits(digitsEl, lastVal, pad);
 
       var url = api + "/record/@" + encodeURIComponent(name);
       var ctrl =
@@ -172,13 +201,14 @@ const style = Astro.props.style || undefined;
           return res.json();
         })
         .then(function (data) {
-          var num = data && data.num != null ? String(data.num) : "";
-          if (!num || !renderDigits(digitsEl, num)) {
+          // 存原始值：补零只在渲染时做，别把 0002997 写进 storage
+          var val = data && data.num != null ? String(data.num) : "";
+          if (!val || !renderDigits(digitsEl, val, pad)) {
             if (!lastVal) showError(root);
             return;
           }
-          writeStore(window.sessionStorage, sessionKey, num);
-          writeStore(window.localStorage, lastKey, num);
+          writeStore(window.sessionStorage, sessionKey, val);
+          writeStore(window.localStorage, lastKey, val);
         })
         .catch(function (e) {
           console.warn(
@@ -202,10 +232,13 @@ const style = Astro.props.style || undefined;
     var SPRITE_MAX_H = 120; // 单个字形最大高度（px）：位数变化时高度不会忽大忽小
 
     // cellW / cellH = 单个字形的原始像素尺寸（取服务端 SVG 里 <image> 的宽高）
-    function renderSprite(el, root, text, demoUrl, cellW, cellH) {
+    function renderSprite(el, root, text, demoUrl, cellW, cellH, pad) {
       if (!(cellW > 0) || !(cellH > 0)) return false;
+      // 先补零再定位数：位数直接决定单字大小，必须「先补、后算宽度」
+      var padded = padCount(String(text), pad);
+      if (!/^\d+$/.test(padded)) return false;
       var aspect = cellW / cellH;
-      var n = text.length;
+      var n = padded.length;
 
       // 撑满可用宽度但不超过 SPRITE_MAX_H：位数再多也不会顶破侧栏
       var cs = window.getComputedStyle ? window.getComputedStyle(root) : null;
@@ -222,7 +255,8 @@ const style = Astro.props.style || undefined;
       el.style.setProperty("--moe-glyph-h", h + "px");
       el.style.setProperty("--moe-sprite", 'url("' + demoUrl + '")');
       // 数字本身是文本语义 ⇒ 整块当一张图报读，里面每位都 aria-hidden
-      el.setAttribute("aria-label", text);
+      // （aria-label 用去零后的真实数字：前导 0 只是补位，念出来只会更费解）
+      el.setAttribute("aria-label", stripPad(padded));
 
       var frag = document.createDocumentFragment();
       for (var i = 0; i < n; i++) {
@@ -232,7 +266,7 @@ const style = Astro.props.style || undefined;
         // 第 d 位 = 精灵图里第 d 个字形，CSS 用 background-position 左移 d 格
         span.style.setProperty(
           "--moe-glyph-d",
-          String(text.charCodeAt(i) - 48),
+          String(padded.charCodeAt(i) - 48),
         );
         frag.appendChild(span);
       }
@@ -250,6 +284,7 @@ const style = Astro.props.style || undefined;
       name,
       theme,
       num,
+      pad,
     ) {
       var demoUrl = api + "/get/@demo?theme=" + encodeURIComponent(theme);
       var finished = false;
@@ -294,6 +329,7 @@ const style = Astro.props.style || undefined;
                 demoUrl,
                 parseFloat(w[1]),
                 parseFloat(h[1]),
+                pad,
               )
             ) {
               throw new Error("渲染失败");
@@ -353,20 +389,35 @@ const style = Astro.props.style || undefined;
       // 站点统计注入的数字：必须是正整数才用（num=0 会被服务端当成「无 num」→ 回落自增）
       var num = String(root.getAttribute("data-num") || "").trim();
       if (!/^\d+$/.test(num) || Number(num) <= 0) num = "";
+      // 补零位数：属性缺省（旧配置没存过该项）= 用默认 7（与服务端一致）；"0" = 不补零
+      var padRaw = String(root.getAttribute("data-pad") || "").trim();
+      var pad = padRaw === "" ? DEFAULT_PAD : parseInt(padRaw, 10);
+      if (!isFinite(pad) || pad < 0) pad = DEFAULT_PAD;
+      if (pad > MAX_PAD) pad = MAX_PAD;
       if (!api || !name) {
         showError(root);
         return;
       }
 
       if (theme === "native") {
-        initNativeMode(root, imgEl, digitsEl, api, name, num);
+        initNativeMode(root, imgEl, digitsEl, api, name, num, pad);
         return;
       }
 
       // counter_source = site（num 有值）⇒ 走贴片精灵，顺带把「每次导航重拉主题图」彻底去掉
       var spriteEl = document.getElementById("moe-counter-sprite");
       if (num && spriteEl) {
-        initSpriteMode(root, imgEl, digitsEl, spriteEl, api, name, theme, num);
+        initSpriteMode(
+          root,
+          imgEl,
+          digitsEl,
+          spriteEl,
+          api,
+          name,
+          theme,
+          num,
+          pad,
+        );
         return;
       }
 
@@ -503,9 +554,17 @@ const style = Astro.props.style || undefined;
       0 6px 14px color-mix(in oklab, var(--primary) 24%, transparent);
   }
 
+  /* 前导 0 只做补位 ⇒ 整体弱化成灰。
+     ⚠️ 别给 is-empty 加宽：7 位数字在窄侧栏里会直接换行破版 */
   .moe-cnt-digit.is-empty {
-    min-width: 2.6rem;
-    color: color-mix(in oklab, var(--deep-text) 42%, transparent);
+    color: color-mix(in oklab, var(--deep-text) 38%, transparent);
+    background: linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--deep-text) 9%, transparent),
+      color-mix(in oklab, var(--deep-text) 3%, transparent)
+    );
+    border-color: color-mix(in oklab, var(--deep-text) 14%, transparent);
+    box-shadow: none;
   }
 
   /* ---- 说明与错误态 ---- */

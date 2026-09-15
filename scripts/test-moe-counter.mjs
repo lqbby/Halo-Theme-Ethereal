@@ -17,6 +17,9 @@
  *      （换主题不用改代码，也绝不能被写死成 moebooru 的 45×100）
  *   7. ⭐ 任一环节失败（fetch 失败 / SVG 里没有 <image>）都必须**落回**旧的服务端主题图，
  *      即 img.src = …&num=N —— 这是「新版不倒退」的保底
+ *   8. ⭐ 补零：服务端 Moe-Counter 默认 padding = 7（themify: padStart(padding,'0')）⇒
+ *      3743 会渲染成 0003743；@demo 精灵图只给字形、不参与补零 ⇒ 补零必须在本地做，
+ *      否则精灵模式比原版主题图少几位前导 0。data-pad 缺省 = 7，"0" = 不补零。
  *
  * 被测对象是**构建产物**里的内联脚本（templates/index.html），不是 .astro 源
  * —— 这样连「Astro 有没有把它原样吐出来」一起验了。
@@ -138,7 +141,7 @@ const svgFor = (cw, ch) =>
   <g><use x="0" xlink:href="#0" /></g>
 </svg>`;
 
-function runner({ api, name, theme, num, svg, failFetch }) {
+function runner({ api, name, theme, num, pad, svg, failFetch }) {
   const root = makeEl("div");
   root.id = "moe-counter-root";
   root.clientWidth = 315; // 侧栏内容宽度
@@ -146,6 +149,7 @@ function runner({ api, name, theme, num, svg, failFetch }) {
   if (name != null) root._attrs["data-name"] = name;
   if (theme != null) root._attrs["data-theme"] = theme;
   if (num != null) root._attrs["data-num"] = num;
+  if (pad != null) root._attrs["data-pad"] = pad;
 
   const img = makeEl("img");
   const digits = makeEl("div");
@@ -265,8 +269,8 @@ console.log("[1] counter_source=moe（无 data-num）");
   check("贴片精灵未启用", r.sprite.hidden === true);
 }
 
-// 2) source=site：走贴片精灵，只请求一次 @demo
-console.log("[2] counter_source=site（data-num=3743）");
+// 2) source=site：走贴片精灵，只请求一次 @demo，并按服务端默认补零到 7 位
+console.log("[2] counter_source=site（data-num=3743 ⇒ 0003743）");
 {
   const r = runner({ api: API, name: "lqbby", theme: "moebooru", num: "3743" });
   r.run(script);
@@ -281,11 +285,15 @@ console.log("[2] counter_source=site（data-num=3743）");
   check("贴片精灵已显示", r.sprite.hidden === false);
   check("原版 img 未显示", r.img.hidden === true && !r.img.src);
   const glyphs = r.sprite._children;
-  check("逐位渲染 4 个字形", glyphs.length === 4, String(glyphs.length));
   check(
-    "每位的格位索引 = 0,3,4,7（background-position 切片正确）",
+    "补零到 7 位 ⇒ 7 个字形（对齐服务端 padding 默认值）",
+    glyphs.length === 7,
+    String(glyphs.length),
+  );
+  check(
+    "格位索引 = 0,0,0,3,7,4,3（前导 0 就是精灵图的 0 号字形）",
     glyphs.map((g) => g.style.getPropertyValue("--moe-glyph-d")).join(",") ===
-      "3,7,4,3",
+      "0,0,0,3,7,4,3",
     glyphs.map((g) => g.style.getPropertyValue("--moe-glyph-d")).join(","),
   );
   check(
@@ -294,13 +302,17 @@ console.log("[2] counter_source=site（data-num=3743）");
     r.sprite.style.getPropertyValue("--moe-sprite"),
   );
   check(
-    "原子尺寸取自 <image> 的 45×100 ⇒ 字号高 120、单字宽 54",
-    r.sprite.style.getPropertyValue("--moe-glyph-h") === "120px" &&
-      r.sprite.style.getPropertyValue("--moe-glyph-w") === "54px",
+    "原子尺寸取自 <image> 的 45×100 ⇒ 7 位时单字 41.57 × 92.38（总宽正好 291）",
+    Math.abs(
+      parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-w")) - 41.5714,
+    ) < 0.05 &&
+      Math.abs(
+        parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-h")) - 92.381,
+      ) < 0.05,
     `${r.sprite.style.getPropertyValue("--moe-glyph-w")} × ${r.sprite.style.getPropertyValue("--moe-glyph-h")}`,
   );
   check(
-    "读屏拿到纯数字语义（role=img + aria-label）",
+    "读屏拿到真实数字（前导 0 只是补位，不进 aria-label）",
     r.sprite.getAttribute("aria-label") === "3743",
     r.sprite.getAttribute("aria-label"),
   );
@@ -331,11 +343,11 @@ console.log("[3] 换主题 ⇒ 单字尺寸跟服务端 cell 走（不写死 moe
   const h = parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-h"));
   const w = parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-w"));
   check(
-    "按 165/250 比例算出尺寸（约 110.2 × 72.8）",
-    Math.abs(h - 110.227) < 0.05 && Math.abs(w - 72.75) < 0.05,
+    "按 165/250 比例算出尺寸（7 位时约 41.6 × 63.0）",
+    Math.abs(w - 41.5714) < 0.05 && Math.abs(h - 62.987) < 0.05,
     `${w} × ${h}`,
   );
-  const total = w * 4;
+  const total = w * 7;
   check(
     "总宽不超出可用宽度（291px）",
     total <= 291.5,
@@ -456,7 +468,14 @@ console.log("[9] counter_theme=native + counter_source=site");
   r.run(script);
   await flush();
   const text = r.digits._children.map((c) => c.textContent).join("");
-  check("数字方块逐位渲染 3743", text === "3743", `"${text}"`);
+  check("补零到 7 位：0003743", text === "0003743", `"${text}"`);
+  check(
+    "前 3 位标为补位（is-empty），有效数字不标",
+    r.digits._children
+      .map((c) => (String(c.className).includes("is-empty") ? "E" : "S"))
+      .join("") === "EEESSSS",
+    r.digits._children.map((c) => c.className).join(" | "),
+  );
   check(
     "未发任何请求（不碰 Moe-Counter）",
     r.fetchCalls.length === 0,
@@ -475,6 +494,54 @@ console.log("[10] counter_theme=native + counter_source=moe");
     "回落到 /record/@id 拉取",
     r.fetchCalls.length === 1 && r.fetchCalls[0] === `${API}/record/@lqbby`,
     r.fetchCalls.join(","),
+  );
+}
+
+// 11) counter_padding = 0 ⇒ 不补零（想回到「只显有效数字」时的开关）
+console.log("[11] counter_padding=0（不补零）");
+{
+  const r = runner({
+    api: API,
+    name: "lqbby",
+    theme: "moebooru",
+    num: "3743",
+    pad: "0",
+  });
+  r.run(script);
+  await flush();
+  const glyphs = r.sprite._children;
+  check("4 个字形、无前导 0", glyphs.length === 4, String(glyphs.length));
+  check(
+    "格位索引 = 3,7,4,3",
+    glyphs.map((g) => g.style.getPropertyValue("--moe-glyph-d")).join(",") ===
+      "3,7,4,3",
+    glyphs.map((g) => g.style.getPropertyValue("--moe-glyph-d")).join(","),
+  );
+  check("读屏数字不变", r.sprite.getAttribute("aria-label") === "3743");
+}
+
+// 12) data-pad 缺省 / 非法 / 超范围 ⇒ 回落默认 7，并夹到 16（与服务端取值域一致）
+console.log("[12] data-pad 缺省与边界值");
+for (const [label, val, expect] of [
+  ["缺省（旧配置没存过该项）", null, 7],
+  ["空串", "", 7],
+  ["非数字", "abc", 7],
+  ["负数", "-3", 7],
+  ["超范围 99", "99", 16],
+]) {
+  const r = runner({
+    api: API,
+    name: "lqbby",
+    theme: "moebooru",
+    num: "1",
+    pad: val,
+  });
+  r.run(script);
+  await flush();
+  check(
+    `pad=${label} ⇒ ${expect} 位`,
+    r.sprite._children.length === expect,
+    String(r.sprite._children.length),
   );
 }
 
