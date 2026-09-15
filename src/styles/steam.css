@@ -1,0 +1,516 @@
+@reference "./global.css";
+
+/* ==========================================================================
+   Steam 页 /steam 专属样式
+   --------------------------------------------------------------------------
+   插件（halo-plugin-steam）自己带一份整页 HTML 模板（Steam 深色 UI 风），
+   主题这份是**同位替代**：功能一一对应，但外观全部改用本主题语义变量，
+   从而与首页/文章页/追番页完全同源。
+
+   约定（与 bangumi.css / statistics.css 一致）：
+   · 颜色一律取主题变量（--primary / --card-bg / --btn-regular-bg / --line-color …），
+     深浅色由 variables.css 的 :root.dark 覆写自动跟随，**此处不写任何深色分支**。
+   · 布局能用 Tailwind 工具类表达的写在 steam.astro 里；这里只补工具类不好
+     表达的部分（网格自适应、封面兜底、状态点、进度条、热力图三态）。
+   · 焦点环统一 var(--focus-ring)（WCAG 2.4.11 的 3:1，与全站一致）。
+   · ⚠️ 唯一需要「亮暗两套硬编码」的是热力图：ECharts 画在 canvas 上，
+     吃不到 CSS 变量，色阶必须在 JS 里算（见 scripts/assets/steam.ts）。
+     本文件里与热力图相关的只有容器尺寸与三态遮罩。
+   ========================================================================== */
+
+/* ── ① 页面竖排节奏 ──────────────────────────────────────────────────── */
+
+.steam-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* 区块标题行（最近游玩 / 游戏库 / 热力图共用） */
+.steam-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+/* ── ② 资料卡 ────────────────────────────────────────────────────────── */
+
+.steam-profile {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+}
+
+@media (max-width: 639.98px) {
+  .steam-profile {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* 头像容器：承载状态点（-4px 外扩，容器须留出空间不被 overflow 裁掉） */
+.steam-avatar {
+  position: relative;
+  flex: none;
+  width: 5rem;
+  height: 5rem;
+  border-radius: var(--radius-large);
+  background: var(--btn-regular-bg);
+  overflow: visible;
+}
+
+.steam-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-large);
+  object-fit: cover;
+  /* 未加载/加载失败时露出容器底色，不留白色破图块 */
+  background: var(--btn-regular-bg);
+}
+
+/* 状态点：离线=灰、在线=绿、正在游戏=主题主色。
+   ring 用 --card-bg 描边，保证压在头像边缘上仍清晰。 */
+.steam-avatar__dot {
+  position: absolute;
+  right: -0.25rem;
+  bottom: -0.25rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 9999px;
+  background: var(--meta-divider);
+  box-shadow: 0 0 0 2px var(--card-bg);
+}
+
+.steam-avatar__dot.is-online {
+  background: var(--timeline-current);
+}
+
+.steam-avatar__dot.is-playing {
+  background: var(--primary);
+}
+
+/* 信息列：宽度可压缩（长昵称/长链接不撑破卡片） */
+.steam-profile__body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.steam-profile__name {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* 状态文案：在线/游戏中用主色，离线走次级文字 */
+.steam-profile__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.steam-profile__state.is-online {
+  color: var(--timeline-current);
+}
+
+.steam-profile__state.is-playing {
+  color: var(--primary);
+}
+
+/* ── ③ 状态胶囊（等级 / 徽章数 / XP，与资料卡同一行） ─────────────────── */
+
+/* 与 PostMeta 的 meta 胶囊同构：浅底 + 次级文字，不用主色（避免抢标题）。
+   ⚠️ 命名避开 .steam-chip —— 那是**封面角标**（库外 / 不可用）的类名，语义完全不同。
+   ⚠️ 不引新变量，全走 --btn-regular-bg / --btn-content。 */
+.steam-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  background: var(--btn-regular-bg);
+  color: var(--btn-content);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* ── ④ 徽章组 ────────────────────────────────────────────────────────── */
+
+.steam-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.steam-badge {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--line-color);
+  background: var(--btn-regular-bg);
+  color: var(--btn-content);
+  font-size: 1.05rem;
+  /* 徽章只是展示物，不可聚焦，故不做 hover 抬升/焦点环 */
+  user-select: none;
+}
+
+.steam-badge img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: calc(0.5rem - 1px);
+  object-fit: cover;
+}
+
+/* 有真实图时去掉底板，图自带圆角与描边 */
+.steam-badge.has-img {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* 闪卡（foil）：Steam 用金色标记稀有徽章。
+   ⚠️ 这里的金色**刻意不取主题色** —— 它与主题色相无关，是 Steam 的语义色
+   （就像「红涨绿跌」），跟着 --hue 变反而会让用户读不出「这是闪卡」。
+   只有这一处硬编码色值，且只描边、不参与布局。 */
+.steam-badge.has-foil {
+  border-color: #ffd700;
+  box-shadow: 0 0 0 1px rgb(255 215 0 / 0.25);
+}
+
+/* 右下角等级角标：与插件一致（压在角上而非撑开盒子） */
+.steam-badge__lv {
+  position: absolute;
+  right: -0.25rem;
+  bottom: -0.25rem;
+  min-width: 1rem;
+  padding: 0 0.2rem;
+  border-radius: 0.375rem;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+/* 「+N」去 Steam 看全部徽章 */
+.steam-badge--more {
+  width: auto;
+  min-width: 2.25rem;
+  padding: 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background-color 0.2s ease;
+}
+
+.steam-badge--more:hover {
+  background: var(--btn-regular-bg-hover);
+}
+
+.steam-badge--more:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* ── ⑤ 统计条（三格） ───────────────────────────────────────────────── */
+
+.steam-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.steam-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem;
+}
+
+.steam-stat__value {
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--primary);
+  word-break: break-word;
+}
+
+@media (min-width: 768px) {
+  .steam-stat__value {
+    font-size: 1.625rem;
+  }
+}
+
+/* ── ⑥ 热力图 ────────────────────────────────────────────────────────── */
+
+.steam-heatmap {
+  position: relative;
+  width: 100%;
+  /* 高度交给 ECharts 自己按 cellSize 算；给个下限避免 loading 时塌成 0 */
+  min-height: 12rem;
+}
+
+/* ECharts 容器：未渲染前 display:none，避免空 canvas 占高 */
+.steam-heatmap__canvas {
+  width: 100%;
+  height: 15rem;
+}
+
+@media (min-width: 768px) {
+  .steam-heatmap__canvas {
+    height: 13rem;
+  }
+}
+
+/* 三种遮罩态（loading / empty / error）叠在容器上，同一时刻只显示一个 */
+.steam-heatmap__state {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  padding: 1.5rem 1rem;
+}
+
+.steam-heatmap__state[hidden] {
+  display: none;
+}
+
+/* 加载转圈：用主题主色，尺寸与图标区分开 */
+.steam-spinner {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 9999px;
+  border: 2px solid var(--btn-regular-bg-active);
+  border-top-color: var(--primary);
+  animation: steam-spin 0.8s linear infinite;
+}
+
+@keyframes steam-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam-spinner {
+    animation-duration: 2s;
+  }
+}
+
+/* ── ⑦ 游戏网格与卡片（最近游玩 / 游戏库共用） ─────────────────────── */
+
+.steam-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.875rem;
+}
+
+/* 最近游玩：数量少且强调封面，给更宽的列 */
+.steam-grid--recent {
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+.steam-card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radius-large);
+  background: var(--btn-regular-bg);
+  transition:
+    transform 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.steam-card:hover {
+  background: var(--btn-regular-bg-hover);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam-card,
+  .steam-card:hover {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* 卡片整体可点（enableGameLink 开）时用 <a>；关时用 <div>。
+   两者样式一致，故统一类名，只在这里补焦点环与去下划线。 */
+.steam-card__hit {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  color: inherit;
+  text-decoration: none;
+}
+
+.steam-card__hit:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-large);
+}
+
+/* 封面：外框 460×215（Steam 头图标准比例），用 aspect-ratio 占位防 CLS */
+.steam-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 460 / 215;
+  background: var(--btn-regular-bg-active);
+  overflow: hidden;
+}
+
+.steam-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 封面缺失/加载失败：图片淡出，露出容器底色 + 占位图标。
+   占位图标用主题现成的 Iconify 掩码类（icon-[…]，见 steam.astro），
+   由 Tailwind/@iconify 插件生成 mask-image + 背景色，**不额外请求资源**，
+   也避免手写 SVG path（手编 path 极易画歪，且无法跟随 --btn-content 取色）。 */
+.steam-cover.is-broken img {
+  opacity: 0;
+}
+
+.steam-cover__ph {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  color: var(--btn-content);
+  opacity: 0.55;
+}
+
+.steam-cover.is-broken .steam-cover__ph {
+  display: flex;
+}
+
+/* 角标（库外 / 不可用）：压在封面左下，与封面同为深色底时用反相保证可读 */
+.steam-chips {
+  position: absolute;
+  left: 0.5rem;
+  bottom: 0.5rem;
+  display: flex;
+  gap: 0.375rem;
+}
+
+.steam-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.375rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.4;
+  /* 压在任意封面上：用半透明黑底 + 白字，不依赖主题色相，亮暗都够对比 */
+  background: rgb(0 0 0 / 0.62);
+  color: rgb(255 255 255 / 0.95);
+  backdrop-filter: blur(2px);
+}
+
+/* 卡片文字区 */
+.steam-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem 0.75rem 0.75rem;
+}
+
+.steam-card__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.35;
+  /* 最多两行，超出省略；min-height 保证单行卡片与双行卡片对齐 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.7em;
+  word-break: break-word;
+}
+
+.steam-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.625rem;
+  font-size: 0.75rem;
+}
+
+/* 指标小标签：与 PostCard 的 post-card-stat 同构（图标 + 文本） */
+.steam-card__stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  line-height: 1;
+}
+
+/* ── ⑧ 空态 ─────────────────────────────────────────────────────────── */
+
+.steam-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.steam-empty__icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+/* ── ⑨ 提示条（数据加载失败 / 接口未通） ────────────────────────────── */
+
+/* 插件原本用「暗红渐变 + 红字」表达失败，那是 Steam 深色 UI 的语汇。
+   主题里沿用 **admonition 警示色**（--admonitions-color-warning，亮暗各一套），
+   底色仍走卡片语义色 ⇒ 与全站提示风格同源，不引入第四套色板。 */
+.steam-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-large);
+  background: var(--btn-regular-bg);
+  border: 1px solid var(--line-color);
+}
+
+.steam-note__icon {
+  flex: none;
+  font-size: 1.25rem;
+  line-height: 1.4;
+  color: var(--admonitions-color-warning);
+}
+
+.steam-note__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-width: 0;
+}
