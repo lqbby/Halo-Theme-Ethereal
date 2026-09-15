@@ -18,15 +18,27 @@ const style = Astro.props.style || undefined;
        用 counter_theme 可切服务端任意主题（moebooru / 3d-num / miku / capoo-1 …）
      - 可选「自绘模式」：counter_theme = native 时用主题 token（--primary / --deep-text）
        自绘数字方块，不带看板娘，风格更克制
+     - ⭐ counter_source 决定「数字从哪来」：
+       · moe（默认）= Moe-Counter 自己的计数（每渲染一次 +1，服务端存库）
+       · site        = Halo 站点统计（siteStatsFinder.getStats().visit），
+                       与「站点统计」小组件的「访问量」**同一来源**，两个小组件数字必然一致；
+                       看板娘/人物贴片仍由 Moe-Counter 主题渲染 —— Moe-Counter 的 /get/@id
+                       支持 `num` 参数：num>0 时**只渲染、不写库、不自增**（已实测），
+                       所以数字可外部注入而人物动画原样保留。
+                       注意 num=0 会被服务端当作「无 num」→ 回落成自增，故 visit 为 0 时不带该参数。
      - 性能：img 走 loading=lazy + 视口懒加载；自绘模式另有 sessionStorage 每会话一次的缓存
-     - 配置：侧栏小组件的 counter_api / counter_name / counter_theme（见 settings.yaml） */
+     - 配置：侧栏小组件的 counter_api / counter_name / counter_theme / counter_source（见 settings.yaml）
+
+     ⚠️ th:with 里变量不能互相引用（Thymeleaf 用旧 context 逐个求值），
+     所以 moeVisit 里把「来源」表达式重复写了一遍，而不是引用同一 th:with 的 moeSource。 */
 }
 <div
   class="contents"
   th:with="
     moeApi=${widget?.counter_api ?: 'https://moe.lqbby.com:1443'},
     moeName=${widget?.counter_name ?: 'lqbby'},
-    moeTheme=${widget?.counter_theme ?: 'moebooru'}"
+    moeTheme=${widget?.counter_theme ?: 'moebooru'},
+    moeVisit=${(widget?.counter_source ?: 'moe') == 'site' and siteStatsFinder != null ? siteStatsFinder.getStats()?.visit : null}"
 >
   <WidgetLayout
     id="moe-counter"
@@ -38,7 +50,7 @@ const style = Astro.props.style || undefined;
     <div
       id="moe-counter-root"
       class="moe-cnt-root"
-      th:attr="data-api=${moeApi}, data-name=${moeName}, data-theme=${moeTheme}"
+      th:attr="data-api=${moeApi}, data-name=${moeName}, data-theme=${moeTheme}, data-num=${moeVisit != null ? moeVisit : ''}"
     >
       <!-- 原版模式：服务端主题 SVG（可含看板娘贴图） -->
       <img
@@ -111,10 +123,14 @@ const style = Astro.props.style || undefined;
       return true;
     }
 
-    function initNativeMode(root, imgEl, digitsEl, api, name) {
+    // num 有值时（counter_source = site）：数字来自站点统计，直接渲染即可，
+    // 不必再请求 Moe-Counter —— 顺带避免 /record 自增污染计数器
+    function initNativeMode(root, imgEl, digitsEl, api, name, num) {
       root.setAttribute("data-state", "native");
       if (imgEl) imgEl.hidden = true;
       digitsEl.hidden = false;
+
+      if (num && renderDigits(digitsEl, num)) return;
 
       var sessionKey = SESSION_PREFIX + name;
       var lastKey = LAST_PREFIX + name;
@@ -167,16 +183,26 @@ const style = Astro.props.style || undefined;
       var digitsEl = document.getElementById("moe-counter-digits");
       if (!digitsEl) return;
 
-      var api = String(root.getAttribute("data-api") || "").replace(/\/+$/, "");
+      // 归一化服务地址：兼容旧配置里「带 /get/@id?theme=... 后缀」的写法。
+      // 不裁的话会拼成 .../get/@lqbby?theme=X/get/@lqbby?theme=X ——
+      // 主题参数变成垃圾值，服务端回落默认主题，切 counter_theme 会静默失效。
+      var api = String(root.getAttribute("data-api") || "")
+        .trim()
+        .replace(/\/get\/@.*$/i, "")
+        .replace(/[?#].*$/, "")
+        .replace(/\/+$/, "");
       var name = String(root.getAttribute("data-name") || "");
       var theme = String(root.getAttribute("data-theme") || "moebooru").trim();
+      // 站点统计注入的数字：必须是正整数才用（num=0 会被服务端当成「无 num」→ 回落自增）
+      var num = String(root.getAttribute("data-num") || "").trim();
+      if (!/^\d+$/.test(num) || Number(num) <= 0) num = "";
       if (!api || !name) {
         showError(root);
         return;
       }
 
       if (theme === "native") {
-        initNativeMode(root, imgEl, digitsEl, api, name);
+        initNativeMode(root, imgEl, digitsEl, api, name, num);
         return;
       }
 
@@ -195,7 +221,8 @@ const style = Astro.props.style || undefined;
         "/get/@" +
         encodeURIComponent(name) +
         "?theme=" +
-        encodeURIComponent(theme);
+        encodeURIComponent(theme) +
+        (num ? "&num=" + num : "");
     }
 
     window.__themeLazyInit("moe-counter-root", initMoeCounter);

@@ -1187,6 +1187,19 @@ spec:
                   label: 获取失败来源
                   value: "楠南NanNan"
                   help: "一言获取失败时显示的作者或来源"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_source
+                  key: widget_counter_source
+                  preserve: true
+                  label: 计数来源
+                  value: "moe"
+                  options:
+                    - label: Moe-Counter 自身计数
+                      value: "moe"
+                    - label: 站点统计（Halo 访问量）
+                      value: "site"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_name
@@ -1202,7 +1215,7 @@ spec:
                   preserve: true
                   label: 计数器服务地址
                   value: "https://moe.lqbby.com:1443"
-                  help: "Moe-Counter 服务地址，结尾不要加斜杠（如 https://moe.lqbby.com:1443）"
+                  help: "Moe-Counter 服务地址，只填地址、结尾不要加斜杠（如 https://moe.lqbby.com:1443）；若旧值带了 /get/@:id?theme=… 后缀，组件会自动裁掉"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_theme
@@ -1480,6 +1493,19 @@ spec:
                   label: 获取失败来源
                   value: "楠南NanNan"
                   help: "一言获取失败时显示的作者或来源"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_source
+                  key: right_widget_counter_source
+                  preserve: true
+                  label: 计数来源
+                  value: "moe"
+                  options:
+                    - label: Moe-Counter 自身计数
+                      value: "moe"
+                    - label: 站点统计（Halo 访问量）
+                      value: "site"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_name
@@ -1495,7 +1521,7 @@ spec:
                   preserve: true
                   label: 计数器服务地址
                   value: "https://moe.lqbby.com:1443"
-                  help: "Moe-Counter 服务地址，结尾不要加斜杠（如 https://moe.lqbby.com:1443）"
+                  help: "Moe-Counter 服务地址，只填地址、结尾不要加斜杠（如 https://moe.lqbby.com:1443）；若旧值带了 /get/@:id?theme=… 后缀，组件会自动裁掉"
                 - $formkit: text
                   if: "$value.value === 'moe-counter'"
                   name: counter_theme
