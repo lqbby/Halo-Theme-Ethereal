@@ -98,6 +98,38 @@ public class ThRenderProbe {
                         d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 80));
             }
         }
+        // —— 2026-09-16 追加：th:with 内变量能否互相引用 + null 条件语义 ——
+        // 动机：本仓两处注释**互相矛盾** —— `MoeCounter.astro` 写「同一 th:with 里变量不能互相引用」，
+        //      而 `pages/steam.astro` 却依赖 `profile=${sp ? …}`、`dataOk=${profile != null and …}`。
+        //      靠猜会写错模板，这里用真引擎定论（并把结论固化下来，避免以后继续猜）。
+        System.out.println("—— th:with 引用语义 + null 条件电池 ——");
+        Map<String, Object> m2 = map("present", "yes", "nilBool", null);
+        ctx.setVariable("m2", m2);
+        ctx.setVariable("nilBool", null);
+        ctx.setVariable("nilStr", null);
+        String[][] battery = {
+            {"后引用前（声明顺序）", "<div th:with=\"sp=${m2.present != null}, p=${sp ? 'P' : 'N'}\" th:text=\"${p}\"></div>"},
+            {"前引用后（逆序）", "<div th:with=\"p=${sp ? 'P' : 'N'}, sp=${m2.present != null}\" th:text=\"${p}\"></div>"},
+            {"同属性内布尔派生 + th:if", "<div th:with=\"a=${1}, b=${a == 1}\" th:if=\"${b}\">IN</div>"},
+            {"三元条件为 null（顶层变量）", "<div th:text=\"${nilBool ? 'Y' : 'N'}\"></div>"},
+            {"th:classappend 内 null 三元", "<div th:classappend=\"${(nilBool ? ' has-x' : '') + ' base'}\">z</div>"},
+            {"th:if 条件为 null", "<div th:if=\"${nilBool}\">HIDDEN</div>"},
+            {"null + 字符串拼接", "<div th:text=\"${nilStr + 'badges/'}\"></div>"},
+            {"null 对象取属性（点号）", "<div th:text=\"${nilStr.length}\"></div>"},
+            {"自定义属性 th:aria-label", "<div th:aria-label=\"${m2.present}\"></div>"},
+            {"自定义属性 th:data-*", "<div th:data-server-url=\"${m2.present}\"></div>"},
+        };
+        for (String[] c : battery) {
+            try {
+                String out = engine.process(c[1], ctx).replaceAll("\\s+", " ").trim();
+                System.out.printf("  OK    %-24s → %s%n", c[0], out);
+            } catch (Throwable ex) {
+                Throwable d = ex;
+                while (d.getCause() != null && d.getCause() != d) d = d.getCause();
+                System.out.printf("  THROW %-24s → %s%n", c[0],
+                        d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 70));
+            }
+        }
         System.out.println("—— 电池结束 ——");
     }
 

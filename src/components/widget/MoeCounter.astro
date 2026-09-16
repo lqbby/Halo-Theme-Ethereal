@@ -48,8 +48,14 @@ const style = Astro.props.style || undefined;
      - 配置：侧栏小组件的 counter_api / counter_name / counter_theme / counter_source /
        counter_padding（见 settings.yaml）
 
-     ⚠️ th:with 里变量不能互相引用（Thymeleaf 用旧 context 逐个求值），
-     所以 moeVisit 里把「来源」表达式重复写了一遍，而不是引用同一 th:with 的 moeSource。 */
+     ⭐ th:with 求值语义（2026-09-16 用**真 Thymeleaf 引擎**实测，命令：
+       `java -cp <jars> scripts/tools/ThRenderProbe.java --semantics`）：
+       · 同一 th:with 里**可以**引用「前面已声明」的变量（按声明顺序逐个求值）⇒ 正常；
+       · **前向引用**（引用后面才声明的变量）会抛 `EL1001E: cannot convert from null to boolean`
+         ⇒ 服务端返回 200 但**整页正文截断**；
+       · 同一标签上的 `th:if`/`th:each` 优先级高于 th:with ⇒ 读不到该标签自己声明的变量。
+       ⚠️ 本条注释曾写成「不能互相引用」，是**错的** —— 照它写只会白复制表达式，
+         更糟的是为「规避」它而调换声明顺序 → 直接踩前向引用的截断。 */
 }
 <div
   class="contents"
@@ -231,6 +237,40 @@ const style = Astro.props.style || undefined;
     var SPRITE_TIMEOUT = 6000; // 超时即回落，别让侧栏空等
     var SPRITE_MAX_H = 120; // 单个字形最大高度（px）：位数变化时高度不会忽大忽小
 
+    // 单字尺寸 = 可用宽度 / (位数 × 字形长宽比)，封顶 SPRITE_MAX_H。
+    // ⚠️ 只改 CSS 变量、不碰 DOM —— 宽度重算走这条轻路径，重建字形会闪。
+    function sizeSprite(el, root, n, aspect) {
+      var cs = window.getComputedStyle ? window.getComputedStyle(root) : null;
+      // 变量名别叫 pad：外层还有个「补零位数」的 pad，同名会被这行覆盖（var 提升的坑）
+      var padPx = cs
+        ? parseFloat(cs.paddingLeft || 0) + parseFloat(cs.paddingRight || 0)
+        : 0;
+      var avail = (root.clientWidth || 315) - padPx;
+      if (!(avail > 0)) avail = 291;
+      if (avail > 315) avail = 315; // 与原版 img 的 max-width 对齐
+      var h = Math.min(SPRITE_MAX_H, avail / (n * aspect));
+      if (!(h > 0)) h = SPRITE_MAX_H;
+      el.style.setProperty("--moe-glyph-w", h * aspect + "px");
+      el.style.setProperty("--moe-glyph-h", h + "px");
+    }
+
+    // ⭐ 原版模式是 <img width:100%>，天生跟着容器缩放；精灵模式是「量一次宽度 + 写死 px」，
+    // 宽度一变（侧栏折叠 / 窗口缩放 / 移动端旋转 / 目录抽屉撑开）切片基准就与元素实际脱钩
+    // ⇒ 必须持续监听容器宽度并重算尺寸（只重算尺寸，不重建字形）。
+    function bindSpriteResize(el, root, n, aspect) {
+      if (typeof ResizeObserver === "undefined") return;
+      if (el.__moeRO) el.__moeRO.disconnect(); // 重渲染时先断旧的，避免观察器叠加
+      var lastW = root.clientWidth || 0;
+      var ro = new ResizeObserver(function () {
+        var w = root.clientWidth || 0;
+        if (w === lastW) return; // 只有高度变化 / 无变化时不重算
+        lastW = w;
+        sizeSprite(el, root, n, aspect);
+      });
+      ro.observe(root);
+      el.__moeRO = ro;
+    }
+
     // cellW / cellH = 单个字形的原始像素尺寸（取服务端 SVG 里 <image> 的宽高）
     function renderSprite(el, root, text, demoUrl, cellW, cellH, pad) {
       if (!(cellW > 0) || !(cellH > 0)) return false;
@@ -240,19 +280,7 @@ const style = Astro.props.style || undefined;
       var aspect = cellW / cellH;
       var n = padded.length;
 
-      // 撑满可用宽度但不超过 SPRITE_MAX_H：位数再多也不会顶破侧栏
-      var cs = window.getComputedStyle ? window.getComputedStyle(root) : null;
-      var pad = cs
-        ? parseFloat(cs.paddingLeft || 0) + parseFloat(cs.paddingRight || 0)
-        : 0;
-      var avail = (root.clientWidth || 315) - pad;
-      if (!(avail > 0)) avail = 291;
-      if (avail > 315) avail = 315; // 与原版 img 的 max-width 对齐
-      var h = Math.min(SPRITE_MAX_H, avail / (n * aspect));
-      if (!(h > 0)) h = SPRITE_MAX_H;
-
-      el.style.setProperty("--moe-glyph-w", h * aspect + "px");
-      el.style.setProperty("--moe-glyph-h", h + "px");
+      sizeSprite(el, root, n, aspect);
       el.style.setProperty("--moe-sprite", 'url("' + demoUrl + '")');
       // 数字本身是文本语义 ⇒ 整块当一张图报读，里面每位都 aria-hidden
       // （aria-label 用去零后的真实数字：前导 0 只是补位，念出来只会更费解）
@@ -272,6 +300,7 @@ const style = Astro.props.style || undefined;
       }
       el.innerHTML = "";
       el.appendChild(frag);
+      bindSpriteResize(el, root, n, aspect);
       return true;
     }
 

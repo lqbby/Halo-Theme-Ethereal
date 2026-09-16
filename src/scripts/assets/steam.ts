@@ -24,14 +24,20 @@
 //      ⇒ 换页/换主题重画若只丢掉局部变量，实例会一直挂在表里。
 //      又因为 IIFE 重执行会重置局部变量，实例引用只能存在 **window** 上，
 //      新的那一份 IIFE 才能把上一份的实例释放掉。
-import { guardOnce, onPageView } from "../../utils/once";
+import { guardOnce, onPageView, onceBound } from "../../utils/once";
 
 const HEATMAP_KEY = "steam-heatmap";
+
+/** 取数超时（ms）。接口被代理/反代挂住时 await 永不返回 ⇒ 页面永久停在 loading。
+ *  与 list-filter.ts 的 FETCH_TIMEOUT 保持同一量级。 */
+const FETCH_TIMEOUT = 10000;
 
 /** 跨 IIFE 副本共享的状态（IIFE 重执行会重置局部变量，只有 window 能留住）。 */
 type SteamShared = {
   __steamChart?: { dispose: () => void; resize: () => void };
   __steamRO?: ResizeObserver;
+  /** 渲染序号：并发/重入时只让「最新那次」写 DOM，旧的到点即弃（见 initHeatmap）。 */
+  __steamReqId?: number;
 };
 const shared = window as unknown as SteamShared;
 
@@ -190,6 +196,12 @@ function loadECharts(src) {
     };
     s.onerror = () => reject(new Error("echarts load failed"));
     document.head.appendChild(s);
+  }).catch((err) => {
+    // ⚠️ 失败**不得**留在缓存里：否则本会话后续每次调用都直接复用这个 rejected promise
+    //    ⇒ 一次网络抖动 = 热力图整会话失效（只有整页刷新能救）。
+    //    清缓存让下一次 initHeatmap 真正重试；已加载成功的分支走 `window.echarts`，不受影响。
+    echartsPromise = null;
+    throw err;
   });
   return echartsPromise;
 }
@@ -209,9 +221,21 @@ async function fetchHeatmap(days) {
     `/apis/api.steam.timxs.com/v1alpha1/heatmap/records` +
     `?startDate=${fmt(start)}&endDate=${fmt(end)}&page=1&size=${days}`;
 
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`heatmap http ${res.status}`);
-  return await res.json();
+  const ctrl =
+    typeof AbortController === "function" ? new AbortController() : null;
+  const timer = setTimeout(() => {
+    if (ctrl) ctrl.abort();
+  }, FETCH_TIMEOUT);
+  try {
+    const res = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: ctrl ? ctrl.signal : undefined,
+    });
+    if (!res.ok) throw new Error(`heatmap http ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** 把接口数据摊成 [日期, 分钟数, 小时文案] 的连续序列（缺口补 0）。 */
@@ -276,6 +300,12 @@ function showState(el, state) {
 }
 
 async function initHeatmap() {
+  // ⚠️ 先领号：本函数可能被并发/重入地调用（脚本被 Swup 克隆重执行 + page:view 回调、
+  //    切明暗踩在取数途中）——只让「最新那次」把结果写进 DOM。否则两路都 init 会
+  //    ① 打两个 heatmap 请求 ② echarts.init 在同一 canvas 上二次调用
+  //    ③ 旧的 ResizeObserver 永远不被 disconnect（引用被覆盖）。
+  const myId = (shared.__steamReqId = (shared.__steamReqId || 0) + 1);
+
   // ⚠️ 先释放：DOM 可能已被 Swup 换掉，这里拿不到旧元素，但实例引用在 window 上
   disposeChart();
 
@@ -303,7 +333,8 @@ async function initHeatmap() {
     return;
   }
 
-  // 期间可能已换页（DOM 不再是这一份），放弃这次渲染
+  // 期间可能已换页（DOM 不再是这一份），或已有更新的渲染在跑（领号已不是自己）⇒ 放弃这次渲染
+  if (shared.__steamReqId !== myId) return;
   if (!document.body.contains(el)) return;
 
   const total = series.reduce((sum, c) => sum + c[1], 0);
@@ -339,6 +370,12 @@ async function initHeatmap() {
   // 画在 canvas 上的文字必须给具体色值（吃不到 CSS 变量）
   const axisText = readVar("--btn-content", isDark() ? "#c9c9d4" : "#5b5b78");
 
+  // ⚠️ init 之前必须先把 canvas 露出来：它此前被 showState(el,"loading") 置为 hidden
+  //    ⇒ display:none 的容器尺寸是 0×0，ECharts 会按 0 尺寸建图（控制台告警、
+  //      首帧不可见），只能等 ResizeObserver 首次回调 resize() 才救回来；
+  //      而 `typeof ResizeObserver === "undefined"` 的浏览器**根本不会**救回来，
+  //      热力图就永久是一片空白。
+  showState(el, "chart");
   try {
     const chart = echartsLib.init(canvas);
     shared.__steamChart = chart;
@@ -394,7 +431,6 @@ async function initHeatmap() {
         },
       ],
     });
-    showState(el, "chart");
   } catch (err) {
     console.warn("[steam] 热力图渲染失败：", err);
     showState(el, "error");
@@ -428,18 +464,25 @@ function init() {
 
 function bindGlobal() {
   // 主题明暗切换后 canvas 上的色阶不会自己变（CSS 变量变了，但图表里是死色值），
-  // 需要重画。观察 <html class>，仅在「暗色状态真的翻转」时触发，
-  // 避免 LightDarkSwitch 的其它 class 变动引起无谓重绘。
+  // 需要重画。观察 `<html>` 的 class **与 style**：
+  //   · class → 明暗翻转（.dark）
+  //   · style → 访客样式面板拖「主题色」写的是内联 `--hue`
+  //     （见 utils/settings/scheme.ts 的 setHue）；只盯 class 会漏掉它，
+  //     表现是「整站换了色、热力图色阶还留在旧色相」，直到切明暗或刷新。
+  // 两者都没变就直接 return，避免 LightDarkSwitch 的其它 class 变动引起无谓重绘。
   let lastDark = isDark();
+  let lastHue = readVar("--hue", "");
   const mo = new MutationObserver(() => {
     const now = isDark();
-    if (now === lastDark) return;
+    const hue = readVar("--hue", "");
+    if (now === lastDark && hue === lastHue) return;
     lastDark = now;
+    lastHue = hue;
     void initHeatmap();
   });
   mo.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["class"],
+    attributeFilter: ["class", "style"],
   });
 }
 
@@ -448,4 +491,10 @@ function bindGlobal() {
 // （1.5.x 系列踩过的坑，见 utils/once.ts 注释）。
 if (!guardOnce(HEATMAP_KEY)) bindGlobal();
 onPageView(HEATMAP_KEY, init);
-init();
+// ⚠️ 顶层首跑要 onceBound 包住：SwupScriptsPlugin 换页会**克隆重执行本脚本**，
+//    裸调 init() 会与上面那个跨换页持久的 page:view handler **各跑一次**
+//    ⇒ 每次进 /steam 两个 heatmap 请求 + ResizeObserver 泄漏。
+//    onceBound 只挡「顶层首跑」、不挡 page:view 回调 ⇒ 回访渲染不受影响
+//    （同 comment-locate.ts 的写法：其注释明确写了「顶层 bind 若裸调会与 page:view
+//      handler 各执行一次」这个坑）。
+onceBound(HEATMAP_KEY + ":boot", init);

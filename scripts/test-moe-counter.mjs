@@ -545,6 +545,50 @@ for (const [label, val, expect] of [
   );
 }
 
+// 13) 宽度变化后必须重算：原版 <img> 是 width:100% 自适应的，精灵模式不能退化成「一次性测量」
+//     （侧栏折叠 / 窗口缩放 / 移动端旋转后，写死 px 的 background 切片会与元素实际宽度脱钩）
+console.log("[13] 宽度变化 ⇒ 精灵重算");
+{
+  const seen = [];
+  globalThis.ResizeObserver = class {
+    constructor(cb) {
+      this.cb = cb;
+      seen.push(this);
+    }
+    observe() {}
+    disconnect() {}
+  };
+  const r = runner({ api: API, name: "lqbby", theme: "moebooru", num: "3743" });
+  r.run(script);
+  await flush();
+  const before = r.sprite.style.getPropertyValue("--moe-glyph-w");
+  check(
+    "渲染后注册了 ResizeObserver（持续监听可用宽度）",
+    seen.length === 1,
+    String(seen.length),
+  );
+  // 模拟侧栏变窄：可用宽度 315 → 200（再减去 12+12 的内边距）
+  r.root.clientWidth = 200;
+  seen.forEach((o) => o.cb());
+  await flush();
+  const after = r.sprite.style.getPropertyValue("--moe-glyph-w");
+  check(
+    "变窄后单字宽度按新可用宽度重算",
+    parseFloat(after) > 0 && parseFloat(after) < parseFloat(before),
+    `${before} → ${after}`,
+  );
+  check(
+    "重算后位数与格位索引不变（只改尺寸，不改数字）",
+    r.sprite._children.length === 7 &&
+      r.sprite._children
+        .map((g) => g.style.getPropertyValue("--moe-glyph-d"))
+        .join(",") === "0,0,0,3,7,4,3" &&
+      r.sprite.getAttribute("aria-label") === "3743",
+    String(r.sprite._children.length),
+  );
+  delete globalThis.ResizeObserver;
+}
+
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );

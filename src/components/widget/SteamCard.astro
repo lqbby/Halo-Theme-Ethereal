@@ -15,12 +15,18 @@
  *
  * 尺寸基准与自适应策略见 src/styles/steam-widget.css 顶部注释。
  *
- * ⚠️ 两条必须遵守的求值规则（都在本项目踩过）：
- *   1) 同一 `th:with` 里的变量**不能互相引用** —— Thymeleaf 是用「旧的 context」
- *      逐个求值后再写进新 context 的，`b=${f(a)}` 会读不到 a。
+ * ⚠️ 两条求值规则（2026-09-16 用**真 Thymeleaf 引擎**复测修正过）：
+ *   1) 同一 `th:with` 里的变量**可以互相引用**，但**只能引用前面已声明的**
+ *      —— 按声明顺序逐个求值：`b=${f(a)}` 里 `a` 写在 `b` 之前 ⇒ 正常；
+ *      **前向引用**（`a=${b ? …}` 而 `b` 在后）会抛 `EL1001E: cannot convert from
+ *      null to boolean` ⇒ 200 但**整页截断**。
+ *      （旧注释曾写「不能互相引用」，是错的：Thymeleaf 会按序把已求值的变量写进 context。
+ *        实测命令见 MoeCounter.astro 顶部 / `ThRenderProbe.java --semantics`。）
  *   2) `th:if`(优先级 3) 早于 `th:with`(4) ⇒ 根节点的守卫**不能**读自己声明的变量，
  *      必须直接用 `steamFinder` / `pluginFinder` 原始变量（SiteStats 同款处理）。
  *      反过来 `th:with`(4) + `th:title`(5) / `th:text`(7) 在同一标签上是安全的。
+ *   3) ⚠️ `${可空字段 ? A : B}` 里的**条件为 null 也会抛 `EL1001E`**（`?.` 只保住取值，
+ *      保不住三元条件）⇒ 判断一律写成 `${x == true ? …}` / `${x != null ? …}` 或 `th:if="${x}"`。
  */
 import WidgetLayout from "./WidgetLayout.astro";
 // ⚠️ widget/ 在 src/ 下有两层，必须 ../../styles/
