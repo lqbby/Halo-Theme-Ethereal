@@ -2,6 +2,7 @@
 // 心愿便签墙交互（Wishboard 插件适配）—— 便签墙视框风格
 // 功能：卡片随机散布、拖动（限定画布内）、类型筛选、类型切换、
 //       颜色选择、发布便签、AI 润色、字符计数、纪念日计数
+import { fetchWithTimeout } from "../../utils/fetch-timeout";
 (function () {
   var API = "/apis/anonymous.wishboard.aobp.cn/v1alpha1";
   // 便签颜色唯一来源：卡片背景与发布栏颜色圆点共用，避免多处色值不一致
@@ -294,7 +295,9 @@
       var originText = btn.textContent;
       btn.disabled = true;
       btn.textContent = t("page.wishes.toastSubmitting", "发布中...");
-      fetch(API + "/wishes/-/submit", {
+      // ⚠️ 必须带超时：请求挂住时 `.catch`/`.finally` 永不执行 ⇒ 按钮永久停在第 293~295 行
+      //    设的 disabled +「发布中…」状态，连重试都进不去（doSubmit 入口有 disabled 守卫）。
+      fetchWithTimeout(API + "/wishes/-/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -363,7 +366,7 @@
       var originText = btn.textContent;
       btn.disabled = true;
       btn.textContent = t("page.wishes.toastPolishing", "润色中...");
-      fetch(API + "/wishes/-/polish", {
+      fetchWithTimeout(API + "/wishes/-/polish", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

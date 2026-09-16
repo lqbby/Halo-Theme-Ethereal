@@ -1,3 +1,7 @@
+// @ts-nocheck —— legacy 手写经典脚本（ES5 原样，不做类型改造）。
+// ⚠️ 首行必须有它：本目录的经典脚本会被 astro check 扫到，含带参函数的文件没有它
+//    会报 ts(7006) Parameter implicitly has an 'any' type（本文件 1.5.27 前一直漏着，
+//    导致 `pnpm check` 长期红着 5 个错 —— 见错题集 [15]）。
 // 页脚友情链接「随机」渲染（2026-09-14）。
 //
 // 数据链路：GET /apis/api.recent-comments.halo.run/v1alpha1/friends/random?size=N

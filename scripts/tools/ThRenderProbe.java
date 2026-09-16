@@ -118,6 +118,9 @@ public class ThRenderProbe {
             {"null 对象取属性（点号）", "<div th:text=\"${nilStr.length}\"></div>"},
             {"自定义属性 th:aria-label", "<div th:aria-label=\"${m2.present}\"></div>"},
             {"自定义属性 th:data-*", "<div th:data-server-url=\"${m2.present}\"></div>"},
+            {"th:attr rel 为 null 时删属性", "<a href=\"https://x\" th:attr=\"rel=${nilStr}\">a</a>"},
+            {"th:attr rel 有值时设属性", "<a href=\"https://x\" th:attr=\"rel=${m2.present}\">a</a>"},
+            {"th:rel 是否被识别", "<a href=\"https://x\" th:rel=\"${m2.present}\">a</a>"},
         };
         for (String[] c : battery) {
             try {

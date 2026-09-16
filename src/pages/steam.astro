@@ -313,7 +313,7 @@ import "../styles/steam.css";
               class="steam-card__hit"
               th:href="${enableGameLink ? 'https://store.steampowered.com/app/' + game.appId : null}"
               th:target="${enableGameLink ? '_blank' : null}"
-              th:rel="${enableGameLink ? 'noopener noreferrer' : null}"
+              th:attr="rel=${enableGameLink ? 'noopener noreferrer' : null}"
             >
               <div class="steam-cover">
                 <img
@@ -500,7 +500,7 @@ import "../styles/steam.css";
               class="steam-card__hit"
               th:href="${enableGameLink ? 'https://store.steampowered.com/app/' + game.appId : null}"
               th:target="${enableGameLink ? '_blank' : null}"
-              th:rel="${enableGameLink ? 'noopener noreferrer' : null}"
+              th:attr="rel=${enableGameLink ? 'noopener noreferrer' : null}"
             >
               <div class="steam-cover">
                 <img

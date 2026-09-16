@@ -176,7 +176,7 @@ const style = Astro.props.style || undefined;
           class="steam-w-game group flex items-center gap-2.5 rounded-lg px-3 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-4 active:bg-(--btn-plain-bg-active)"
           th:href="${widget.steam_enable_link != false ? 'https://store.steampowered.com/app/' + game.appId : null}"
           th:target="${widget.steam_enable_link != false ? '_blank' : null}"
-          th:rel="${widget.steam_enable_link != false ? 'noopener noreferrer' : null}"
+          th:attr="rel=${widget.steam_enable_link != false ? 'noopener noreferrer' : null}"
         >
           <span class="steam-w-cover">
             <img
