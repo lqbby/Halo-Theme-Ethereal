@@ -26,7 +26,10 @@
  *      必须直接用 `steamFinder` / `pluginFinder` 原始变量（SiteStats 同款处理）。
  *      反过来 `th:with`(4) + `th:title`(5) / `th:text`(7) 在同一标签上是安全的。
  *   3) ⚠️ `${可空字段 ? A : B}` 里的**条件为 null 也会抛 `EL1001E`**（`?.` 只保住取值，
- *      保不住三元条件）⇒ 判断一律写成 `${x == true ? …}` / `${x != null ? …}` 或 `th:if="${x}"`。
+ *      保不住三元条件）。本地真引擎实测如此；⚠️ 本地裸引擎与真 Halo 在「缺失键 + 点号」上
+ *      **已知有差异**（本地 EL1008E / Halo 返回 null），故「null 条件」在 Halo 侧未线上验证。
+ *      但把判断写成 `${x == true ? …}` / `${x != null ? …}` 或 `th:if="${x}"`
+ *      在两侧语义都一致且安全 —— 新写代码一律按这个来。
  */
 import WidgetLayout from "./WidgetLayout.astro";
 // ⚠️ widget/ 在 src/ 下有两层，必须 ../../styles/
