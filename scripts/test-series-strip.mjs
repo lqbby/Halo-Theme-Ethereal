@@ -1,12 +1,21 @@
 #!/usr/bin/env node
 /**
- * 首页「最新系列」卡片条（SeriesStrip，1.5.32 新增）回归。
+ * 首页「系列」卡片条（SeriesStrip）回归。
+ *
+ * 设计沿革（别把这两版搞混）：
+ *   · 1.5.32 —— 「一个系列一张卡」，一行 4 张，封面取该系列最新一篇；放在两卡行**下面**。
+ *   · 1.5.33 —— 改成参考站 daily.yybb.us 的形态：**一套系列切换按钮 + 每个系列一个面板**，
+ *     面板里是该系列的**全部文章**（一排 4 张，点 ‹ › 右移）；整块挪到两卡行**上面**。
+ *     所以 1.5.32 那批断言（__count / __excerpt / series.latest / 箭头整块 hidden）全部作废，
+ *     本文件是按新形态重写的版本。
  *
  * 覆盖三层，都是「不测就会静默坏」的点：
- *   [A] 产物静态断言 —— 门控顺序 / 卡片要素 / 空属性坑 / 只在首页出现 / CSS 分块与哈希
- *   [B] i18n 与后台设置 —— 用到的键必须在三份 .properties 里都存在；settings.yaml 字段齐全
- *   [C] 行为脚本（迷你 DOM 跑真产物 js）—— 溢出判定、箭头显隐、按一张卡步进、
- *       reduced-motion、重复执行幂等、resize 只挂一个监听
+ *   [A] 产物静态断言 —— 门控顺序 / tablist 与面板结构 / 卡片要素 / 空属性坑 /
+ *       只在首页出现 / 位置在两卡行之上 / CSS 分块与哈希
+ *   [B] i18n 与后台设置 —— 用到的键必须在三份 .properties 里都存在；死键已清；settings 字段齐全
+ *   [C] 行为脚本（迷你 DOM 跑真产物 js）—— 面板切换 / roving tabindex / 键盘导航 /
+ *       按一张卡步进 / 边界置灰（而非隐藏）/ 无溢出 / reduced-motion /
+ *       重复执行幂等 / resize 只挂一个监听 / 无容器不抛
  *
  * 关键背景（踩过的坑，写进断言防复发）：
  *   · th:if(3) 早于 th:with(4) ⇒ 插件版本守卫必须在 finder 调用**之前**的层，
@@ -14,6 +23,7 @@
  *   · Thymeleaf 3.1.5 对 null 求值的 th:src / th:href **不是删属性，而是写空值**
  *     （`src=""` / `href=""`）⇒ 必须有 th:if 兜住。断言 A4/A5。
  *   · 判空若写在 <section> 内部，系列为 0 时首页会留一条空 <section>（1rem 死空白）。断言 A6。
+ *   · 封顶写成 `not (ps.index >= 30)`：`>` 在 HTML 属性里会被转义成 `&gt;`（断言里先还原）。
  *
  * 用法：node scripts/test-series-strip.mjs [templates/assets/series-strip.js]
  */
@@ -56,6 +66,19 @@ const rawIndex = read(path.join(tplDir, "index.html"));
 const index = unesc(rawIndex);
 const js = read(target);
 
+/**
+ * 只取本组件在首页里的那段标记（#series-strip → #post-list-container），
+ * 免得断言误伤页面别处的同名 class。
+ */
+const stripHtml = (() => {
+  const idAt = index.indexOf('id="series-strip"');
+  if (idAt < 0) return "";
+  // 必须从 `<section` 起切（A6 要断言 section 起始标签本身）
+  const from = Math.max(index.lastIndexOf("<section", idAt), 0);
+  const b = index.indexOf('id="post-list-container"', idAt);
+  return index.slice(from, b > from ? b : undefined);
+})();
+
 // ================== [A] 产物静态断言 ==================
 console.log("\n[A] 产物静态断言");
 
@@ -75,34 +98,51 @@ check(
   `gate=${iGate} finder=${iFinder}`,
 );
 check(
-  "A3 listLatest 的入参是 th:with 里声明的 seriesCount（同层后向引用）",
+  "A3 listLatest 的入参是 th:with 里声明的 seriesLimit（同层后向引用）",
   index.includes(
-    "seriesItems=${recentCommentsSeriesFinder.listLatest(seriesCount)}",
+    "seriesList=${recentCommentsSeriesFinder.listLatest(seriesLimit)}",
+  ),
+);
+check(
+  "A3b seriesLimit 由 settings 的 seriesCount 经 #conversions 转 Integer 得来（不传 sort）",
+  index.includes(
+    "seriesLimit=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}",
   ),
 );
 check(
   'A4 <img> 有 th:if 兜住（th:src 为 null 会写出 src="" 去打当前页）',
-  /<img[^>]*series-strip-card__img[^>]*th:if="\$\{series\.latest != null and not #strings\.isEmpty\(series\.latest\.cover\)\}"/.test(
-    index,
+  /<img[^>]*series-strip-card__img[^>]*th:if="\$\{not #strings\.isEmpty\(post\.cover\)\}"/.test(
+    stripHtml,
   ),
 );
 check(
   'A5 卡片 <a> 有 th:if 兜住 permalink（th:href 为 null 会写出 href=""）',
-  /<a[^>]*th:if="\$\{series\.latest != null and series\.latest\.permalink != null\}"/.test(
-    index,
+  /<a[^>]*th:if="\$\{not \(ps\.index >= 30\) and post\.permalink != null\}"/.test(
+    stripHtml,
   ),
 );
 check(
-  "A5b 不再出现 `? series.latest.permalink : null` 这种空 href 写法",
-  !index.includes("series.latest.permalink : null"),
+  "A5b 不再出现 `post.permalink : null` 这种空 href 写法",
+  !index.includes("post.permalink : null"),
 );
 check(
-  'A6 判空罩在 <section> 外面（th:if="${not #lists.isEmpty(seriesItems)}" 在 section 上）',
-  /<section[^>]*id="series-strip"[^>]*th:if="\$\{not #lists\.isEmpty\(seriesItems\)\}"/.test(
-    index,
+  "A5c 卡片 <a> 的 href 直接取 post.permalink",
+  // ⚠️ 不能用 `<a[^>]*th:href`：同一个标签里的 th:if 含 `>=`，那个 `>` 会截断 [^>]*
+  (() => {
+    const i = stripHtml.indexOf('class="series-strip-card"');
+    return (
+      i >= 0 &&
+      stripHtml.slice(i, i + 400).includes('th:href="${post.permalink}"')
+    );
+  })(),
+);
+check(
+  'A6 判空罩在 <section> 外面（th:if="${not #lists.isEmpty(seriesList)}" 在 section 上）',
+  /<section[^>]*id="series-strip"[^>]*th:if="\$\{not #lists\.isEmpty\(seriesList\)\}"/.test(
+    stripHtml,
   ) ||
-    /<section[^>]*th:if="\$\{not #lists\.isEmpty\(seriesItems\)\}"[^>]*id="series-strip"/.test(
-      index,
+    /<section[^>]*th:if="\$\{not #lists\.isEmpty\(seriesList\)\}"[^>]*id="series-strip"/.test(
+      stripHtml,
     ),
 );
 check(
@@ -112,15 +152,21 @@ check(
   ),
 );
 check(
-  "A8 卡片要素齐全（cover / img / placeholder / count / title / excerpt）",
-  [
-    "__cover",
-    "__img",
-    "__placeholder",
-    "__count",
-    "__title",
-    "__excerpt",
-  ].every((s) => index.includes("series-strip-card" + s)),
+  "A8 卡片要素齐全（cover / img / placeholder / issue / title）",
+  ["__cover", "__img", "__placeholder", "__issue", "__title"].every((s) =>
+    stripHtml.includes("series-strip-card" + s),
+  ),
+);
+check(
+  "A8b 旧版「系列摘要 / 篇数」要素已彻底移除（__count / __excerpt）",
+  !stripHtml.includes("series-strip-card__count") &&
+    !stripHtml.includes("series-strip-card__excerpt"),
+);
+check(
+  "A8c 期号优先取 post.order，缺失时按该系列内时间倒推（size - index）",
+  stripHtml.includes(
+    "#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(s.posts) - ps.index})}",
+  ),
 );
 
 const tplVer = (() => {
@@ -134,9 +180,8 @@ check(
   tplVer !== "" && index.includes(`assets/series-strip.js?v=${tplVer}`),
   `theme.yaml=${tplVer}`,
 );
-
 check(
-  "A10 只有首页带系列条（category/tag 用同一 PostList 但不该有）",
+  "A10 只有首页带系列条（category/tag/archives 用同一 PostList 但不该有）",
   (() => {
     for (const f of ["category.html", "tag.html", "archives.html"]) {
       const p = path.join(tplDir, f);
@@ -147,27 +192,89 @@ check(
   })(),
 );
 
+// ---- 系列切换按钮（tablist） ----
+check(
+  "A11 tablist 容器存在（role=tablist + data-series-tabs + 只在 >1 个系列时渲染）",
+  /<div[^>]*role="tablist"[^>]*data-series-tabs[^>]*th:if="\$\{#lists\.size\(seriesList\) > 1\}"/.test(
+    stripHtml,
+  ) ||
+    /<div[^>]*th:if="\$\{#lists\.size\(seriesList\) > 1\}"[^>]*role="tablist"[^>]*data-series-tabs/.test(
+      stripHtml,
+    ),
+);
+check(
+  "A12 tab 以 th:each 遍历 seriesList 渲染（role=tab + data-series-tab）",
+  /<button[^>]*th:each="s, st : \$\{seriesList\}"[^>]*role="tab"[^>]*th:data-series-tab="\$\{st\.index\}"/.test(
+    stripHtml,
+  ),
+);
+check(
+  "A13 tab 的 aria-selected / tabindex 是 roving 的（仅首个为 true / 0）",
+  stripHtml.includes(
+    "th:aria-selected=\"${st.index == 0 ? 'true' : 'false'}\"",
+  ) && stripHtml.includes("th:tabindex=\"${st.index == 0 ? '0' : '-1'}\""),
+);
+check(
+  "A14 tab 与面板用 aria-controls / aria-labelledby 双向绑定",
+  stripHtml.includes('th:aria-controls="|series-panel-${st.index}|"') &&
+    stripHtml.includes('th:aria-labelledby="|series-tab-${st.index}|"') &&
+    stripHtml.includes('th:id="|series-tab-${st.index}|"'),
+);
+
+// ---- 每个系列一个面板 ----
+check(
+  "A15 面板以 th:each 遍历 seriesList 渲染（role=tabpanel + data-series-panel）",
+  /<div[^>]*th:each="s, st : \$\{seriesList\}"[^>]*class="series-strip__panel"[^>]*role="tabpanel"[^>]*th:data-series-panel="\$\{st\.index\}"/.test(
+    stripHtml,
+  ),
+);
+check(
+  "A16 非首个面板 SSR 就带 is-hidden（首屏只露第 0 个，不等 JS）",
+  stripHtml.includes("th:classappend=\"${st.index != 0 ? ' is-hidden' : ''}\""),
+);
+check(
+  "A17 卡片渲染在面板的横向轨道里（viewport 先于 card 出现）",
+  stripHtml.includes("data-series-viewport") &&
+    stripHtml.indexOf("data-series-viewport") <
+      stripHtml.indexOf("series-strip-card"),
+);
+check(
+  "A18 系列条排在两卡行之上（本轮位置互换生效）",
+  (() => {
+    const iSeries = index.indexOf('id="series-strip"');
+    const iFeatured = index.indexOf('id="featured-cards"');
+    return iSeries >= 0 && (iFeatured < 0 || iSeries < iFeatured);
+  })(),
+  `series=${index.indexOf('id="series-strip"')} featured=${index.indexOf('id="featured-cards"')}`,
+);
+
 /** PostList 样式分块：含容器查询几何常量，且引用它的每一页哈希一致 */
 const cssChunks = fs
   .readdirSync(path.join(tplDir, "assets"))
   .filter((f) => /^PostList\..*\.css$/.test(f));
 check(
-  "A11 PostList 样式分块存在且只有一份",
+  "A19 PostList 样式分块存在且只有一份",
   cssChunks.length === 1,
   cssChunks.join(","),
 );
 if (cssChunks.length === 1) {
   const css = read(path.join(tplDir, "assets", cssChunks[0]));
   check(
-    "A12 样式里有容器查询 + 吸附 + 卡片宽度公式",
+    "A20 样式里有容器查询 + 吸附 + 卡片宽度公式",
     css.includes("container-type:inline-size") &&
       css.includes("scroll-snap-type") &&
       css.includes("100cqi"),
   );
   check(
-    "A13 卡片宽度是 (100cqi - (V-1)*gap - 2*edge - 1px)/V 形式",
+    "A21 卡片宽度是 (100cqi - (V-1)*gap - 2*edge - 1px)/V 形式",
     /100cqi.*var\(--series-visible\).*\/.*var\(--series-visible\)/s.test(css) ||
       css.includes("--series-card-w"),
+  );
+  check(
+    "A22 隐藏面板 / 置灰箭头 / 选中标签的样式都在",
+    css.includes(".series-strip__panel.is-hidden") &&
+      /\.series-strip__nav:disabled\s*\{[^}]*opacity:\s*0?\.3/.test(css) &&
+      /\.series-strip__tab\[aria-selected/.test(css),
   );
   const users = [];
   for (const f of fs.readdirSync(tplDir)) {
@@ -179,7 +286,7 @@ if (cssChunks.length === 1) {
   }
   const uniq = new Set(users.map((u) => u[1]));
   check(
-    "A14 引用 PostList 样式的每一页都是同一个哈希（改 CSS 后旧哈希会变孤儿）",
+    "A23 引用 PostList 样式的每一页都是同一个哈希（改 CSS 后旧哈希会变孤儿）",
     uniq.size === 1 && uniq.has(cssChunks[0]),
     [...uniq].join(","),
   );
@@ -190,12 +297,14 @@ console.log("\n[B] i18n 与后台设置");
 
 const usedKeys = [
   ...new Set(
-    [...index.matchAll(/#\{(seriesStrip\.[A-Za-z0-9_.]+)/g)].map((m) => m[1]),
+    [...stripHtml.matchAll(/#\{(seriesStrip\.[A-Za-z0-9_.]+)/g)].map(
+      (m) => m[1],
+    ),
   ),
 ];
 check(
-  "B1 产物里引用了 seriesStrip.* 的键",
-  usedKeys.length >= 4,
+  "B1 产物里引用了 seriesStrip.* 的键（≥5：title/navPrev/navNext/tabsAria/issue）",
+  usedKeys.length >= 5,
   usedKeys.join(","),
 );
 
@@ -219,26 +328,52 @@ check(
   "B3 zh_CN 的 seriesStrip.title 是中文",
   /^seriesStrip\.title=[^\x00-\x7F]/m.test(i18nText["zh_CN.properties"]),
 );
+check(
+  "B3b zh_CN / zh_TW 都有 tabsAria 与 issue 键且是中文",
+  ["zh_CN.properties", "zh_TW.properties"].every(
+    (f) =>
+      /^seriesStrip\.tabsAria=[^\x00-\x7F]/m.test(i18nText[f]) &&
+      // ⚠️ issue 的值以 `{0}` 开头，不能只判「首个字符非 ASCII」
+      /^seriesStrip\.issue=.*[^\x00-\x7F]/m.test(i18nText[f]),
+  ),
+);
+check(
+  "B3c issue 带 {0} 占位（Thymeleaf MessageFormat 才能吃到期号）",
+  i18nFiles.every((f) => /^seriesStrip\.issue=.*\{0\}/m.test(i18nText[f])),
+);
+check(
+  "B4 旧版死键已清理（countLabel / cardAria 不该再留在任何一份 properties 里）",
+  i18nFiles.every(
+    (f) =>
+      !/^seriesStrip\.countLabel=/m.test(i18nText[f]) &&
+      !/^seriesStrip\.cardAria=/m.test(i18nText[f]),
+  ),
+);
 
 const settings = read(path.join(themeRoot, "settings.yaml"));
 check(
-  "B4 settings 的 postList 组含 seriesEnable 开关",
+  "B5 settings 的 postList 组含 seriesEnable 开关",
   /name:\s*seriesEnable/.test(settings),
 );
 check(
-  "B5 settings 的 postList 组含 seriesCount 数字",
+  "B6 settings 的 postList 组含 seriesCount 数字",
   /name:\s*seriesCount/.test(settings),
 );
 check(
-  "B6 seriesCount 有 1..24 的约束与联动显隐",
-  /label:\s*系列卡片数量/.test(settings) &&
-    /min:\s*1/m.test(settings) &&
+  "B7 seriesCount 有 1..24 的约束与联动显隐",
+  /min:\s*1/m.test(settings) &&
     /max:\s*24/m.test(settings) &&
     /if:\s*"\$get\(postList_seriesEnable\)\.value === true"/.test(settings),
 );
 check(
-  "B7 postList 默认值里带上了新字段",
+  "B8 postList 默认值里带上了新字段",
   /seriesEnable:\s*true/.test(settings) && /seriesCount:\s*4/.test(settings),
+);
+check(
+  "B9 后台文案已改成「多系列切换」口径（不再是「一个系列一张卡」）",
+  /label:\s*显示「系列」卡片条/.test(settings) &&
+    /label:\s*系列数量（切换按钮）/.test(settings) &&
+    settings.includes("在首页精选卡片上方显示系列卡"),
 );
 
 // ================== [C] 行为脚本 ==================
@@ -255,7 +390,7 @@ try {
   );
 }
 
-/** 只支持本用例用到的选择器：tag / .class / #id / 拼接 */
+/** 只支持本用例用到的选择器：tag / .class / #id / [attr] */
 function match(el, sel) {
   return sel
     .trim()
@@ -264,6 +399,7 @@ function match(el, sel) {
     .every((p) => {
       if (p.startsWith("#")) return el._attrs.id === p.slice(1);
       if (p.startsWith(".")) return el._cls.has(p.slice(1));
+      if (p.startsWith("[")) return p.slice(1, -1) in el._attrs;
       return el.tagName === p.toUpperCase();
     });
 }
@@ -281,11 +417,20 @@ function mkEl(tag, attrs = {}) {
     ),
     dataset: {},
     _listeners: {},
+    _focused: false,
+    disabled: false,
     offsetLeft: 0,
     scrollLeft: 0,
+    scrollWidth: 0,
+    clientWidth: 0,
     scrollCalls: [],
     get className() {
       return [...el._cls].join(" ");
+    },
+    classList: {
+      add: (...n) => n.forEach((x) => el._cls.add(x)),
+      remove: (...n) => n.forEach((x) => el._cls.delete(x)),
+      contains: (x) => el._cls.has(x),
     },
     getAttribute(k) {
       return k in el._attrs ? el._attrs[k] : null;
@@ -306,6 +451,20 @@ function mkEl(tag, attrs = {}) {
       c.parentNode = el;
       el._children.push(c);
       return c;
+    },
+    contains(node) {
+      return node === el || el._descend().includes(node);
+    },
+    closest(sel) {
+      let n = el;
+      while (n) {
+        if (match(n, sel)) return n;
+        n = n.parentNode;
+      }
+      return null;
+    },
+    focus() {
+      el._focused = true;
     },
     getBoundingClientRect() {
       return { width: 200 };
@@ -331,55 +490,110 @@ function mkEl(tag, attrs = {}) {
   return el;
 }
 
+const CARD_W = 200;
+const GAP = 12;
+const STEP = CARD_W + GAP; // 212 —— 脚本步长 = cards[1].offsetLeft - cards[0].offsetLeft
+
 /**
- * 造一个「首页 series-strip」桩：cards 张卡片，可见数由 visible 决定。
- * 卡片 offsetLeft 按 i*(200+12) 布置 —— 脚本的步长 = cards[1].offsetLeft - cards[0].offsetLeft。
+ * 造一个「首页 series-strip」桩。
+ * @param cards 每个面板的卡片数数组（长度 = 系列数；1 个时按真实模板不渲染 tablist）
+ * @param visible 可见卡片数（决定 viewport.clientWidth）
  */
 function makeStrip({ cards, visible = 4 }) {
   const section = mkEl("section", {
     id: "series-strip",
-    class: "series-strip",
+    class: "series-strip onload-animation",
   });
   const head = mkEl("div", { class: "series-strip__head" });
-  const navs = mkEl("div", { class: "series-strip__navs" });
+  const navs = mkEl("div", {
+    class: "series-strip__navs",
+    "data-series-navs": "",
+  });
   const prev = mkEl("button", {
     class: "series-strip__nav series-strip__nav--prev",
+    "data-series-dir": "prev",
   });
   const next = mkEl("button", {
     class: "series-strip__nav series-strip__nav--next",
+    "data-series-dir": "next",
   });
   navs.appendChild(prev);
   navs.appendChild(next);
   head.appendChild(navs);
-
-  const viewport = mkEl("div", { class: "series-strip__viewport" });
-  const track = mkEl("div", { class: "series-strip__track" });
-  for (let i = 0; i < cards; i++) {
-    const a = mkEl("a", {
-      class: "series-strip-card",
-      href: "/archives/p" + i,
-    });
-    a.offsetLeft = i * 212;
-    track.appendChild(a);
-  }
-  viewport.appendChild(track);
   section.appendChild(head);
-  section.appendChild(viewport);
-  return { section, navs, prev, next, viewport, track, visible };
+
+  let tabsBox = null;
+  const tabs = [];
+  if (cards.length > 1) {
+    tabsBox = mkEl("div", {
+      class: "series-strip__tabs",
+      "data-series-tabs": "",
+      role: "tablist",
+    });
+    cards.forEach((_, i) => {
+      const t = mkEl("button", {
+        class: "series-strip__tab",
+        role: "tab",
+        "data-series-tab": String(i),
+        "aria-selected": i === 0 ? "true" : "false",
+        tabindex: i === 0 ? "0" : "-1",
+      });
+      tabs.push(t);
+      tabsBox.appendChild(t);
+    });
+    section.appendChild(tabsBox);
+  }
+
+  const panels = [];
+  const viewports = [];
+  const tracks = [];
+  cards.forEach((count, i) => {
+    const panel = mkEl("div", {
+      class: "series-strip__panel" + (i === 0 ? "" : " is-hidden"),
+      "data-series-panel": String(i),
+      role: "tabpanel",
+    });
+    const vp = mkEl("div", {
+      class: "series-strip__viewport",
+      "data-series-viewport": "",
+    });
+    const track = mkEl("div", {
+      class: "series-strip__track",
+      "data-series-track": "",
+    });
+    for (let c = 0; c < count; c++) {
+      const a = mkEl("a", {
+        class: "series-strip-card",
+        href: `/p${i}-${c}`,
+      });
+      a.offsetLeft = c * STEP;
+      track.appendChild(a);
+    }
+    vp.appendChild(track);
+    vp.scrollWidth = count * STEP;
+    vp.clientWidth = visible * STEP;
+    panel.appendChild(vp);
+    section.appendChild(panel);
+    panels.push(panel);
+    viewports.push(vp);
+    tracks.push(track);
+  });
+
+  return {
+    section,
+    navs,
+    prev,
+    next,
+    tabsBox,
+    tabs,
+    panels,
+    viewports,
+    tracks,
+    visible,
+  };
 }
 
-/** 在给定 window/document 桩里 eval 一次产物 js */
-function runJs(strip, { reducedMotion = false } = {}) {
-  const doc = {
-    _sections: strip ? [strip.section] : [],
-    querySelectorAll(sel) {
-      if (sel === "#series-strip") return doc._sections;
-      return [];
-    },
-    querySelector(sel) {
-      return doc.querySelectorAll(sel)[0] || null;
-    },
-  };
+function makeWindow({ reducedMotion = false } = {}) {
   const win = {
     _resize: [],
     addEventListener(t, fn) {
@@ -389,99 +603,256 @@ function runJs(strip, { reducedMotion = false } = {}) {
     matchMedia() {
       return { matches: reducedMotion };
     },
-    getComputedStyle() {
-      return {
-        getPropertyValue(k) {
-          return k === "--series-visible" ? String(strip.visible) : "";
-        },
-      };
-    },
   };
-  // 产物 js 用到的全局：document / window / getComputedStyle / isFinite / parseInt
-  const fn = new Function("document", "window", "getComputedStyle", js);
-  fn(doc, win, win.getComputedStyle);
-  return { doc, win };
+  return win;
 }
 
+/** 在给定 window 桩里 eval 一次产物 js（不传 win 就新建一个） */
+function runJs(strip, { win, reducedMotion = false } = {}) {
+  const doc = {
+    _sections: strip ? [strip.section] : [],
+    querySelectorAll(sel) {
+      return sel === "#series-strip" ? doc._sections : [];
+    },
+    querySelector(sel) {
+      return doc.querySelectorAll(sel)[0] || null;
+    },
+  };
+  const w = win || makeWindow({ reducedMotion });
+  const fn = new Function("document", "window", js);
+  fn(doc, w);
+  return { doc, win: w };
+}
+
+const clipped = (p) => p._cls.has("is-hidden");
+const sel = (t) => t.getAttribute("aria-selected");
+const tix = (t) => t.getAttribute("tabindex");
+
+// ---------- 主场景：2 个系列（6 / 7 篇），可见 4 ----------
 {
-  const strip = makeStrip({ cards: 6, visible: 4 });
+  const strip = makeStrip({ cards: [6, 7], visible: 4 });
   const { win } = runJs(strip);
+
   check(
-    "C2 卡片数 > 可见数 ⇒ 箭头显示（移除 hidden）",
-    strip.navs.getAttribute("hidden") === null,
+    "C2 首屏只显示第 0 个面板，其余 SSR/JSS 状态都是隐藏",
+    !clipped(strip.panels[0]) && clipped(strip.panels[1]),
   );
+  check(
+    "C3 tab 初始态是 roving tabindex（首个 true/0，其余 false/-1）",
+    sel(strip.tabs[0]) === "true" &&
+      tix(strip.tabs[0]) === "0" &&
+      sel(strip.tabs[1]) === "false" &&
+      tix(strip.tabs[1]) === "-1",
+  );
+  check(
+    "C4 初始停在左头 ⇒ ‹ 置灰、› 可用（不是整块隐藏）",
+    strip.prev.disabled === true && strip.next.disabled === false,
+  );
+  check(
+    "C4b 箭头状态镜像到 data-series-at-end（供样式/埋点用）",
+    strip.navs.getAttribute("data-series-at-end") === "0",
+  );
+
+  // ---- 箭头步进 ----
   strip.next.dispatch("click");
   check(
-    "C3 点 › 向右滚「一张卡」（212px）",
-    strip.viewport.scrollCalls.length === 1 &&
-      strip.viewport.scrollCalls[0].left === 212,
-    JSON.stringify(strip.viewport.scrollCalls),
+    "C5 点 › 向右滚「一张卡」（step = 卡宽 + gap = 212px）",
+    strip.viewports[0].scrollCalls.length === 1 &&
+      strip.viewports[0].scrollCalls[0].left === STEP,
+    JSON.stringify(strip.viewports[0].scrollCalls),
+  );
+  check(
+    "C6 默认 behavior=smooth",
+    strip.viewports[0].scrollCalls.every((c) => c.behavior === "smooth"),
   );
   strip.prev.dispatch("click");
   check(
-    "C4 点 ‹ 向左滚一张卡",
-    strip.viewport.scrollCalls.length === 2 &&
-      strip.viewport.scrollCalls[1].left === -212,
-    JSON.stringify(strip.viewport.scrollCalls),
+    "C7 点 ‹ 向左滚一张卡",
+    strip.viewports[0].scrollCalls.length === 2 &&
+      strip.viewports[0].scrollCalls[1].left === -STEP,
+  );
+
+  // ---- 边界置灰 ----
+  const vp0 = strip.viewports[0];
+  vp0.scrollLeft = vp0.scrollWidth - vp0.clientWidth; // 6*212 - 4*212 = 424
+  strip.section.dispatch("scroll", { target: vp0 });
+  check(
+    "C8 滚到右头 ⇒ › 置灰、‹ 恢复（scroll 事件复算）",
+    strip.next.disabled === true && strip.prev.disabled === false,
+  );
+  vp0.scrollLeft = 0;
+  strip.section.dispatch("scroll", { target: vp0 });
+  check(
+    "C9 滚回左头 ⇒ ‹ 置灰、› 恢复",
+    strip.prev.disabled === true && strip.next.disabled === false,
+  );
+
+  // ---- 切换系列 ----
+  strip.tabsBox.dispatch("click", { target: strip.tabs[1] });
+  check(
+    "C10 点第 2 个 tab ⇒ 面板切换（is-hidden 转移）",
+    clipped(strip.panels[0]) && !clipped(strip.panels[1]),
   );
   check(
-    "C5 默认 behavior=smooth",
-    strip.viewport.scrollCalls.every((c) => c.behavior === "smooth"),
+    "C11 切换后 tab 的 aria-selected / tabindex 同步",
+    sel(strip.tabs[1]) === "true" &&
+      tix(strip.tabs[1]) === "0" &&
+      sel(strip.tabs[0]) === "false" &&
+      tix(strip.tabs[0]) === "-1",
   );
   check(
-    "C6 resize 监听只挂一次",
+    "C12 切换后新面板回到最左 + 箭头按新面板复算（7 篇 ⇒ › 可用）",
+    strip.viewports[1].scrollLeft === 0 &&
+      strip.prev.disabled === true &&
+      strip.next.disabled === false,
+  );
+  check(
+    "C12b 切换不动原面板的滚动位置（各面板独立记忆）",
+    strip.viewports[0].scrollLeft === 0,
+  );
+
+  // ---- 只有当前面板的 scroll 才复算 ----
+  strip.prev.disabled = true; // 哨兵：若被误复算会被改成 false
+  strip.section.dispatch("scroll", { target: strip.viewports[0] });
+  check("C13 非当前面板的 scroll 不影响箭头状态", strip.prev.disabled === true);
+
+  // ---- 键盘导航（WAI-ARIA tabs roving tabindex） ----
+  const noop = () => {};
+  strip.tabsBox.dispatch("keydown", {
+    key: "ArrowRight",
+    preventDefault: noop,
+  });
+  check(
+    "C14 → 键切到下一个 tab 并把焦点移过去（1 → 回绕 0）",
+    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+  );
+  strip.tabsBox.dispatch("keydown", { key: "End", preventDefault: noop });
+  check(
+    "C15 End 跳到最后一个 tab",
+    !clipped(strip.panels[1]) && strip.tabs[1]._focused === true,
+  );
+  strip.tabsBox.dispatch("keydown", { key: "ArrowLeft", preventDefault: noop });
+  check(
+    "C16 ← 键回到上一个 tab",
+    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+  );
+  strip.tabsBox.dispatch("keydown", { key: "Home", preventDefault: noop });
+  check(
+    "C17 Home 跳回第一个 tab",
+    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+  );
+  strip.tabsBox.dispatch("keydown", { key: "Enter", preventDefault: noop });
+  check(
+    "C18 非导航键不劫持（Enter 不该被 preventDefault，交给浏览器默认行为）",
+    (() => {
+      let prevented = false;
+      strip.tabsBox.dispatch("keydown", {
+        key: "Enter",
+        preventDefault() {
+          prevented = true;
+        },
+      });
+      return prevented === false;
+    })(),
+  );
+
+  // ---- 事件委托：点在 tab 内部子元素上也能切 ----
+  const icon = mkEl("span", { class: "icon" });
+  strip.tabs[1].appendChild(icon);
+  strip.tabsBox.dispatch("click", { target: icon });
+  check(
+    "C19 点在 tab 内部子元素上也能切换（closest 事件委托）",
+    !clipped(strip.panels[1]),
+  );
+
+  check(
+    "C20 resize 监听只挂一次",
     win._resize.length === 1,
     String(win._resize.length),
   );
 
-  // 重复执行（Swup 换页克隆重执行）不应重复绑定
-  const before = strip.viewport.scrollCalls.length;
-  runJs(strip);
+  // ---- 重复执行（Swup 换页克隆重执行）不应重复绑定 ----
+  const before = strip.viewports[1].scrollCalls.length;
+  runJs(strip, { win });
+  check(
+    "C21 重执行后元素上的幂等标记仍在（dataset.seriesBound=1）",
+    strip.section.dataset.seriesBound === "1",
+    JSON.stringify(strip.section.dataset),
+  );
   strip.next.dispatch("click");
   check(
-    "C7 同一元素重复执行不重复绑定（点一次只滚一次）",
-    strip.viewport.scrollCalls.length === before + 1,
-    `${before} → ${strip.viewport.scrollCalls.length}`,
+    "C21b 重执行后点击仍只滚一次（没叠出第二套监听）",
+    strip.viewports[1].scrollCalls.length === before + 1,
+    `${before} → ${strip.viewports[1].scrollCalls.length}`,
+  );
+  check(
+    "C21c 重执行不会叠出第二个 resize 监听",
+    win._resize.length === 1,
+    String(win._resize.length),
   );
 }
 
+// ---------- 单系列：没有 tablist，箭头照常 ----------
 {
-  // 卡片装得下 ⇒ 箭头隐藏 + 轨道回最左
-  const strip = makeStrip({ cards: 3, visible: 4 });
-  strip.viewport.scrollLeft = 500;
-  runJs(strip);
+  const strip = makeStrip({ cards: [6], visible: 4 });
+  let threw = null;
+  try {
+    runJs(strip);
+  } catch (e) {
+    threw = e;
+  }
   check(
-    "C8 卡片数 ≤ 可见数 ⇒ 箭头隐藏",
-    strip.navs.getAttribute("hidden") !== null,
+    "C22 只有一个系列（无 tablist）时代码不抛",
+    threw === null,
+    threw && String(threw.message),
   );
   check(
-    "C9 无溢出时轨道回到最左",
-    strip.viewport.scrollLeft === 0,
-    String(strip.viewport.scrollLeft),
+    "C23 单系列下箭头状态照常计算（左头 ⇒ ‹ 置灰）",
+    strip.prev.disabled === true && strip.next.disabled === false,
   );
-  // 变窄后重新出现溢出 → resize 后箭头应再现
-  strip.visible = 2;
+  strip.next.dispatch("click");
+  check(
+    "C24 单系列下 › 步进仍是 212px",
+    strip.viewports[0].scrollCalls.length === 1 &&
+      strip.viewports[0].scrollCalls[0].left === STEP,
+  );
+}
+
+// ---------- 装得下：两个箭头都置灰（而不是整块隐藏） ----------
+{
+  const strip = makeStrip({ cards: [3], visible: 4 });
   const { win } = runJs(strip);
+  check(
+    "C25 无溢出（3 卡 ≤ 可见 4）⇒ 两个箭头都置灰而非隐藏",
+    strip.prev.disabled === true && strip.next.disabled === true,
+  );
+  // 变窄后重新出现溢出 ⇒ resize 复算应把 › 放开
+  strip.viewports[0].clientWidth = 2 * STEP; // 636 > 424
   win._resize.forEach((fn) => fn());
   check(
-    "C10 resize 后可见数变小 ⇒ 箭头重新显示（复算生效）",
-    strip.navs.getAttribute("hidden") === null,
+    "C26 resize 后可见数变小 ⇒ › 重新可用（复算生效）",
+    strip.next.disabled === false && strip.prev.disabled === true,
   );
 }
 
+// ---------- reduced-motion ----------
 {
-  const strip = makeStrip({ cards: 6, visible: 4 });
+  const strip = makeStrip({ cards: [6], visible: 4 });
   runJs(strip, { reducedMotion: true });
   strip.next.dispatch("click");
   check(
-    "C11 prefers-reduced-motion ⇒ behavior=auto（不跟用户偏好对着干）",
-    strip.viewport.scrollCalls[0].behavior === "auto",
-    JSON.stringify(strip.viewport.scrollCalls[0]),
+    "C27 prefers-reduced-motion ⇒ behavior=auto（不跟用户偏好对着干）",
+    strip.viewports[0].scrollCalls[0].behavior === "auto",
+    JSON.stringify(strip.viewports[0].scrollCalls[0]),
+  );
+  check(
+    "C27b reduced-motion 下点箭头后置灰状态立即复算（不等 scroll 事件）",
+    strip.prev.disabled === false,
   );
 }
 
+// ---------- 页面没有系列条 ----------
 {
-  // 页面没有系列条时不能抛
   let threw = null;
   try {
     runJs(null);
@@ -489,7 +860,7 @@ function runJs(strip, { reducedMotion = false } = {}) {
     threw = e;
   }
   check(
-    "C12 页面上没有 #series-strip 时不抛异常",
+    "C28 页面上没有 #series-strip 时不抛异常",
     threw === null,
     threw && String(threw.message),
   );

@@ -58,12 +58,18 @@ declare namespace astroHTML.JSX {
     "th:onclick"?: string;
     "th:aria-label"?: string;
     "th:aria-current"?: string;
+    "th:aria-controls"?: string;
+    "th:aria-selected"?: string;
+    "th:aria-labelledby"?: string;
+    "th:tabindex"?: string;
     "th:data-count"?: string;
     "th:data-hue"?: string;
     "th:data-hue-fixed"?: string;
     "th:data-text"?: string;
     "th:data-submenu-id"?: string;
     "th:data-empty-text"?: string;
+    "th:data-series-tab"?: string;
+    "th:data-series-panel"?: string;
     "th:data-theme-anim-style"?: string;
     "th:data-theme-anim-easing"?: string;
     "th:data-theme-anim-angle"?: string;

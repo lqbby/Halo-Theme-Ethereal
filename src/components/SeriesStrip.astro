@@ -1,51 +1,57 @@
 ---
 /**
- * 首页「最新系列」卡片条（1.5.32 新增）
+ * 首页「系列」卡片条（1.5.32 新增；1.5.33 改为「按系列切换 + 展示该系列全部文章」）
  *
- * 复刻参考站 https://daily.yybb.us/ 的 `.home-list-featured`（他站叫「周刊 4 个框」），
- * 但内容换成 LQ 自己的**文章系列**：一行 4 张卡，每张 = 一个系列，按「该系列最近一次
- * 更新时间」倒序取最新的几个。
+ * 参考站 https://daily.yybb.us/ 首页那条（他站标题「喜欢哪一期周刊呢~」）：一条横向
+ * scroll-snap 轨道，放的是**某一个系列的全部期数**，一行 4 张、点 ‹ › 往右翻。
+ * 本站比参考站多一层：LQ 有多个系列 ⇒ 标题下方加一排**系列切换按钮**，切换后换个面板，
+ * 每个面板就是「那个系列的全部文章」。
  *
- * 数据来源（SSR，无前端取数）：Ethereal 配套插件 ethereal-companion 的
- * `recentCommentsSeriesFinder.listLatest(n)` —— 1.1.0 新增，返回按「系列内最新一篇文章
- * 的发布时间」倒序的 SeriesView 列表，并把 `latest`（该系列最新一篇）与 `cover` 一并带出，
- * 所以卡片能直接拿到封面/标题/链接，不需要在前端再查一次文章。
+ * 数据来源（纯 SSR，前端零取数）：
+ *   `recentCommentsSeriesFinder.listLatest(n)` —— Ethereal 配套插件 1.1.0 提供。
+ *   返回按「系列内最新一篇文章的发布时间」倒序的若干 SeriesView，**每个 SeriesView 里
+ *   带着该系列的全部 posts**（`SeriesPostView`：name/title/permalink/order/publishTime/cover）。
+ *   所以一次调用就同时拿到「标签顺序」「每个系列的全部文章」和「封面」，不用第二次查库。
  *
- * 🔴 版本门控（必须保留）：`listLatest` 只有插件 1.1.0+ 才有。若主题先发、插件还是 1.0.3，
- *    直接调它 → SpEL 找不到方法 → **整页 500/截断**。因此本组件的根节点用
- *    `pluginFinder.available('ethereal-companion', '>=1.1.0')` 兜住（第二参是 Semantic
- *    Version Range，Halo 2.17+ 支持，官方文档 plugin#availablepluginname-requiresversion）。
- *    插件没升级时这条整块不渲染，首页照常；升级后自动出现，无需再改主题。
+ * 🔴 版本门控（必须保留）：`listLatest` 与 `SeriesPostView.cover` 都只有插件 1.1.0+ 才有。
+ *    若主题先发、插件还是 1.0.3，直接调它 → SpEL 找不到方法 → **整页 500/截断**。
+ *    因此最外层用 `pluginFinder.available('ethereal-companion', '>=1.1.0')` 兜住
+ *    （第二参是 Semantic Version Range，Halo 2.17+）。插件没升级时整块不渲染，首页照常。
  *
- * 结构上刻意做成「三层、两层 th:remove="tag"」：
- *   ① `<section th:if=...>` 只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关 / 首页第一页）
- *      —— 因为 `th:if`(优先级 3) 早于 `th:with`(4)，同标签里 th:if 读不到 th:with 的变量（会短路），
- *      所以 finder 调用必须放在 th:if **之后**的层里，否则插件缺失时依旧会去调它。
- *   ② 内层 `th:with` 才真正调 `listLatest()`。
- *   ③ 再内层判空 —— 系列为 0 时整块不渲染（否则留下一个空面板 + 光秃秃的标题）。
- *   两层 th:remove="tag" 只是为了不产生多余 DOM，对 `#series-strip ...` 选择器无影响。
+ * 结构刻意做成「守卫层 / 取数层 / 内容层」三层：
+ *   ① 最外层 div：只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关 / 首页第一页）。
+ *      —— `th:if`(优先级 3) 早于 `th:with`(4)，同标签里 th:if 读不到 th:with 的变量（会短路），
+ *         所以 finder 调用必须放在 th:if **之后**的层，否则插件缺失时照样会去调它。
+ *   ② 第二层 div：`th:with` 里才真正调 finder。
+ *   ③ `<section>`：判空 + 渲染（标签 / 面板 / 卡片）。
  *
  * 交互（脚本在 src/scripts/assets/series-strip.ts）：
- *   横向 scroll-snap 轨道 + ‹ › 按「一张卡」为步长滚动；卡片数 ≤ 一行可见数时箭头整体隐藏。
- *   卡片宽度用容器查询算（`100cqi`），与参考站同款公式，无需 JS 量宽度。
+ *   · 系列切换：点击标签或 ←/→/Home/End 键切换面板（WAI-ARIA tablist 模式，roving tabindex）；
+ *   · ‹ › 按「一张卡」为步长滚动**当前面板**的轨道；用 `scrollLeft` 边界判定「到头了没」并置灰
+ *     —— 不做「卡片数 ≤ 可见数就整块隐藏」（那样 LQ 系列只有 4 篇时按钮会凭空消失）。
+ *   · 卡片宽度用容器查询算（`100cqi`），与参考站同款公式，无需 JS 量宽度。
  *
- * ⚠️ 卡片链接到「该系列最新一篇文章」而不是系列聚合页：系列页是 Halo 单页，URL 由后台
- *    哪条单页绑定 theme.yaml 的 `series.html` 决定，构建期无从得知（主题里没有「按模板名
- *    反查单页 URL」的既有通路）。而 `latest.permalink` 是现成的，且「最新系列 → 它最新那篇」
- *    正是读者点进去最想看的东西。
+ * ⚠️ 期号（`第 N 期`）取值优先级：`post.order`（文章注解 `seriesOrder`）→ 没填就按该系列内的
+ *    时间顺序倒推 `#lists.size(posts) - 下标`（插件对「未填序号」的排法是「按发布时间倒序」，
+ *    所以 下标 0 = 最新 = 总篇数）。LQ 目前 8 篇文章都没填 `seriesOrder`，走的就是后一条。
  */
 import { imageSuffixThWith } from "../utils/image-suffix";
 
-/** 封面取图宽度（16:9 小卡，480 足够，别跟顶卡一样取 800） */
+/** 封面取图宽度（16:9 小卡，480 足够） */
 const COVER_WIDTH = "480";
-/** 一行可见卡片数：桌面 4 / 平板 3 / 手机 2（写入 style 的自定义属性，供 CSS 与脚本读） */
+/** 一行可见卡片数：桌面 4 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
 const VISIBLE_DESKTOP = 4;
 const VISIBLE_TABLET = 3;
 const VISIBLE_MOBILE = 2;
+/**
+ * 单个系列最多渲染多少张卡。防御性上限：系列再长也不能把首页首屏撑爆。
+ * 30 对个人博客的系列而言等于「全部」（LQ 现在每个系列 4 篇）。
+ */
+const MAX_POSTS_PER_SERIES = 30;
 ---
 
-<!-- ① 外层只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关 / 首页第一页。
-     th:if(优先级 3) 早于 th:with(4)，同层读不到 th:with 的变量（会短路）⇒ finder 调用必须下一层。 -->
+<!-- ① 只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关 / 首页第一页。
+     th:if(3) 早于 th:with(4)，同层读不到 th:with 的变量（会短路）⇒ finder 调用必须下一层。 -->
 <div
   th:remove="tag"
   th:if="${pluginFinder != null
@@ -55,16 +61,16 @@ const VISIBLE_MOBILE = 2;
 >
   <div
     th:remove="tag"
-    th:with="seriesCount=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesItems=${recentCommentsSeriesFinder.listLatest(seriesCount)}"
+    th:with="seriesLimit=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesList=${recentCommentsSeriesFinder.listLatest(seriesLimit)}"
   >
     <!-- ② 空态：连 <section> 本体一起不输出。
-         若把判空写在 section 内层，系列为 0 时会留下一个空的 <section>（带 margin-bottom 的
+         若把判空写在 section 内层，一个系列都没有时会留下空的 <section>（带 margin-bottom 的
          1rem 死空白 + 白跑一次入场动画），所以判空必须罩在 section 外面。 -->
     <section
       id="series-strip"
       class="series-strip onload-animation"
       style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
-      th:if="${not #lists.isEmpty(seriesItems)}"
+      th:if="${not #lists.isEmpty(seriesList)}"
     >
       <!-- 段头：图标 + 标题（左）／‹ › 箭头（右） -->
       <div class="series-strip__head">
@@ -72,9 +78,7 @@ const VISIBLE_MOBILE = 2;
           <span
             class="icon-[material-symbols--layers] text-[1.125rem] leading-none"
             aria-hidden="true"></span>
-          <span class="leading-none" th:text="#{seriesStrip.title}"
-            >最新系列</span
-          >
+          <span class="leading-none" th:text="#{seriesStrip.title}">系列</span>
         </h2>
         <div class="series-strip__navs" data-series-navs>
           <button
@@ -100,78 +104,112 @@ const VISIBLE_MOBILE = 2;
         </div>
       </div>
 
-      <!-- 横向轨道：SSR 渲染全部卡片，脚本只负责接线（滚不动时箭头隐藏） -->
-      <div class="series-strip__viewport" data-series-viewport>
-        <div class="series-strip__track" data-series-track>
-          <!-- ⚠️ th:if 与 th:each 同层：each(2) 先于 if(3)，逐条判定。
-               permalink 拿不到就整卡不输出 —— 因为 th:href 求值为 null 时 Thymeleaf 会写出
-               `href=""`（不是删属性！实测 3.1.5.RELEASE），空 href 点一下等于刷新当前页。 -->
-          <a
-            th:each="series : ${seriesItems}"
-            th:if="${series.latest != null and series.latest.permalink != null}"
-            class="series-strip-card"
-            th:href="${series.latest.permalink}"
-            th:aria-label="#{seriesStrip.cardAria(${series.name}, ${#lists.size(series.posts)})}"
-          >
-            <!-- 封面：取该系列最新一篇的封面图；无封面时用主题色渐变 + 占位图标 -->
-            <span
-              class="series-strip-card__cover"
-              th:classappend="${series.latest == null or #strings.isEmpty(series.latest.cover) ? 'is-empty' : ''}"
-            >
-              <!-- ⚠️ th:if 与 th:with 同层：if(3) 先于 with(4)，if 里不能引用 suffix。
-                   无封面直接不输出 <img>：th:src 为 null 同样会写出 `src=""`（实测），
-                   空 src 会被浏览器解析成「当前页面 URL」而去当图片拉一次。 -->
-              <img
-                class="series-strip-card__img"
-                th:if="${series.latest != null and not #strings.isEmpty(series.latest.cover)}"
-                th:src="${series.latest.cover + suffix}"
-                th:alt="${series.latest.title != null ? series.latest.title : series.name}"
-                th:with={imageSuffixThWith(COVER_WIDTH)}
-                loading="lazy"
-                decoding="async"
-              />
-              <span class="series-strip-card__placeholder" aria-hidden="true">
-                <span
-                  class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
-                ></span>
-              </span>
-              <!-- 篇数胶囊：挂在封面左上角（系列卡片的关键信息，参考站没有，属本主题增补） -->
-              <span
-                class="series-strip-card__count"
-                aria-hidden="true"
-                th:text="#{seriesStrip.countLabel(${#lists.size(series.posts)})}"
-                >0 篇</span
-              >
-            </span>
+      <!-- 系列切换（只有一个系列时不渲染：没得切） -->
+      <div
+        class="series-strip__tabs"
+        role="tablist"
+        data-series-tabs
+        th:if="${#lists.size(seriesList) > 1}"
+        th:aria-label="#{seriesStrip.tabsAria}"
+      >
+        <button
+          th:each="s, st : ${seriesList}"
+          type="button"
+          role="tab"
+          class="series-strip__tab"
+          th:id="|series-tab-${st.index}|"
+          th:data-series-tab="${st.index}"
+          th:aria-controls="|series-panel-${st.index}|"
+          th:aria-selected="${st.index == 0 ? 'true' : 'false'}"
+          th:tabindex="${st.index == 0 ? '0' : '-1'}"
+          th:text="${s.name}"
+        >
+          系列名
+        </button>
+      </div>
 
-            <span class="series-strip-card__body">
-              <span class="series-strip-card__title" th:text="${series.name}"
-                >系列名</span
-              >
+      <!-- 每个系列一个面板；首屏只显示第 0 个。
+           ⚠️ 用 class 而不是 hidden 属性做显隐：`th:attr` 求值为 null 时 Thymeleaf 会写空属性
+              （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。 -->
+      <div
+        th:each="s, st : ${seriesList}"
+        class="series-strip__panel"
+        th:classappend="${st.index != 0 ? ' is-hidden' : ''}"
+        role="tabpanel"
+        th:id="|series-panel-${st.index}|"
+        th:aria-labelledby="|series-tab-${st.index}|"
+        th:data-series-panel="${st.index}"
+      >
+        <!-- 横向轨道：SSR 渲染该系列的全部卡片，脚本只负责接线 -->
+        <div class="series-strip__viewport" data-series-viewport>
+          <div class="series-strip__track" data-series-track>
+            <!-- ⚠️ th:each 与 th:if 同层：each(2) 先于 if(3)，逐条判定。
+                 · 封顶写成 `not (ps.index >= N)` 而不是 `ps.index < N` —— `>` 会被 Astro
+                   转义成 `&gt;` 再由 attoparser 还原（实测可用），裸 `<` 在属性里更易踩坑。
+                 · permalink 拿不到就整卡不输出：th:href 求值为 null 时 Thymeleaf 写出 `href=""`
+                   （不是删属性！实测 3.1.5.RELEASE），空 href 点一下等于刷新当前页。 -->
+            <a
+              th:each="post, ps : ${s.posts}"
+              th:if={`\${not (ps.index >= ${MAX_POSTS_PER_SERIES}) and post.permalink != null}`}
+              class="series-strip-card"
+              th:href="${post.permalink}"
+            >
+              <!-- 封面：无封面用主题色渐变 + 占位图标 -->
               <span
-                class="series-strip-card__excerpt"
-                th:text="${series.latest.title}">最新一篇标题</span
+                class="series-strip-card__cover"
+                th:classappend="${#strings.isEmpty(post.cover) ? 'is-empty' : ''}"
               >
-            </span>
-          </a>
+                <!-- ⚠️ alt 空 + aria-hidden：标题就在同一张卡里，图片再念一遍会让读屏重复；
+                     链接的可访问名 = 标题 + 期号，够用。 -->
+                <img
+                  class="series-strip-card__img"
+                  th:if="${not #strings.isEmpty(post.cover)}"
+                  th:src="${post.cover + suffix}"
+                  alt=""
+                  aria-hidden="true"
+                  th:with={imageSuffixThWith(COVER_WIDTH)}
+                  loading="lazy"
+                  decoding="async"
+                />
+                <span class="series-strip-card__placeholder" aria-hidden="true">
+                  <span
+                    class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
+                  ></span>
+                </span>
+                <!-- 期号胶囊：挂在封面左上角。order 优先，没填就按系列内时间倒推。 -->
+                <span
+                  class="series-strip-card__issue"
+                  aria-hidden="true"
+                  th:text="#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(s.posts) - ps.index})}"
+                  >第 1 期</span
+                >
+              </span>
+
+              <span class="series-strip-card__body">
+                <span class="series-strip-card__title" th:text="${post.title}"
+                  >文章标题</span
+                >
+              </span>
+            </a>
+          </div>
         </div>
       </div>
     </section>
   </div>
 </div>
 
-<!-- 行为脚本（经典脚本产物）：横向滚动导航 + 溢出判定 -->
+<!-- 行为脚本（经典脚本产物）：系列切换 + 横向滚动导航 -->
 <script
   is:inline
   src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/series-strip.js?v=${ASSET_VERSION}`}
   defer></script>
 
 <style is:global>
-  /* ===== 首页「最新系列」卡片条 =====
+  /* ===== 首页「系列」卡片条 =====
      ⚠️ 一行可见数、卡片宽度公式（100cqi 容器查询）都与参考站 .home-list-featured 一致，
         改一处要回看配平；`-1px` 是参考站原式里的取整余量，别当废项删掉。
      ⚠️ `.series-strip__viewport` 的 container-type 是 `100cqi` 生效的前提，
-        去掉它卡片宽度会退化成 0（cqi 找不到容器时按视口算，视觉会炸）。 */
+        去掉它卡片宽度会退化成 0。 */
   #series-strip {
     --series-gap: 0.75rem;
     --series-edge: 2px;
@@ -210,15 +248,67 @@ const VISIBLE_MOBILE = 2;
     color: var(--primary);
   }
 
+  /* ===== 系列切换标签 ===== */
+  .series-strip__tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.625rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .series-strip__tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .series-strip__tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--line-divider);
+    border-radius: 9999px;
+    background: var(--card-bg);
+    color: var(--btn-content);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .series-strip__tab:hover {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+  }
+  .series-strip__tab[aria-selected="true"] {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+    background: color-mix(in oklab, var(--primary) 12%, var(--card-bg));
+  }
+  .series-strip__tab:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* ===== 面板 ===== */
+  .series-strip__panel {
+    display: block;
+    min-width: 0;
+  }
+  /* 非当前系列的面板（脚本切 class） */
+  .series-strip__panel.is-hidden {
+    display: none;
+  }
+
   .series-strip__navs {
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
     flex-shrink: 0;
-  }
-  /* 无溢出的整体隐藏（脚本按卡片数与可见数比较后设置 hidden 属性） */
-  .series-strip__navs[hidden] {
-    display: none;
   }
   .series-strip__nav {
     display: inline-flex;
@@ -242,8 +332,9 @@ const VISIBLE_MOBILE = 2;
     color: var(--primary);
     background: color-mix(in oklab, var(--primary) 12%, transparent);
   }
+  /* 到头 / 没得滚：置灰而不是整块隐藏 —— 控件一直在，用户知道「还有这个东西」 */
   .series-strip__nav:disabled {
-    opacity: 0.35;
+    opacity: 0.3;
     cursor: default;
   }
   .series-strip__nav:focus-visible {
@@ -355,8 +446,8 @@ const VISIBLE_MOBILE = 2;
     display: flex;
   }
 
-  /* 篇数胶囊：左上角，半透明胶囊 + 毛玻璃，压住再花的封面也读得清 */
-  .series-strip-card__count {
+  /* 期号胶囊：左上角，半透明底 + 毛玻璃，压住再花的封面也读得清 */
+  .series-strip-card__issue {
     position: absolute;
     top: 0.375rem;
     left: 0.375rem;
@@ -373,40 +464,28 @@ const VISIBLE_MOBILE = 2;
   }
 
   .series-strip-card__body {
-    flex: none;
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    gap: 0.1875rem;
-    padding: 0.625rem 0.625rem 0.6875rem;
+    padding: 0.5rem 0.625rem 0.625rem;
     min-width: 0;
   }
+  /* 标题最多两行（系列文章的标题普遍偏长，一行会被截得太狠） */
   .series-strip-card__title {
-    display: block;
-    margin: 0;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
+    margin: 0;
     font-size: 0.8125rem;
-    font-weight: 700;
-    line-height: 1.3;
+    font-weight: 600;
+    line-height: 1.35;
     color: var(--deep-text);
     transition: color 0.2s ease;
   }
   .series-strip-card:hover .series-strip-card__title {
     color: var(--primary);
-  }
-  .series-strip-card__excerpt {
-    display: block;
-    margin: 0;
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    font-size: 0.6875rem;
-    line-height: 1.3;
-    color: var(--btn-content);
-  }
-  .series-strip-card__excerpt:empty {
-    display: none;
   }
 </style>
