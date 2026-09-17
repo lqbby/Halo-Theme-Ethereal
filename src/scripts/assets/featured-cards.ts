@@ -33,6 +33,45 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     return v || fallback || "";
   }
 
+  /** 主题当前色相（--hue），用于让左卡方块与分类色块跟主题同源 */
+  function baseHue() {
+    try {
+      var v = getComputedStyle(document.documentElement).getPropertyValue(
+        "--hue",
+      );
+      var n = parseFloat(v);
+      return isFinite(n) ? n : 250;
+    } catch (e) {
+      return 250;
+    }
+  }
+
+  /** 由分类名派生一个稳定色相（同一分类永远同色），叠加在主题色相上 ⇒ 彩色但不跳出主题 */
+  function hashHue(s) {
+    var h = 0;
+    for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+    return h;
+  }
+
+  /** 分类色块：有分类就上色并显示，没有就隐藏（服务端兜底与取回文章共用） */
+  function paintCategory(card) {
+    var wrap = card.querySelector(".featured-cat");
+    if (!wrap) return;
+    var sq = card.querySelector("[data-featured-cat-square]");
+    var nameEl = card.querySelector("[data-featured-cat]");
+    var name = String((nameEl && nameEl.textContent) || "").trim();
+    if (!name) name = String((sq && sq.getAttribute("data-cat")) || "").trim();
+    if (!name) {
+      wrap.classList.add("is-hidden");
+      return;
+    }
+    wrap.classList.remove("is-hidden");
+    if (sq) {
+      sq.style.background =
+        "oklch(0.72 0.16 " + ((baseHue() + hashHue(name)) % 360) + "deg)";
+    }
+  }
+
   function isPublic(p) {
     return !!(
       p &&
@@ -67,15 +106,15 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     if (el) el.textContent = post.status.excerpt || "";
     el = card.querySelector("[data-featured-date]");
     if (el) el.textContent = String(post.spec.publishTime || "").slice(0, 10);
-    el = card.querySelector("[data-featured-visit]");
-    if (el)
-      el.textContent = String(
-        post.stats && post.stats.visit != null ? post.stats.visit : 0,
-      );
-    el = card.querySelector("[data-featured-words]");
-    if (el) el.textContent = ""; // 字数只有服务端插件口径，客户端不猜
+    // 分类名（色块颜色随后由 paintCategory 统一上色）
+    el = card.querySelector("[data-featured-cat]");
+    if (el) {
+      var cats = (post.categories || []).filter(Boolean);
+      el.textContent = cats.length ? String(cats[0].spec.displayName) : "";
+    }
     el = card.querySelector("[data-featured-badge]");
     if (el) el.textContent = cfg.badge;
+    paintCategory(card);
 
     var src = post.spec.cover || "";
     if (cover && img) {
@@ -134,7 +173,9 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     });
   }
 
-  // ---------- 左卡：随机一篇文章 ----------
+  // ---------- 左卡：随机一篇文章（点击带「转圈」） ----------
+  var SPIN_MS = 800; // 与 CSS 的 featured-tiles-spin 时长对齐
+
   function go(url) {
     var swup = window.swup;
     if (swup && typeof swup.navigate === "function") {
@@ -142,6 +183,21 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     } else {
       window.location.href = url;
     }
+  }
+
+  /** 重放旋转动画：先摘类、强制回流、再加类（与 AIOVTUE 同款写法） */
+  function spin(btn) {
+    btn.classList.remove("is-spinning");
+    void btn.offsetWidth;
+    btn.classList.add("is-spinning");
+  }
+
+  /** 至少在转圈时长之后再动作，保证「转一圈」看得见 */
+  function afterSpin(startedAt) {
+    var left = Math.max(0, SPIN_MS - (Date.now() - startedAt));
+    return new Promise(function (resolve) {
+      setTimeout(resolve, left);
+    });
   }
 
   /** 在「全部文章」里均匀随机：先问 total，再随机取一页、页内随机取一篇。 */
@@ -168,13 +224,22 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     btn.dataset.busy = "1";
     btn.setAttribute("aria-busy", "true");
 
+    // 点击 → 那组彩色方块整组转一圈（0.8s）；**转完再跳**，
+    // 否则取数只要 100ms、导航会把动画腰斩，用户根本看不到「转圈」。
+    var started = Date.now();
+    spin(btn);
+
     pickRandom()
       .then(function (post) {
-        go(post.status.permalink);
+        return afterSpin(started).then(function () {
+          go(post.status.permalink);
+        });
       })
       .catch(function (e) {
         console.warn("[featured-cards] 随机文章失败：", e);
-        go(FALLBACK_URL); // 取数不可用时也要“有去处”，别让点击落空
+        return afterSpin(started).then(function () {
+          go(FALLBACK_URL); // 取数不可用时也要“有去处”，别让点击落空
+        });
       })
       .then(function () {
         btn.dataset.busy = "";
@@ -196,6 +261,7 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     var postCard = byId("featured-post");
     if (postCard && postCard.dataset.bound !== "1") {
       postCard.dataset.bound = "1";
+      paintCategory(postCard); // 服务端兜底那篇的分类也要上色（否则是一块主色默认块）
       var source =
         row.getAttribute("data-source") === "popular" ? "popular" : "recent";
       cfg.badge = labelOf(
@@ -225,6 +291,12 @@ import { makeImageSuffix } from "../../utils/image-suffix";
       randomBtn.dataset.bound = "1";
       randomBtn.addEventListener("click", function () {
         onRandomClick(randomBtn);
+      });
+      // 转完把类摘掉，让方块回到常态角度（动画是 forwards 停住的）
+      // ⚠️ 动画在子元素 .featured-tiles 上，animationend 会冒泡上来，所以要校验 e.target
+      randomBtn.addEventListener("animationend", function (e) {
+        if (e.target !== randomBtn.querySelector(".featured-tiles")) return;
+        randomBtn.classList.remove("is-spinning");
       });
     }
   }

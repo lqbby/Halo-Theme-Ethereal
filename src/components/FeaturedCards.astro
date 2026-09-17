@@ -1,22 +1,42 @@
 ---
 /**
- * 列表页顶部「两张精选卡片」（1.5.29）：左「随机一篇文章」+ 右「热门 / 最近文章」。
+ * 列表页顶部「两张精选卡片」（1.5.29 首版，1.5.30 按参考图复刻效果）：
+ *   左「随机一篇文章」+ 右「热门 / 最近文章」。
  *
- * 需求来源：LQ 指定按 AIOVTUE 首页那两张卡（左窄右宽、并排）在列表最上方做一组入口，
- *   · 左卡：点一下 → **随机打开站内一篇文章**（点击/悬停效果与右卡一致）；
- *   · 右卡：展示一篇文章，**后台可切换「最近文章 / 热门文章」**（设置见 settings.yaml 的
- *     「文章卡片布局 → 精选卡片」；读作 theme.config.layout.postList.featuredSource）。
+ * 需求来源：LQ 指定按 AIOVTUE 首页那两张卡的**形态与效果**复刻，视觉落进本主题设计语言：
+ *   · 左卡：点一下 → **随机打开站内一篇文章**；点击时那组**彩色方块整组转 -360°**
+ *     （对齐 AIOVTUE 的转圈惯用写法 `.is-spinning{animation:…0.8s ease-out 1 forwards}` → `rotate(-360deg)`）；
+ *   · 右卡：展示一篇文章，**后台可切换「最近文章 / 热门文章」**（settings.yaml →
+ *     文章卡片布局 → 右侧卡片来源）；卡面带「双层阴影 + 下方错位叠层（hover 展开）」的叠放感。
  *
- * 实现取舍（都是踩过坑后的选择）：
+ * 复刻依据（都核对过，不靠印象）：
+ *   · 像素扫描参考图：右卡是**单层**圆角描边卡（x≈870–1262 / y≈430–544），**没有静态纸堆**；
+ *     AIOVTUE 源码里唯一和「叠」有关的是多层 box-shadow（`0 7px 16px` + `0 1px 5px`，hover 加深 + `translateY(-3px)`）
+ *     ⇒ 本组件按「双层阴影 + 错位叠层」实现。
+ *   · 左卡那组彩色圆角方块 = 参考图里 34×34 / 圆角 6px 带各自颜色的方块（原站是社交图标）；
+ *     本组件用**主题色相偏移**生成 9 个方块的颜色（跟随 --hue），保持彩色但不跳出主题。
+ *
+ * 实现取舍：
  *  ① 右卡**服务端先渲染一篇真实文章**（`posts.items[0]`）再交给脚本按来源替换 ——
- *     JS 关闭 / 取数失败时页面仍有内容，不会留一个空骨架（渐进增强）。
+ *     JS 关闭 / 取数失败时页面仍有内容（渐进增强）。
  *  ② 取数一律走 `fetchWithTimeout`（1.5.27 的共享工具）：挂住的请求不能让卡片永久 loading。
- *  ③ 文案（「热门文章 / 最近文章 / 阅读全文」）由 Thymeleaf 经 data-* 透传给脚本，
- *     脚本里**不写中文**（多语言站会串，见本仓既有约定）。
- *  ④ 整组包在 `#featured-cards` 里、脚本用一次性守卫绑定：它位于 #swup-container 内，
- *     Swup 换页会重执行脚本，但幂等（dataset / window 守卫）。
+ *  ③ 文案由 Thymeleaf 经**隐藏文本节点**（th:text）透传给脚本，脚本里不写中文。
+ *  ④ 封面用「单元素 + `is-cover-empty` 类」而非 th:if 两套结构，脚本才能双向切换有无封面。
  */
 import { imageSuffixThWith } from "../utils/image-suffix";
+
+/** 左边那组方块的图标（顺序即铺开顺序）。⚠️ 必须写成完整字面量类名，Tailwind 才扫得到。 */
+const TILES = [
+  "icon-[material-symbols--bolt-rounded]",
+  "icon-[material-symbols--local-fire-department-rounded]",
+  "icon-[material-symbols--auto-awesome-rounded]",
+  "icon-[material-symbols--favorite-rounded]",
+  "icon-[material-symbols--rocket-launch-rounded]",
+  "icon-[material-symbols--music-note-rounded]",
+  "icon-[material-symbols--cloud-rounded]",
+  "icon-[material-symbols--emoji-emotions-rounded]",
+  "icon-[material-symbols--flare-rounded]",
+];
 ---
 
 <div
@@ -33,14 +53,13 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     data-img-format=${theme.config?.performance?.imageProcessing?.custom_format ?: ''}"
   th:style="|animation-delay: var(--content-delay)|"
 >
-  <!-- i18n 文案经**隐藏文本节点**透传给脚本（不用 th:attr 承载 #{…}：
-       那条路径没有实测依据，th:text 才是本仓已证明的路径）。脚本只读 textContent。 -->
   <span class="hidden" data-label-popular th:text="#{featured.badge.popular}"
     >热门文章</span
   >
   <span class="hidden" data-label-recent th:text="#{featured.badge.recent}"
     >最近文章</span
   >
+
   <!-- ============ 左：随机一篇文章（整卡是按钮语义，键盘可达） ============ -->
   <button
     type="button"
@@ -50,17 +69,22 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     th:aria-label="#{featured.random.title}"
     th:title="#{featured.random.title}"
   >
-    <span class="featured-random-orb" aria-hidden="true">
-      <span
-        class="icon-[material-symbols--casino-outline-rounded] text-4xl leading-none"
-      ></span>
+    <!-- 彩色方块群：斜向铺开（整组 rotate(-16deg)），从卡片右下角出血 -->
+    <span class="featured-tiles" aria-hidden="true">
+      {
+        TILES.map((cls, i) => (
+          <span class="featured-tile" style={`--tile-i:${i}`}>
+            <span class={`${cls} text-2xl leading-none`} />
+          </span>
+        ))
+      }
     </span>
     <span class="featured-random-body">
       <span class="featured-random-title" th:text="#{featured.random.title}"
         >随机一篇文章</span
       >
       <span class="featured-random-desc" th:text="#{featured.random.desc}"
-        >不知道看什么？点一下随便逛逛</span
+        >看点什么呢</span
       >
       <span class="featured-card-foot">
         <span class="featured-badge featured-badge--random">
@@ -84,125 +108,131 @@ import { imageSuffixThWith } from "../utils/image-suffix";
   </button>
 
   <!-- ============ 右：热门 / 最近 文章（服务端先渲染 posts.items[0]，脚本按来源替换） ============ -->
-  <a
-    id="featured-post"
-    class="featured-card featured-card--post"
-    href="/"
-    th:if="${fcFirst != null}"
-    th:href="@{${fcFirst.status.permalink}}"
-    th:aria-label="${fcFirst.spec.title}"
-    th:attr="data-state=${fcSource == 'popular' ? 'pending' : 'ready'}"
-  >
-    <!-- 封面：**单元素 + 类名切换**（`is-cover-empty`）——因为脚本要按取回的文章
-         双向切换「有封面 / 无封面」，用 th:if 渲染两套结构的话脚本就没法换了。 -->
-    <span
-      class="featured-cover"
-      data-featured-cover
-      th:classappend="${#strings.isEmpty(fcFirst.spec.cover) ? ' is-cover-empty' : ''}"
+  <!-- ⚠️ 「叠层」必须放在 .featured-card **外面**的包裹层里：
+       卡片自身 `overflow: hidden`（裁封面圆角用）会把伸到卡外的那两层直接裁掉 ⇒ 等于没做。 -->
+  <div class="featured-post-wrap" th:if="${fcFirst != null}">
+    <!-- 「叠起来」：卡片下方的错位叠层（hover 时向外展开）；双层阴影由 .featured-card 给 -->
+    <span class="featured-stack featured-stack--2" aria-hidden="true"></span>
+    <span class="featured-stack featured-stack--1" aria-hidden="true"></span>
+
+    <a
+      id="featured-post"
+      class="featured-card featured-card--post"
+      href="/"
+      th:href="@{${fcFirst.status.permalink}}"
+      th:aria-label="${fcFirst.spec.title}"
+      th:attr="data-state=${fcSource == 'popular' ? 'pending' : 'ready'}"
     >
-      <span class="featured-veil"></span>
-      <span class="featured-arrow">
-        <span class="featured-arrow-chip">
+      <!-- 右上角星标（对齐参考图右上角那枚星） -->
+      <span class="featured-star" aria-hidden="true">
+        <span
+          class="icon-[material-symbols--star-rounded] text-[1.15rem] leading-none"
+        ></span>
+      </span>
+
+      <!-- 封面：单元素 + is-cover-empty 类（脚本要双向切换有无封面） -->
+      <span
+        class="featured-cover"
+        data-featured-cover
+        th:classappend="${#strings.isEmpty(fcFirst.spec.cover) ? ' is-cover-empty' : ''}"
+      >
+        <span class="featured-veil"></span>
+        <span class="featured-arrow">
+          <span class="featured-arrow-chip">
+            <span
+              class="icon-[material-symbols--chevron-right-rounded] text-4xl leading-none"
+            ></span>
+          </span>
+        </span>
+        <img
+          class="featured-img"
+          th:src="${#strings.isEmpty(fcFirst.spec.cover) ? null : fcFirst.spec.cover + suffix}"
+          th:alt="${fcFirst.spec.title}"
+          th:with={imageSuffixThWith("800")}
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+        />
+        <span class="featured-cover-fallback" aria-hidden="true">
           <span
-            class="icon-[material-symbols--chevron-right-rounded] text-4xl leading-none"
+            class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
           ></span>
         </span>
       </span>
-      <img
-        class="featured-img"
-        th:src="${#strings.isEmpty(fcFirst.spec.cover) ? null : fcFirst.spec.cover + suffix}"
-        th:alt="${fcFirst.spec.title}"
-        th:with={imageSuffixThWith("800")}
-        loading="eager"
-        fetchpriority="high"
-        decoding="async"
-      />
-      <span class="featured-cover-fallback" aria-hidden="true">
-        <span
-          class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
-        ></span>
-      </span>
-    </span>
 
-    <span class="featured-body">
-      <span class="featured-badge featured-badge--source">
+      <span class="featured-body">
+        <span class="featured-badge featured-badge--source">
+          <span
+            class="icon-[material-symbols--local-fire-department-rounded] text-base leading-none"
+          ></span>
+          <span
+            class="leading-none"
+            data-featured-badge
+            th:text="#{featured.badge.recent}">最近文章</span
+          >
+        </span>
         <span
-          class="icon-[material-symbols--local-fire-department-rounded] text-base leading-none"
-        ></span>
-        <span
-          class="leading-none"
-          data-featured-badge
-          th:text="#{featured.badge.recent}">最近文章</span
+          class="featured-title"
+          data-featured-title
+          th:text="${fcFirst.spec.title}">Post title</span
         >
-      </span>
-      <span
-        class="featured-title"
-        data-featured-title
-        th:text="${fcFirst.spec.title}">Post title</span
-      >
-      <span
-        class="featured-excerpt"
-        data-featured-excerpt
-        th:text="${fcFirst.status.excerpt}">Excerpt</span
-      >
+        <span
+          class="featured-excerpt"
+          data-featured-excerpt
+          th:text="${fcFirst.status.excerpt}">Excerpt</span
+        >
 
-      <span
-        class="featured-card-foot"
-        th:with="fcWords = ${pluginFinder != null and pluginFinder.available('extra-api', '3.*') ? extraApiStatsFinder.getPostWordCount({name: fcFirst.metadata.name}) : 0}"
-      >
-        <span class="featured-meta" data-featured-date-wrap>
+        <!-- 底部一行：左「分类色块 + 分类名」、右「日期」（对齐参考图）。
+           ⚠️ 分类块**总是渲染**、用 is-hidden 类控制显隐（脚本要按取回文章双向切换有无分类）。 -->
+        <span class="featured-card-foot">
           <span
-            class="icon-[material-symbols--calendar-today-outline-rounded] text-base leading-none"
-          ></span>
-          <span
-            class="leading-none"
-            data-featured-date
-            th:text="${#dates.format(fcFirst.spec.publishTime, 'yyyy-MM-dd')}"
-            >2026-01-01</span
+            class="featured-cat"
+            th:classappend="${#lists.isEmpty(fcFirst.categories) ? ' is-hidden' : ''}"
           >
-        </span>
-        <span class="featured-meta" th:if="${fcFirst.stats != null}">
-          <span
-            class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
-          ></span>
-          <span
-            class="leading-none"
-            data-featured-visit
-            th:text="${fcFirst.stats.visit}">0</span
-          >
-        </span>
-        <span class="featured-meta" th:if="${fcWords > 0}">
-          <span
-            class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
-          ></span>
-          <span class="leading-none" data-featured-words th:text="${fcWords}"
-            >0</span
-          >
-          <span class="featured-meta-unit leading-none">字</span>
-        </span>
-        <span class="featured-readmore">
-          <span class="leading-none" th:text="#{featured.readMore}"
-            >阅读全文</span
-          >
-          <span
-            class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"
-          ></span>
+            <span
+              class="featured-cat-square"
+              data-featured-cat-square
+              th:attr="data-cat=${not #lists.isEmpty(fcFirst.categories) ? fcFirst.categories[0].spec.displayName : ''}"
+            ></span>
+            <span
+              class="leading-none"
+              data-featured-cat
+              th:text="${not #lists.isEmpty(fcFirst.categories) ? fcFirst.categories[0].spec.displayName : ''}"
+              >分类</span
+            >
+          </span>
+          <span class="featured-meta">
+            <span
+              class="icon-[material-symbols--calendar-today-outline-rounded] text-base leading-none"
+            ></span>
+            <span
+              class="leading-none"
+              data-featured-date
+              th:text="${#dates.format(fcFirst.spec.publishTime, 'yyyy-MM-dd')}"
+              >2026-01-01</span
+            >
+          </span>
+          <span class="featured-readmore">
+            <span class="leading-none" th:text="#{featured.readMore}"
+              >阅读全文</span
+            >
+            <span
+              class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"
+            ></span>
+          </span>
         </span>
       </span>
-    </span>
-  </a>
+    </a>
+  </div>
 </div>
 
-<!-- 行为脚本（经典脚本产物）：左卡随机跳转 + 右卡按来源填充。
-     与 PostList 其它脚本一致用 defer；Swup 换页会重执行，脚本内全部绑定带 dataset 守卫。 -->
+<!-- 行为脚本（经典脚本产物）：左卡随机跳转（带转圈） + 右卡按来源填充 -->
 <script
   src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/featured-cards.js?v=${ASSET_VERSION}`}
   defer></script>
 
 <style is:global>
-  /* ===== 顶部两卡行 =====
-     桌面两列（左窄右宽，对齐参考图比例）；移动端上下堆叠。
-     ⚠️ 环/光晕一律 box-shadow：本仓瀑布流下 border 会改盒模型（见 PostList.astro 置顶高亮注释）。 */
+  /* ===== 顶部两卡行 ===== */
   .featured-row {
     display: grid;
     grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
@@ -220,19 +250,22 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     border-radius: var(--radius-large);
     text-decoration: none;
     color: inherit;
+    /* 「叠起来」的底：双层阴影（紧贴层 + 柔和层）+ 主题色细环 */
     box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent),
-      0 4px 18px color-mix(in oklab, var(--primary) 8%, transparent);
+      0 0 0 1px color-mix(in oklab, var(--primary) 20%, transparent),
+      0 1px 5px rgb(0 0 0 / 0.1),
+      0 7px 16px rgb(0 0 0 / 0.14);
     transition:
-      box-shadow 0.22s ease,
-      transform 0.22s ease;
+      box-shadow 0.24s ease,
+      transform 0.24s ease;
   }
   /* 两张卡的交互完全一致（LQ 明确要求「点击效果要一样」） */
   .featured-card:hover {
-    transform: translateY(-2px);
+    transform: translateY(-3px);
     box-shadow:
-      0 0 0 1px color-mix(in oklab, var(--primary) 52%, transparent),
-      0 10px 28px color-mix(in oklab, var(--primary) 17%, transparent);
+      0 0 0 1px color-mix(in oklab, var(--primary) 46%, transparent),
+      0 2px 8px rgb(0 0 0 / 0.12),
+      0 12px 28px rgb(0 0 0 / 0.2);
   }
   .featured-card:active {
     transform: translateY(0) scale(0.995);
@@ -243,50 +276,152 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     outline-offset: 2px;
   }
 
-  /* ---------- 左卡：随机一篇文章 ---------- */
-  .featured-card--random {
-    grid-template-columns: minmax(0, 1fr);
-    align-content: space-between;
-    padding: 1rem 1.25rem;
-    cursor: pointer;
-    text-align: left;
-    /* 作为 <button> 的复位（保留 button 的键盘语义与 Enter 触发） */
-    border: none;
-    font: inherit;
-    background:
-      radial-gradient(
-        120% 90% at 12% 0%,
-        color-mix(in oklab, var(--primary) 22%, transparent),
-        transparent 62%
-      ),
-      var(--card-bg);
+  /* ---------- 「叠起来」的错位叠层（右卡专属） ----------
+     卡片下方两层错位纸：默认只露底部窄边；hover 时向外展开（间距变大），
+     读起来就是「一叠卡片被端起来」。纯装饰，不参与交互。
+     ⚠️ 包裹层只负责定位/承载，别给它 overflow/背景 —— 否则又把叠层遮掉了。 */
+  .featured-post-wrap {
+    position: relative;
+    display: grid;
+    min-width: 0;
   }
-  .featured-random-orb {
+  .featured-stack {
+    position: absolute;
+    z-index: 0;
+    border-radius: var(--radius-large);
+    /* ⚠️ 别只用 opacity 淡化 —— 那样它会和页面背景糊成一片（实测几乎看不见）。
+       用实色「卡底色掺深」+ 主题色细环，才读得出是一张纸的边缘。 */
+    background: var(
+      --stack-bg,
+      color-mix(in oklab, var(--card-bg) 88%, var(--deep-text) 12%)
+    );
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 14%, transparent),
+      0 1px 2px rgb(0 0 0 / 0.1);
+    transition:
+      transform 0.26s cubic-bezier(0.22, 1, 0.36, 1),
+      background-color 0.26s ease;
+    pointer-events: none;
+  }
+  .featured-stack--1 {
+    left: 0.55rem;
+    right: 0.55rem;
+    bottom: -6px;
+    height: 14px;
+  }
+  .featured-stack--2 {
+    left: 1.1rem;
+    right: 1.1rem;
+    bottom: -12px;
+    height: 14px;
+    --stack-bg: color-mix(in oklab, var(--card-bg) 72%, var(--deep-text) 28%);
+  }
+  .featured-post-wrap:hover .featured-stack--1 {
+    transform: translateY(3px);
+  }
+  .featured-post-wrap:hover .featured-stack--2 {
+    transform: translateY(6px);
+    --stack-bg: color-mix(in oklab, var(--card-bg) 62%, var(--deep-text) 38%);
+  }
+
+  /* ---------- 右上角星标（对齐参考图） ---------- */
+  .featured-star {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 3;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 3.1rem;
-    height: 3.1rem;
+    width: 1.85rem;
+    height: 1.85rem;
     border-radius: 999px;
-    background: color-mix(in oklab, var(--primary) 15%, transparent);
-    color: var(--primary);
+    color: color-mix(in oklab, var(--primary) 85%, var(--deep-text));
+    background: color-mix(in oklab, var(--card-bg) 76%, transparent);
+    backdrop-filter: blur(3px);
     transition:
-      transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
-      background 0.22s ease;
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.2s ease;
   }
-  /* 悬停时骰子轻微转动：左卡独有的「随机」暗示（与右卡共享上浮/环等公共动效） */
-  .featured-card--random:hover .featured-random-orb {
-    transform: rotate(-14deg) scale(1.07);
-    background: color-mix(in oklab, var(--primary) 26%, transparent);
+  .featured-card--post:hover .featured-star {
+    transform: rotate(72deg) scale(1.08);
+    color: var(--primary);
   }
-  .featured-card--random[data-busy="1"] .featured-random-orb {
-    animation: featured-shuffle 1s linear infinite;
-  }
-  .featured-random-body {
+
+  /* ---------- 左卡：随机一篇文章 + 彩色方块群 ---------- */
+  .featured-card--random {
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
-    margin-top: 0.9rem;
+    min-height: 13.75rem;
+    padding: 1.1rem 1.25rem;
+    cursor: pointer;
+    text-align: left;
+    border: none;
+    font: inherit;
+    background: var(--card-bg);
+  }
+  /* 方块群：3×3、整组逆时针 22°、从右下角**出血后被卡片裁掉**（= 参考图那种「窗开到方块场上」）。
+     几何约束（算过，别凭感觉调）：
+       方块场是个旋转 22° 的正方形，它**左上角外侧是空的**；把场整体右移 26% / 下移 32%，
+       让这条空出来的对角边正好压在文案下沿之外 ⇒ 文案（标题+副标+页脚，最低 y≈106/220）
+       与最近的方块还留 ~18px。
+     ⚠️ 用 width + 1fr 列 + aspect-ratio，别写死 px —— 卡片宽度在两栏/单栏间差很多。
+     ⚠️ 出血靠卡片的 `overflow: hidden` 裁（那是参考图的关键特征：方块「漫出」视窗）。
+       若把 width 缩小到卡片以内，就没有这种「满出感」了。 */
+  .featured-tiles {
+    position: absolute;
+    right: -26%;
+    bottom: -32%;
+    z-index: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.45rem;
+    width: clamp(9rem, 78%, 11.75rem);
+    transform: rotate(-22deg);
+    transform-origin: 50% 50%;
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+    pointer-events: none;
+  }
+  /* ⭐ 点击「转圈」：整组转 -360°（0.8s / ease-out / 只转一次 / 原点居中，
+     与 AIOVTUE 的 .sakura-hvr-rotate.is-spinning 同款写法）；类由脚本加、animationend 后摘掉 */
+  .featured-card--random.is-spinning .featured-tiles {
+    animation: featured-tiles-spin 0.8s ease-out 1 forwards;
+  }
+  .featured-card--random:hover .featured-tiles {
+    transform: rotate(-22deg) translate(-0.35rem, -0.35rem) scale(1.04);
+  }
+  @keyframes featured-tiles-spin {
+    from {
+      transform: rotate(-22deg);
+    }
+    to {
+      transform: rotate(-382deg);
+    }
+  }
+  .featured-tile {
+    display: inline-flex;
+    aspect-ratio: 1;
+    align-items: center;
+    justify-content: center;
+    border-radius: 26%;
+    color: #fff;
+    /* 色相跟随访客主题色（--hue），每块错开 40° ⇒ 彩色但不跳出主题。
+       ⚠️ hue 槽里 calc 两侧必须**同为无单位数**：写成 `calc(250 + 0 * 40deg)`（纯数 + 角度）
+       会被整条丢弃 ⇒ 方块变透明、转圈也看不出来（实测踩过，别改回去）。 */
+    background: oklch(0.7 0.15 calc(var(--hue, 250) + var(--tile-i) * 40));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      0 2px 6px rgb(0 0 0 / 0.16);
+  }
+  .featured-random-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.25rem;
+    /* 文字整组贴左上（对齐参考图）；方块群在右下斜向铺开、出血裁切，两者天然错开 */
+    max-width: 92%;
   }
   .featured-random-title {
     font-size: 1.2rem;
@@ -305,10 +440,8 @@ import { imageSuffixThWith } from "../utils/image-suffix";
   }
 
   /* ---------- 右卡：热门 / 最近 文章（左图右文） ----------
-     ⚠️ 封面列占比与**行高**共同决定封面裁切量：行高由两卡里较高的那个决定。
-     初版行高 237px + 封面列 446×40% = 178 ⇒ 封面区域 178×237（0.75，竖幅）
-     ⇒ 16:9 的封面只剩中间约 42% 宽（图上的标题被切掉）。收到 44% + 行高约 205 后 ≈ 0.96。
-     若以后再把标题/摘要加高，记得回来把 coverRatio 或行高一起调。 */
+     ⚠️ 封面列占比与**行高**共同决定封面裁切量：44% + 行高约 220 ⇒ 封面区域 ≈0.89。
+     若以后加高标题/摘要，记得回来一起调列宽或行高。 */
   .featured-card--post {
     grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
   }
@@ -338,7 +471,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     pointer-events: none;
   }
   .featured-card--post:hover .featured-veil {
-    background: rgb(0 0 0 / 0.3);
+    background: rgb(0 0 0 / 0.28);
   }
   .featured-arrow {
     position: absolute;
@@ -371,17 +504,6 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     box-shadow: 0 2px 12px rgb(0 0 0 / 0.28);
     backdrop-filter: blur(2px);
   }
-  .featured-cover--empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(
-      135deg,
-      color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
-      color-mix(in oklab, var(--primary) 6%, var(--card-bg))
-    );
-  }
-  /* 无封面的兜底块（与 .featured-img 互斥显示；脚本按取回的文章切换 .is-cover-empty） */
   .featured-cover-fallback {
     position: absolute;
     inset: 0;
@@ -402,12 +524,13 @@ import { imageSuffixThWith } from "../utils/image-suffix";
   }
 
   .featured-body {
+    position: relative;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     min-width: 0;
     padding: 1rem 1.35rem;
   }
-  /* 「取数中」给主体一个极轻的呼吸，提示内容可能替换（1 个请求，通常 100ms 内完成） */
   .featured-card--post[data-state="pending"] .featured-body {
     animation: featured-pulse 1.6s ease-in-out infinite;
   }
@@ -418,6 +541,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     line-clamp: 2;
     overflow: hidden;
     margin-top: 0.45rem;
+    padding-right: 1.4rem; /* 给右上角星标让位 */
     font-size: 1.35rem;
     font-weight: 800;
     line-height: 1.3;
@@ -465,20 +589,39 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     font-size: 0.78rem;
     color: color-mix(in oklab, var(--deep-text) 58%, transparent);
   }
+  /* 左卡的页脚紧接文案（不顶到左下角 —— 那里是方块群的地盘，徽章压上去会读不清） */
+  .featured-card--random .featured-card-foot {
+    margin-top: 0.6rem;
+    padding-top: 0;
+    border-top: none;
+  }
+  /* 分类：小色块 + 名称（对齐参考图底部左侧那块彩色小方块） */
+  .featured-cat {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .featured-cat.is-hidden {
+    display: none;
+  }
+  .featured-cat-square {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 0.18rem;
+    background: var(--primary);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+  }
   .featured-meta {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-  }
-  .featured-meta-unit {
-    margin-left: -0.2rem;
-    font-size: 0.9em;
+    margin-left: auto; /* 日期靠右（对齐参考图） */
+    font-variant-numeric: tabular-nums;
   }
   .featured-readmore {
     display: inline-flex;
     align-items: center;
     gap: 0.15rem;
-    margin-left: auto;
     font-weight: 600;
     color: var(--primary);
     opacity: 0;
@@ -492,19 +635,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     opacity: 1;
     transform: translateX(0);
   }
-  .featured-card--random .featured-card-foot {
-    padding-top: 0.8rem;
-  }
 
-  @keyframes featured-shuffle {
-    0%,
-    100% {
-      transform: rotate(-14deg) scale(1.07);
-    }
-    50% {
-      transform: rotate(14deg) scale(1.07);
-    }
-  }
   @keyframes featured-pulse {
     0%,
     100% {
@@ -538,7 +669,11 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     .featured-random-desc {
       font-size: 0.85rem;
     }
-    /* 触屏没有 hover：常显「阅读全文」，否则入口在移动端等于不存在 */
+    /* 窄屏：左卡给方块群留出等高空间，否则方块会把卡片压扁成一条 */
+    .featured-card--random {
+      min-height: 12.5rem;
+    }
+    /* 触屏没有 hover：常显动作文案 */
     .featured-readmore {
       opacity: 1;
       transform: none;
@@ -552,7 +687,10 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     .featured-veil,
     .featured-arrow,
     .featured-title,
-    .featured-random-orb,
+    .featured-tiles,
+    .featured-tile,
+    .featured-star,
+    .featured-stack,
     .featured-readmore {
       transition: none !important;
     }
@@ -562,10 +700,15 @@ import { imageSuffixThWith } from "../utils/image-suffix";
     }
     .featured-card:hover .featured-img,
     .featured-card:hover .featured-arrow,
-    .featured-card--random:hover .featured-random-orb {
+    .featured-card--random:hover .featured-tiles,
+    .featured-card--post:hover .featured-star {
       transform: none;
     }
-    .featured-card--random[data-busy="1"] .featured-random-orb,
+    /* ⚠️ 减少动态效果下**仍然转**：转圈是「正在取随机文章」的唯一反馈，
+       只把时长缩短（0.45s），不做「直接不转」——否则点击后毫无反馈 */
+    .featured-card--random.is-spinning .featured-tiles {
+      animation-duration: 0.45s;
+    }
     .featured-card--post[data-state="pending"] .featured-body {
       animation: none;
     }

@@ -19,6 +19,7 @@ import fs from "node:fs";
 const target = process.argv[2] || "templates/assets/featured-cards.js";
 const code = fs.readFileSync(target, "utf8");
 
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 const flush = async (n = 6) => {
   for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0));
 };
@@ -33,6 +34,11 @@ function mkEl(tag, attrs = {}, text = "") {
     _text: text,
     dataset: {},
     _listeners: {},
+    // 真 DOM 元素恒有 .style；桩件不给的话，任何写内联样式的地方都会炸（本轮 paintCategory 踩到）
+    _style: {},
+    get style() {
+      return this._style;
+    },
     get className() {
       return [...this._cls].join(" ");
     },
@@ -105,6 +111,8 @@ const POST = (id, { cover = "https://img/x.webp", visit = 1234 } = {}) => ({
   },
   // ⚠️ 摘要在 status 上（不是 spec）—— 与 Halo 实际模型一致，放错层会得到「摘要已填」假阴性
   status: { permalink: "/archives/" + id, excerpt: "摘要 " + id },
+  // 分类：脚本按 post.categories[0].spec.displayName 填分类名
+  categories: [{ spec: { displayName: "博客" } }],
   stats: { visit, comment: 3 },
 });
 
@@ -121,20 +129,23 @@ function makeEnv({
     title: mkEl("span"),
     excerpt: mkEl("span"),
     date: mkEl("span"),
-    visit: mkEl("span"),
     badge: mkEl("span", {}, "最近文章"),
     img: mkEl("img"),
     cover: mkEl("span", { "data-featured-cover": "" }),
-    words: mkEl("span"),
+    cat: mkEl("span", { "data-featured-cat": "" }, "博客"),
+    catSquare: mkEl("span", { "data-featured-cat-square": "" }),
+    tiles: mkEl("span", { class: "featured-tiles" }),
   };
   nodes.title.setAttribute("data-featured-title", "");
   nodes.excerpt.setAttribute("data-featured-excerpt", "");
   nodes.date.setAttribute("data-featured-date", "");
-  nodes.visit.setAttribute("data-featured-visit", "");
   nodes.badge.setAttribute("data-featured-badge", "");
   nodes.cover.className = "featured-cover";
   nodes.img.className = "featured-img";
   nodes.cover.appendChild(nodes.img);
+  const catWrap = mkEl("span", { class: "featured-cat" });
+  catWrap.appendChild(nodes.catSquare);
+  catWrap.appendChild(nodes.cat);
 
   const card = mkEl("a", { id: "featured-post", href: "/archives/fallback" });
   [
@@ -142,10 +153,11 @@ function makeEnv({
     nodes.title,
     nodes.excerpt,
     nodes.date,
-    nodes.visit,
     nodes.badge,
+    catWrap,
   ].forEach((n) => card.appendChild(n));
   const btn = mkEl("button", { id: "featured-random" });
+  btn.appendChild(nodes.tiles);
 
   const row = mkEl("div", { id: "featured-cards", "data-source": source });
   row.appendChild(
@@ -312,13 +324,61 @@ console.log(`被测产物：${target}（${code.length} 字符）\n`);
     idx.includes("data-label-popular") && idx.includes("data-label-recent"),
   );
   check(
-    "交互面齐全：hover 上浮 / active 按压 / focus-visible / reduced-motion",
-    /\.featured-card:hover\{[^}]*translateY\(-2px\)/.test(css) &&
+    "交互面齐全：hover 上浮(-3px) / active 按压 / focus-visible / reduced-motion",
+    /\.featured-card:hover\{[^}]*translateY\(-3px\)/.test(css) &&
       /\.featured-card:active\{[^}]*scale\(\.995\)|\.featured-card:active\{[^}]*scale\(0?\.995\)/.test(
         css,
       ) &&
       /\.featured-card:focus-visible\{[^}]*outline/.test(css) &&
       /prefers-reduced-motion[\s\S]{0,700}\.featured-card/.test(css),
+  );
+  check(
+    "左卡有彩色方块群（3×3、斜向、色相跟 --hue）",
+    /\.featured-tiles\{[^}]*grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/.test(
+      css,
+    ) &&
+      /\.featured-tiles\{[^}]*transform:rotate\(-22deg\)/.test(css) &&
+      // 整组 bbox ≈ 卡宽（clamp 封顶）⇒ 缩得比卡小就没有「出血」感
+      /\.featured-tiles\{[^}]*width:clamp\(9rem,78%,11\.75rem\)/.test(css) &&
+      /\.featured-tile\{[^}]*aspect-ratio:1/.test(css) &&
+      /\.featured-tile\{[^}]*oklch\(\.7 \.15 calc\(var\(--hue,250\)/.test(css),
+  );
+  check(
+    "转圈动画 = 0.8s ease-out 1 forwards（对齐 AIOVTUE 转圈惯用写法）",
+    /@keyframes featured-tiles-spin\{0%\{transform:rotate\(-22deg\)\}to\{transform:rotate\(-382deg\)\}\}/.test(
+      css,
+    ) &&
+      /\.is-spinning \.featured-tiles\{animation:\.8s ease-out forwards featured-tiles-spin\}/.test(
+        css,
+      ),
+  );
+  check(
+    "右卡有「叠起来」的错位叠层（两层 + hover 展开）",
+    /featured-stack--1\{/.test(css) &&
+      /featured-stack--2\{/.test(css) &&
+      /\.featured-post-wrap\{[^}]*position:relative/.test(css) &&
+      // ⚠️ 叠层必须在 .featured-card 之外的包裹层里 —— 卡片 overflow:hidden 会把它裁掉
+      /<div class="featured-post-wrap"[^>]*>[\s\S]*featured-stack--2[\s\S]*<a[^>]*id="featured-post"/.test(
+        idx,
+      ) &&
+      /\.featured-post-wrap:hover \.featured-stack--1\{[^}]*translateY\(3px\)/.test(
+        css,
+      ) &&
+      /\.featured-post-wrap:hover \.featured-stack--2\{[^}]*translateY\(6px\)/.test(
+        css,
+      ),
+  );
+  check(
+    "卡片是双层阴影（紧贴层 + 柔和层，对齐参考图）",
+    /\.featured-card\{[^}]*0 1px 5px[^}]*0 7px 16px/.test(css),
+  );
+  check(
+    "右卡右上角有星标",
+    /class="featured-star"/.test(idx) || /\.featured-star\{/.test(css),
+  );
+  check(
+    "分类色块 + 名称在产物里",
+    idx.includes("featured-cat-square") && idx.includes("data-featured-cat"),
   );
   check(
     "箭头带半透明圆底（浅封面可辨）",
@@ -376,7 +436,11 @@ console.log("[1] 右卡 recent：1 次请求 + 排序正确 + 填充 DOM");
     /^\d{4}-\d{2}-\d{2}$/.test(e.nodes.date.textContent),
     e.nodes.date.textContent,
   );
-  check("访问量已填", e.nodes.visit.textContent === "1234");
+  check(
+    "分类名已填",
+    e.nodes.cat.textContent === "博客",
+    e.nodes.cat.textContent,
+  );
   check(
     "徽章文案 = 最近文章",
     e.nodes.badge.textContent === "最近文章",
@@ -457,7 +521,7 @@ console.log("[5] 左卡点击：取 total → 随机页 → 恰好 1 次导航")
   await flush();
   e.calls.length = 0;
   e.btn.dispatch("click");
-  await flush(10);
+  await sleepMs(950); // 转圈 0.8s + 取数，等够再断言
   check(
     "发了 2 次请求（total + 随机页）",
     e.calls.length === 2,
@@ -479,6 +543,22 @@ console.log("[5] 左卡点击：取 total → 随机页 → 恰好 1 次导航")
     /^\/archives\/r[123]$/.test(e.navs[0] || ""),
     e.navs[0],
   );
+  check(
+    "点击后按钮带上 is-spinning（触发了转圈动画）",
+    e.btn.classList.contains("is-spinning"),
+    e.btn.className,
+  );
+  check(
+    "动画在方块组上（.featured-tiles 是旋转对象）",
+    /featured-tiles-spin|is-spinning/.test(code) &&
+      code.includes("featured-tiles"),
+  );
+  e.btn.dispatch("animationend", { target: e.nodes.tiles });
+  check(
+    "animationend 后摘掉 is-spinning（e.target 校验通过）",
+    !e.btn.classList.contains("is-spinning"),
+    e.btn.className,
+  );
 }
 
 console.log("[6] 防重入：连点两次只走一遍");
@@ -489,7 +569,7 @@ console.log("[6] 防重入：连点两次只走一遍");
   e.calls.length = 0;
   e.btn.dispatch("click");
   e.btn.dispatch("click");
-  await flush(10);
+  await sleepMs(950); // 转圈 0.8s + 取数，等够再断言
   check(
     "只发 2 次请求（不是 4 次）",
     e.calls.length === 2,
@@ -504,7 +584,7 @@ console.log("[7] 左卡取数全挂：兜底跳 /archives");
   e.run();
   await flush();
   e.btn.dispatch("click");
-  await flush(10);
+  await sleepMs(950); // 转圈 0.8s + 取数，等够再断言
   check(
     "导航到兜底地址",
     e.navs.length === 1 && e.navs[0] === "/archives",
