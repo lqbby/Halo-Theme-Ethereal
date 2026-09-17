@@ -1,13 +1,16 @@
 // @ts-nocheck —— legacy 手写经典脚本（ES5 原样，不做类型改造）
-// 顶部两卡行的行为（1.5.29）：
-//   ① 左卡「随机一篇文章」：点击 → 取 total → 随机页 → 随机篇 → Swup 导航（降级整页跳转）。
-//   ② 右卡「热门 / 最近」：按 data-source 取 Top1 填充（会话内缓存，失败保留服务端已渲染的兜底内容）。
+// 顶部两卡行的行为（1.5.29 建 / 1.5.31 按参考站 https://daily.yybb.us/ 重做两处动效）：
+//   ① 左卡「随机一篇」：点击 → 拉开**全屏 3D 转盘**（_random-post-carousel）→ 命中后 Swup 导航。
+//      转盘的面取自「随机一页」的 10 篇（可含重复，与参考站一致），目标篇从同一页里挑且避开当前页。
+//   ② 右卡「热门 / 最近」：按 data-source 取回**一组**文章，填进服务端预渲染的 3~4 张叠层卡；
+//      ‹ › 箭头在 is-front/is-mid/is-back 三档位间轮换（几何抄参考站的 perspective:900px 那套）。
 //
 // ⚠️ 本文件在 #swup-container 内（列在 PostList 里），Swup 换页会重执行 ⇒ 全部绑定都带守卫：
-//    元素级用 dataset.bound、跨页状态用 sessionStorage，重执行幂等。
-// ⚠️ 文案不写死中文：徽章/阅读全文由模板经 data-* 透传（多语言站会串，见本仓既有约定）。
+//    元素级用 dataset.bound、文档级用 window.__featuredCardsDelegated、跨页数据用 sessionStorage。
+// ⚠️ 文案不写死中文：徽章/取消提示由模板经 hidden 节点透传，箭头文案走 th:aria-label。
 import { fetchWithTimeout } from "../../utils/fetch-timeout";
 import { makeImageSuffix } from "../../utils/image-suffix";
+import { openRandomPostCarousel } from "./_random-post-carousel";
 
 (function () {
   var API = "/apis/api.content.halo.run/v1alpha1/posts";
@@ -15,6 +18,8 @@ import { makeImageSuffix } from "../../utils/image-suffix";
   var CACHE_TTL = 10 * 60 * 1000; // 右卡缓存 10 分钟（会话内不反复打接口）
   var COVER_WIDTH = 800; // 与模板里 imageSuffixThWith("800") 对齐
   var FALLBACK_URL = "/archives"; // 随机取数全挂时的兜底去处
+  var FACE_COUNT = 10; // 转盘面数（参考站 data-face-count 同值）
+  var MAX_CARDS = 4; // 右卡最多几张叠层（同时只看得见 3 张，第 4 张藏在后面接轮换）
 
   // 与主题既有范式一致：热门 = stats.visit,desc（见 PopularPosts.astro）
   var SORT = {
@@ -33,7 +38,7 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     return v || fallback || "";
   }
 
-  /** 主题当前色相（--hue），用于让左卡方块与分类色块跟主题同源 */
+  /** 主题当前色相（--hue），用于让分类色块跟主题同源 */
   function baseHue() {
     try {
       var v = getComputedStyle(document.documentElement).getPropertyValue(
@@ -92,6 +97,30 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     });
   }
 
+  function pickFrom(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  /** 去掉末尾斜杠再比，避免 /foo 与 /foo/ 误判成两篇 */
+  function normalizeUrl(u) {
+    try {
+      var url = new URL(u, window.location.origin);
+      return (url.pathname.replace(/\/+$/, "") || "/") + url.search;
+    } catch (e) {
+      return String(u || "");
+    }
+  }
+
+  /** 排除当前页那篇（随机到自己头上等于没随机）；全被排除就退回原样 */
+  function excludeCurrent(list) {
+    var here = normalizeUrl(window.location.href);
+    var out = [];
+    for (var i = 0; i < list.length; i++) {
+      if (normalizeUrl(list[i].status.permalink) !== here) out.push(list[i]);
+    }
+    return out.length ? out : list;
+  }
+
   // ---------- 右卡：填充 ----------
   function renderPost(card, post, cfg) {
     var cover = card.querySelector("[data-featured-cover]");
@@ -143,39 +172,154 @@ import { makeImageSuffix } from "../../utils/image-suffix";
       var raw = window.sessionStorage.getItem(cacheKey(source));
       if (!raw) return null;
       var obj = JSON.parse(raw);
-      if (!obj || !obj.post || !obj.t) return null;
+      if (!obj || !obj.list || !obj.list.length || !obj.t) return null;
       if (Date.now() - obj.t > CACHE_TTL) return null;
-      return obj.post;
+      return obj.list;
     } catch (e) {
       return null;
     }
   }
 
-  function writeCache(source, post) {
+  function writeCache(source, list) {
     try {
       window.sessionStorage.setItem(
         cacheKey(source),
-        JSON.stringify({ t: Date.now(), post: post }),
+        JSON.stringify({ t: Date.now(), list: list }),
       );
     } catch (e) {
       /* 禁存储环境：忽略，下次直接再请求 */
     }
   }
 
-  function fetchTop(source) {
-    var url = API + "?page=0&size=1&sort=" + (SORT[source] || SORT.recent);
+  /** 取一组文章（右卡叠层要好几张，不能只要 Top1） */
+  function fetchList(source, size) {
+    var url =
+      API + "?page=0&size=" + size + "&sort=" + (SORT[source] || SORT.recent);
     return fetchJson(url).then(function (data) {
-      var items = (data && data.items) || [];
-      for (var i = 0; i < items.length; i++) {
-        if (isPublic(items[i])) return items[i];
-      }
-      throw new Error("没有可用的公开文章");
+      var items = ((data && data.items) || []).filter(isPublic);
+      if (!items.length) throw new Error("没有可用的公开文章");
+      return items;
     });
   }
 
-  // ---------- 左卡：随机一篇文章（点击带「转圈」） ----------
-  var SPIN_MS = 800; // 与 CSS 的 featured-tiles-spin 时长对齐
+  // ---------- 右卡：三档位轮换（几何见 CSS，这里只管分配类） ----------
+  function activateCardPositions(cards, front, activeCount) {
+    var n = activeCount;
+    for (var i = 0; i < cards.length; i++) {
+      var el = cards[i];
+      el.classList.remove("is-front", "is-mid", "is-back", "is-hidden");
+      if (i >= n) {
+        el.classList.add("is-hidden");
+        el.setAttribute("tabindex", "-1");
+        el.setAttribute("aria-hidden", "true");
+        continue;
+      }
+      var off = (((i - front) % n) + n) % n;
+      if (off === 0) {
+        el.classList.add("is-front");
+        el.removeAttribute("tabindex");
+        el.removeAttribute("aria-hidden");
+      } else if (off === 1 && n > 1) {
+        el.classList.add("is-mid");
+        el.setAttribute("tabindex", "-1");
+        el.setAttribute("aria-hidden", "true");
+      } else if (off === 2 && n > 2) {
+        el.classList.add("is-back");
+        el.setAttribute("tabindex", "-1");
+        el.setAttribute("aria-hidden", "true");
+      } else {
+        el.classList.add("is-hidden");
+        el.setAttribute("tabindex", "-1");
+        el.setAttribute("aria-hidden", "true");
+      }
+    }
+  }
 
+  function bindPins(row, cfg) {
+    var pins = row.querySelector("[data-featured-pins]");
+    if (!pins || pins.dataset.bound === "1") return;
+    pins.dataset.bound = "1";
+
+    var cards = [];
+    var all = pins.querySelectorAll(".featured-card--post");
+    for (var i = 0; i < all.length; i++) cards.push(all[i]);
+    if (!cards.length) return;
+
+    var front = 0;
+    var active = cards.length;
+    var navs = pins.querySelector("[data-featured-navs]");
+
+    function apply() {
+      activateCardPositions(cards, front, active);
+      if (navs) {
+        if (active > 1) navs.removeAttribute("hidden");
+        else navs.setAttribute("hidden", "");
+      }
+    }
+
+    var source =
+      row.getAttribute("data-source") === "popular" ? "popular" : "recent";
+    cfg.badge = labelOf(
+      row,
+      source === "popular" ? "popular" : "recent",
+      source === "popular" ? "Popular" : "Latest",
+    );
+
+    // 服务端兜底那几张的分类也要上色（否则是一块主色默认块）
+    for (var c = 0; c < cards.length; c++) paintCategory(cards[c]);
+
+    function fill(list) {
+      var n = Math.min(cards.length, list.length);
+      for (var k = 0; k < cards.length; k++) {
+        if (k < n) {
+          renderPost(cards[k], list[k], cfg);
+          cards[k].removeAttribute("data-empty");
+        } else {
+          cards[k].setAttribute("data-empty", "1");
+        }
+      }
+      active = n;
+      front = 0;
+      apply();
+    }
+
+    apply();
+    if (navs) {
+      navs.addEventListener("click", function (e) {
+        var btn =
+          e.target && e.target.closest
+            ? e.target.closest(".featured-nav")
+            : null;
+        if (!btn || !pins.contains(btn)) return;
+        e.preventDefault();
+        if (active < 2) return;
+        var dir = btn.getAttribute("data-dir") === "prev" ? -1 : 1;
+        front = (((front + dir) % active) + active) % active;
+        apply();
+      });
+    }
+
+    var cached = readCache(source);
+    if (cached) {
+      fill(cached);
+      return;
+    }
+    fetchList(source, MAX_CARDS)
+      .then(function (list) {
+        writeCache(source, list);
+        fill(list);
+      })
+      .catch(function (e) {
+        // 失败就保留服务端已渲染的几张（渐进增强），只是不再标记 pending
+        console.warn("[featured-cards] 取文章失败，保留服务端兜底：", e);
+        for (var k = 0; k < cards.length; k++) {
+          cards[k].setAttribute("data-state", "fallback");
+        }
+        apply();
+      });
+  }
+
+  // ---------- 左卡：随机一篇文章（点击拉开全屏转盘） ----------
   function go(url) {
     var swup = window.swup;
     if (swup && typeof swup.navigate === "function") {
@@ -185,37 +329,47 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     }
   }
 
-  /** 重放旋转动画：先摘类、强制回流、再加类（与 AIOVTUE 同款写法） */
-  function spin(btn) {
-    btn.classList.remove("is-spinning");
-    void btn.offsetWidth;
-    btn.classList.add("is-spinning");
-  }
-
-  /** 至少在转圈时长之后再动作，保证「转一圈」看得见 */
-  function afterSpin(startedAt) {
-    var left = Math.max(0, SPIN_MS - (Date.now() - startedAt));
-    return new Promise(function (resolve) {
-      setTimeout(resolve, left);
-    });
-  }
-
-  /** 在「全部文章」里均匀随机：先问 total，再随机取一页、页内随机取一篇。 */
-  function pickRandom() {
+  /** 随机取一页公开文章当「面池」（先问 total 再随机页；该页为空就退回首屏） */
+  function fetchPool() {
     return fetchJson(API + "?page=0&size=1&sort=" + SORT.recent).then(
       function (data) {
         var total = Number(data && data.total) || 0;
         var pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
         var page = Math.floor(Math.random() * pages);
-        return fetchJson(
-          API + "?page=" + page + "&size=" + PAGE_SIZE + "&sort=" + SORT.recent,
-        ).then(function (d) {
+        var url =
+          API + "?page=" + page + "&size=" + PAGE_SIZE + "&sort=" + SORT.recent;
+        return fetchJson(url).then(function (d) {
           var items = ((d && d.items) || []).filter(isPublic);
-          if (!items.length) throw new Error("该页没有公开文章");
-          return items[Math.floor(Math.random() * items.length)];
+          if (items.length) return items;
+          return fetchJson(
+            API + "?page=0&size=" + PAGE_SIZE + "&sort=" + SORT.recent,
+          ).then(function (d2) {
+            var again = ((d2 && d2.items) || []).filter(isPublic);
+            if (!again.length) throw new Error("没有可用的公开文章");
+            return again;
+          });
         });
       },
     );
+  }
+
+  function toFace(post) {
+    return {
+      src: post.spec.cover || "",
+      title: post.spec.title || "",
+      url: post.status.permalink,
+    };
+  }
+
+  /** 造 n 张面（允许重复，参考站同款）再把其中一张换成目标篇 */
+  function buildFaces(pool, target, count) {
+    var faces = [];
+    for (var i = 0; i < count; i += 1) {
+      faces.push(toFace(pickFrom(pool) || target));
+    }
+    var idx = Math.floor(Math.random() * count);
+    faces[idx] = toFace(target);
+    return { faces: faces, targetIndex: idx };
   }
 
   function onRandomClick(btn) {
@@ -224,26 +378,55 @@ import { makeImageSuffix } from "../../utils/image-suffix";
     btn.dataset.busy = "1";
     btn.setAttribute("aria-busy", "true");
 
-    // 点击 → 那组彩色方块整组转一圈（0.8s）；**转完再跳**，
-    // 否则取数只要 100ms、导航会把动画腰斩，用户根本看不到「转圈」。
-    var started = Date.now();
-    spin(btn);
+    var row = btn.closest ? btn.closest("#featured-cards") : null;
+    var ariaLabel = (row && labelOf(row, "random", "")) || "";
+    var hint = (row && labelOf(row, "hint", "")) || "";
 
-    pickRandom()
-      .then(function (post) {
-        return afterSpin(started).then(function () {
-          go(post.status.permalink);
+    function release() {
+      btn.dataset.busy = "";
+      btn.removeAttribute("aria-busy");
+    }
+
+    // 减少动态效果：不做转盘，直接跳（与参考站一致）
+    var reduce = false;
+    try {
+      reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch (e) {
+      reduce = false;
+    }
+
+    fetchPool()
+      .then(function (pool) {
+        var candidates = excludeCurrent(pool);
+        var target = pickFrom(candidates) || pickFrom(pool);
+        if (!target || !target.status || !target.status.permalink) {
+          throw new Error("没有可用的公开文章");
+        }
+        var url = target.status.permalink;
+        if (reduce) {
+          // ⚠️ 这里也必须 release：Swup 换页只换容器 DOM，但回退（bfcache/pageshow）会
+          //    把带着 busy=1 的旧节点还原回来 ⇒ 不复位的话按钮就永久锁死了。
+          release();
+          go(url);
+          return;
+        }
+        var built = buildFaces(pool, target, FACE_COUNT);
+        openRandomPostCarousel({
+          faces: built.faces,
+          targetIndex: built.targetIndex,
+          ariaLabel: ariaLabel,
+          hint: hint,
+          onComplete: function () {
+            release();
+            go(url);
+          },
+          onCancel: release,
         });
       })
       .catch(function (e) {
         console.warn("[featured-cards] 随机文章失败：", e);
-        return afterSpin(started).then(function () {
-          go(FALLBACK_URL); // 取数不可用时也要“有去处”，别让点击落空
-        });
-      })
-      .then(function () {
-        btn.dataset.busy = "";
-        btn.removeAttribute("aria-busy");
+        release();
+        go(FALLBACK_URL); // 取数不可用时也要“有去处”，别让点击落空
       });
   }
 
@@ -258,33 +441,7 @@ import { makeImageSuffix } from "../../utils/image-suffix";
       format: row.getAttribute("data-img-format") || "",
     };
 
-    var postCard = byId("featured-post");
-    if (postCard && postCard.dataset.bound !== "1") {
-      postCard.dataset.bound = "1";
-      paintCategory(postCard); // 服务端兜底那篇的分类也要上色（否则是一块主色默认块）
-      var source =
-        row.getAttribute("data-source") === "popular" ? "popular" : "recent";
-      cfg.badge = labelOf(
-        row,
-        source === "popular" ? "popular" : "recent",
-        source === "popular" ? "Popular" : "Latest",
-      );
-      var cached = readCache(source);
-      if (cached) {
-        renderPost(postCard, cached, cfg);
-      } else {
-        fetchTop(source)
-          .then(function (post) {
-            writeCache(source, post);
-            renderPost(postCard, post, cfg);
-          })
-          .catch(function (e) {
-            // 失败就保留服务端已渲染的那篇（渐进增强），只是不再标记 pending
-            console.warn("[featured-cards] 取文章失败，保留服务端兜底：", e);
-            postCard.setAttribute("data-state", "fallback");
-          });
-      }
-    }
+    bindPins(row, cfg);
 
     var randomBtn = byId("featured-random");
     if (randomBtn && randomBtn.dataset.bound !== "1") {
@@ -292,13 +449,21 @@ import { makeImageSuffix } from "../../utils/image-suffix";
       randomBtn.addEventListener("click", function () {
         onRandomClick(randomBtn);
       });
-      // 转完把类摘掉，让方块回到常态角度（动画是 forwards 停住的）
-      // ⚠️ 动画在子元素 .featured-tiles 上，animationend 会冒泡上来，所以要校验 e.target
-      randomBtn.addEventListener("animationend", function (e) {
-        if (e.target !== randomBtn.querySelector(".featured-tiles")) return;
-        randomBtn.classList.remove("is-spinning");
-      });
     }
+  }
+
+  // 文档级监听只挂一次：本脚本在 Swup 容器内会随换页重新执行，
+  // 不加 window 级守卫就会叠出 N 份清理器（换页越多次越多）。
+  if (!window.__featuredCardsLifecycle) {
+    window.__featuredCardsLifecycle = true;
+    var teardown = function () {
+      var open = document.querySelector(".random-post-overlay");
+      if (open && open.parentNode) open.parentNode.removeChild(open);
+      document.body.classList.remove("random-post-open");
+    };
+    // 浮层挂在 body 上 ⇒ 走 bfcache 回退时 pageshow 不会重建它，必须清掉残骸
+    window.addEventListener("pagehide", teardown);
+    window.addEventListener("pageshow", teardown);
   }
 
   init();
