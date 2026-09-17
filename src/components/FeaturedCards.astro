@@ -15,7 +15,9 @@
  *     · 左右两枚圆形箭头（‹ ›）在 hover / focus-within 时浮现 ⇒ 就是 LQ 说的「下一页的切换」。
  *
  * 复刻依据：直接抓参考站 HTML + main.min.css + main.min.js 逐条比对（不靠印象）。
- *   · 卡片总高 148px（参考站 --desktop-spotlight-height:148px）、左右列宽 3.5fr / 6.5fr；
+ *   · 左右列宽 3.5fr / 6.5fr；卡片总高**故意比参考站高**（参考站 --desktop-spotlight-height:148px，
+ *     本站 200px）—— 148px 压在本站 915px 的主栏上显得又扁又弱，而且比上方「系列」卡片条（≈178px）
+ *     还矮，视觉层级反了。理由与三处连带改动都写在 <style> 块首。
  *   · 图标格 2.9rem / 圆角 .7rem、列宽 3.15rem、列内间隔 .35rem、偶数列左移 .85rem；
  *   · 转盘：面数 10、spin 1600ms + ease 800ms + hold 700ms、tilt -2.5deg、perspective 3000px。
  *
@@ -287,9 +289,15 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
 
 <style is:global>
   /* ===== 顶部两卡行 =====
-     ⚠️ 尺寸（148px 高 / 3.5fr:6.5fr / 各内距）全是参考站逐个量出来的，改一处要回看配平。 */
+     ⚠️ 列宽（3.5fr:6.5fr）与各内距是参考站逐个量出来的，改一处要回看配平。
+     ★ 高度**故意偏离参考站**：参考站 148px，本站 200px —— 148px 压在本站 915px 的主栏上
+       又扁又弱，且比上方「系列」卡片条（≈178px）还矮，层级反了。
+       改 `--featured-h` 时必须同步看下面三处，否则卡内会失衡：
+         ① 左卡图标带 —— `.featured-random-tags-scroll` 的 margin-top 要做高度补偿（该规则里有推导）；
+         ② 右卡卡体 —— `.featured-body` 的内距放大；
+         ③ 右卡摘要 —— 桌面由 2 行放到 3 行（手机上仍是 2 行）。高度加了，文字量要跟上，不然卡内发空。 */
   .featured-row {
-    --featured-h: 9.25rem; /* 148px */
+    --featured-h: 12.5rem; /* 200px（参考站是 9.25rem = 148px，本站故意加高，见块首注释）*/
     display: grid;
     grid-template-columns: minmax(0, 3.5fr) minmax(0, 6.5fr);
     gap: 0.625rem;
@@ -406,7 +414,14 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     gap: 0.5rem;
     width: max-content;
     min-width: 100%;
-    margin-top: 2.85rem;
+    /* ⚠️ 高度补偿（改 --featured-h 必看）：图标带挂在 `.featured-random-tags-group` 里，而那个组
+       尺寸写死为 `175% × 卡片高`、还靠 `top:50%` + `translateY(-50% + 2.65rem)` 定位
+       ⇒ 卡片一变高，它的**旋转中心就跟着下移**，带子并不会自己按比例跟着走
+       （盘算过：完全不补时 148 → 200px 会把带子的相对位置从 22% 漂到 9.5%，直接贴到标题上）。
+       带子是 -30° 斜的，数学上没法让「绝对位置」与「相对比例」同时不变，所以补一半：
+       `0.5 × (卡高 - 原始高)` ⇒ 带顶稳定落在卡高 ≈21% 处（148px 版是 22%）。
+       9.25rem = 原始设计高度（148px）；改 group 的尺寸 / `top:50%` / 本式 必须一起改。 */
+    margin-top: calc(2.85rem + 0.5 * (var(--featured-h) - 9.25rem));
     padding-left: 1.25rem;
     padding-right: 1.25rem;
     /* 位移必须正好一份（3 份 ⇒ -33.3333%），否则循环接不齐会有跳帧 */
@@ -678,7 +693,8 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     display: flex;
     flex-direction: column;
     min-width: 0;
-    padding: 0.85rem 1.1rem 0.8rem;
+    /* 卡高 148px → 200px 后同步放大的内距（见块首注释） */
+    padding: 1rem 1.1rem 0.9rem;
   }
   .featured-card--post[data-state="pending"] .featured-body {
     animation: featured-pulse 1.6s ease-in-out infinite;
@@ -724,12 +740,14 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   .featured-card--post.is-front:hover .featured-title {
     color: var(--primary);
   }
-  /* margin:auto 0 把摘要顶到中间，底行自然落到卡底（抄参考站的排版手法） */
+  /* `margin: auto 0` 把摘要顶到中间，底行自然落到卡底（抄参考站的排版手法）。
+     桌面放 3 行：卡高加到 200px 后，只放 2 行摘要会让上下各空 ≈30px（发空）；
+     3 行是上限 —— 再多就顶掉底栏了。手机在下面的媒体查询里覆盖回 2 行。 */
   .featured-excerpt {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     overflow: hidden;
     margin: auto 0;
     font-size: 0.8125rem;
@@ -820,6 +838,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     .featured-title {
       font-size: 1.05rem;
     }
+    /* 手机上仍是 2 行：卡是「上图下文」的竖版，body 只有 ≈147px，第 3 行会顶到底栏 */
     .featured-excerpt {
       -webkit-line-clamp: 2;
       line-clamp: 2;
