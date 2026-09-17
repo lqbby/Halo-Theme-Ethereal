@@ -72,7 +72,10 @@ const MAX_POSTS_PER_SERIES = 30;
       style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
       th:if="${not #lists.isEmpty(seriesList)}"
     >
-      <!-- 段头：图标 + 标题（左）／‹ › 箭头（右） -->
+      <!-- 段头：图标 + 标题（左）／系列切换（中）／‹ › 箭头（右）
+           ⚠️ tabs 从「独立一行」并入本行：原来段头 30px + 6px 间距 + tabs 28px + 6px 间距
+              + viewport 顶内距 6px = 卡片上方 75px 空白，比主题任何区块间距都宽一倍
+              （2026-09-18 LQ 圈出）。并成一行后只剩 6px + 6px。 -->
       <div class="series-strip__head">
         <h2 class="series-strip__title">
           <span
@@ -80,6 +83,32 @@ const MAX_POSTS_PER_SERIES = 30;
             aria-hidden="true"></span>
           <span class="leading-none" th:text="#{seriesStrip.title}">系列</span>
         </h2>
+
+        <!-- 系列切换（只有一个系列时不渲染：没得切）。
+             位置在标题与箭头之间，由 CSS `flex: 1 1 auto` 吸收中间空间、`overflow-x: auto` 兜窄屏。 -->
+        <div
+          class="series-strip__tabs"
+          role="tablist"
+          data-series-tabs
+          th:if="${#lists.size(seriesList) > 1}"
+          th:aria-label="#{seriesStrip.tabsAria}"
+        >
+          <button
+            th:each="s, st : ${seriesList}"
+            type="button"
+            role="tab"
+            class="series-strip__tab btn-card"
+            th:id="|series-tab-${st.index}|"
+            th:data-series-tab="${st.index}"
+            th:aria-controls="|series-panel-${st.index}|"
+            th:aria-selected="${st.index == 0 ? 'true' : 'false'}"
+            th:tabindex="${st.index == 0 ? '0' : '-1'}"
+            th:text="${s.name}"
+          >
+            系列名
+          </button>
+        </div>
+
         <div class="series-strip__navs" data-series-navs>
           <button
             type="button"
@@ -102,30 +131,6 @@ const MAX_POSTS_PER_SERIES = 30;
               aria-hidden="true"></span>
           </button>
         </div>
-      </div>
-
-      <!-- 系列切换（只有一个系列时不渲染：没得切） -->
-      <div
-        class="series-strip__tabs"
-        role="tablist"
-        data-series-tabs
-        th:if="${#lists.size(seriesList) > 1}"
-        th:aria-label="#{seriesStrip.tabsAria}"
-      >
-        <button
-          th:each="s, st : ${seriesList}"
-          type="button"
-          role="tab"
-          class="series-strip__tab btn-card"
-          th:id="|series-tab-${st.index}|"
-          th:data-series-tab="${st.index}"
-          th:aria-controls="|series-panel-${st.index}|"
-          th:aria-selected="${st.index == 0 ? 'true' : 'false'}"
-          th:tabindex="${st.index == 0 ? '0' : '-1'}"
-          th:text="${s.name}"
-        >
-          系列名
-        </button>
       </div>
 
       <!-- 每个系列一个面板；首屏只显示第 0 个。
@@ -235,9 +240,11 @@ const MAX_POSTS_PER_SERIES = 30;
   .series-strip__head {
     display: flex;
     align-items: center;
+    /* tabs 已并入本行 ⇒ 有 tabs 时由它的 flex:1 吃掉剩余空间，justify-content 只在
+       「只有一个系列（不渲染 tabs）」时才起作用（标题左、箭头右）。 */
     justify-content: space-between;
     gap: 0.75rem;
-    /* 0.5rem → 0.375rem：段头与系列切换按钮之间收紧 */
+    /* 只留与卡片之间的一次呼吸：本值 + viewport 的 padding-top(0.375rem) = 12px */
     margin-bottom: 0.375rem;
   }
   .series-strip__title {
@@ -252,12 +259,15 @@ const MAX_POSTS_PER_SERIES = 30;
   }
 
   /* ===== 系列切换标签 ===== */
+  /* ⚠️ 已并入段头行（.series-strip__head）：不再单独占一行 ⇒ margin-bottom 归零，
+     改由 `flex: 1 1 auto` 吸收标题与 ‹ › 之间的空间。`min-width: 0` 是 overflow 生效的前提
+     （flex 项默认 min-width:auto，会被内容撑开、挤掉右侧箭头）。 */
   .series-strip__tabs {
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    /* 0.625rem → 0.375rem：与 viewport 的 padding-top(0.375rem) 合计 12px（原 18px） */
-    margin-bottom: 0.375rem;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -408,9 +418,13 @@ const MAX_POSTS_PER_SERIES = 30;
     border: 1px solid var(--line-divider);
     border-radius: var(--radius-large);
     background: var(--card-bg);
-    /* .card-base 的纹理 ::before 用 z-index:-1 定位，需要一个层叠上下文；
-       ⚠️ 顺手把 .card-base 的 will-change:transform 打回 auto —— 系列条一行 4 张、
-          且每个系列一个面板全部常驻 DOM，全量提升合成层不划算（isolation 已够用）。 */
+    /* 🔴🔴 `.card-base` 自己**没有** position：上游靠 `will-change: transform` 让卡片成为
+       绝对定位后代的包含块。下方把 will-change 打回 auto 后这个包含块就塌了 ⇒ 纹理 ::before
+       （position:absolute / inset:0）会往上找最近的定位祖先，实测落到整页那个 1766×2396px 的
+       `relative` 容器上 ⇒ **整页背景铺满纹理**（2026-09-18 LQ 反馈）。
+       `position: relative` 用最低代价补回包含块，且不提升合成层（比 will-change 更省）。
+       同时 isolation 建 stacking context，把 z-index:-1 的纹理锁在卡片背景之上、内容之下。 */
+    position: relative;
     isolation: isolate;
     will-change: auto;
     transition:

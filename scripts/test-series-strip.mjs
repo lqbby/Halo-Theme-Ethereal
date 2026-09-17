@@ -293,12 +293,17 @@ if (cssChunks.length === 1) {
   };
   const baseCard = blockOf(".series-strip-card");
   check(
-    "A22b 卡片走 card-base：isolation:isolate 建立层叠上下文（纹理 ::before 的负 z 需要），且底层规则不再自带 box-shadow",
-    /isolation:\s*isolate/.test(baseCard) &&
+    "A22b 卡片走 card-base：position:relative + isolation:isolate（= 纹理 ::before 的包含块 + 层叠上下文），且底层规则不再自带 box-shadow",
+    // 🔴 `position: relative` 是**必须**的，不是可选优化：`.card-base` 自己没设 position，
+    //    上游靠 `will-change: transform` 当绝对定位后代的包含块；本卡片为省合成层把它打回
+    //    `auto` ⇒ 少了 position，纹理 ::before(absolute/inset:0) 会一路往上落到整页那个
+    //    `relative` 容器上 ⇒ **整页背景铺满纹理**（2026-09-18 LQ 实测，1.5.36 修复）。
+    /position:\s*relative/.test(baseCard) &&
+      /isolation:\s*isolate/.test(baseCard) &&
       // ⚠️ 不能用裸 /box-shadow/：transition 简写里有 `...,box-shadow .2s` ⇒ 只认「声明」
       !/box-shadow\s*:/.test(baseCard) &&
       /will-change:\s*auto/.test(baseCard),
-    baseCard.slice(0, 200),
+    baseCard.slice(0, 260),
   );
   check(
     "A22c 基线投影只在卡片外壳关闭时声明（未分层的全局样式否则会顶掉外壳暗晕）",
@@ -328,6 +333,27 @@ if (cssChunks.length === 1) {
     "A22f 间距收紧已进产物（区块下沿 .75rem / 视口下沿 .625rem）",
     /margin-bottom:\s*0?\.75rem/.test(blockOf("#series-strip")) &&
       /padding-bottom:\s*0?\.625rem/.test(blockOf(".series-strip__viewport")),
+  );
+
+  // ---- 1.5.36：系列切换并进段头行（卡片上方 ~75px 空白 → 12px） ----
+  const tabsBlock = blockOf(".series-strip__tabs");
+  check(
+    "A22g 系列切换并入段头行：tabs 不再独立占行（无非 0 的 margin-bottom）+ 改 flex:auto + min-width:0（缺 min-width 会被内容撑开、挤掉右侧箭头）",
+    // ⚠️ 压缩器会把 `flex: 1 1 auto` 压成等价简写 `flex:auto` ⇒ 两种形态都收
+    /flex:\s*(auto|1 1 auto)/.test(tabsBlock) &&
+      /min-width:\s*0/.test(tabsBlock) &&
+      // 允许「整条声明不存在」或「margin-bottom:0」；只要出现非 0 值就失败
+      !/margin-bottom:\s*(?!0)/.test(tabsBlock),
+    tabsBlock.slice(0, 200),
+  );
+  check(
+    "A22h 段头 DOM 顺序：tabs 位于 navs 之前（= 已并进 head 行；反了说明退回「标题/箭头一行 + tabs 一行」的旧两行布局）",
+    (() => {
+      const a = stripHtml.indexOf("series-strip__tabs");
+      const b = stripHtml.indexOf("series-strip__navs");
+      return a >= 0 && b >= 0 && a < b;
+    })(),
+    `tabs@${stripHtml.indexOf("series-strip__tabs")} navs@${stripHtml.indexOf("series-strip__navs")}`,
   );
   const users = [];
   for (const f of fs.readdirSync(tplDir)) {
@@ -505,6 +531,14 @@ function mkEl(tag, attrs = {}) {
       el._children.push(c);
       return c;
     },
+    // 1.5.36 起需要：桩件按生产结构把 tabs 插到 navs 之前（head > [title, tabs, navs]）
+    insertBefore(c, ref) {
+      const i = ref ? el._children.indexOf(ref) : -1;
+      c.parentNode = el;
+      if (i < 0) el._children.push(c);
+      else el._children.splice(i, 0, c);
+      return c;
+    },
     contains(node) {
       return node === el || el._descend().includes(node);
     },
@@ -573,7 +607,6 @@ function makeStrip({ cards, visible = 4 }) {
   navs.appendChild(prev);
   navs.appendChild(next);
   head.appendChild(navs);
-  section.appendChild(head);
 
   let tabsBox = null;
   const tabs = [];
@@ -594,8 +627,11 @@ function makeStrip({ cards, visible = 4 }) {
       tabs.push(t);
       tabsBox.appendChild(t);
     });
-    section.appendChild(tabsBox);
+    // ⚠️ 1.5.36 起 tabs 并进 head 行（生产结构 head > [title, tabs, navs]）⇒ 桩件同步，
+    //    否则桩件与生产 DOM 不同构，将来「DOM 顺序」类回归根本测不出来。
+    head.insertBefore(tabsBox, navs);
   }
+  section.appendChild(head);
 
   const panels = [];
   const viewports = [];
