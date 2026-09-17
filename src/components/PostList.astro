@@ -1,5 +1,6 @@
 ---
 import Pagination from "./control/Pagination.astro";
+import PinnedCard from "./PinnedCard.astro";
 import PostCard from "./PostCard.astro";
 import {
   postListContainerClass,
@@ -15,6 +16,20 @@ interface Props {
 const { pagination = "posts" } = Astro.props;
 ---
 
+<!-- 置顶精选宽卡（第 1 页）：左图右文 + 底部徽章/日期/统计，整卡可点。
+     ⚠️ 必须渲染在 #post-list-container **之外**：容器内的 .post-card-item 会被
+     瀑布流脚本绝对定位并写死 width/height，跨列的宽卡会与其计算互相干扰；放进来的
+     话三种访客布局（列表/网格/瀑布流）都要各写一套覆盖规则。放外面则零影响。
+     ⚠️ 与下面列表项的 th:if **严格互补**（置顶/非置顶 + 是否第 1 页），
+     保证既不会重复渲染、也不会漏掉任何一篇。 -->
+<div
+  class="contents"
+  th:each="post, postStat : ${posts.items}"
+  th:if="${post.spec.pinned == true and posts.page == 1}"
+>
+  <PinnedCard />
+</div>
+
 <div
   id="post-list-container"
   th:with={postListContainerThWith()}
@@ -23,7 +38,11 @@ const { pagination = "posts" } = Astro.props;
   th:style={postListContainerStyle()}
   class="mb-4 transition flex flex-col gap-4 rounded-(--radius-large) bg-(--card-bg) py-1 md:gap-4 md:bg-transparent md:py-0"
 >
-  <div class="contents" th:each="post, postStat : ${posts.items}">
+  <div
+    class="contents"
+    th:each="post, postStat : ${posts.items}"
+    th:if="${post.spec.pinned != true or posts.page != 1}"
+  >
     <div
       class="post-card-item onload-animation"
       th:style="|animation-delay: min(calc(var(--content-delay) + ${postStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
