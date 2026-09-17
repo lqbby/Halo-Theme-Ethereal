@@ -1,6 +1,7 @@
 ---
 import Pagination from "./control/Pagination.astro";
 import FeaturedCards from "./FeaturedCards.astro";
+import SeriesStrip from "./SeriesStrip.astro";
 import PostCard from "./PostCard.astro";
 import {
   postListContainerClass,
@@ -28,6 +29,11 @@ const { pagination = "posts", featured = false } = Astro.props;
     </div>
   )
 }
+
+<!-- 首页「最新系列」卡片条（1.5.32）：紧跟精选卡片之后。
+     自带完整门控（插件版本 / 后台开关 / 首页第一页 / 空态），与上方精选卡互不影响：
+     精选卡关掉时本组件仍按自己的 seriesEnable 决定显隐。 -->
+{featured && <SeriesStrip />}
 
 <div
   id="post-list-container"

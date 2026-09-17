@@ -151,6 +151,8 @@ spec:
             featuredEnable: true
             featuredSource: recent
             featuredRandom: true
+            seriesEnable: true
+            seriesCount: 4
             grid:
               masonry: false
               coverFullWidth: false
@@ -194,6 +196,24 @@ spec:
               label: 显示「随机一篇文章」卡片
               value: true
               help: "关闭后只显示右侧那张文章卡（占满整行）"
+            - $formkit: switch
+              name: seriesEnable
+              id: postList_seriesEnable
+              label: 显示「最新系列」卡片条
+              value: true
+              help: "在首页精选卡片下方显示一行系列卡（一个系列一张，封面取该系列最新一篇文章）。仅首页第一页显示。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
+            - $formkit: number
+              name: seriesCount
+              id: postList_seriesCount
+              key: postList_seriesCount
+              if: "$get(postList_seriesEnable).value === true"
+              label: 系列卡片数量
+              min: 1
+              max: 24
+              step: 1
+              value: 4
+              validation: "min:1|max:24"
+              help: "最多显示几个系列（按各系列最近更新时间倒序取）。一行显示 4 张，超出的可点 ‹ › 横向滚动查看；上限 24"
             - $formkit: select
               name: coverPosition
               id: postList_coverPosition

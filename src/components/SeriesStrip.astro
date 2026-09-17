@@ -1,0 +1,412 @@
+---
+/**
+ * 首页「最新系列」卡片条（1.5.32 新增）
+ *
+ * 复刻参考站 https://daily.yybb.us/ 的 `.home-list-featured`（他站叫「周刊 4 个框」），
+ * 但内容换成 LQ 自己的**文章系列**：一行 4 张卡，每张 = 一个系列，按「该系列最近一次
+ * 更新时间」倒序取最新的几个。
+ *
+ * 数据来源（SSR，无前端取数）：Ethereal 配套插件 ethereal-companion 的
+ * `recentCommentsSeriesFinder.listLatest(n)` —— 1.1.0 新增，返回按「系列内最新一篇文章
+ * 的发布时间」倒序的 SeriesView 列表，并把 `latest`（该系列最新一篇）与 `cover` 一并带出，
+ * 所以卡片能直接拿到封面/标题/链接，不需要在前端再查一次文章。
+ *
+ * 🔴 版本门控（必须保留）：`listLatest` 只有插件 1.1.0+ 才有。若主题先发、插件还是 1.0.3，
+ *    直接调它 → SpEL 找不到方法 → **整页 500/截断**。因此本组件的根节点用
+ *    `pluginFinder.available('ethereal-companion', '>=1.1.0')` 兜住（第二参是 Semantic
+ *    Version Range，Halo 2.17+ 支持，官方文档 plugin#availablepluginname-requiresversion）。
+ *    插件没升级时这条整块不渲染，首页照常；升级后自动出现，无需再改主题。
+ *
+ * 结构上刻意做成「三层、两层 th:remove="tag"」：
+ *   ① `<section th:if=...>` 只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关 / 首页第一页）
+ *      —— 因为 `th:if`(优先级 3) 早于 `th:with`(4)，同标签里 th:if 读不到 th:with 的变量（会短路），
+ *      所以 finder 调用必须放在 th:if **之后**的层里，否则插件缺失时依旧会去调它。
+ *   ② 内层 `th:with` 才真正调 `listLatest()`。
+ *   ③ 再内层判空 —— 系列为 0 时整块不渲染（否则留下一个空面板 + 光秃秃的标题）。
+ *   两层 th:remove="tag" 只是为了不产生多余 DOM，对 `#series-strip ...` 选择器无影响。
+ *
+ * 交互（脚本在 src/scripts/assets/series-strip.ts）：
+ *   横向 scroll-snap 轨道 + ‹ › 按「一张卡」为步长滚动；卡片数 ≤ 一行可见数时箭头整体隐藏。
+ *   卡片宽度用容器查询算（`100cqi`），与参考站同款公式，无需 JS 量宽度。
+ *
+ * ⚠️ 卡片链接到「该系列最新一篇文章」而不是系列聚合页：系列页是 Halo 单页，URL 由后台
+ *    哪条单页绑定 theme.yaml 的 `series.html` 决定，构建期无从得知（主题里没有「按模板名
+ *    反查单页 URL」的既有通路）。而 `latest.permalink` 是现成的，且「最新系列 → 它最新那篇」
+ *    正是读者点进去最想看的东西。
+ */
+import { imageSuffixThWith } from "../utils/image-suffix";
+
+/** 封面取图宽度（16:9 小卡，480 足够，别跟顶卡一样取 800） */
+const COVER_WIDTH = "480";
+/** 一行可见卡片数：桌面 4 / 平板 3 / 手机 2（写入 style 的自定义属性，供 CSS 与脚本读） */
+const VISIBLE_DESKTOP = 4;
+const VISIBLE_TABLET = 3;
+const VISIBLE_MOBILE = 2;
+---
+
+<!-- ① 外层只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关 / 首页第一页。
+     th:if(优先级 3) 早于 th:with(4)，同层读不到 th:with 的变量（会短路）⇒ finder 调用必须下一层。 -->
+<div
+  th:remove="tag"
+  th:if="${pluginFinder != null
+    and pluginFinder.available('ethereal-companion', '>=1.1.0')
+    and (theme.config?.layout?.postList?.seriesEnable == null or theme.config?.layout?.postList?.seriesEnable)
+    and posts != null and posts.page == 1}"
+>
+  <div
+    th:remove="tag"
+    th:with="seriesCount=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesItems=${recentCommentsSeriesFinder.listLatest(seriesCount)}"
+  >
+    <!-- ② 空态：连 <section> 本体一起不输出。
+         若把判空写在 section 内层，系列为 0 时会留下一个空的 <section>（带 margin-bottom 的
+         1rem 死空白 + 白跑一次入场动画），所以判空必须罩在 section 外面。 -->
+    <section
+      id="series-strip"
+      class="series-strip onload-animation"
+      style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
+      th:if="${not #lists.isEmpty(seriesItems)}"
+    >
+      <!-- 段头：图标 + 标题（左）／‹ › 箭头（右） -->
+      <div class="series-strip__head">
+        <h2 class="series-strip__title">
+          <span
+            class="icon-[material-symbols--layers] text-[1.125rem] leading-none"
+            aria-hidden="true"></span>
+          <span class="leading-none" th:text="#{seriesStrip.title}"
+            >最新系列</span
+          >
+        </h2>
+        <div class="series-strip__navs" data-series-navs>
+          <button
+            type="button"
+            class="series-strip__nav series-strip__nav--prev"
+            data-series-dir="prev"
+            th:aria-label="#{seriesStrip.navPrev}"
+          >
+            <span
+              class="icon-[material-symbols--chevron-left-rounded] text-xl leading-none"
+              aria-hidden="true"></span>
+          </button>
+          <button
+            type="button"
+            class="series-strip__nav series-strip__nav--next"
+            data-series-dir="next"
+            th:aria-label="#{seriesStrip.navNext}"
+          >
+            <span
+              class="icon-[material-symbols--chevron-right-rounded] text-xl leading-none"
+              aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 横向轨道：SSR 渲染全部卡片，脚本只负责接线（滚不动时箭头隐藏） -->
+      <div class="series-strip__viewport" data-series-viewport>
+        <div class="series-strip__track" data-series-track>
+          <!-- ⚠️ th:if 与 th:each 同层：each(2) 先于 if(3)，逐条判定。
+               permalink 拿不到就整卡不输出 —— 因为 th:href 求值为 null 时 Thymeleaf 会写出
+               `href=""`（不是删属性！实测 3.1.5.RELEASE），空 href 点一下等于刷新当前页。 -->
+          <a
+            th:each="series : ${seriesItems}"
+            th:if="${series.latest != null and series.latest.permalink != null}"
+            class="series-strip-card"
+            th:href="${series.latest.permalink}"
+            th:aria-label="#{seriesStrip.cardAria(${series.name}, ${#lists.size(series.posts)})}"
+          >
+            <!-- 封面：取该系列最新一篇的封面图；无封面时用主题色渐变 + 占位图标 -->
+            <span
+              class="series-strip-card__cover"
+              th:classappend="${series.latest == null or #strings.isEmpty(series.latest.cover) ? 'is-empty' : ''}"
+            >
+              <!-- ⚠️ th:if 与 th:with 同层：if(3) 先于 with(4)，if 里不能引用 suffix。
+                   无封面直接不输出 <img>：th:src 为 null 同样会写出 `src=""`（实测），
+                   空 src 会被浏览器解析成「当前页面 URL」而去当图片拉一次。 -->
+              <img
+                class="series-strip-card__img"
+                th:if="${series.latest != null and not #strings.isEmpty(series.latest.cover)}"
+                th:src="${series.latest.cover + suffix}"
+                th:alt="${series.latest.title != null ? series.latest.title : series.name}"
+                th:with={imageSuffixThWith(COVER_WIDTH)}
+                loading="lazy"
+                decoding="async"
+              />
+              <span class="series-strip-card__placeholder" aria-hidden="true">
+                <span
+                  class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
+                ></span>
+              </span>
+              <!-- 篇数胶囊：挂在封面左上角（系列卡片的关键信息，参考站没有，属本主题增补） -->
+              <span
+                class="series-strip-card__count"
+                aria-hidden="true"
+                th:text="#{seriesStrip.countLabel(${#lists.size(series.posts)})}"
+                >0 篇</span
+              >
+            </span>
+
+            <span class="series-strip-card__body">
+              <span class="series-strip-card__title" th:text="${series.name}"
+                >系列名</span
+              >
+              <span
+                class="series-strip-card__excerpt"
+                th:text="${series.latest.title}">最新一篇标题</span
+              >
+            </span>
+          </a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 行为脚本（经典脚本产物）：横向滚动导航 + 溢出判定 -->
+<script
+  is:inline
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/series-strip.js?v=${ASSET_VERSION}`}
+  defer></script>
+
+<style is:global>
+  /* ===== 首页「最新系列」卡片条 =====
+     ⚠️ 一行可见数、卡片宽度公式（100cqi 容器查询）都与参考站 .home-list-featured 一致，
+        改一处要回看配平；`-1px` 是参考站原式里的取整余量，别当废项删掉。
+     ⚠️ `.series-strip__viewport` 的 container-type 是 `100cqi` 生效的前提，
+        去掉它卡片宽度会退化成 0（cqi 找不到容器时按视口算，视觉会炸）。 */
+  #series-strip {
+    --series-gap: 0.75rem;
+    --series-edge: 2px;
+    --series-visible: var(--series-visible-desktop, 4);
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 1rem;
+  }
+  /* 平板 / 手机降档：只改可见数，卡片宽度公式自适应 */
+  @media (max-width: 1023.98px) {
+    #series-strip {
+      --series-visible: var(--series-visible-tablet, 3);
+    }
+  }
+  @media (max-width: 767.98px) {
+    #series-strip {
+      --series-visible: var(--series-visible-mobile, 2);
+    }
+  }
+
+  .series-strip__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .series-strip__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary);
+  }
+
+  .series-strip__navs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+  /* 无溢出的整体隐藏（脚本按卡片数与可见数比较后设置 hidden 属性） */
+  .series-strip__navs[hidden] {
+    display: none;
+  }
+  .series-strip__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.875rem;
+    height: 1.875rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--btn-content);
+    cursor: pointer;
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      opacity 0.2s ease;
+  }
+  .series-strip__nav:not(:disabled):hover {
+    color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+  .series-strip__nav:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .series-strip__nav:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .series-strip__viewport {
+    container-type: inline-size;
+    width: 100%;
+    min-width: 0;
+    padding-top: 0.5rem;
+    padding-bottom: 0.875rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    touch-action: pan-x pan-y;
+  }
+  .series-strip__viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .series-strip__track {
+    display: flex;
+    gap: var(--series-gap);
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 100%;
+    padding-inline: var(--series-edge);
+  }
+
+  .series-strip-card {
+    --series-card-w: calc(
+      (
+          100cqi - (var(--series-visible) - 1) * var(--series-gap) - 2 *
+            var(--series-edge) - 1px
+        ) /
+        var(--series-visible)
+    );
+    flex: 0 0 var(--series-card-w);
+    flex-shrink: 0;
+    width: var(--series-card-w);
+    min-width: 0;
+    box-sizing: border-box;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    border: 1px solid var(--line-divider);
+    border-radius: var(--radius-large);
+    background: var(--card-bg);
+    box-shadow:
+      0 3px 8px color-mix(in srgb, #000 8%, transparent),
+      0 1px 3px color-mix(in srgb, #000 5%, transparent);
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  .series-strip-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+    box-shadow:
+      0 5px 12px color-mix(in srgb, #000 10%, transparent),
+      0 1px 4px color-mix(in srgb, #000 6%, transparent);
+  }
+  .series-strip-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .series-strip-card__cover {
+    position: relative;
+    flex: none;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--primary) 8%, var(--card-bg));
+  }
+  .series-strip-card__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+  /* 无封面：模板已不输出 <img>，这里只管露出渐变 + 图标 */
+  .series-strip-card__placeholder {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      135deg,
+      var(--btn-regular-bg-hover),
+      var(--btn-regular-bg)
+    );
+  }
+  .series-strip-card__cover.is-empty .series-strip-card__placeholder {
+    display: flex;
+  }
+
+  /* 篇数胶囊：左上角，半透明胶囊 + 毛玻璃，压住再花的封面也读得清 */
+  .series-strip-card__count {
+    position: absolute;
+    top: 0.375rem;
+    left: 0.375rem;
+    z-index: 1;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #fff;
+    background: color-mix(in srgb, #000 42%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .series-strip-card__body {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 0.1875rem;
+    padding: 0.625rem 0.625rem 0.6875rem;
+    min-width: 0;
+  }
+  .series-strip-card__title {
+    display: block;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--deep-text);
+    transition: color 0.2s ease;
+  }
+  .series-strip-card:hover .series-strip-card__title {
+    color: var(--primary);
+  }
+  .series-strip-card__excerpt {
+    display: block;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 0.6875rem;
+    line-height: 1.3;
+    color: var(--btn-content);
+  }
+  .series-strip-card__excerpt:empty {
+    display: none;
+  }
+</style>
