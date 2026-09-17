@@ -125,16 +125,22 @@ check(
   "A5b 不再出现 `post.permalink : null` 这种空 href 写法",
   !index.includes("post.permalink : null"),
 );
+// ⚠️ 1.5.35 起卡片 <a> 的 class 是 "series-strip-card card-base"（接管纹理/外壳）
+//    ⇒ 这里只能按前缀匹配，别再写死 `class="series-strip-card"`（会整条断言静默失败）。
+const iCard = stripHtml.indexOf('class="series-strip-card');
 check(
   "A5c 卡片 <a> 的 href 直接取 post.permalink",
   // ⚠️ 不能用 `<a[^>]*th:href`：同一个标签里的 th:if 含 `>=`，那个 `>` 会截断 [^>]*
-  (() => {
-    const i = stripHtml.indexOf('class="series-strip-card"');
-    return (
-      i >= 0 &&
-      stripHtml.slice(i, i + 400).includes('th:href="${post.permalink}"')
-    );
-  })(),
+  iCard >= 0 &&
+    stripHtml.slice(iCard, iCard + 400).includes('th:href="${post.permalink}"'),
+);
+check(
+  "A5d 卡片 <a> 挂 card-base（接管 .card-base::before 纹理 + 卡片外壳 outline）",
+  /class="series-strip-card card-base"/.test(stripHtml),
+);
+check(
+  "A5e tab 按钮挂 btn-card（接管主题按钮底色 / 悬停 / 卡片外壳）",
+  /class="series-strip__tab btn-card"/.test(stripHtml),
 );
 check(
   'A6 判空罩在 <section> 外面（th:if="${not #lists.isEmpty(seriesList)}" 在 section 上）',
@@ -275,6 +281,53 @@ if (cssChunks.length === 1) {
     css.includes(".series-strip__panel.is-hidden") &&
       /\.series-strip__nav:disabled\s*\{[^}]*opacity:\s*0?\.3/.test(css) &&
       /\.series-strip__tab\[aria-selected/.test(css),
+  );
+
+  // ---- 1.5.35：系列条接入主题卡片体系（纹理 / 外壳）+ 收紧间距 ----
+  // ⚠️ 产物 CSS 是压缩过的（几乎单行）⇒ 不能用 `^` 行锚点判「某条规则里有没有 X」，
+  //    必须按选择器抠出规则块再判。
+  const blockOf = (sel) => {
+    const i = css.indexOf(sel + "{");
+    if (i < 0) return "";
+    return css.slice(i, css.indexOf("}", i) + 1);
+  };
+  const baseCard = blockOf(".series-strip-card");
+  check(
+    "A22b 卡片走 card-base：isolation:isolate 建立层叠上下文（纹理 ::before 的负 z 需要），且底层规则不再自带 box-shadow",
+    /isolation:\s*isolate/.test(baseCard) &&
+      // ⚠️ 不能用裸 /box-shadow/：transition 简写里有 `...,box-shadow .2s` ⇒ 只认「声明」
+      !/box-shadow\s*:/.test(baseCard) &&
+      /will-change:\s*auto/.test(baseCard),
+    baseCard.slice(0, 200),
+  );
+  check(
+    "A22c 基线投影只在卡片外壳关闭时声明（未分层的全局样式否则会顶掉外壳暗晕）",
+    /box-shadow/.test(
+      blockOf(":root:not(.mods-card-shell) .series-strip-card"),
+    ) &&
+      /box-shadow/.test(
+        blockOf(":root:not(.mods-card-shell) .series-strip-card:hover"),
+      ),
+  );
+  check(
+    "A22d 外壳开启时卡片把描边交还给外壳 outline（border 置透明）",
+    /border-color:\s*(transparent|#0000|rgba\(0,\s*0,\s*0,\s*0\))/.test(
+      blockOf(":root.mods-card-shell .series-strip-card"),
+    ) &&
+      /outline-color/.test(
+        blockOf(":root.mods-card-shell .series-strip-card:hover"),
+      ),
+  );
+  check(
+    "A22e tab 底色/按压走主题按钮 token（暗色下 --card-bg ≈ 页面底 ⇒ 原来看起来没描边）",
+    /background:\s*var\(--btn-regular-bg\)/.test(
+      blockOf(".series-strip__tab"),
+    ) && /--btn-regular-bg-active/.test(blockOf(".series-strip__tab:active")),
+  );
+  check(
+    "A22f 间距收紧已进产物（区块下沿 .75rem / 视口下沿 .625rem）",
+    /margin-bottom:\s*0?\.75rem/.test(blockOf("#series-strip")) &&
+      /padding-bottom:\s*0?\.625rem/.test(blockOf(".series-strip__viewport")),
   );
   const users = [];
   for (const f of fs.readdirSync(tplDir)) {

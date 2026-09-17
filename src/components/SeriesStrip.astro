@@ -116,7 +116,7 @@ const MAX_POSTS_PER_SERIES = 30;
           th:each="s, st : ${seriesList}"
           type="button"
           role="tab"
-          class="series-strip__tab"
+          class="series-strip__tab btn-card"
           th:id="|series-tab-${st.index}|"
           th:data-series-tab="${st.index}"
           th:aria-controls="|series-panel-${st.index}|"
@@ -151,7 +151,7 @@ const MAX_POSTS_PER_SERIES = 30;
             <a
               th:each="post, ps : ${s.posts}"
               th:if={`\${not (ps.index >= ${MAX_POSTS_PER_SERIES}) and post.permalink != null}`}
-              class="series-strip-card"
+              class="series-strip-card card-base"
               th:href="${post.permalink}"
             >
               <!-- 封面：无封面用主题色渐变 + 占位图标 -->
@@ -216,7 +216,9 @@ const MAX_POSTS_PER_SERIES = 30;
     --series-visible: var(--series-visible-desktop, 4);
     width: 100%;
     min-width: 0;
-    margin-bottom: 1rem;
+    /* 1rem → 0.75rem：与 .series-strip__viewport 的 padding-bottom(0.625rem) 合计 ≈ 22px，
+       原来合计 30px —— 比主题任何相邻区块之间的距离都宽一倍（2026-09-18 LQ 圈出）。 */
+    margin-bottom: 0.75rem;
   }
   /* 平板 / 手机降档：只改可见数，卡片宽度公式自适应 */
   @media (max-width: 1023.98px) {
@@ -235,7 +237,8 @@ const MAX_POSTS_PER_SERIES = 30;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.5rem;
+    /* 0.5rem → 0.375rem：段头与系列切换按钮之间收紧 */
+    margin-bottom: 0.375rem;
   }
   .series-strip__title {
     display: inline-flex;
@@ -253,7 +256,8 @@ const MAX_POSTS_PER_SERIES = 30;
     display: flex;
     align-items: center;
     gap: 0.375rem;
-    margin-bottom: 0.625rem;
+    /* 0.625rem → 0.375rem：与 viewport 的 padding-top(0.375rem) 合计 12px（原 18px） */
+    margin-bottom: 0.375rem;
     overflow-x: auto;
     scrollbar-width: none;
     -ms-overflow-style: none;
@@ -265,10 +269,15 @@ const MAX_POSTS_PER_SERIES = 30;
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.75rem;
-    border: 1px solid var(--line-divider);
+    padding: 0.1875rem 0.625rem;
+    /* 描边与底色都改走「主题按钮」那一套：原来 border 用 --line-divider(8%)、
+       background 用 --card-bg —— 暗色下卡片底与页面底几乎同色 ⇒ 胶囊看起来「没有描边、
+       也不受卡片外壳影响」（2026-09-18 LQ 反馈）。--btn-regular-bg 在两套模式下都与页面底
+       拉开层次，且与 --btn-content 是主题既有的按钮对比度组合。 */
+    border: 1px solid
+      color-mix(in oklab, var(--primary) 20%, var(--line-divider));
     border-radius: 9999px;
-    background: var(--card-bg);
+    background: var(--btn-regular-bg);
     color: var(--btn-content);
     font-size: 0.8125rem;
     font-weight: 600;
@@ -282,12 +291,16 @@ const MAX_POSTS_PER_SERIES = 30;
   }
   .series-strip__tab:hover {
     color: var(--primary);
+    background: var(--btn-regular-bg-hover);
     border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+  }
+  .series-strip__tab:active {
+    background: var(--btn-regular-bg-active);
   }
   .series-strip__tab[aria-selected="true"] {
     color: var(--primary);
     border-color: color-mix(in oklab, var(--primary) 55%, transparent);
-    background: color-mix(in oklab, var(--primary) 12%, var(--card-bg));
+    background: color-mix(in oklab, var(--primary) 14%, var(--btn-regular-bg));
   }
   .series-strip__tab:focus-visible {
     outline: 2px solid var(--primary);
@@ -346,8 +359,10 @@ const MAX_POSTS_PER_SERIES = 30;
     container-type: inline-size;
     width: 100%;
     min-width: 0;
-    padding-top: 0.5rem;
-    padding-bottom: 0.875rem;
+    /* 上下只留「悬浮上移 2px + 焦点环 2px + 投影」所需的最小余量：
+       原 padding-bottom 0.875rem + 区块 margin-bottom 1rem = 卡片下方 30px 空白。 */
+    padding-top: 0.375rem;
+    padding-bottom: 0.625rem;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
@@ -389,23 +404,44 @@ const MAX_POSTS_PER_SERIES = 30;
     overflow: hidden;
     color: inherit;
     text-decoration: none;
+    /* 基线描边（= 卡片外壳关闭时）；外壳开启由下方规则置透明，让位给外壳的 outline */
     border: 1px solid var(--line-divider);
     border-radius: var(--radius-large);
     background: var(--card-bg);
-    box-shadow:
-      0 3px 8px color-mix(in srgb, #000 8%, transparent),
-      0 1px 3px color-mix(in srgb, #000 5%, transparent);
+    /* .card-base 的纹理 ::before 用 z-index:-1 定位，需要一个层叠上下文；
+       ⚠️ 顺手把 .card-base 的 will-change:transform 打回 auto —— 系列条一行 4 张、
+          且每个系列一个面板全部常驻 DOM，全量提升合成层不划算（isolation 已够用）。 */
+    isolation: isolate;
+    will-change: auto;
     transition:
       transform 0.2s ease,
       border-color 0.2s ease,
       box-shadow 0.2s ease;
   }
-  .series-strip-card:hover {
+  /* 基线投影：**只在卡片外壳关闭时声明**。
+     ⚠️ 本组样式是未分层(unlayered)的全局样式，优先级天然高于 components.css 的
+        @layer components ⇒ 若无条件声明 box-shadow，会把
+        `:root.mods-card-shell .card-base` 的外侧暗晕顶掉（外壳开关就白开了）。 */
+  :root:not(.mods-card-shell) .series-strip-card {
+    box-shadow:
+      0 3px 8px color-mix(in srgb, #000 8%, transparent),
+      0 1px 3px color-mix(in srgb, #000 5%, transparent);
+  }
+  :root:not(.mods-card-shell) .series-strip-card:hover {
     transform: translateY(-2px);
     border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
     box-shadow:
       0 5px 12px color-mix(in srgb, #000 10%, transparent),
       0 1px 4px color-mix(in srgb, #000 6%, transparent);
+  }
+  /* 卡片外壳开启：外描边 / 暗晕 / 底部 hover 阴影全部交给外壳规则，
+     只保留「上移 + 描边转主色」这两个属于交互的反馈。 */
+  :root.mods-card-shell .series-strip-card {
+    border-color: transparent;
+  }
+  :root.mods-card-shell .series-strip-card:hover {
+    transform: translateY(-2px);
+    outline-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
   }
   .series-strip-card:focus-visible {
     outline: 2px solid var(--primary);
