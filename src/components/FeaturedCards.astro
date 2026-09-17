@@ -1,0 +1,573 @@
+---
+/**
+ * 列表页顶部「两张精选卡片」（1.5.29）：左「随机一篇文章」+ 右「热门 / 最近文章」。
+ *
+ * 需求来源：LQ 指定按 AIOVTUE 首页那两张卡（左窄右宽、并排）在列表最上方做一组入口，
+ *   · 左卡：点一下 → **随机打开站内一篇文章**（点击/悬停效果与右卡一致）；
+ *   · 右卡：展示一篇文章，**后台可切换「最近文章 / 热门文章」**（设置见 settings.yaml 的
+ *     「文章卡片布局 → 精选卡片」；读作 theme.config.layout.postList.featuredSource）。
+ *
+ * 实现取舍（都是踩过坑后的选择）：
+ *  ① 右卡**服务端先渲染一篇真实文章**（`posts.items[0]`）再交给脚本按来源替换 ——
+ *     JS 关闭 / 取数失败时页面仍有内容，不会留一个空骨架（渐进增强）。
+ *  ② 取数一律走 `fetchWithTimeout`（1.5.27 的共享工具）：挂住的请求不能让卡片永久 loading。
+ *  ③ 文案（「热门文章 / 最近文章 / 阅读全文」）由 Thymeleaf 经 data-* 透传给脚本，
+ *     脚本里**不写中文**（多语言站会串，见本仓既有约定）。
+ *  ④ 整组包在 `#featured-cards` 里、脚本用一次性守卫绑定：它位于 #swup-container 内，
+ *     Swup 换页会重执行脚本，但幂等（dataset / window 守卫）。
+ */
+import { imageSuffixThWith } from "../utils/image-suffix";
+---
+
+<div
+  id="featured-cards"
+  class="featured-row onload-animation"
+  th:with="
+    fcSource=${theme.config?.layout?.postList?.featuredSource ?: 'recent'},
+    fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom},
+    fcFirst=${posts.items != null and #lists.size(posts.items) > 0 ? posts.items[0] : null}"
+  th:classappend="${fcRandom ? '' : ' no-random'}"
+  th:attr="
+    data-source=${fcSource},
+    data-img-provider=${theme.config?.performance?.imageProcessing?.provider ?: 'none'},
+    data-img-format=${theme.config?.performance?.imageProcessing?.custom_format ?: ''}"
+  th:style="|animation-delay: var(--content-delay)|"
+>
+  <!-- i18n 文案经**隐藏文本节点**透传给脚本（不用 th:attr 承载 #{…}：
+       那条路径没有实测依据，th:text 才是本仓已证明的路径）。脚本只读 textContent。 -->
+  <span class="hidden" data-label-popular th:text="#{featured.badge.popular}"
+    >热门文章</span
+  >
+  <span class="hidden" data-label-recent th:text="#{featured.badge.recent}"
+    >最近文章</span
+  >
+  <!-- ============ 左：随机一篇文章（整卡是按钮语义，键盘可达） ============ -->
+  <button
+    type="button"
+    id="featured-random"
+    class="featured-card featured-card--random"
+    th:if="${fcRandom}"
+    th:aria-label="#{featured.random.title}"
+    th:title="#{featured.random.title}"
+  >
+    <span class="featured-random-orb" aria-hidden="true">
+      <span
+        class="icon-[material-symbols--casino-outline-rounded] text-4xl leading-none"
+      ></span>
+    </span>
+    <span class="featured-random-body">
+      <span class="featured-random-title" th:text="#{featured.random.title}"
+        >随机一篇文章</span
+      >
+      <span class="featured-random-desc" th:text="#{featured.random.desc}"
+        >不知道看什么？点一下随便逛逛</span
+      >
+      <span class="featured-card-foot">
+        <span class="featured-badge featured-badge--random">
+          <span
+            class="icon-[material-symbols--shuffle-rounded] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="#{featured.random.badge}"
+            >随机</span
+          >
+        </span>
+        <span class="featured-readmore">
+          <span class="leading-none" th:text="#{featured.random.action}"
+            >摇一篇</span
+          >
+          <span
+            class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"
+          ></span>
+        </span>
+      </span>
+    </span>
+  </button>
+
+  <!-- ============ 右：热门 / 最近 文章（服务端先渲染 posts.items[0]，脚本按来源替换） ============ -->
+  <a
+    id="featured-post"
+    class="featured-card featured-card--post"
+    href="/"
+    th:if="${fcFirst != null}"
+    th:href="@{${fcFirst.status.permalink}}"
+    th:aria-label="${fcFirst.spec.title}"
+    th:attr="data-state=${fcSource == 'popular' ? 'pending' : 'ready'}"
+  >
+    <!-- 封面：**单元素 + 类名切换**（`is-cover-empty`）——因为脚本要按取回的文章
+         双向切换「有封面 / 无封面」，用 th:if 渲染两套结构的话脚本就没法换了。 -->
+    <span
+      class="featured-cover"
+      data-featured-cover
+      th:classappend="${#strings.isEmpty(fcFirst.spec.cover) ? ' is-cover-empty' : ''}"
+    >
+      <span class="featured-veil"></span>
+      <span class="featured-arrow">
+        <span class="featured-arrow-chip">
+          <span
+            class="icon-[material-symbols--chevron-right-rounded] text-4xl leading-none"
+          ></span>
+        </span>
+      </span>
+      <img
+        class="featured-img"
+        th:src="${#strings.isEmpty(fcFirst.spec.cover) ? null : fcFirst.spec.cover + suffix}"
+        th:alt="${fcFirst.spec.title}"
+        th:with={imageSuffixThWith("800")}
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      />
+      <span class="featured-cover-fallback" aria-hidden="true">
+        <span
+          class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
+        ></span>
+      </span>
+    </span>
+
+    <span class="featured-body">
+      <span class="featured-badge featured-badge--source">
+        <span
+          class="icon-[material-symbols--local-fire-department-rounded] text-base leading-none"
+        ></span>
+        <span
+          class="leading-none"
+          data-featured-badge
+          th:text="#{featured.badge.recent}">最近文章</span
+        >
+      </span>
+      <span
+        class="featured-title"
+        data-featured-title
+        th:text="${fcFirst.spec.title}">Post title</span
+      >
+      <span
+        class="featured-excerpt"
+        data-featured-excerpt
+        th:text="${fcFirst.status.excerpt}">Excerpt</span
+      >
+
+      <span
+        class="featured-card-foot"
+        th:with="fcWords = ${pluginFinder != null and pluginFinder.available('extra-api', '3.*') ? extraApiStatsFinder.getPostWordCount({name: fcFirst.metadata.name}) : 0}"
+      >
+        <span class="featured-meta" data-featured-date-wrap>
+          <span
+            class="icon-[material-symbols--calendar-today-outline-rounded] text-base leading-none"
+          ></span>
+          <span
+            class="leading-none"
+            data-featured-date
+            th:text="${#dates.format(fcFirst.spec.publishTime, 'yyyy-MM-dd')}"
+            >2026-01-01</span
+          >
+        </span>
+        <span class="featured-meta" th:if="${fcFirst.stats != null}">
+          <span
+            class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
+          ></span>
+          <span
+            class="leading-none"
+            data-featured-visit
+            th:text="${fcFirst.stats.visit}">0</span
+          >
+        </span>
+        <span class="featured-meta" th:if="${fcWords > 0}">
+          <span
+            class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
+          ></span>
+          <span class="leading-none" data-featured-words th:text="${fcWords}"
+            >0</span
+          >
+          <span class="featured-meta-unit leading-none">字</span>
+        </span>
+        <span class="featured-readmore">
+          <span class="leading-none" th:text="#{featured.readMore}"
+            >阅读全文</span
+          >
+          <span
+            class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"
+          ></span>
+        </span>
+      </span>
+    </span>
+  </a>
+</div>
+
+<!-- 行为脚本（经典脚本产物）：左卡随机跳转 + 右卡按来源填充。
+     与 PostList 其它脚本一致用 defer；Swup 换页会重执行，脚本内全部绑定带 dataset 守卫。 -->
+<script
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/featured-cards.js?v=${ASSET_VERSION}`}
+  defer></script>
+
+<style is:global>
+  /* ===== 顶部两卡行 =====
+     桌面两列（左窄右宽，对齐参考图比例）；移动端上下堆叠。
+     ⚠️ 环/光晕一律 box-shadow：本仓瀑布流下 border 会改盒模型（见 PostList.astro 置顶高亮注释）。 */
+  .featured-row {
+    display: grid;
+    grid-template-columns: minmax(0, 34%) minmax(0, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .featured-row.no-random {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .featured-card {
+    position: relative;
+    display: grid;
+    overflow: hidden;
+    border-radius: var(--radius-large);
+    text-decoration: none;
+    color: inherit;
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 22%, transparent),
+      0 4px 18px color-mix(in oklab, var(--primary) 8%, transparent);
+    transition:
+      box-shadow 0.22s ease,
+      transform 0.22s ease;
+  }
+  /* 两张卡的交互完全一致（LQ 明确要求「点击效果要一样」） */
+  .featured-card:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 0 0 1px color-mix(in oklab, var(--primary) 52%, transparent),
+      0 10px 28px color-mix(in oklab, var(--primary) 17%, transparent);
+  }
+  .featured-card:active {
+    transform: translateY(0) scale(0.995);
+    transition-duration: 0.08s;
+  }
+  .featured-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* ---------- 左卡：随机一篇文章 ---------- */
+  .featured-card--random {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: space-between;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    text-align: left;
+    /* 作为 <button> 的复位（保留 button 的键盘语义与 Enter 触发） */
+    border: none;
+    font: inherit;
+    background:
+      radial-gradient(
+        120% 90% at 12% 0%,
+        color-mix(in oklab, var(--primary) 22%, transparent),
+        transparent 62%
+      ),
+      var(--card-bg);
+  }
+  .featured-random-orb {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 3.1rem;
+    height: 3.1rem;
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--primary) 15%, transparent);
+    color: var(--primary);
+    transition:
+      transform 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.22s ease;
+  }
+  /* 悬停时骰子轻微转动：左卡独有的「随机」暗示（与右卡共享上浮/环等公共动效） */
+  .featured-card--random:hover .featured-random-orb {
+    transform: rotate(-14deg) scale(1.07);
+    background: color-mix(in oklab, var(--primary) 26%, transparent);
+  }
+  .featured-card--random[data-busy="1"] .featured-random-orb {
+    animation: featured-shuffle 1s linear infinite;
+  }
+  .featured-random-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.9rem;
+  }
+  .featured-random-title {
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--deep-text);
+    transition: color 0.2s ease;
+  }
+  .featured-card--random:hover .featured-random-title {
+    color: var(--primary);
+  }
+  .featured-random-desc {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+  }
+
+  /* ---------- 右卡：热门 / 最近 文章（左图右文） ----------
+     ⚠️ 封面列占比与**行高**共同决定封面裁切量：行高由两卡里较高的那个决定。
+     初版行高 237px + 封面列 446×40% = 178 ⇒ 封面区域 178×237（0.75，竖幅）
+     ⇒ 16:9 的封面只剩中间约 42% 宽（图上的标题被切掉）。收到 44% + 行高约 205 后 ≈ 0.96。
+     若以后再把标题/摘要加高，记得回来把 coverRatio 或行高一起调。 */
+  .featured-card--post {
+    grid-template-columns: minmax(0, 44%) minmax(0, 1fr);
+  }
+  .featured-cover {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    min-height: 0;
+  }
+  .featured-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.001);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .featured-card--post:hover .featured-img {
+    transform: scale(1.05);
+  }
+  .featured-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent;
+    transition: background 0.3s ease;
+    pointer-events: none;
+  }
+  .featured-card--post:hover .featured-veil {
+    background: rgb(0 0 0 / 0.3);
+  }
+  .featured-arrow {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+    pointer-events: none;
+  }
+  .featured-card--post:hover .featured-arrow {
+    opacity: 1;
+    transform: scale(1);
+  }
+  /* ⚠️ 必须带圆底：纯白箭头在浅色封面上完全看不见 */
+  .featured-arrow-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.85rem;
+    height: 2.85rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.42);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.28);
+    backdrop-filter: blur(2px);
+  }
+  .featured-cover--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
+      color-mix(in oklab, var(--primary) 6%, var(--card-bg))
+    );
+  }
+  /* 无封面的兜底块（与 .featured-img 互斥显示；脚本按取回的文章切换 .is-cover-empty） */
+  .featured-cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
+      color-mix(in oklab, var(--primary) 6%, var(--card-bg))
+    );
+  }
+  .featured-cover.is-cover-empty .featured-img {
+    display: none;
+  }
+  .featured-cover.is-cover-empty .featured-cover-fallback {
+    display: flex;
+  }
+
+  .featured-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 1rem 1.35rem;
+  }
+  /* 「取数中」给主体一个极轻的呼吸，提示内容可能替换（1 个请求，通常 100ms 内完成） */
+  .featured-card--post[data-state="pending"] .featured-body {
+    animation: featured-pulse 1.6s ease-in-out infinite;
+  }
+  .featured-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin-top: 0.45rem;
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    color: var(--deep-text);
+    transition: color 0.2s ease;
+  }
+  .featured-card--post:hover .featured-title {
+    color: var(--primary);
+  }
+  .featured-excerpt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin-top: 0.4rem;
+    font-size: 0.84rem;
+    line-height: 1.6;
+    color: color-mix(in oklab, var(--deep-text) 72%, transparent);
+  }
+
+  /* ---------- 两卡共用：徽章 / 页脚 / 阅读全文 ---------- */
+  .featured-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+    align-self: flex-start;
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .featured-card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.85rem;
+    margin-top: auto;
+    padding-top: 0.7rem;
+    border-top: 1px solid color-mix(in oklab, var(--deep-text) 9%, transparent);
+    font-size: 0.78rem;
+    color: color-mix(in oklab, var(--deep-text) 58%, transparent);
+  }
+  .featured-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .featured-meta-unit {
+    margin-left: -0.2rem;
+    font-size: 0.9em;
+  }
+  .featured-readmore {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--primary);
+    opacity: 0;
+    transform: translateX(-4px);
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+  }
+  .featured-card:hover .featured-readmore,
+  .featured-card:focus-visible .featured-readmore {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .featured-card--random .featured-card-foot {
+    padding-top: 0.8rem;
+  }
+
+  @keyframes featured-shuffle {
+    0%,
+    100% {
+      transform: rotate(-14deg) scale(1.07);
+    }
+    50% {
+      transform: rotate(14deg) scale(1.07);
+    }
+  }
+  @keyframes featured-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.72;
+    }
+  }
+
+  /* ---------- 移动端：上下堆叠 ---------- */
+  @media (max-width: 767.98px) {
+    .featured-row,
+    .featured-row.no-random {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .featured-card--post {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .featured-cover {
+      aspect-ratio: 16 / 9;
+    }
+    .featured-body {
+      padding: 1rem 1.15rem 1.15rem;
+    }
+    .featured-title {
+      font-size: 1.25rem;
+      line-height: 1.45;
+    }
+    .featured-excerpt,
+    .featured-random-desc {
+      font-size: 0.85rem;
+    }
+    /* 触屏没有 hover：常显「阅读全文」，否则入口在移动端等于不存在 */
+    .featured-readmore {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  /* ---------- 减少动态效果 ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .featured-card,
+    .featured-img,
+    .featured-veil,
+    .featured-arrow,
+    .featured-title,
+    .featured-random-orb,
+    .featured-readmore {
+      transition: none !important;
+    }
+    .featured-card:hover,
+    .featured-card:active {
+      transform: none;
+    }
+    .featured-card:hover .featured-img,
+    .featured-card:hover .featured-arrow,
+    .featured-card--random:hover .featured-random-orb {
+      transform: none;
+    }
+    .featured-card--random[data-busy="1"] .featured-random-orb,
+    .featured-card--post[data-state="pending"] .featured-body {
+      animation: none;
+    }
+  }
+</style>

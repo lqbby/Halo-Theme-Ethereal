@@ -148,6 +148,9 @@ spec:
             descriptionLines: 2
             showHomeMoments: true
             homeMomentsCount: 10
+            featuredEnable: true
+            featuredSource: recent
+            featuredRandom: true
             grid:
               masonry: false
               coverFullWidth: false
@@ -164,6 +167,33 @@ spec:
                   value: list
                 - label: 网格
                   value: grid
+            - $formkit: switch
+              name: featuredEnable
+              id: postList_featuredEnable
+              label: 显示顶部精选卡片
+              value: true
+              help: "在首页列表最上方显示两张卡片（左「随机一篇文章」+ 右「热门/最近文章」）。仅在首页第一页显示"
+            - $formkit: select
+              name: featuredSource
+              id: postList_featuredSource
+              key: postList_featuredSource
+              if: "$get(postList_featuredEnable).value === true"
+              label: 右侧卡片来源
+              value: recent
+              help: "「最近文章」按发布时间取最新一篇；「热门文章」按站点统计的访问量取最高的一篇（与侧栏「热门文章」小组件同一口径）"
+              options:
+                - label: 最近文章
+                  value: recent
+                - label: 热门文章
+                  value: popular
+            - $formkit: switch
+              name: featuredRandom
+              id: postList_featuredRandom
+              key: postList_featuredRandom
+              if: "$get(postList_featuredEnable).value === true"
+              label: 显示「随机一篇文章」卡片
+              value: true
+              help: "关闭后只显示右侧那张文章卡（占满整行）"
             - $formkit: select
               name: coverPosition
               id: postList_coverPosition

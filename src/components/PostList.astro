@@ -1,5 +1,6 @@
 ---
 import Pagination from "./control/Pagination.astro";
+import FeaturedCards from "./FeaturedCards.astro";
 import PostCard from "./PostCard.astro";
 import {
   postListContainerClass,
@@ -10,10 +11,23 @@ import {
 
 interface Props {
   pagination?: string;
+  /** 是否在列表上方渲染「两卡行」（随机一篇文章 + 热门/最近文章）。仅首页传 true。 */
+  featured?: boolean;
 }
 
-const { pagination = "posts" } = Astro.props;
+const { pagination = "posts", featured = false } = Astro.props;
 ---
+
+{
+  featured && (
+    <div
+      class="contents"
+      th:if="${(theme.config?.layout?.postList?.featuredEnable == null or theme.config?.layout?.postList?.featuredEnable) and posts.page == 1}"
+    >
+      <FeaturedCards />
+    </div>
+  )
+}
 
 <div
   id="post-list-container"
