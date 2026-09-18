@@ -40,6 +40,11 @@ const PP_KEY = "popular_posts_v1";
 const html = readFileSync(INDEX, "utf8");
 
 let failures = 0;
+/**
+ * @param {string} name
+ * @param {unknown} actual
+ * @param {unknown} expected
+ */
 function check(name, actual, expected) {
   const ok = actual === expected;
   if (!ok) failures++;
@@ -47,12 +52,22 @@ function check(name, actual, expected) {
     `${ok ? "✅" : "❌"} ${name}：实得 ${JSON.stringify(actual)} / 应有 ${JSON.stringify(expected)}`,
   );
 }
+/**
+ * @param {string} name
+ * @param {boolean} cond
+ * @param {string} [detail]
+ */
 function ok(name, cond, detail) {
   if (!cond) failures++;
   console.log(`${cond ? "✅" : "❌"} ${name}${detail ? `：${detail}` : ""}`);
 }
 
-/** 从产物 index.html 抠出「含锚点的那个内联脚本」的脚本体（去掉 <script ...> 标签） */
+/**
+ * 从产物 index.html 抠出「含锚点的那个内联脚本」的脚本体（去掉 <script ...> 标签）
+ * @param {string} source
+ * @param {string} anchor
+ * @returns {string}
+ */
 function extractInlineScript(source, anchor) {
   const i = source.indexOf(anchor);
   if (i < 0) throw new Error(`产物里找不到锚点：${anchor}`);
@@ -65,11 +80,15 @@ function extractInlineScript(source, anchor) {
 const RC_SRC = extractInlineScript(html, "var LIMIT=5;");
 const PP_SRC = extractInlineScript(html, PP_KEY);
 
+/** @type {(n?: number) => Promise<void>} */
 const flush = async (n = 8) => {
   for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0));
 };
 
-// 一条缓存里的评论（renderComments 消费 shape：owner/spec 两层）
+/**
+ * 一条缓存里的评论（renderComments 消费 shape：owner/spec 两层）
+ * @param {string} name
+ */
 const cachedComment = (name) => ({
   metadata: { name: `c-${name}` },
   owner: { displayName: name },
@@ -89,10 +108,13 @@ const post = {
 
 function makeEnv() {
   const virtualConsole = new VirtualConsole();
+  /** @type {string[]} */
   const jsdomErrors = [];
-  virtualConsole.on("jsdomError", (e) =>
-    jsdomErrors.push(e && e.message ? e.message : String(e)),
-  );
+  /** @param {any} e */
+  const onJsdomError = (e) => {
+    jsdomErrors.push(e && e.message ? e.message : String(e));
+  };
+  virtualConsole.on("jsdomError", onJsdomError);
 
   const dom = new JSDOM(
     `<!doctype html><html><body>
@@ -109,27 +131,54 @@ function makeEnv() {
   const w = /** @type {any} */ (dom.window);
 
   // 监听器登记（断言「只注册一次」）
+  /** @type {Array<{ type: string; fn: any }>} */
   const listeners = [];
   const origAdd = w.addEventListener.bind(w);
-  w.addEventListener = (type, fn, opts) => {
+  /**
+   * @param {string} type
+   * @param {any} fn
+   * @param {any} [opts]
+   */
+  const addListener = (type, fn, opts) => {
     listeners.push({ type, fn });
     return origAdd(type, fn, opts);
   };
+  w.addEventListener = addListener;
+  /** @param {string} type */
   const countOf = (type) => listeners.filter((l) => l.type === type).length;
 
   // 懒加载钩子：只登记不执行，让测试自己控制 load 时机
+  /** @type {Record<string, () => void>} */
   const lazy = {};
-  w.__themeLazyInit = (id, fn) => {
+  /**
+   * @param {string} id
+   * @param {() => void} fn
+   */
+  const themeLazyInit = (id, fn) => {
     lazy[id] = fn;
   };
-  w.__etherealI18n = (_k, fb) => fb;
-  w.__etherealBigNum = (n, _k, suffix) => String(n) + suffix;
+  w.__themeLazyInit = themeLazyInit;
+  /**
+   * @param {string} _k
+   * @param {string} fb
+   */
+  const i18nFallback = (_k, fb) => fb;
+  w.__etherealI18n = i18nFallback;
+  /**
+   * @param {any} n
+   * @param {string} _k
+   * @param {string} suffix
+   */
+  const bigNum = (n, _k, suffix) => String(n) + suffix;
+  w.__etherealBigNum = bigNum;
   if (typeof w.AbortController === "undefined")
     w.AbortController = AbortController;
 
   // fetch 桩：按 URL 分辨是「最近评论聚合端点」还是「文章列表」
+  /** @type {string[]} */
   const fetchCalls = [];
-  w.fetch = (input) => {
+  /** @param {any} input */
+  const mockFetch = (input) => {
     const url = String(input);
     fetchCalls.push(url);
     const body = url.includes("comments/latest")
@@ -151,10 +200,15 @@ function makeEnv() {
       json: () => Promise.resolve(body),
     });
   };
+  w.fetch = mockFetch;
 
   return { dom, w, lazy, fetchCalls, listeners, countOf, jsdomErrors };
 }
 
+/**
+ * @param {any} w
+ * @param {string} id
+ */
 const listHtml = (w, id) => String(w.document.getElementById(id).innerHTML);
 
 console.log("── RecentComments（侧栏「最近评论」）──");
@@ -311,6 +365,7 @@ console.log("\n── PopularPosts（侧栏「热门文章」）──");
   check("PP-3 旧裸数组格式判失效重请求", fetchCalls.length, base3 + 1);
 
   // PP-4 真请求回填新格式
+  /** @type {any} */
   let stored = null;
   try {
     stored = JSON.parse(w.sessionStorage.getItem(PP_KEY) || "null");

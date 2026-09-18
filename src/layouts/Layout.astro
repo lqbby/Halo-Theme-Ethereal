@@ -245,6 +245,45 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
 >
   <head>
     <meta charset="UTF-8" />
+    <!-- 访问量去重守卫：Halo 核心的 /halo-tracker.js（注入在主题 head 之后）在执行时会
+         用 `history.pushState = 包装(原方法)` 挂一个「SPA 换页补上报」的 hook。但它的
+         group/plural/name 是**本次脚本执行时**读到的 data-name，闭包固定不变 ⇒ Swup 换页
+         触发 pushState 时，上报的仍是被离开的那篇文章。又因为主题开了 updateHead:true，
+         @swup/head-plugin 每次换页都会 cloneNode 重建这个 halo-tracker 的 script 标签
+         ⇒ 每换一页就再叠加一层 hook ⇒ 每次导航把**所有历史文章**各自再 +1。
+         桩测 scripts/test-visit-tracker.mjs 复现：浏览 A→B→C 的上报序列是 A,A,B,B,A,C。
+         这里把 pushState / replaceState 定义成「读走原生、吞掉赋值」的访问器：
+           · Swup 自身调用照常（getter 返回原生实现）；
+           · tracker 的包装赋值被静默吞掉（setter 存在即合法，严格模式下也不会抛错，
+             因此它随后的「执行时立即上报」仍会正常发出）。
+         于是 tracker 只剩「脚本执行时上报一次」这条通道，而换页重建的新 script 带的正是
+         当前文章的 data-name ⇒ 每次进入一篇文章恰好计 1 次。
+         ⚠️ 必须内联且尽量靠前：要早于 Halo 注入的 tracker。
+         ⚠️ 两外壳（src/layouts/Layout.astro 与 src/pages/layout.astro）必须保持一致。 -->
+    <script is:inline data-visit-guard>
+      (function () {
+        var hist = window.history;
+        var natives = {
+          pushState: hist.pushState,
+          replaceState: hist.replaceState,
+        };
+        Object.keys(natives).forEach(function (name) {
+          try {
+            Object.defineProperty(hist, name, {
+              configurable: true,
+              get: function () {
+                return natives[name];
+              },
+              set: function () {
+                /* 吞掉第三方（halo-tracker）对 pushState 的包装 */
+              },
+            });
+          } catch (e) {
+            /* 环境不支持时静默降级，不影响导航 */
+          }
+        });
+      })();
+    </script>
     <!-- Guard against duplicate Custom Element registration during Swup page transitions -->
     <script>
       (function () {
