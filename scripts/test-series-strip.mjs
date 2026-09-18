@@ -218,10 +218,6 @@ check(
     return true;
   })(),
 );
-check(
-  "A10b 系列条不再限制「仅首页第一页」（2026-09-18 改；/page/2、/page/3 也要显示）",
-  !/posts\.page == 1/.test(index),
-);
 
 // ---- 系列切换按钮（tablist） ----
 check(

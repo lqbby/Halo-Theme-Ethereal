@@ -19,8 +19,7 @@
  *    （第二参是 Semantic Version Range，Halo 2.17+）。插件没升级时整块不渲染，首页照常。
  *
  * 结构刻意做成「守卫层 / 取数层 / 内容层」三层：
- *   ① 最外层 div：只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关）。
- *      ⚠️ 2026-09-18 起**不再限制「仅首页第一页」**：/page/2、/page/3 也要继续显示（LQ 要求）。
+ *   ① 最外层 div：只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关 / 首页第一页）。
  *      —— `th:if`(优先级 3) 早于 `th:with`(4)，同标签里 th:if 读不到 th:with 的变量（会短路），
  *         所以 finder 调用必须放在 th:if **之后**的层，否则插件缺失时照样会去调它。
  *   ② 第二层 div：`th:with` 里才真正调 finder。
@@ -51,15 +50,14 @@ const VISIBLE_MOBILE = 2;
 const MAX_POSTS_PER_SERIES = 30;
 ---
 
-<!-- ① 只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关。
-     ⚠️ 2026-09-18：**去掉「仅首页第一页」门控** —— 首页 /page/2、/page/3 也要继续显示（LQ 要求）。
+<!-- ① 只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关 / 首页第一页。
      th:if(3) 早于 th:with(4)，同层读不到 th:with 的变量（会短路）⇒ finder 调用必须下一层。 -->
 <div
   th:remove="tag"
   th:if="${pluginFinder != null
     and pluginFinder.available('ethereal-companion', '>=1.1.0')
     and (theme.config?.layout?.postList?.seriesEnable == null or theme.config?.layout?.postList?.seriesEnable)
-    and posts != null}"
+    and posts != null and posts.page == 1}"
 >
   <div
     th:remove="tag"

@@ -534,11 +534,11 @@ console.log(`产物目录：${tplDir}\n`);
     `${iRow} < ${iList}`,
   );
   check(
-    "门控齐全：featuredEnable + featuredSource，且**不**再限制首页第一页（2026-09-18 改）",
+    "门控齐全：featuredEnable + posts.page == 1 + featuredSource",
     /featuredEnable == null or theme\.config\?\.layout\?\.postList\?\.featuredEnable/.test(
       idx,
     ) &&
-      !/posts\.page == 1/.test(idx) &&
+      /and posts\.page == 1/.test(idx) &&
       /layout\?\.postList\?\.featuredSource/.test(idx),
   );
 
