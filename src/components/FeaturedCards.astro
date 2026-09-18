@@ -551,6 +551,127 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     transform: translate3d(0, 10px, -36px) scale(0.95);
     pointer-events: none;
   }
+  /* ===== 磨砂模式下「三档叠层」的重设计（门控：全屏透明 + 高级材质）=====
+     ⚠️ 为什么写在这里、而不是 styles/components.css：
+        本组是**未分层(unlayered)**的全局样式，而 components.css 整包在
+        `@layer components` 里。级联上「无 layer 的普通声明」**恒胜**「有 layer 的
+        普通声明」——与选择器特异性无关 ⇒ 在 components.css 里写
+        background / border-color / box-shadow 都会被静默吃掉。放在这里则同为
+        未分层，靠特异性(0,4,2) 压过下面的 .featured-card / .featured-card--post。
+        （行容器自身的 `--card-bg` 重定义仍留在 components.css：改的是自定义属性，
+        自定义属性按 layer 比、没有无 layer 竞争者，那边能正常生效。）
+
+     —— 磨砂下原来为什么难看（可算，不是感觉）：
+        三张牌都是 position:absolute + inset:0 的**全尺寸重叠矩形**，各自吃
+        0.6 alpha 再乘各自的 opacity(.94/.84)，于是
+        ① 中区三层**复合** ⇒ 1-(1-.504)(1-.564)(1-.6) = **0.91 白**，比周围的
+           单层磨砂卡(.60)实得多，鼓成一块实心疙瘩；
+        ② 并外露三条硬边带：仅后牌 .50 / 后+中 .78 / 三层 .91 ⇒ 脏兮兮三段色阶；
+        ③ 前牌只有 .6 ⇒ 后两牌的**封面图与标题透出来**，磨砂前脸上叠着三份正文；
+        ④ 三份 box-shadow 再叠出一圈黑边。
+
+     —— 设计：**整叠只留前牌一层透光面**，后两牌降级为「描边幽灵薄片」。
+        ① 面几乎透明（亮 .10/.05，暗 .14/.07）⇒ 中区复合回到 ≈0.66，与周围单层
+           磨砂卡(.60)基本齐平：不鼓包、不再分色阶；
+        ② 后牌**不给内容**（`> *` 全隐）⇒ 断掉透过前牌的重影与杂色（注意：不透明
+           模式下中/后牌的正文本来就藏在前牌背后看不见，这一步只是把磨砂下**多出来**
+           的那份可见性收回去，不改变原设计语义）；
+        ③ 后牌的「存在感」改由**描边**承担（比默认 18% 更实，且前 > 后分层），只在前牌
+           盖不到的 ≈5~20px 外露条带里可见 ⇒ 「一叠牌」的语义保住；
+        ④ 阴影 10px/22px 10% → 2px/8px 5%，不再叠出黑边。
+     🔴 位移 / 旋转 / z-index **一概不动** —— 那是叠层的几何语言，也是换挡动画的骨架。
+     🔴 别用「把后牌 opacity 压到接近 0」代替本方案：那只压暗了面，**内容还在**
+        （重影照旧），且三层 alpha 相乘仍会分出色阶。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(255 255 255 / 0.1);
+    /* 只改颜色不改宽度：border-width 一变会触发卡内 reflow，也会打断下面的过渡 */
+    border-color: color-mix(
+      in oklab,
+      var(--primary) 30%,
+      color-mix(in oklab, var(--deep-text) 20%, transparent)
+    );
+    box-shadow: 0 2px 8px color-mix(in srgb, #000 5%, transparent);
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(255 255 255 / 0.05);
+    border-color: color-mix(
+      in oklab,
+      var(--primary) 22%,
+      color-mix(in oklab, var(--deep-text) 14%, transparent)
+    );
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid {
+    background-color: rgb(0 0 0 / 0.14);
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(0 0 0 / 0.07);
+  }
+  /* 面/边要在换档时跟着走，否则升到前牌会「啪」地跳成 0.6。
+     background-color / border-color 一起列进来 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post {
+    transition:
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.35s ease,
+      background-color 0.35s ease,
+      border-color 0.35s ease,
+      box-shadow 0.35s ease,
+      z-index 0s linear 0.2s;
+  }
+  /* 后牌内容整体隐去。直接子级只有三个：.featured-star / .featured-cover / .featured-body。
+     🔴 `.featured-star` 自带 `transition: transform .3s, color .2s`（前牌 hover 要转星），
+        所以下面那条通用 `transition` 会**把它冲掉** ⇒ 必须单独把星标的过渡合并回来。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post
+    > * {
+    transition: opacity 0.35s ease;
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post
+    > .featured-star {
+    transition:
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.2s ease,
+      opacity 0.35s ease;
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid
+    > *,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back
+    > * {
+    opacity: 0;
+  }
+  /* 🔴 `.featured-card--post[data-state="pending"] .featured-body` 挂着 opacity 脉冲
+     （keyframes 在 1↔.72 之间走），而**动画声明的位置高于普通声明** ⇒ 光写
+     opacity:0 压不住它，后牌正文照样一闪一闪地透出来。必须把动画关掉。
+     （`visibility:hidden` 也挡不住动画，只有 animation:none / !important 才行） */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid
+    > .featured-body,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back
+    > .featured-body {
+    animation: none;
+  }
   .featured-card--post.is-front:hover {
     transform: translate3d(0, -3px, 0) rotate(0) scale(1.004);
     box-shadow: 0 18px 34px color-mix(in srgb, #000 18%, transparent);
@@ -860,6 +981,8 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   /* ---------- 减少动态效果 ---------- */
   @media (prefers-reduced-motion: reduce) {
     .featured-card,
+    /* 磨砂模式给后牌子级加的 opacity 过渡（见上）也一并关掉 */
+    .featured-card--post > *,
     .featured-img,
     .featured-veil,
     .featured-arrow,

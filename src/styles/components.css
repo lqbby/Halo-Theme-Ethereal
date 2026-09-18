@@ -750,6 +750,15 @@
     --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
   }
 
+  /* ⚠️ 右卡「三档叠层」在磨砂模式下的改法**不在这里**，在
+     `components/FeaturedCards.astro` 的 `<style is:global>` 块里。
+     原因：本文件整包在 `@layer components`，而 `.featured-card` 那套骨架是
+     **未分层(unlayered)** 的全局样式 —— 级联上「无 layer 的普通声明」恒胜
+     「有 layer 的普通声明」，与选择器写多特异都无关 ⇒ 在这里写
+     background / border-color / box-shadow 会被静默吃掉。
+     ⭐ 这里只能改**自定义属性**（如上面这组 `--card-bg`）：自定义属性按 layer 比，
+       没有无 layer 的竞争者，所以在本层里照样生效。 */
+
   /* 全局模糊开关：按钮磨砂放在自身会淡入淡出的外层 .floating-btn 上
      （任务栏式）。元素自身的 opacity<1 不会挡掉它自己的 backdrop-filter
      （backdrop root 只作用于后代），因此淡入淡出时磨砂始终存在、不闪失；
