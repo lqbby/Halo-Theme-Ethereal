@@ -4,8 +4,13 @@
  *
  * 目的：证明「counter_source = site」这条链路真的成立 ——
  *   1. counter_source = moe（默认）：img.src = {api}/get/@{id}?theme={theme}  （不含 num，保持原行为）
- *   2. counter_source = site     ：走**贴片精灵模式** —— 只 fetch 一次 {api}/get/@demo?theme={theme}，
- *      从返回 SVG 的 <image> 读字形尺寸后本地拼数字；img.src 不再加载
+ *   2. counter_source = site     ：走**贴片精灵模式** —— 只取一次 {api}/get/@demo?theme={theme}，
+ *      拿到字形尺寸后本地拼数字；img.src 不再加载
+ *      ⭐⭐ 1.5.40 起取尺寸用 **<img> 探针 + naturalWidth/Height**，**不再用 fetch**：
+ *      fetch 是 cors 模式，跨域响应少一个 Access-Control-Allow-Origin 就整段失败；
+ *      而 @demo 的 cache-control 是一年 ⇒ 一旦缓存里存过一份「无 ACAO」的响应，
+ *      失败会被长期固化（2026-09-18 线上实测：服务端 ACAO 正常，浏览器仍报 no ACAO）。
+ *      <img> 是 no-cors 模式，不受 ACAO 约束 ⇒ 本条就是「不再依赖跨域策略」的回归哨兵。
  *   3. data-num 为 0 / 空 / 非法：**不进**贴片模式、也**不带** num 参数
  *      —— Moe-Counter 的 num 默认值是 0 且 `if (num > 0)` 才走「只渲染不写库」分支，
  *         传 num=0 等价于「无 num」⇒ 会回落成自增，必须挡住。
@@ -13,9 +18,9 @@
  *      `…/get/@lqbby?theme=X/get/@lqbby?theme=X`（主题参数变垃圾 ⇒ 切主题静默失效）
  *   5. counter_theme = native + site：直接用 data-num 画数字方块，**不发任何请求**
  *   6. ⭐ 贴片精灵的**核心不变量**：@demo 的 URL 恒定、不含 num ⇒ 才能被浏览器缓存一年，
- *      之后的访问才是「0 外部请求」；且单字宽度必须由服务端给的 cell 尺寸算出来
+ *      之后的访问才是「0 外部请求」；且单字宽度必须由服务端给的整图尺寸算出来
  *      （换主题不用改代码，也绝不能被写死成 moebooru 的 45×100）
- *   7. ⭐ 任一环节失败（fetch 失败 / SVG 里没有 <image>）都必须**落回**旧的服务端主题图，
+ *   7. ⭐ 任一环节失败（探针 onerror / 拿不到内在尺寸）都必须**落回**旧的服务端主题图，
  *      即 img.src = …&num=N —— 这是「新版不倒退」的保底
  *   8. ⭐ 补零：服务端 Moe-Counter 默认 padding = 7（themify: padStart(padding,'0')）⇒
  *      3743 会渲染成 0003743；@demo 精灵图只给字形、不参与补零 ⇒ 补零必须在本地做，
@@ -141,7 +146,7 @@ const svgFor = (cw, ch) =>
   <g><use x="0" xlink:href="#0" /></g>
 </svg>`;
 
-function runner({ api, name, theme, num, pad, svg, failFetch }) {
+function runner({ api, name, theme, num, pad, svg, probeDims, failProbe }) {
   const root = makeEl("div");
   root.id = "moe-counter-root";
   root.clientWidth = 315; // 侧栏内容宽度
@@ -166,6 +171,7 @@ function runner({ api, name, theme, num, pad, svg, failFetch }) {
   };
 
   const fetchCalls = [];
+  const probeCalls = [];
   const store = () => {
     const m = new Map();
     return {
@@ -189,6 +195,47 @@ function runner({ api, name, theme, num, pad, svg, failFetch }) {
     getComputedStyle: () => ({ paddingLeft: "12px", paddingRight: "12px" }),
   };
 
+  // <img> 探针桩件：复刻浏览器的关键行为 —— 能用 naturalWidth/Height 报**内在尺寸**，
+  // 但**拿不到正文**（这就是它能免 CORS 的根因，也是本案的设计前提）。
+  // 尺寸默认从 fixture SVG 的 width/height 属性解析（等价于浏览器读内在尺寸）。
+  const svgText = () => svg ?? svgFor(45, 100);
+  function ImageStub() {
+    const self = this;
+    this.decoding = "";
+    this.naturalWidth = 0;
+    this.naturalHeight = 0;
+    Object.defineProperty(this, "src", {
+      configurable: true,
+      get() {
+        return self._src || "";
+      },
+      set(v) {
+        self._src = String(v);
+        probeCalls.push(self._src);
+        // 真 <img> 是异步落定 ⇒ 用微任务，且必须晚于 onload/onerror 的赋值
+        Promise.resolve().then(() => {
+          if (failProbe) {
+            if (self.onerror) self.onerror(new Error("probe failed"));
+            return;
+          }
+          let w, h;
+          if (probeDims) {
+            [w, h] = probeDims;
+          } else {
+            const m = /\bwidth="([\d.]+)"[\s\S]*?\bheight="([\d.]+)"/.exec(
+              svgText(),
+            );
+            w = m ? parseFloat(m[1]) : 0;
+            h = m ? parseFloat(m[2]) : 0;
+          }
+          self.naturalWidth = w;
+          self.naturalHeight = h;
+          if (self.onload) self.onload();
+        });
+      },
+    });
+  }
+
   return {
     root,
     img,
@@ -198,15 +245,15 @@ function runner({ api, name, theme, num, pad, svg, failFetch }) {
     get fetchCalls() {
       return fetchCalls;
     },
+    get probeCalls() {
+      return probeCalls;
+    },
     run(code) {
+      // fetch 现在只该被 /record/@ 用到；@demo 若还走 fetch 会被断言抓出来
       const fetchStub = (url, init) => {
         fetchCalls.push(String(url));
         if (String(url).includes("/get/@demo")) {
-          if (failFetch) return Promise.reject(new Error("network down"));
-          return Promise.resolve({
-            ok: true,
-            text: () => Promise.resolve(svg ?? svgFor(45, 100)),
-          });
+          return Promise.reject(new Error("不该再用 fetch 取 @demo"));
         }
         return Promise.resolve({
           ok: true,
@@ -221,6 +268,7 @@ function runner({ api, name, theme, num, pad, svg, failFetch }) {
         "setTimeout",
         "clearTimeout",
         "fetch",
+        "Image",
         code,
       )(
         win,
@@ -229,6 +277,7 @@ function runner({ api, name, theme, num, pad, svg, failFetch }) {
         setTimeout,
         clearTimeout,
         fetchStub,
+        ImageStub,
       );
     },
   };
@@ -277,9 +326,11 @@ console.log("[2] counter_source=site（data-num=3743 ⇒ 0003743）");
   await flush();
   const demo = `${API}/get/@demo?theme=moebooru`;
   check(
-    "只发一次请求，且指向 @demo",
-    r.fetchCalls.length === 1 && r.fetchCalls[0] === demo,
-    r.fetchCalls.join(","),
+    "只取一次 @demo，且走 <img> 探针（不经 fetch ⇒ 不看 ACAO）",
+    r.probeCalls.length === 1 &&
+      r.probeCalls[0] === demo &&
+      r.fetchCalls.length === 0,
+    `probe=${r.probeCalls.join(",")} | fetch=${r.fetchCalls.join(",")}`,
   );
   check("切到 sprite 状态", r.root.getAttribute("data-state") === "sprite");
   check("贴片精灵已显示", r.sprite.hidden === false);
@@ -302,7 +353,7 @@ console.log("[2] counter_source=site（data-num=3743 ⇒ 0003743）");
     r.sprite.style.getPropertyValue("--moe-sprite"),
   );
   check(
-    "原子尺寸取自 <image> 的 45×100 ⇒ 7 位时单字 41.57 × 92.38（总宽正好 291）",
+    "原子尺寸取自探针 naturalWidth/10 = 45、naturalHeight = 100 ⇒ 7 位时单字 41.57 × 92.38（总宽正好 291）",
     Math.abs(
       parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-w")) - 41.5714,
     ) < 0.05 &&
@@ -318,8 +369,8 @@ console.log("[2] counter_source=site（data-num=3743 ⇒ 0003743）");
   );
   check(
     "★ 核心不变量：URL 恒定、不含 num（否则一年缓存失效，回到每次重拉）",
-    !r.fetchCalls[0].includes("num=") && !r.fetchCalls[0].includes("3743"),
-    r.fetchCalls[0],
+    !r.probeCalls[0].includes("num=") && !r.probeCalls[0].includes("3743"),
+    r.probeCalls[0],
   );
 }
 
@@ -336,14 +387,14 @@ console.log("[3] 换主题 ⇒ 单字尺寸跟服务端 cell 走（不写死 moe
   r.run(script);
   await flush();
   check(
-    "请求的是当前主题的 @demo",
-    r.fetchCalls[0] === `${API}/get/@demo?theme=miku`,
-    r.fetchCalls[0],
+    "探针取的是当前主题的 @demo",
+    r.probeCalls[0] === `${API}/get/@demo?theme=miku`,
+    r.probeCalls.join(","),
   );
   const h = parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-h"));
   const w = parseFloat(r.sprite.style.getPropertyValue("--moe-glyph-w"));
   check(
-    "按 165/250 比例算出尺寸（7 位时约 41.6 × 63.0）",
+    "按 1650/10 × 250 比例算出尺寸（7 位时约 41.6 × 63.0）",
     Math.abs(w - 41.5714) < 0.05 && Math.abs(h - 62.987) < 0.05,
     `${w} × ${h}`,
   );
@@ -389,8 +440,10 @@ for (const [label, val] of [
   await flush();
   check(
     `num=${label} 不带 num 参数且不请求 @demo`,
-    !r.img.src.includes("num=") && r.fetchCalls.length === 0,
-    `${r.img.src} | ${r.fetchCalls.join(",")}`,
+    !r.img.src.includes("num=") &&
+      r.fetchCalls.length === 0 &&
+      r.probeCalls.length === 0,
+    `${r.img.src} | probe=${r.probeCalls.join(",")}`,
   );
 }
 
@@ -407,28 +460,33 @@ console.log("[6] data-api 带 /get/@id?theme=… 旧后缀");
   await flush();
   check(
     "裁掉旧后缀后按当前主题重建 @demo",
-    r.fetchCalls[0] === `${API}/get/@demo?theme=asoul`,
-    r.fetchCalls[0],
+    r.probeCalls[0] === `${API}/get/@demo?theme=asoul`,
+    r.probeCalls.join(","),
   );
   check(
     "URL 里没有出现两次 /get/@",
-    r.fetchCalls[0].split("/get/@").length === 2,
-    r.fetchCalls[0],
+    r.probeCalls[0].split("/get/@").length === 2,
+    r.probeCalls[0],
   );
 }
 
-// 7) @demo 拿不到（网络失败）⇒ 回落服务端主题图，行为与旧版一致
-console.log("[7] @demo 请求失败 → 回落主题图");
+// 7) @demo 拿不到（网络失败 / 图片加载不出来）⇒ 回落服务端主题图，行为与旧版一致
+console.log("[7] @demo 探针 onerror → 回落主题图");
 {
   const r = runner({
     api: API,
     name: "lqbby",
     theme: "moebooru",
     num: "3743",
-    failFetch: true,
+    failProbe: true,
   });
   r.run(script);
   await flush();
+  check(
+    "确实尝试过取 @demo（不是压根没走精灵模式）",
+    r.probeCalls.length === 1,
+    r.probeCalls.join(","),
+  );
   check(
     "回落 img.src = …&num=3743（1.5.23 的老行为）",
     r.img.src === `${API}/get/@lqbby?theme=moebooru&num=3743`,
@@ -441,24 +499,27 @@ console.log("[7] @demo 请求失败 → 回落主题图");
   check("状态回到 theme", r.root.getAttribute("data-state") === "theme");
 }
 
-// 8) @demo 回来了但不是预期结构（没有 <image>）⇒ 同样回落，不白屏
-console.log("[8] @demo 响应结构异常 → 回落主题图");
-{
+// 8) @demo 能加载但**拿不到可信的字形尺寸** ⇒ 同样回落，绝不硬用错比例（会横竖拉伸）
+console.log("[8] @demo 拿不到内在尺寸 → 回落主题图");
+for (const [label, dims] of [
+  ["naturalWidth/Height = 0（SVG 无内在尺寸且未给比例）", [0, 0]],
+  ["300×150 = 浏览器对无内在尺寸 SVG 的默认值", [300, 150]],
+]) {
   const r = runner({
     api: API,
     name: "lqbby",
     theme: "moebooru",
     num: "3743",
-    svg: '<svg viewBox="0 0 450 100"></svg>',
+    probeDims: dims,
   });
   r.run(script);
   await flush();
   check(
-    "回落 img.src = …&num=3743",
+    `${label} ⇒ 回落 img.src = …&num=3743`,
     r.img.src === `${API}/get/@lqbby?theme=moebooru&num=3743`,
     r.img.src,
   );
-  check("未误显示空白贴片", r.sprite.hidden === true);
+  check("未误显示空白/拉伸的贴片", r.sprite.hidden === true);
 }
 
 // 9) native 自绘 + site：直接画 digit，零请求
@@ -587,6 +648,37 @@ console.log("[13] 宽度变化 ⇒ 精灵重算");
     String(r.sprite._children.length),
   );
   delete globalThis.ResizeObserver;
+}
+
+// 14) ⭐⭐ 2026-09-18 线上回归的哨兵：站点跨域取 @demo 时响应**缺 ACAO**
+//     （报错原文：Access to fetch at '…/get/@demo?theme=moebooru' from origin '…'
+//      has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present）
+//     旧实现用 fetch ⇒ 必然整段失败并回落主题图；新实现走 <img> 探针（no-cors）⇒ 照常成立。
+//     桩件的 fetch 对 /get/@demo 一律 reject，等于把「CORS 一定失败」固化进用例。
+console.log("[14] ★ 跨域响应缺 ACAO（fetch 必失败）时精灵模式仍成立");
+{
+  const r = runner({ api: API, name: "lqbby", theme: "moebooru", num: "3743" });
+  r.run(script);
+  await flush();
+  check(
+    "sprite 模式下**一次 fetch 都没发**（fetch 被桩件设为对 @demo 必失败）",
+    r.fetchCalls.length === 0,
+    r.fetchCalls.join(","),
+  );
+  check(
+    "取得 @demo 只靠 <img> 探针（no-cors，不受 ACAO 约束）",
+    r.probeCalls.length === 1 &&
+      r.probeCalls[0] === `${API}/get/@demo?theme=moebooru`,
+    r.probeCalls.join(","),
+  );
+  check(
+    "数字照常渲染（未回落主题图）",
+    r.root.getAttribute("data-state") === "sprite" &&
+      r.sprite.hidden === false &&
+      r.sprite._children.length === 7,
+    `state=${r.root.getAttribute("data-state")} glyphs=${r.sprite._children.length}`,
+  );
+  check("原版 img 未被启用", !r.img.src && r.img.hidden === true, r.img.src);
 }
 
 console.log(

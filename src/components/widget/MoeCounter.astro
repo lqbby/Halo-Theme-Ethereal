@@ -38,6 +38,16 @@ const style = Astro.props.style || undefined;
        任何环节失败（超时 / 解析不到字形 / 非 200）都自动回落到服务端主题图，行为与旧版一致。
        注意：@demo 的体积随主题变化（moebooru 16KB / asoul 33KB / capoo-1 76KB / miku 99KB），
        位数多的大主题首访成本更高 —— 这是「之后永久 0 请求」的一次性代价。
+     - 🔴🔴 取字形尺寸**绝不能用 fetch**（1.5.40 修正）：fetch 是 cors 模式，响应缺
+       `Access-Control-Allow-Origin` 就整段失败；而 @demo 的 cache-control 是
+       `max-age=31536000`（一年）⇒ 只要浏览器 / 边缘缓存里**存过一份「无 ACAO」的响应**
+       （比如加 CORS 之前访问过一次），CORS 失败就会被缓存**长期固化**：
+       2026-09-18 LQ 线上实测 —— 服务端现测 ACAO 正常（任意 Origin 都原样回显），
+       浏览器却持续报 `No 'Access-Control-Allow-Origin' header is present`，
+       每次加载都静默回落主题图，精灵模式等于没生效。
+       改用 `<img>` 探针：no-cors 模式**不受 ACAO 约束**，`naturalWidth/Height`
+       读尺寸也**不需要** CORS（只有 canvas 读像素才需要）⇒ 彻底摘掉跨域策略依赖。
+       顺带比旧法（抠 `<defs>` 里 `<image>` 的 width）更准，见 initSpriteMode 注释。
      - ⭐ 补零：Moe-Counter 服务端默认 padding = 7（index.js，取值域 0–16），themify 里
        `count.toString().padStart(padding, '0')` ⇒ 2997 渲染成 0002997。@demo 精灵图只提供
        「10 个字形」，不含补零逻辑 ⇒ 补零必须在本地做，否则精灵模式会比原版主题图少几位
@@ -234,6 +244,7 @@ const style = Astro.props.style || undefined;
     // SVG（<use x="cellW * d"> 顺序 0→9）⇒ 天生一张「URL 恒定 + 可缓存一年」的精灵图，
     // 靠 background-position 就能切出任一位数字。
     // 于是「数字零请求 + 字形首访一次、之后吃缓存」= 之后每次导航 0 个外部请求。
+    // ⚠️ 取尺寸用 <img> 探针，**不要**退回去用 fetch（原因见文件头 🔴🔴 那条）。
     var SPRITE_TIMEOUT = 6000; // 超时即回落，别让侧栏空等
     var SPRITE_MAX_H = 120; // 单个字形最大高度（px）：位数变化时高度不会忽大忽小
 
@@ -271,7 +282,8 @@ const style = Astro.props.style || undefined;
       el.__moeRO = ro;
     }
 
-    // cellW / cellH = 单个字形的原始像素尺寸（取服务端 SVG 里 <image> 的宽高）
+    // cellW / cellH = 单个字形的尺寸，由 <img> 探针的 naturalWidth/10 与 naturalHeight 得来
+    // （不是 SVG 里 <image> 自己的宽高 —— 那个在部分主题里比格子宽略大，见 start() 注释）
     function renderSprite(el, root, text, demoUrl, cellW, cellH, pad) {
       if (!(cellW > 0) || !(cellH > 0)) return false;
       // 先补零再定位数：位数直接决定单字大小，必须「先补、后算宽度」
@@ -317,12 +329,7 @@ const style = Astro.props.style || undefined;
     ) {
       var demoUrl = api + "/get/@demo?theme=" + encodeURIComponent(theme);
       var finished = false;
-      var ctrl =
-        typeof AbortController !== "undefined" ? new AbortController() : null;
-      var timer = setTimeout(function () {
-        if (ctrl) ctrl.abort();
-        fallback();
-      }, SPRITE_TIMEOUT);
+      var timer = setTimeout(fallback, SPRITE_TIMEOUT);
 
       // 任一环节不顺：退回「服务端主题图」这条老路（组合逻辑与 1.5.23 完全一致）
       function fallback() {
@@ -335,47 +342,47 @@ const style = Astro.props.style || undefined;
         initThemeMode(root, imgEl, api, name, theme, num);
       }
 
+      // ⭐ 取字形尺寸走 <img> 探针 —— 这里**故意不用 fetch**（1.5.40）：
+      // fetch 是 cors 模式，@demo 是跨域资源，响应少一个 Access-Control-Allow-Origin
+      // 就整段失败；而它的 cache-control 是一年，一旦缓存里存过一份「无 ACAO」的响应，
+      // 这个失败会被长期固化（详见文件头 🔴🔴）。<img> 是 no-cors 模式，不受 ACAO 约束；
+      // naturalWidth / naturalHeight 也不需要 CORS（只有 canvas 读像素才需要）⇒
+      // 拿尺寸这一步可以完全不依赖对方的跨域策略。
+      //
+      // 服务端 demo SVG 形如 <svg viewBox="0 0 450 100" width="450" height="100">，
+      // 且固定 10 个字形等宽并排 ⇒ 单字宽 = naturalWidth / 10，单字高 = naturalHeight。
+      // 比旧法（抠 <defs> 里第一个 <image> 的 width/height）更准：整图宽/10 才是真正的
+      // 格子宽（`<use x="cellW * d">` 里的 cellW），而 3d-num 的 <image> 宽 46 ≠ 448/10=44.8、
+      // minecraft 的 112 ≠ 117 —— 旧法做 background-size 会横向拉伸几个百分点。
       function start() {
-        fetch(demoUrl, ctrl ? { signal: ctrl.signal } : undefined)
-          .then(function (res) {
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            return res.text();
-          })
-          .then(function (svg) {
-            if (finished) return;
-            clearTimeout(timer);
-            // 直接读 <defs> 里第一个 <image> 的宽高 —— 比按 viewBox/10 推算更稳，
-            // 也不依赖任何主题的长宽比（换主题不用改代码）
-            var tag = /<image\b[^>]*>/.exec(svg);
-            var w = tag && /\bwidth="([\d.]+)"/.exec(tag[0]);
-            var h = tag && /\bheight="([\d.]+)"/.exec(tag[0]);
-            if (!w || !h) throw new Error("拿不到字形尺寸");
-            if (
-              !renderSprite(
-                spriteEl,
-                root,
-                num,
-                demoUrl,
-                parseFloat(w[1]),
-                parseFloat(h[1]),
-                pad,
-              )
-            ) {
-              throw new Error("渲染失败");
-            }
-            finished = true;
-            root.setAttribute("data-state", "sprite");
-            spriteEl.hidden = false;
-            if (imgEl) imgEl.hidden = true;
-            digitsEl.hidden = true;
-          })
-          .catch(function (e) {
-            console.warn(
-              "[MoeCounter] @demo 精灵图失败:",
-              e && e.message ? e.message : e,
-            );
+        var probe = new Image();
+        probe.decoding = "async";
+        probe.onload = function () {
+          if (finished) return;
+          var w = probe.naturalWidth;
+          var h = probe.naturalHeight;
+          // 300×150 = 浏览器对「没有内在尺寸的 SVG」给的默认值 ⇒ 比例不可信，别硬用
+          // （实测 moebooru/3d-num/miku/capoo-1/asoul/minecraft 都带 width/height，走不到这儿）
+          if (!(w > 0) || !(h > 0) || (w === 300 && h === 150)) {
             fallback();
-          });
+            return;
+          }
+          clearTimeout(timer);
+          if (!renderSprite(spriteEl, root, num, demoUrl, w / 10, h, pad)) {
+            fallback();
+            return;
+          }
+          finished = true;
+          root.setAttribute("data-state", "sprite");
+          spriteEl.hidden = false;
+          if (imgEl) imgEl.hidden = true;
+          digitsEl.hidden = true;
+        };
+        probe.onerror = function () {
+          console.warn("[MoeCounter] @demo 精灵图加载失败");
+          fallback();
+        };
+        probe.src = demoUrl;
       }
 
       // 侧栏在移动端位于首屏之下 ⇒ 与原版 img 的 loading=lazy 等价，别抢带宽
