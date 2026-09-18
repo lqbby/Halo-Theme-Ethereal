@@ -728,6 +728,28 @@
     ) !important;
   }
 
+  /* 首页「精选两卡行」补漏：这排卡**不挂 .card-base**（自有 .featured-card 骨架，
+     底色写的是 background: var(--card-bg)）⇒ 上面的卡片磨砂选择器命中不到它，
+     全屏透明 + 高级材质下它俩仍是实心白（暗色下实心黑）块，与周围磨砂卡割裂。
+     修法 = 在行容器上重定义 --card-bg（只作用本行，不外泄）。
+     ⭐ 为什么用「重定义变量」而不是 flat 覆写 background：卡片内部还有 5 处派生底色
+     （动作胶囊 78% / ‹› 按钮常态 92% + 悬停 96% / 右上角标星 76% / 无封面兜底渐变）
+     都写作 color-mix(… var(--card-bg) N%, transparent)。变量一改它们全部跟着走，
+     且「派生色恒比卡底更透」的相对层次与原设计完全一致。
+     🔴 别改成直接覆写 .featured-card 的 background —— 那样卡底降到 0.6 而派生色
+     仍按 0.78/0.76 白算，胶囊与星标会反过来比卡底更实、浮成一坨白块。
+     门控与上面 .card-base 那组严格一致：全屏透明 + 高级材质，缺一不生效。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-row {
+    --card-bg: rgb(255 255 255 / var(--transparent-card-alpha, 0.6));
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-row {
+    --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
+  }
+
   /* 全局模糊开关：按钮磨砂放在自身会淡入淡出的外层 .floating-btn 上
      （任务栏式）。元素自身的 opacity<1 不会挡掉它自己的 backdrop-filter
      （backdrop root 只作用于后代），因此淡入淡出时磨砂始终存在、不闪失；
