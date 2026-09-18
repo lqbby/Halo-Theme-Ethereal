@@ -137,11 +137,20 @@ const MAX_POSTS = 5;
     // 单请求取 Top N，消除原实现的「探 total → size=total 全量拉取」两步）。
     // sessionStorage 缓存最终 Top N：同会话内切换页面不再重复请求列表接口。
     var CACHE_KEY = "popular_posts_v1";
+    // 30 秒：原实现只存裸数组、且读时不做任何过期判断 ⇒ 整个标签页会话内热门榜
+    // 永不刷新（阅读量涨了也看不到，且 sessionStorage 在同一标签页 F5 不清除）。
+    // 与 RecentComments 的 CACHE_TTL 保持同一档，便于统一解释。
+    var CACHE_TTL = 30 * 1000;
 
     function getCached() {
       try {
         var raw = sessionStorage.getItem(CACHE_KEY);
-        return raw ? JSON.parse(raw) : null;
+        if (!raw) return null;
+        var parsed = JSON.parse(raw);
+        // 兼容旧的「裸数组」格式：结构不符即视为失效，重拉一次后自动迁移到带 ts 的新格式
+        if (!parsed || !parsed.ts || !parsed.posts) return null;
+        if (Date.now() - parsed.ts >= CACHE_TTL) return null;
+        return parsed.posts;
       } catch (e) {
         return null;
       }
@@ -149,7 +158,10 @@ const MAX_POSTS = 5;
 
     function setCached(posts) {
       try {
-        sessionStorage.setItem(CACHE_KEY, JSON.stringify(posts));
+        sessionStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({ ts: Date.now(), posts: posts }),
+        );
       } catch (e) {}
     }
 

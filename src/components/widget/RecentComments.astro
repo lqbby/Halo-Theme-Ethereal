@@ -33,9 +33,13 @@ const COLLAPSED_HEIGHT = "7.5rem";
 <script is:inline th:inline="none">
   (function () {
     var LIMIT = 5;
-    // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复瀑布请求
+    // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复请求。
+    // 30 秒：侧栏只需「准实时」，但 5 分钟太久——新评论/新审核的评论最多挂 5 分钟才现身，
+    // 且 sessionStorage 在同一标签页 F5 不清除，体感远大于标称时长。
+    // ⚠️ 服务端聚合端点自身还有一层缓存（插件设置 recentComments.cacheSeconds，默认 60s，
+    //    0 = 实时），两层是叠加的：这里调快了，那边不放开会白搭。
     var CACHE_KEY = "ethereal-recent-comments";
-    var CACHE_TTL = 5 * 60 * 1000; // 5 分钟
+    var CACHE_TTL = 30 * 1000; // 30 秒
     // 「文章名 → permalink」映射：load 阶段预解析一次，渲染阶段直接取链接，
     // 不再对每条评论单独发一次文章详情请求
     var permalinkMap = {};
@@ -556,6 +560,32 @@ const COLLAPSED_HEIGHT = "7.5rem";
           console.warn("[RecentComments] load failed:", e);
           showError();
         });
+    }
+
+    // 评论提交成功 → 立刻作废会话缓存并重新拉取，不必干等 TTL 过期。
+    // comment-next 提交成功后会在 window 派发事件（见其 CommentNextBox.svelte）：
+    //   halo:comment:created（新评论）/ halo:comment-reply:created（回复）。
+    // ⚠️ Swup 换页会把整份脚本克隆重执行（reloadScripts），而挂在 window 上的监听器
+    //   换页不会消失 ⇒ 若每次执行都 addEventListener，换 N 页就叠 N 个 handler，
+    //   一次评论提交触发 N 次请求。故用一次性标记只注册一遍；同时每次执行都把 load
+    //   覆盖到 __rcReload，保证 handler 调用的永远是「当前页」的 load（旧闭包里的
+    //   listEl 已被 Swup 替换，直接复用会渲染到脱离文档的节点上）。
+    window.__rcReload = load;
+    if (!window.__rcOnCommentCreated) {
+      window.__rcOnCommentCreated = function () {
+        try {
+          sessionStorage.removeItem(CACHE_KEY);
+        } catch (e) {}
+        if (typeof window.__rcReload === "function") window.__rcReload();
+      };
+      window.addEventListener(
+        "halo:comment:created",
+        window.__rcOnCommentCreated,
+      );
+      window.addEventListener(
+        "halo:comment-reply:created",
+        window.__rcOnCommentCreated,
+      );
     }
 
     // 视口懒加载：评论列表进入可视区才拉数据（首屏不再无条件瀑布请求）
