@@ -174,7 +174,7 @@ spec:
               id: postList_featuredEnable
               label: 显示顶部精选卡片
               value: true
-              help: "在首页列表最上方显示两张卡片（左「随机一篇文章」+ 右「热门/最近文章」）。仅在首页第一页显示"
+              help: "在首页列表最上方显示两张卡片（左「随机一篇文章」+ 右「热门/最近文章」）。首页翻页后依然显示"
             - $formkit: select
               name: featuredSource
               id: postList_featuredSource
@@ -201,7 +201,7 @@ spec:
               id: postList_seriesEnable
               label: 显示「系列」卡片条
               value: true
-              help: "在首页精选卡片上方显示系列卡：每个系列展示其全部文章（一排 4 张，可点 ‹ › 右移），顶部按钮切换系列。仅首页第一页显示。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
+              help: "在首页精选卡片上方显示系列卡：每个系列展示其全部文章（一排 4 张，可点 ‹ › 右移），顶部按钮切换系列。首页翻页后依然显示。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
             - $formkit: number
               name: seriesCount
               id: postList_seriesCount
