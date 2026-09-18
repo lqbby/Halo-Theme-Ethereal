@@ -119,6 +119,30 @@
     box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 0.22);
   }
 
+  /* ===== 卡片视觉分层：主列重、侧栏轻（2026-09-18 LQ 选定「排版优化」方向）=====
+     全站 12+ 个卡片外壳同一重量 ⇒ 视线没有主次。两侧栏（#sidebar / #right-sidebar）
+     是「容器」，退到最轻：去外壳描边与暗晕、卡片纹理只留一丝；
+     主列文章卡保持完整外壳，成为页面上唯一的「重」元素。
+     ⚠️ 只动装饰层（outline / box-shadow / 纹理 opacity），--card-bg、圆角、内部布局
+        一律不碰 ⇒ 结构、透明模式、可读性零影响。
+     ⚠️ 特异性：外壳规则是纯 class 组合（0-5-1 级），这里带 ID（1-1-0 级）稳胜，无需
+        !important；暗色变体只改 outline-color/box-shadow 颜色，一并被 outline:none/
+        box-shadow:none 覆盖。 */
+  :root.mods-card-shell #sidebar .card-base,
+  :root.mods-card-shell #right-sidebar .card-base {
+    outline: none;
+    box-shadow: none;
+  }
+
+  /* 纹理同思路：侧栏只留 40% 浓度的一丝水印（亮暗两套 blend-mode 都适用）。
+     包在与原纹理相同的 >=768px 媒体查询里 ⇒ 手机端依旧零下载零解码。 */
+  @media (min-width: 768px) {
+    :root.mods-card-pattern #sidebar .card-base::before,
+    :root.mods-card-pattern #right-sidebar .card-base::before {
+      opacity: calc(var(--card-pattern-opacity, 0.03) * 0.4);
+    }
+  }
+
   /* ===== 置顶卡片 vs 卡片外壳：必须一眼可辨（2026-09-13 LQ 要求）=====
      开关模式下普通卡 = 1px / 14% 淡描边 + 8% 极淡暗晕（几乎只是「有边」）。
      置顶卡必须**明显强于**这个基线，否则「置顶」在视觉上消失。做法：

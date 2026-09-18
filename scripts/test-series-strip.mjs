@@ -152,9 +152,9 @@ check(
     ),
 );
 check(
-  "A7 可见数写在 section 的 style 上（桌面 4 / 平板 3 / 手机 2）",
+  "A7 可见数写在 section 的 style 上（桌面 5 / 平板 3 / 手机 2）",
   index.includes(
-    "--series-visible-desktop:4;--series-visible-tablet:3;--series-visible-mobile:2",
+    "--series-visible-desktop:5;--series-visible-tablet:3;--series-visible-mobile:2",
   ),
 );
 check(
