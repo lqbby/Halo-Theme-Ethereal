@@ -46,12 +46,15 @@ const MAX_POSTS = 5;
       };
 
     // 读取主题配置获取 base path
+    // ⚠️ 只接受**字符串**：配置里的 base 现在是个「分组」（animationSpeed/banner/welcome…），
+    // 直接 `cfg.base || ""` 会拿到对象，拼出来的链接是 `[object Object]/archives/xxx`（点进去 404）。
+    // 站点部署在根路径时正确值就是空串 ⇒ 非字符串一律当空串。
     var themeConfig = document.getElementById("theme-config");
     var basePath = "";
     if (themeConfig) {
       try {
         var cfg = JSON.parse(themeConfig.textContent || "{}");
-        basePath = cfg.base || "";
+        if (typeof cfg.base === "string") basePath = cfg.base;
       } catch (e) {}
     }
 

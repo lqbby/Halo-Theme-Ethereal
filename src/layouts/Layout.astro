@@ -179,8 +179,50 @@ const themeConfigKeys = [
 const themeConfigMap = themeConfigKeys
   .map((k) => `'${k}': theme.config?.${k}`)
   .join(", ");
-const themeSettingScript = `<script type="application/json" id="theme-config" th:inline="javascript">
+const themeSettingScript = `<script type="application/json" id="theme-config" data-swup-theme th:inline="javascript">
        /*[[\${ { ${themeConfigMap} } }]]*/
+    </script>
+    <script>
+      /* ⚠️ 本脚本必须紧跟上面的 #theme-config（同一 <head> 内联脚本按文档顺序执行），别挪走。
+         Halo 把每个配置分组序列化成 { realNode: { …真实字段 } }，而主题的客户端读者一律按
+         「扁平分组」取值（cfg.sidebar.widgetsConfig / cfg.style.bannerStyle / cfg.performance.imageProcessing …）
+         ⇒ 不拆这一层就恒为 undefined，且**完全静默**。实锤（2026-09-18，两个 origin 两版主题均复现）：
+         sidebar.realNode.widgetsConfig.rightWidgets[1].tencent_key 里明明存着 Key，天气组件却一直显示
+         「请配置腾讯地图 Key」；同一原因还静默关掉 WelcomePopup（layout.welcome 读不到）、
+         post 页图片处理（performance.imageProcessing 读不到）、banner 轮播配置等。
+         服务端 Thymeleaf 读同一路径（theme.config?.sidebar?.widgetsConfig）是正常的，
+         只有 JSON 序列化后多这一层 —— 所以修在这里，一处生效、后面所有读者都拿到扁平结构。
+         ⚠️ 两外壳（src/layouts/Layout.astro 与 src/pages/layout.astro）必须保持一致。
+         实测只在「分组根」包一层、组内子对象不再包，故只拆一层；未包时原样不动（两态兼容）。
+         ⚠️ 元素上的 data-swup-theme 是**必须的**，别删：主题开了 updateHead:true，Swup 的
+         head 插件按 outerHTML 全等做增删 —— 被本脚本改写过的 #theme-config 与「新页面的原始
+         JSON」永不相等 ⇒ 每次换页都会把改写过的删掉、把带 realNode 的原始元素插回来
+         （天气 Key 在软导航后复发）。打了 data-swup-theme 后 head 插件对该元素既不删也不加
+         （源码 shouldKeepTag = localName!=="title" && !matches("[data-swup-theme]")），
+         改写结果得以常驻。另有一道自愈：@swup/astro 默认 reloadScripts:true，
+         SwupScriptsPlugin 的作用域是**整个 document**（head+body），换页后会重执行全部内联
+         脚本 —— 本脚本因此会再跑一次（幂等），即便元素被换回也能立刻拆平。 */
+      (function () {
+        var el = document.getElementById("theme-config");
+        if (!el || !el.textContent) return;
+        try {
+          var cfg = JSON.parse(el.textContent);
+          var changed = false;
+          for (var k in cfg) {
+            var v = cfg[k];
+            if (
+              v &&
+              typeof v === "object" &&
+              v.realNode &&
+              typeof v.realNode === "object"
+            ) {
+              cfg[k] = v.realNode;
+              changed = true;
+            }
+          }
+          if (changed) el.textContent = JSON.stringify(cfg);
+        } catch (e) {}
+      })();
     </script>`;
 ---
 
