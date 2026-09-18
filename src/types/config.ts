@@ -195,6 +195,20 @@ export interface PostList {
   coverPosition?: "right" | "left";
   /** 简介显示行数，设为 0 不截断 */
   descriptionLines?: number;
+  /** 首页显示「瞬间」卡片（HomeMoments.astro 读） */
+  showHomeMoments?: boolean;
+  /** 瞬间卡片条数（HomeMoments.astro 读） */
+  homeMomentsCount?: number;
+  /** 首页顶部显示精选两卡行（开关在 settings.yaml 的 postList.featuredEnable） */
+  featuredEnable?: boolean;
+  /** 精选右卡来源：recent 最近（默认）/ popular 热门。取值域与 settings.yaml 的 select 一致 */
+  featuredSource?: "recent" | "popular";
+  /** 精选左卡显示「随机一篇文章」；false 时右卡占满整行 */
+  featuredRandom?: boolean;
+  /** 首页显示「系列」卡片条（SeriesStrip.astro 读；另需配套插件 >=1.1.0） */
+  seriesEnable?: boolean;
+  /** 系列数量：卡片条顶部渲染几个系列切换按钮。settings.yaml 里限制 1~24，缺省 4 */
+  seriesCount?: number;
   /** 网格设置 */
   grid?: PostListGrid;
 }

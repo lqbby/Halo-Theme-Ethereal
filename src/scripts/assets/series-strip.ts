@@ -9,7 +9,12 @@
 //   · 箭头状态：按**当前面板**的 scrollLeft 边界置 `disabled`（到左头禁 ‹、到右头禁 ›）。
 //     ⚠️ 刻意**不用**参考站那种「卡片数 ≤ 可见数就整块 hidden」——LQ 的系列只有 4 篇时
 //        按钮会凭空消失，看起来像坏了。置灰比消失更好懂。
-//   · prefers-reduced-motion 时 behavior 用 "auto"（别跟用户的减动效偏好对着干）。
+//   · prefers-reduced-motion 时 behavior 用 "auto"。
+//     🔴 这条**依赖 CSS 里没有 `scroll-behavior`**：`scrollBy({behavior:'auto'})` 的语义是
+//        「沿用元素**计算后的** scroll-behavior」，而不是「瞬时」（CSSOM View 规范）。
+//        因此 `.series-strip__viewport` 已刻意不声明 `scroll-behavior: smooth`，本文件的
+//        behavior 参数是唯一真相源。谁把 smooth 加回 CSS，这条减动效分支就静默失效
+//        （2026-09-18 CDP 实测：CSS 带 smooth 时传 'auto' 仍平滑滚动）。
 //
 // ⚠️ 本文件在 #swup-container 内（列在 PostList 里）：Swup 换页会把容器内脚本**克隆重执行**。
 //    · 元素级绑定靠 `dataset.seriesBound` 幂等（同一元素只会绑一次）；
@@ -39,7 +44,6 @@
 
     el.dataset.seriesBound = "1";
 
-    var navs = el.querySelector("[data-series-navs]");
     var prev = el.querySelector(".series-strip__nav--prev");
     var next = el.querySelector(".series-strip__nav--next");
     var tabsBox = el.querySelector("[data-series-tabs]");
@@ -83,7 +87,6 @@
       var atEnd = max <= EDGE_EPSILON || vp.scrollLeft >= max - EDGE_EPSILON;
       if (prev) prev.disabled = atStart;
       if (next) next.disabled = atEnd;
-      if (navs) navs.setAttribute("data-series-at-end", atEnd ? "1" : "0");
     }
 
     /** 切到第 i 个系列；focus=true 时把焦点也移过去（键盘操作路径） */
@@ -106,9 +109,10 @@
       if (!vp) return;
       var step = stepOf(panels[active].querySelectorAll(".series-strip-card"));
       if (!step) return;
+      // behavior 是唯一真相源：CSS 里没有 scroll-behavior（见文件头），所以 'auto' 真的是瞬时。
       vp.scrollBy({ left: dir * step, behavior: reduced ? "auto" : "smooth" });
-      // scrollBy 是异步的（smooth），边界状态等 scroll 事件回来后由 syncNavs 更新；
-      // 但 reduced-motion 下 behavior=auto 时浏览器可能不派发 scroll 事件，这里兜一次。
+      // smooth 下滚动是异步的，边界状态等 scroll 事件回来由 syncNavs 更新；
+      // 瞬时滚动虽然也会派发 scroll 事件，但同步补一次能保证「点一下按钮，置灰状态立刻正确」。
       if (reduced) syncNavs();
     }
 

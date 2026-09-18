@@ -174,6 +174,27 @@ check(
     "#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(s.posts) - ps.index})}",
   ),
 );
+check(
+  "A8d 封面 loading/fetchpriority 走 th:attr 条件下发（首系列首卡 eager+high，其余 lazy+auto）",
+  // ⚠️ 判据必须**只针对这一张 img 的开标签**：
+  //    stripHtml 从 <section id="series-strip"> 切到 #post-list-container，中间**还夹着两卡行**
+  //    （FeaturedCards 的封面本来就写着静态 `loading="eager" fetchpriority="high"`）
+  //    ⇒ 用「整段里不存在 loading=」当判据会误报（1.5.37 实测，A8d 因此误报）。
+  (() => {
+    const tag =
+      (/<img[^>]*series-strip-card__img[^>]*>/.exec(stripHtml) || [])[0] || "";
+    if (!tag) return false;
+    return (
+      /th:attr="loading=\$\{st\.index == 0 and ps\.index == 0 \? 'eager' : 'lazy'\},fetchpriority=\$\{st\.index == 0 and ps\.index == 0 \? 'high' : 'auto'\}"/.test(
+        tag,
+      ) && !/\sloading="/.test(tag)
+    );
+  })(),
+  (/(<img[^>]*series-strip-card__img[^>]*>)/.exec(stripHtml) || [])[1]?.slice(
+    0,
+    120,
+  ) || "未找到 series-strip-card__img",
+);
 
 const tplVer = (() => {
   const m = /version:\s*"([0-9.]+)"/.exec(
@@ -223,20 +244,57 @@ check(
 check(
   "A14 tab 与面板用 aria-controls / aria-labelledby 双向绑定",
   stripHtml.includes('th:aria-controls="|series-panel-${st.index}|"') &&
-    stripHtml.includes('th:aria-labelledby="|series-tab-${st.index}|"') &&
+    // ⚠️ 面板侧 1.5.37 起带三元兜底（见 A16b）⇒ 只断言「引用了 tab 的 id 形态」
+    stripHtml.includes("'series-tab-' + st.index") &&
     stripHtml.includes('th:id="|series-tab-${st.index}|"'),
 );
 
 // ---- 每个系列一个面板 ----
 check(
   "A15 面板以 th:each 遍历 seriesList 渲染（role=tabpanel + data-series-panel）",
-  /<div[^>]*th:each="s, st : \$\{seriesList\}"[^>]*class="series-strip__panel"[^>]*role="tabpanel"[^>]*th:data-series-panel="\$\{st\.index\}"/.test(
-    stripHtml,
-  ),
+  // ⚠️ 别用 `[^>]*` 跨属性：面板开标签的 aria-labelledby 里含 `#lists.size(seriesList) > 1`，
+  //    产物里是 `&gt;`，而本文件的 unesc() 会把它还原成**裸 `>`** ⇒ 直接打断「非 > 字符」的匹配
+  //    （1.5.37 实测，A15 因此误报）。正解 = `[\s\S]*?` + 明确终点（最后一个属性 + `>`）抠开标签。
+  (() => {
+    const m =
+      /<div[^>]*th:each="s, st : \$\{seriesList\}"[\s\S]*?th:data-series-panel="\$\{st\.index\}">/.exec(
+        stripHtml,
+      );
+    if (!m) return false;
+    const tag = m[0];
+    return (
+      tag.includes('class="series-strip__panel"') &&
+      tag.includes('role="tabpanel"') &&
+      tag.includes('th:id="|series-panel-${st.index}|"')
+    );
+  })(),
 );
 check(
   "A16 非首个面板 SSR 就带 is-hidden（首屏只露第 0 个，不等 JS）",
   stripHtml.includes("th:classappend=\"${st.index != 0 ? ' is-hidden' : ''}\""),
+);
+check(
+  "A16b 面板 aria-labelledby 恒可解析：多系列指向 tab，单系列兜底到段头标题（否则 axe 报 dangling reference）",
+  // tablist 有 th:if="size > 1" ⇒ 单系列时页面没有 #series-tab-0。面板若无条件引用它，
+  // 就是「指向不存在元素」的 ARIA 引用（axe 硬性违规）。兜底目标必须是**恒存在**的节点。
+  (() => {
+    const m = /th:aria-labelledby="([^"]*)"/.exec(stripHtml);
+    return (
+      !!m &&
+      m[1].includes("'series-tab-' + st.index") &&
+      m[1].includes("series-strip-title") &&
+      stripHtml.includes('id="series-strip-title"')
+    );
+  })(),
+  (/(th:aria-labelledby="[^"]*")/.exec(stripHtml) || [])[1] ||
+    "未找到 th:aria-labelledby",
+);
+check(
+  "A16c 面板不再无条件写 aria-labelledby=（旧写法在单系列下是悬空引用；且三元里禁套 |…|）",
+  !stripHtml.includes('th:aria-labelledby="|series-tab-${st.index}|"') &&
+    !/th:aria-labelledby="\$\{[^"]*\$\{/.test(stripHtml),
+  (/(th:aria-labelledby="[^"]*")/.exec(stripHtml) || [])[1] ||
+    "未找到 th:aria-labelledby",
 );
 check(
   "A17 卡片渲染在面板的横向轨道里（viewport 先于 card 出现）",
@@ -355,6 +413,51 @@ if (cssChunks.length === 1) {
     })(),
     `tabs@${stripHtml.indexOf("series-strip__tabs")} navs@${stripHtml.indexOf("series-strip__navs")}`,
   );
+
+  // ---- 1.5.37：滚动真相源 / 焦点环容身空间 / 减动效收口 ----
+  check(
+    "A22i 视口不声明 scroll-behavior（scrollBy({behavior:'auto'}) 的语义是「沿用计算值」⇒ CSS 写 smooth 会让减动效静默失效）",
+    !/scroll-behavior/.test(blockOf(".series-strip__viewport")),
+    blockOf(".series-strip__viewport").slice(0, 200),
+  );
+  check(
+    "A22j 轨道内距 ≥ 4px（卡片焦点环 2px 描边 + 2px offset，小于 4px 会被滚动容器裁掉）",
+    /--series-edge:\s*(?:[4-9]px|1[0-9]px)/.test(blockOf("#series-strip")) ||
+      /--series-edge:\s*calc\(/.test(blockOf("#series-strip")),
+    blockOf("#series-strip").slice(0, 180),
+  );
+  check(
+    "A22k tabs 容器 padding + 等量负 margin（缺 padding 切环 / 缺 margin 撑高段头并吃掉视觉间距）",
+    (() => {
+      const pad = /padding:\s*(-?[0-9.]+)px/.exec(tabsBlock);
+      const mar = /margin:\s*(-[0-9.]+)px/.exec(tabsBlock);
+      return (
+        !!pad &&
+        !!mar &&
+        Number(pad[1]) >= 4 &&
+        Number(mar[1]) === -Number(pad[1])
+      );
+    })(),
+    tabsBlock.slice(0, 240),
+  );
+  check(
+    "A22l 减动效收口已进产物（transition:none!important + hover/focus 位移归零）",
+    // ⚠️ 本页 CSS 分块里可能还并入了 FeaturedCards 等组件的 reduce 块 ⇒ 不能只看第一处
+    //    prefers-reduced-motion，要按「.series-strip-* 出现在同一个 reduce 块里」来判。
+    [
+      ...css.matchAll(/@media\s*\(?\s*prefers-reduced-motion:\s*reduce\s*\)?/g),
+    ].some((m) => {
+      const chunk = css.slice(m.index, m.index + 1200);
+      return (
+        /transition:\s*none\s*!important/.test(chunk) &&
+        /\.series-strip-card[^{]*\{[^}]*transform:\s*none\s*!important/.test(
+          chunk,
+        )
+      );
+    }),
+    (css.match(/prefers-reduced-motion/g) || []).length + " 处",
+  );
+
   const users = [];
   for (const f of fs.readdirSync(tplDir)) {
     if (!f.endsWith(".html")) continue;
@@ -455,6 +558,26 @@ check(
     settings.includes("在首页精选卡片上方显示系列卡"),
 );
 
+// settings 里声明了的字段，TypeScript 侧的 PostList 也必须声明 —— 否则模板里
+// `theme.config?.layout?.postList?.seriesEnable` 在 astro check 下是隐式 any / 报错。
+// （src/ 不进发布包，但它是「三处一致」的第三处，漏了会慢慢漂移。）
+const cfgTypes = read(path.join(repoRoot, "src", "types", "config.ts"));
+check(
+  "B10 PostList 类型补齐 settings.yaml 已声明的字段（series / featured / homeMoments）",
+  [
+    "showHomeMoments",
+    "homeMomentsCount",
+    "featuredEnable",
+    "featuredSource",
+    "featuredRandom",
+    "seriesEnable",
+    "seriesCount",
+  ].every((k) => new RegExp(`\\b${k}\\?:`).test(cfgTypes)),
+  ["showHomeMoments", "seriesEnable", "seriesCount"]
+    .filter((k) => !new RegExp(`\\b${k}\\?:`).test(cfgTypes))
+    .join(","),
+);
+
 // ================== [C] 行为脚本 ==================
 console.log("\n[C] 行为脚本（迷你 DOM 跑真产物 js）");
 
@@ -468,6 +591,10 @@ try {
     String(e.message).slice(0, 120),
   );
 }
+check(
+  "C1b 产物 js 不再写 data-series-at-end（1.5.37 判定为死属性：CSS/脚本/页面全仓无消费方）",
+  !js.includes("data-series-at-end"),
+);
 
 /** 只支持本用例用到的选择器：tag / .class / #id / [attr] */
 function match(el, sel) {
@@ -736,10 +863,6 @@ const tix = (t) => t.getAttribute("tabindex");
   check(
     "C4 初始停在左头 ⇒ ‹ 置灰、› 可用（不是整块隐藏）",
     strip.prev.disabled === true && strip.next.disabled === false,
-  );
-  check(
-    "C4b 箭头状态镜像到 data-series-at-end（供样式/埋点用）",
-    strip.navs.getAttribute("data-series-at-end") === "0",
   );
 
   // ---- 箭头步进 ----

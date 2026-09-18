@@ -77,7 +77,9 @@ const MAX_POSTS_PER_SERIES = 30;
               + viewport 顶内距 6px = 卡片上方 75px 空白，比主题任何区块间距都宽一倍
               （2026-09-18 LQ 圈出）。并成一行后只剩 6px + 6px。 -->
       <div class="series-strip__head">
-        <h2 class="series-strip__title">
+        <!-- ⚠️ 这个 id 是「只有一个系列」时面板 aria-labelledby 的兜底目标（见下方 panel）。
+             那个分支下 tablist 不渲染 ⇒ 不能引用 series-tab-N，但引用必须解析得到。 -->
+        <h2 class="series-strip__title" id="series-strip-title">
           <span
             class="icon-[material-symbols--layers] text-[1.125rem] leading-none"
             aria-hidden="true"></span>
@@ -135,14 +137,20 @@ const MAX_POSTS_PER_SERIES = 30;
 
       <!-- 每个系列一个面板；首屏只显示第 0 个。
            ⚠️ 用 class 而不是 hidden 属性做显隐：`th:attr` 求值为 null 时 Thymeleaf 会写空属性
-              （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。 -->
+              （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。
+           ⚠️ aria-labelledby 必须**永远解析得到**：tablist 只在「系列数 > 1」时渲染
+              （见上方 th:if），所以单系列时页面里没有 `series-tab-0` —— 若无条件写
+              `|series-tab-${st.index}|`，就是一个指向不存在元素的 ARIA 引用（axe 硬性违规）。
+              故三元兜底到段头标题那个恒存在的 id。
+              🔴 别写成 `${cond ? |series-tab-${st.index}| : 'x'}` —— 那是 `${}` 套 `|…|` 再套
+                 `${}` 的嵌套雷区；用字符串拼接（SpEL 的 `+` 遇 String 走拼接）才是单层。 -->
       <div
         th:each="s, st : ${seriesList}"
         class="series-strip__panel"
         th:classappend="${st.index != 0 ? ' is-hidden' : ''}"
         role="tabpanel"
         th:id="|series-panel-${st.index}|"
-        th:aria-labelledby="|series-tab-${st.index}|"
+        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-' + st.index : 'series-strip-title'}"
         th:data-series-panel="${st.index}"
       >
         <!-- 横向轨道：SSR 渲染该系列的全部卡片，脚本只负责接线 -->
@@ -165,7 +173,12 @@ const MAX_POSTS_PER_SERIES = 30;
                 th:classappend="${#strings.isEmpty(post.cover) ? 'is-empty' : ''}"
               >
                 <!-- ⚠️ alt 空 + aria-hidden：标题就在同一张卡里，图片再念一遍会让读屏重复；
-                     链接的可访问名 = 标题 + 期号，够用。 -->
+                     链接的可访问名 = 标题 + 期号，够用。
+                     ⚠️ loading / fetchpriority 用 th:attr 而不是静态属性：只有「第一个系列的
+                     第一张卡」是首屏 LCP 候选，给它 eager + high；其余全部 lazy + auto
+                     （一条 30 张的轨道若整条 lazy，翻到后面会白闪；全 eager 又会跟正文抢带宽）。
+                     `th:attr` 里两个 `${}` 之间隔着 `,fetchpriority=` 这种非空白字符 ⇒ 合法；
+                     若写成两个紧邻 `${}`（中间只有空白）会被 Thymeleaf 解析器拒掉。 -->
                 <img
                   class="series-strip-card__img"
                   th:if="${not #strings.isEmpty(post.cover)}"
@@ -173,7 +186,7 @@ const MAX_POSTS_PER_SERIES = 30;
                   alt=""
                   aria-hidden="true"
                   th:with={imageSuffixThWith(COVER_WIDTH)}
-                  loading="lazy"
+                  th:attr="loading=${st.index == 0 and ps.index == 0 ? 'eager' : 'lazy'},fetchpriority=${st.index == 0 and ps.index == 0 ? 'high' : 'auto'}"
                   decoding="async"
                 />
                 <span class="series-strip-card__placeholder" aria-hidden="true">
@@ -217,7 +230,13 @@ const MAX_POSTS_PER_SERIES = 30;
         去掉它卡片宽度会退化成 0。 */
   #series-strip {
     --series-gap: 0.75rem;
-    --series-edge: 2px;
+    /* 轨道左右内距 = 卡片焦点环**唯一**的容身之处。
+       `.series-strip__track` 在 `.series-strip__viewport`（overflow-x: auto）内，而卡片
+       `:focus-visible` 的 outline 是「2px 描边 + outline-offset 2px」= 向边框盒外扩 4px；
+       padding-inline 小于 4px 时，滚动容器的裁剪边会把环切掉一半（2026-09-18 CDP 实测）。
+       5px = 4px 环 + 1px 取整余量。本值同时参与 `.series-strip-card` 的 100cqi 宽度算式
+       （2 * var(--series-edge)），改这一处即可，无需另动公式。 */
+    --series-edge: 5px;
     --series-visible: var(--series-visible-desktop, 4);
     width: 100%;
     min-width: 0;
@@ -268,7 +287,18 @@ const MAX_POSTS_PER_SERIES = 30;
     gap: 0.375rem;
     flex: 1 1 auto;
     min-width: 0;
+    /* 🔴 padding + 等量负 margin 是一组，缺一不可：
+       本容器是 overflow-x: auto 的滚动容器 ⇒ 它就是裁剪容器，会切掉 tab 的 :focus-visible
+       焦点环（outline 2px + offset 2px = 向外 4px），键盘操作时环看不见一半。
+       灌一圈 5px 内边距给环腾地方，再用等量负外边距把这 5px 从**布局占位**里扣回来
+       ⇒ 内容盒的位置与没加 padding 时完全一致，视觉零变化（只多 1px 取整余量）。
+       少写 padding 会切环；少写 margin 会把段头撑高 10px、并把视觉间距吃掉 5px。 */
+    padding: 5px;
+    margin: -5px;
     overflow-x: auto;
+    /* 显式写死纵向：CSS 规范规定 overflow-x/y 只要有一轴是 auto/scroll，另一轴的 visible
+       会被提升成 auto ⇒ 不写也照样裁剪，写出来是为了让「这里会裁」肉眼可见。 */
+    overflow-y: hidden;
     scrollbar-width: none;
     -ms-overflow-style: none;
   }
@@ -376,7 +406,13 @@ const MAX_POSTS_PER_SERIES = 30;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
+    /* 🔴 这里**绝不要**声明 `scroll-behavior: smooth` ——
+       `scrollBy({ behavior: 'auto' })` 的语义是「沿用元素**计算后的** scroll-behavior」，
+       不是「瞬时滚动」（CSSOM View 规范）。一旦在 CSS 里写死 smooth，脚本在
+       prefers-reduced-motion 分支传的 'auto' 依旧会平滑滚动，减动效偏好直接失效
+       （2026-09-18 CDP 实测：传 'auto' 仍平滑，scrollLeft 从 0 走到 120）。
+       所以让 JS 的 behavior 参数当**唯一真相源**：常规 'smooth'、减动效 'auto'。
+       本文件与 src/scripts/assets/series-strip.ts 的 go() 是一对，改一处要回看另一处。 */
     scrollbar-width: none;
     -ms-overflow-style: none;
     touch-action: pan-x pan-y;
@@ -403,7 +439,6 @@ const MAX_POSTS_PER_SERIES = 30;
         var(--series-visible)
     );
     flex: 0 0 var(--series-card-w);
-    flex-shrink: 0;
     width: var(--series-card-w);
     min-width: 0;
     box-sizing: border-box;
@@ -537,5 +572,23 @@ const MAX_POSTS_PER_SERIES = 30;
   }
   .series-strip-card:hover .series-strip-card__title {
     color: var(--primary);
+  }
+
+  /* ---------- 减少动态效果 ----------
+     与 FeaturedCards.astro / bangumi.css 同款收口：本组样式是**未分层(unlayered)**的全局样式，
+     优先级天然高于上游 `@layer components` ⇒ 这里加 `!important` 不是为压内部规则（选择器
+     已经够具体），而是防将来有人从外层把它盖掉。hover 上移必须一起关掉——只关 transition
+     会变成「瞬移 2px」，前庭敏感用户照样不适。 */
+  @media (prefers-reduced-motion: reduce) {
+    .series-strip-card,
+    .series-strip__tab,
+    .series-strip__nav,
+    .series-strip-card__title {
+      transition: none !important;
+    }
+    .series-strip-card:hover,
+    .series-strip-card:focus-visible {
+      transform: none !important;
+    }
   }
 </style>
