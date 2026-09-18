@@ -55,6 +55,8 @@ public class ThRenderProbe {
      * 结论直接影响模板写法：到底哪些访问会抛异常、哪些安静返回 null。
      */
     static void semantics(SpringTemplateEngine engine) {
+        // 挂主题 i18n：不挂的话下面每一条 #{…} 都只会渲染成 ??key_zh_CN??，等于白验。
+        engine.setMessageResolver(new I18n("../../i18n/zh_CN.properties"));
         Map<String, Object> m = map("present", "yes");
         List<Object> arr = new ArrayList<>();
         arr.add(map("a", 1));
@@ -133,12 +135,102 @@ public class ThRenderProbe {
                         d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 70));
             }
         }
+        // —— 2026-09-18 追加：featured-cards / series-strip 审查相关 ——
+        // 动机：FeaturedCards 的封面 <img> 写成 `th:src="${cond ? null : url}"`。
+        //      MEMORY 里记着「3.1.5 对求值为 null 的 th:src/th:href 不是删属性而是写空值
+        //      （href="" 点一下打当前页）」，但那条当初是**间接推断**的。这里用真引擎当场定论，
+        //      并顺带验证「等价修法」th:attr="src=${…}" 在 null 时到底删不删属性。
+        System.out.println("—— 属性求值 / 消息参数 / 裸 < 电池 ——");
+        Map<String, Object> m3 = map("v", "VAL");
+        ctx.setVariable("m3", m3);
+        List<Object> posts3 = new ArrayList<>();
+        posts3.add(map("title", "t1"));
+        posts3.add(map("title", "t2"));
+        ctx.setVariable("posts3", posts3);
+        String[][] battery3 = {
+            {"th:src 求值 null", "<img th:src=\"${nilStr}\" alt=\"\">"},
+            {"th:src 有值", "<img th:src=\"${m3.v}\" alt=\"\">"},
+            {"th:href 求值 null", "<a th:href=\"${nilStr}\">x</a>"},
+            {"th:attr src 求值 null", "<img th:attr=\"src=${nilStr}\" alt=\"\">"},
+            {"th:attr src 有值", "<img th:attr=\"src=${m3.v}\" alt=\"\">"},
+            {"th:attr 逗号分隔两参数", "<img th:attr=\"src=${m3.v},fetchpriority=${m3.v}\" alt=\"\">"},
+            {"th:attr 逗号分隔且都为 null", "<img th:attr=\"src=${nilStr},fetchpriority=${nilStr}\" alt=\"\">"},
+            {"消息参数内嵌 $", "<p th:text=\"#{seriesStrip.issue(${m3.v})}\">x</p>"},
+            {"消息 key 命中（字面量参）", "<p th:text=\"#{seriesStrip.issue(3)}\">x</p>"},
+            {"消息 key 命中（无参）", "<p th:text=\"#{featured.badge.recent}\">x</p>"},
+            {"消息 key 缺失", "<p th:text=\"#{no.such.key.zzz}\">x</p>"},
+            {"Elvis + 安全导航", "<p th:text=\"${nilStr ?: 'fallback'}\">x</p>"},
+            {"th:style 纯字面量管道", "<div th:style=\"|animation-delay: var(--x)|\">s</div>"},
+            {"嵌套 each 外层 st 可见", "<div th:each=\"a,st:${posts3}\"><span th:each=\"b,ps:${posts3}\" th:text=\"${st.index + '-' + ps.index}\"></span></div>"},
+            {"th:each 状态 st.count", "<div th:each=\"a,st:${posts3}\" th:text=\"${st.count}\"></div>"},
+            {"th:if 里裸小于号", "<div th:if=\"${1 < 4}\">LT</div>"},
+            {"classappend 三层嵌套三元", "<div th:classappend=\"${1 == 0 ? ' a' : (1 == 1 ? ' b' : ' c')}\">z</div>"},
+            {"th:if 里 &lt; 实体", "<div th:if=\"${1 &lt; 4}\">LT</div>"},
+        };
+        for (String[] c : battery3) {
+            try {
+                String out = engine.process(c[1], ctx).replaceAll("\\s+", " ").trim();
+                System.out.printf("  OK    %-26s → %s%n", c[0], clip(out, 110));
+            } catch (Throwable ex) {
+                Throwable d = ex;
+                while (d.getCause() != null && d.getCause() != d) d = d.getCause();
+                System.out.printf("  THROW %-26s → %s%n", c[0],
+                        d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 70));
+            }
+        }
         System.out.println("—— 电池结束 ——");
     }
 
     static String clip(String s, int n) {
         String t = s.replaceAll("\\s+", " ").trim();
         return t.length() > n ? t.substring(0, n) + " …" : t;
+    }
+
+    /**
+     * 极简 i18n resolver —— 直接读主题的 i18n/zh_CN.properties，支持 {0} 占位替换。
+     *
+     * 为什么必须有：**裸 SpringTemplateEngine 不认主题 i18n**（认的是 Halo 自己那套
+     * MessageResolver）。不挂这个的话，模板里每一处 `#{key}` 都会渲染成 `??key_zh_CN??`，
+     * 于是「消息表达式」这条线（`#{key(${var})}` 参数内嵌、缺 key 的降级形态）根本验不了。
+     * 挂上之后，`#{seriesStrip.issue(3)}` 才真的能验出「3 期」。
+     */
+    static class I18n implements org.thymeleaf.messageresolver.IMessageResolver {
+        private final java.util.Properties p = new java.util.Properties();
+
+        I18n(String file) {
+            try (java.io.Reader r = new java.io.InputStreamReader(
+                    new java.io.FileInputStream(file), StandardCharsets.UTF_8)) {
+                p.load(r);
+            } catch (Exception e) {
+                System.out.println("  ⚠️ i18n 未加载（" + file + "）：" + e.getMessage());
+            }
+        }
+
+        public String getName() {
+            return "I18n";
+        }
+
+        public Integer getOrder() {
+            return 0;
+        }
+
+        public String resolveMessage(org.thymeleaf.context.ITemplateContext ctx, Class<?> origin,
+                                     String key, Object[] params) {
+            String v = p.getProperty(key);
+            if (v == null) return null;
+            if (params != null) {
+                for (int i = 0; i < params.length; i++) {
+                    v = v.replace("{" + i + "}", String.valueOf(params[i]));
+                }
+            }
+            return v;
+        }
+
+        /** 返回 null ⇒ 交给 Thymeleaf 用默认的 `??key_locale??` 表示（正好用来验证缺 key 的形态） */
+        public String createAbsentMessageRepresentation(org.thymeleaf.context.ITemplateContext ctx,
+                                                        Class<?> origin, String key, Object[] params) {
+            return null;
+        }
     }
 
     public static void main(String[] args) throws Exception {

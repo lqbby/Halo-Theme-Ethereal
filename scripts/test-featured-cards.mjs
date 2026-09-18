@@ -42,6 +42,15 @@ const themeRoot = fs.existsSync(path.join(tplDir, "..", "i18n"))
 
 const code = fs.readFileSync(target, "utf8");
 
+/**
+ * 转盘脚本的**源码**（不是产物）：焦点管理 / 串行加载这类「写法本身即契约」的断言必须看源码
+ * —— 产物会被压缩，字符串断言会被压碎。路径基准是 themeRoot。
+ */
+const carouselSrc = (() => {
+  const p = path.join(themeRoot, "src/scripts/assets/_random-post-carousel.ts");
+  return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
+})();
+
 const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
 const flush = async (n = 8) => {
   for (let i = 0; i < n; i++) await new Promise((r) => setTimeout(r, 0));
@@ -605,7 +614,42 @@ console.log(`产物目录：${tplDir}\n`);
     "右卡是 <a>（整卡可点），th:each 取前 4 篇",
     /<a[^>]*class="featured-card featured-card--post"/.test(idx) &&
       idx.includes('th:each="fcPost, fcStat : ${fcItems}"') &&
-      idx.includes("fcStat.index &lt; 4"),
+      // ⚠️ 刻意写成 `not (… >= 4)` 而不是 `… < 4`，跟 SeriesStrip 统一（免得以后有人误以为
+      //    `<` 更危险）。这里必须容两种形态：**静态属性**里 Astro 会把 `>` 转义成 `&gt;`
+      //    （2026-09-18 看产物定论：源码 `>=` ⇒ 产物 `&gt;=`），astoparser 会还原，照样能跑。
+      //    ⚠️ 别拿 SeriesStrip 那处对比：它是 **Astro 模板表达式**（th:if={`…`}），
+      //       走 JS 字符串那条路，`>` **不转义** —— 只有静态属性才转义。
+      /not \(fcStat\.index (&gt;=|>=) 4\)/.test(idx) &&
+      !/fcStat\.index &lt; 4/.test(idx),
+  );
+  check(
+    '封面 <img> 走 th:attr 而不是 th:src（真机实测：th:src 求值 null 写出 src="" 会打当前页）',
+    // 正负都用**完整表达式**匹配，避免误伤别处的 th:src
+    idx.includes(
+      'th:attr="src=${#strings.isEmpty(fcPost.spec.cover) ? null : fcPost.spec.cover + suffix}"',
+    ) &&
+      !idx.includes(
+        'th:src="${#strings.isEmpty(fcPost.spec.cover) ? null : fcPost.spec.cover + suffix}"',
+      ),
+  );
+  check(
+    "转盘声明了 aria-modal 就得真管焦点：可聚焦容器 + 主动 focus + 拦 Tab + 取消时归还",
+    carouselSrc.includes("overlay.tabIndex = -1") &&
+      carouselSrc.includes("overlay.focus()") &&
+      carouselSrc.includes('e.key === "Tab"') &&
+      carouselSrc.includes("lastFocus.focus()") &&
+      // 命中的分支不能还焦点：紧接着就是 Swup 换页，还焦点会把页面拽回原位
+      carouselSrc.includes("if (\n        !completed &&"),
+  );
+  check(
+    "转盘封面是真串行（下一张在 onload/onerror 里才排）且目标篇优先加载",
+    carouselSrc.includes("var loadOrder = [target]") &&
+      carouselSrc.includes("img.onerror = next;") &&
+      carouselSrc.includes("next();") &&
+      // 旧写法 = 假串行：src 之后立刻排下一帧，10 帧内把 10 张全发出去
+      !/img\.src = url;\s*rafImages = requestAnimationFrame\(loadNext\);/.test(
+        carouselSrc,
+      ),
   );
   check(
     "‹ › 换档箭头在产物里（带 aria-label 走 i18n）",

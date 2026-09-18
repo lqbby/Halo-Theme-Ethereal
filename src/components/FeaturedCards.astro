@@ -153,7 +153,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     <div class="featured-stack">
       <a
         th:each="fcPost, fcStat : ${fcItems}"
-        th:if="${fcStat.index < 4}"
+        th:if="${not (fcStat.index >= 4)}"
         class="featured-card featured-card--post"
         href="/"
         th:href="@{${fcPost.status.permalink}}"
@@ -184,9 +184,15 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
               ></span>
             </span>
           </span>
+          <!-- ⚠️🔴 必须用 th:attr 而不是 th:src —— 真机实测（scripts/tools/ThRenderProbe.java 的语义电池）：
+               Thymeleaf 3.1.5 对求值为 null 的 th:src **不是删属性，而是写出 `src=""`**，
+               浏览器会把空 src 当成「当前页 URL」再请求一次（Chrome 行为）；
+               th:attr 在求值为 null 时才真的删掉属性（同一次电池里验证过）。
+               无封面的文章走的就是这个 null 分支 ⇒ 用 th:src 会白发一次当前页请求。
+               th:with(4) 早于 th:attr(5) ⇒ 这里读得到 suffix。 -->
           <img
             class="featured-img"
-            th:src="${#strings.isEmpty(fcPost.spec.cover) ? null : fcPost.spec.cover + suffix}"
+            th:attr="src=${#strings.isEmpty(fcPost.spec.cover) ? null : fcPost.spec.cover + suffix}"
             th:alt="${fcPost.spec.title}"
             th:with={imageSuffixThWith("800")}
             loading="eager"
@@ -859,6 +865,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     .featured-arrow,
     .featured-title,
     .featured-star,
+    .featured-nav,
     .featured-random-action {
       transition: none !important;
     }

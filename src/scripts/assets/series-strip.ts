@@ -171,6 +171,33 @@
       sync();
     };
     sync();
+
+    // 预热非当前面板的**首张**封面。
+    // 根因：非当前面板是 `display: none`，其中的 `<img loading="lazy">` 浏览器根本不会加载
+    // （没有布局 ⇒ 永远“不在视口内”）；切到那个系列的瞬间图片才从零开始请求 ⇒ 卡片白闪。
+    // 只预热每个面板的第一张（成本 = 系列数，通常 < 5 张），走浏览器缓存、不跟首屏抢带宽。
+    function warmup() {
+      // 预热纯粹是优化：宿主环境没有 Image 就跳过（回归测试的迷你 DOM 就没有）
+      if (typeof Image !== "function") return;
+      for (var k = 0; k < panels.length; k++) {
+        if (k === active) continue;
+        var img = panels[k].querySelector(".series-strip-card__img");
+        var src = img && img.getAttribute("src");
+        if (src) {
+          var pre = new Image();
+          pre.src = src;
+        }
+      }
+    }
+    // ⚠️ 用**全局** setTimeout 而不是 window.setTimeout：本脚本会被回归测试在迷你 DOM 里 eval，
+    //    那个 stub window 只实现了少数 API，`window.setTimeout` 不存在 ⇒ 会直接抛
+    //    「window.setTimeout is not a function」把整个 enhance 打断（2026-09-18 实测）。
+    //    两个降级都没得用就算了 —— 预热失败不影响任何功能。
+    if (typeof window.requestIdleCallback === "function") {
+      window.requestIdleCallback(warmup);
+    } else if (typeof setTimeout === "function") {
+      setTimeout(warmup, 1200);
+    }
   }
 
   function init() {

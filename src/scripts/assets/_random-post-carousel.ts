@@ -189,7 +189,17 @@ export function openRandomPostCarousel(opts) {
   var locked = false;
   var lastTitleIndex = -1;
   var closing = false;
-  var imageCursor = 0;
+  // 封面加载顺序：目标篇排第一 —— 锁定那一刻它必须已经就位，否则中签的那张面是纯色块。
+  // 其余按 slot 顺序排在后头，仍是一张接一张（见 loadNext）。
+  var loadOrder = [target];
+  for (var lo = 0; lo < n; lo += 1) {
+    if (lo !== target) loadOrder.push(lo);
+  }
+  var loadCursor = 0;
+
+  // 焦点管理：声明了 aria-modal="true" 就必须真的把焦点圈进来。
+  // 转盘里没有可聚焦元素，所以策略是「聚焦容器自己 + 拦掉 Tab + 关闭后归还」。
+  var lastFocus = document.activeElement;
 
   function paintRing() {
     ring.style.transform =
@@ -203,12 +213,14 @@ export function openRandomPostCarousel(opts) {
     title.textContent = (slots[idx] && slots[idx].title) || "";
   }
 
-  // 封面按需顺序加载（一次只解析一张，避免 10 张同时解码卡住主线程）
+  // 封面按需顺序加载：一次只解析一张，避免 10 张同时解码卡住主线程。
+  // 🔴 「串行」必须靠 onload/onerror 驱动 —— 在 `img.src = url` 之后立刻排下一帧是**假的串行**
+  //    （等于 10 帧 ≈166ms 内把 10 张全发出去，注释说的保护根本没生效）。
   function loadNext() {
-    if (!alive || imageCursor >= slots.length) return;
-    var it = slots[imageCursor];
-    imageCursor += 1;
-    if (!it.src) {
+    if (!alive || loadCursor >= loadOrder.length) return;
+    var it = slots[loadOrder[loadCursor]];
+    loadCursor += 1;
+    if (!it || !it.src) {
       rafImages = requestAnimationFrame(loadNext);
       return;
     }
@@ -220,10 +232,17 @@ export function openRandomPostCarousel(opts) {
       it.front.style.backgroundImage = 'url("' + url + '")';
       it.back.style.backgroundImage = 'url("' + url + '")';
     };
-    img.onload = apply;
-    img.onerror = apply;
+    var next = function () {
+      if (!alive) return;
+      rafImages = requestAnimationFrame(loadNext);
+    };
+    img.onload = function () {
+      apply();
+      next();
+    };
+    // 加载失败就跳过（不 apply）：把坏 URL 写进 background-image 只会让浏览器再 404 一次
+    img.onerror = next;
     img.src = url;
-    rafImages = requestAnimationFrame(loadNext);
   }
 
   function lockIn() {
@@ -275,7 +294,10 @@ export function openRandomPostCarousel(opts) {
     if (e.key === "Escape") {
       e.preventDefault();
       close(false);
+      return;
     }
+    // 转盘里没有可聚焦元素：不拦 Tab，焦点就会从 aria-modal 逃到背后的页面内容上
+    if (e.key === "Tab") e.preventDefault();
   }
 
   /** @param {boolean} completed 命中后关闭 = true；用户取消 = false */
@@ -292,6 +314,20 @@ export function openRandomPostCarousel(opts) {
     window.setTimeout(function () {
       if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
       document.body.classList.remove("random-post-open");
+      // 只在「取消」时归还焦点：命中的话紧接着就是 Swup 换页，
+      // 还焦点会把刚滚到顶部的页面又拽回原来的位置。
+      if (
+        !completed &&
+        lastFocus &&
+        document.contains(lastFocus) &&
+        typeof lastFocus.focus === "function"
+      ) {
+        try {
+          lastFocus.focus();
+        } catch (e) {
+          /* 目标已不可聚焦：忽略 */
+        }
+      }
       if (completed) done();
       else cancelled();
     }, 220);
@@ -299,6 +335,14 @@ export function openRandomPostCarousel(opts) {
 
   document.body.classList.add("random-post-open");
   document.body.appendChild(overlay);
+  // 容器自身可聚焦（tabindex=-1）+ 主动聚焦：配合 onKey 的 Tab 拦截，
+  // 焦点就被圈在对话框里 → 读屏不会跑到 aria-modal 之后的内容
+  overlay.tabIndex = -1;
+  try {
+    overlay.focus();
+  } catch (e) {
+    /* 环境不支持编程聚焦：忽略，不阻断转盘 */
+  }
   paintRing();
   paintTitle(null);
   window.addEventListener("resize", onResize);
