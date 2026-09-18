@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import swup from "@swup/astro";
 
 import { stripHtmlCommentsInDir } from "./scripts/strip-html-comments.mjs";
+import { minifyInlineScriptsInDir } from "./scripts/minify-inline-scripts.mjs";
 import {
   compileAssets,
   copyVendorAssets,
@@ -28,13 +29,19 @@ const themeVersion =
   (themeYaml.match(/^[ \t]*version:\s*["']?([^"'\r\n]+)["']?/m) ||
     [])[1]?.trim() || "0.0.0";
 
-// 构建完成后剥离产物 HTML 中的 <!-- --> 开发注释
+// 构建完成后：
+//  1) 剥离产物 HTML 中的 <!-- --> 开发注释
+//  2) 压缩产物 HTML 里的内联 <script>（去注释 + 折叠空白；页面模板逐页重复的
+//     内联脚本是发布包体积的大头，且 Astro 的 is:inline 原样输出、不做任何压缩）
+//     详情与保护规则见 scripts/minify-inline-scripts.mjs
 /** @type {import("astro").AstroIntegration} */
 const stripHtmlComments = {
   name: "strip-html-comments",
   hooks: {
     "astro:build:done": async ({ dir }) => {
-      await stripHtmlCommentsInDir(fileURLToPath(dir));
+      const out = fileURLToPath(dir);
+      await stripHtmlCommentsInDir(out);
+      await minifyInlineScriptsInDir(out);
     },
   },
 };
