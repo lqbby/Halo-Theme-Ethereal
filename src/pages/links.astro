@@ -83,16 +83,19 @@ import PageHeader from "../components/control/PageHeader.astro";
           color-mix(in oklab, var(--primary) 22%, transparent);
       }
       /* 胶囊激活态：与 FilterTab 激活样式一致（primary 底 + 反色文字）；
-         显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时「激活色」被顶掉 */
+         显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时「激活色」被顶掉。
+         ⚠️ 2 处坑（与 /portfolio 的 .pf-chip 同源，一起修）：
+         ① components.css 里「全屏透明 + 高级材质」的卡片磨砂带 `!important`，
+            分层 important 恒胜无层普通声明 ⇒ 激活底会被换成半透明白/黑、反色
+            文字整条看不见；已在那边选择器排除 `.is-active`。
+         ② 文字用 --on-primary 而非 #fff：主色亮度恒为 L .7/.75，白字约 2.3:1
+            不达 AA；--on-primary 语义即「主色之上的文字」，明暗都 >5:1，
+            故不再需要 `.dark` 反色补丁。 */
       .link-chip.is-active,
       .link-chip.is-active:hover {
         background: var(--primary);
-        color: #fff;
+        color: var(--on-primary);
         border-color: transparent;
-      }
-      .dark .link-chip.is-active,
-      .dark .link-chip.is-active:hover {
-        color: rgb(0 0 0 / 0.7);
       }
       /* 「点击刷新」的入场反馈：筛选后卡片重新出现时上移淡入。
          用独立动画名（而非复用 fade-in-up），以便再次点击时可靠重播 */

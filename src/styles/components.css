@@ -687,15 +687,29 @@
      采样，磨砂会在过渡动画期间暂时消失（淡入结束才"啪"地出现）。
      注意：不可用 .bg-(--card-bg) 通配——会命中 #post-list-container 等
      包装容器使其成为 backdrop root，内层卡片失效；也不可覆盖
-     .bg-(--primary)（分组控件选中态的主题色高亮） */
+     .bg-(--primary)（分组控件选中态的主题色高亮）
+     ⚠️ 同理排除 `.is-active`：/portfolio 的 .pf-chip、/links 的 .link-chip 用
+     **页面级无 layer 规则**（`.xx-chip.is-active { background: var(--primary) }`）
+     画选中态，普通声明挡不住本条 !important ⇒ 选中胶囊会丢掉主色底、只剩
+     原本的反色文字（亮色模式白字）⇒ **白字叠在白半透明底上整条不可见**
+     （暗色模式黑字叠黑底，同样不可见）。选中态属于「主色高亮」，本就该保持
+     实心，与 .bg-(--primary) 同一类，故一并排除。
+
+     ⭐ 同时重定义 --card-bg：本条只强制了**容器自身**的 background-color，
+     而各页大量「自绘面」（首页精选卡、/portfolio 的 .pf-card 与封面、
+     /about 的 .about-tile/.about-subnav/.about-stub-row、/blog-changelog 的
+     .cl-stat/.cl-milestone 等）写的是 `background: var(--card-bg)`。变量本身
+     没被改 ⇒ 它们仍解析到 :root 的**实心** white/黑 ⇒ 在磨砂卡里叠成一块块
+     实心色板，「不受透明影响」。令牌与容器实底色对齐后，这些派生面自然跟随
+     （color-mix 派生色也随 alpha 一起走，层次关系不变）。 */
   html[data-banner-display="transparent"]
     body.navbar-blur-enabled
     .card-base:not(.btn-regular):not(.bg-\(--primary\)),
   html[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
-      .bg-\(--primary\)
-    ),
+    .btn-card:not(.btn-regular):not(.is-active):not(
+      .floating-btn .btn-card
+    ):not(.bg-\(--primary\)),
   html[data-banner-display="transparent"] body.navbar-blur-enabled .float-panel,
   html[data-banner-display="transparent"] body.navbar-blur-enabled .navbar-blur,
   html[data-banner-display="transparent"]
@@ -704,6 +718,7 @@
     background-color: rgb(
       255 255 255 / var(--transparent-card-alpha, 0.6)
     ) !important;
+    --card-bg: rgb(255 255 255 / var(--transparent-card-alpha, 0.6));
   }
 
   :root.dark[data-banner-display="transparent"]
@@ -711,9 +726,9 @@
     .card-base:not(.btn-regular):not(.bg-\(--primary\)),
   :root.dark[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
-      .bg-\(--primary\)
-    ),
+    .btn-card:not(.btn-regular):not(.is-active):not(
+      .floating-btn .btn-card
+    ):not(.bg-\(--primary\)),
   :root.dark[data-banner-display="transparent"]
     body.navbar-blur-enabled
     .float-panel,
@@ -726,6 +741,7 @@
     background-color: rgb(
       0 0 0 / var(--transparent-card-alpha, 0.6)
     ) !important;
+    --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
   }
 
   /* 首页「精选两卡行」补漏：这排卡**不挂 .card-base**（自有 .featured-card 骨架，

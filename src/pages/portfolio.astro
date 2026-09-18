@@ -231,16 +231,20 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
   /* ── 筛选胶囊激活态（就地筛选，交互见 portfolio-filter.js） ──
      本块是「未分层」的作者样式，天然胜过 Tailwind @layer 里的 .btn-card 背景/hover，
      故激活态无需 !important；显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时
-     激活色被顶掉。 */
+     激活色被顶掉。
+     ⚠️ 但它挡不住 components.css 里「全屏透明 + 高级材质」那条卡片磨砂的
+     `background-color: … !important`（分层 important 恒胜无层普通声明）⇒ 选中胶囊
+     会丢掉主色底、只剩原本的反色文字（亮色模式白字叠在白半透明底上 = 整条看不见，
+     暗色模式黑字叠黑底同理）。已在那边选择器里排除 `.is-active` 解决。
+     ⭐ 文字用 --on-primary 而非 #fff：全站主色亮度恒为 L .7/.75（中亮），白字对比
+     仅约 2.3:1、不达 WCAG AA；--on-primary（L .25）语义即「主色之上的文字」，
+     与 .pf-tag--featured / 分类栏滑块 / DisplaySettings 选中态同一套，
+     亮暗两模式都 >5:1 ⇒ 原先的 `.dark` 反色补丁也不再需要。 */
   .pf-chip.is-active,
   .pf-chip.is-active:hover {
     background: var(--primary);
-    color: #fff;
+    color: var(--on-primary);
     border-color: transparent;
-  }
-  .dark .pf-chip.is-active,
-  .dark .pf-chip.is-active:hover {
-    color: rgb(0 0 0 / 0.7);
   }
 
   /* hidden 属性优先于组件自身 display：.pf-active / .pf-empty 都是 display:flex，
