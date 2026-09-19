@@ -295,35 +295,19 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
 
 <style is:global>
   /* ===== 顶部两卡行 =====
-     ⚠️ 列宽与各内距是参考站逐个量出来的，改一处要回看配平。
-     ★ 高度**故意偏离参考站**：参考站 148px，本站 200px —— 148px 压在本站 ≈915px 的主栏上
+     ⚠️ 列宽（3.5fr:6.5fr）与各内距是参考站逐个量出来的，改一处要回看配平。
+     ★ 高度**故意偏离参考站**：参考站 148px，本站 200px —— 148px 压在本站 915px 的主栏上
        又扁又弱，且比上方「系列」卡片条（≈178px）还矮，层级反了。
-     ★ 1.5.50 整页宽适配（本组件从主列内移到 #home-feature-region，横跨侧栏位置）：
-       容器从 ≈915px 变成 ≈1475px（三栏下约 1.6 倍），三处同步调整：
-         ① 列宽 3.5fr:6.5fr → **1fr:1fr**：仍是「两卡并排」。原比例在整页宽下会让右卡
-            涨到 ≈879px（13px 字号单行约 67 个汉字，明显超出卡片摘要的可读区间），
-            等宽后两张各 ≈732px（单行 ≈56 字），且右卡宽高比 ≈3.05:1 与改动前的
-            ≈2.94:1 基本一致 —— 卡片比例几乎不变，这是选等宽而不是 4:6 的核心理由。
-         ② 高度 `--featured-h` 200px → 240px（**仅桌面**，见下方 min-width 覆盖；
-            手机沿用 12.5rem —— 手机上两卡上下堆叠，不需要跟宽）。
-         ③ 右卡摘要 3 行 → 4 行、字号 0.8125rem → 0.875rem（宽卡配大字，把单行字数
-            拉回可读区间）；标题 1.125rem → 1.25rem；`.featured-body` 内距同比放大。
-       改 `--featured-h` / 列宽时仍须同步看下面三处，否则卡内会失衡：
-         · 左卡图标带 —— `.featured-random-tags-scroll` 的 margin-top 高度补偿（该规则里有推导，自动跟随）；
-         · 右卡卡体 —— `.featured-body` 的内距；
-         · 右卡摘要 —— 桌面行数（手机上仍是 2 行）。高度加了，文字量要跟上，不然卡内发空。 */
+       改 `--featured-h` 时必须同步看下面三处，否则卡内会失衡：
+         ① 左卡图标带 —— `.featured-random-tags-scroll` 的 margin-top 要做高度补偿（该规则里有推导）；
+         ② 右卡卡体 —— `.featured-body` 的内距放大；
+         ③ 右卡摘要 —— 桌面由 2 行放到 3 行（手机上仍是 2 行）。高度加了，文字量要跟上，不然卡内发空。 */
   .featured-row {
     --featured-h: 12.5rem; /* 200px（参考站是 9.25rem = 148px，本站故意加高，见块首注释）*/
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 3.5fr) minmax(0, 6.5fr);
     gap: 0.625rem;
     margin-bottom: 1rem;
-  }
-  /* 桌面：整页宽横带里的卡高（手机上保持 12.5rem —— 移动端两卡是上下堆叠的竖版） */
-  @media (min-width: 768px) {
-    .featured-row {
-      --featured-h: 15rem; /* 240px */
-    }
   }
   .featured-row.no-random {
     grid-template-columns: minmax(0, 1fr);
@@ -836,8 +820,8 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     display: flex;
     flex-direction: column;
     min-width: 0;
-    /* 卡高 148px → 200px → 240px（桌面整页宽）后同步放大的内距（见块首注释） */
-    padding: 1.15rem 1.35rem 1rem;
+    /* 卡高 148px → 200px 后同步放大的内距（见块首注释） */
+    padding: 1rem 1.1rem 0.9rem;
   }
   .featured-card--post[data-state="pending"] .featured-body {
     animation: featured-pulse 1.6s ease-in-out infinite;
@@ -874,7 +858,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     line-clamp: 1;
     overflow: hidden;
     padding-right: 1.6rem; /* 给右上角星标让位 */
-    font-size: 1.25rem;
+    font-size: 1.125rem;
     font-weight: 700;
     line-height: 1.3;
     color: var(--deep-text);
@@ -884,18 +868,16 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     color: var(--primary);
   }
   /* `margin: auto 0` 把摘要顶到中间，底行自然落到卡底（抄参考站的排版手法）。
-     桌面放 4 行（1.5.50 整页宽把卡高加到 240px 后，3 行会在宽卡里显空；4 行仍是上限
-     —— 再多就顶掉底栏了）。手机在下面的媒体查询里覆盖回 2 行。
-     字号 0.8125rem → 0.875rem：卡变宽后小字会让单行字数过多，放大字号把每行
-     拉回可读区间（≈56 个汉字/行）。 */
+     桌面放 3 行：卡高加到 200px 后，只放 2 行摘要会让上下各空 ≈30px（发空）；
+     3 行是上限 —— 再多就顶掉底栏了。手机在下面的媒体查询里覆盖回 2 行。 */
   .featured-excerpt {
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
     overflow: hidden;
     margin: auto 0;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     line-height: 1.5;
     color: color-mix(in oklab, var(--deep-text) 68%, transparent);
   }

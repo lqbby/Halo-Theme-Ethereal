@@ -100,12 +100,6 @@ export default defineConfig({
         "#toc-container",
         "#right-sidebar",
         "#toc-popup",
-        // 首页内容横带（系列行 + 双卡行，1.5.50）：主内容列**之外**的整页宽区域，
-        // 必须在每个页面都存在（MainGridLayout 无条件输出空容器，内容靠编译期
-        // isHomePage + 运行期 posts.page == 1 双层门控）—— 作为容器而非持久元素，
-        // 是为了让「文章页 → 首页」的换页能自动把内容换回来（持久元素做不到：
-        // 进入文章页时该区域是空的，Swup 不重建容器外的 DOM ⇒ 回首页会缺块）。
-        "#home-feature-region",
       ],
       // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"）：app.ts 在
       // content:scroll 接管并调用 window.scrollTo 原生平滑，插件的

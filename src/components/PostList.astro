@@ -1,5 +1,7 @@
 ---
 import Pagination from "./control/Pagination.astro";
+import FeaturedCards from "./FeaturedCards.astro";
+import SeriesStrip from "./SeriesStrip.astro";
 import PostCard from "./PostCard.astro";
 import {
   postListContainerClass,
@@ -10,17 +12,31 @@ import {
 
 interface Props {
   pagination?: string;
+  /** 是否在列表上方渲染「两卡行」（随机一篇文章 + 热门/最近文章）。仅首页传 true。 */
+  featured?: boolean;
 }
 
-const { pagination = "posts" } = Astro.props;
+const { pagination = "posts", featured = false } = Astro.props;
 ---
 
-<!-- ⚠️ 1.5.50：原先挂在本组件顶部的「系列条 + 两卡行」已迁出，改由
-     MainGridLayout 的 #home-feature-region 承载（整页宽、位于走马灯之下、
-     #main-grid 之前），两处门控语义不变（后台开关 + 首页第一页）。
-     迁出原因：它们要横跨侧栏位置，而本组件始终在 #swup-container 的主列内，
-     出不去（详见 layout 里那段注释）。改这两块的位置/宽度请去那里，别在本组件里
-     再渲染一份 —— 会重复出现两次。 -->
+<!-- 首页「系列」卡片条（1.5.32 新增，1.5.33 提到两卡行之上）：显示系列的全部文章，
+     一排四个、可点箭头右移，并带系列切换按钮。自带完整门控（插件版本 / 后台开关 /
+     首页第一页 / 空态），与下方精选卡互不影响：精选卡关掉时本组件仍按自己的
+     seriesEnable 决定显隐。 -->{
+  featured && <SeriesStrip />
+}
+
+{
+  featured && (
+    <div
+      class="contents"
+      th:if="${(theme.config?.layout?.postList?.featuredEnable == null or theme.config?.layout?.postList?.featuredEnable) and posts.page == 1}"
+    >
+      <FeaturedCards />
+    </div>
+  )
+}
+
 <div
   id="post-list-container"
   th:with={postListContainerThWith()}

@@ -152,10 +152,9 @@ check(
     ),
 );
 check(
-  "A7 可见数写在 section 的 style 上（桌面 7 / 平板 3 / 手机 2）",
-  // ⚠️ 1.5.50 起整页宽 ⇒ 容器宽度翻倍，桌面可见数 5 → 7（维持卡宽 ≈184px 的密度）。
+  "A7 可见数写在 section 的 style 上（桌面 5 / 平板 3 / 手机 2）",
   index.includes(
-    "--series-visible-desktop:7;--series-visible-tablet:3;--series-visible-mobile:2",
+    "--series-visible-desktop:5;--series-visible-tablet:3;--series-visible-mobile:2",
   ),
 );
 check(
@@ -313,21 +312,12 @@ check(
   `series=${index.indexOf('id="series-strip"')} featured=${index.indexOf('id="featured-cards"')}`,
 );
 
-/** 承载系列条样式的外链分块（含容器查询几何常量），且引用它的每一页哈希一致。
- *
- * ⚠️⚠️ 分块名取决于「**谁渲染这个组件**」——Astro 把组件级 `<style is:global>` 归到
- * 渲染它的那个 .astro 模块的 CSS chunk 上：
- *   · 1.5.49 及以前：`<SeriesStrip />` 在 `PostList.astro` 里 ⇒ 落 `PostList.<hash>.css`
- *   · 1.5.50 起： 两块横带搬进 `MainGridLayout.astro` ⇒ 落 `MainGridLayout.<hash>.css`
- * 所以必须**按内容**定位，写死文件名会在「组件搬家」那一轮集体假失败。 */
+/** PostList 样式分块：含容器查询几何常量，且引用它的每一页哈希一致 */
 const cssChunks = fs
   .readdirSync(path.join(tplDir, "assets"))
-  .filter((f) => f.endsWith(".css"))
-  .filter((f) =>
-    read(path.join(tplDir, "assets", f)).includes(".series-strip-card"),
-  );
+  .filter((f) => /^PostList\..*\.css$/.test(f));
 check(
-  "A19 承载系列条样式的分块存在且只有一份",
+  "A19 PostList 样式分块存在且只有一份",
   cssChunks.length === 1,
   cssChunks.join(","),
 );
@@ -469,19 +459,18 @@ if (cssChunks.length === 1) {
   );
 
   const users = [];
-  const chunkRe = new RegExp(
-    cssChunks[0].replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-  );
   for (const f of fs.readdirSync(tplDir)) {
     if (!f.endsWith(".html")) continue;
-    const m = chunkRe.exec(read(path.join(tplDir, f)));
+    const m = new RegExp(`PostList\\.[A-Za-z0-9_-]+\\.css`).exec(
+      read(path.join(tplDir, f)),
+    );
     if (m) users.push([f, m[0]]);
   }
   const uniq = new Set(users.map((u) => u[1]));
   check(
-    "A23 引用该样式分块的每一页都是同一个哈希（改 CSS 后旧哈希会变孤儿）",
-    uniq.size === 1 && users.length > 0,
-    `pages=${users.length} hashes=${[...uniq].join(",")}`,
+    "A23 引用 PostList 样式的每一页都是同一个哈希（改 CSS 后旧哈希会变孤儿）",
+    uniq.size === 1 && uniq.has(cssChunks[0]),
+    [...uniq].join(","),
   );
 }
 

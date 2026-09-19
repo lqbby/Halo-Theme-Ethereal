@@ -5,8 +5,6 @@ import Footer from "../components/Footer.astro";
 import ImageWrapper from "../components/misc/ImageWrapper.astro";
 import Navbar from "../components/Navbar.astro";
 import HomeMoments from "../components/HomeMoments.astro";
-import SeriesStrip from "../components/SeriesStrip.astro";
-import FeaturedCards from "../components/FeaturedCards.astro";
 import RightSideBar from "../components/widget/RightSideBar.astro";
 import SideBar from "../components/widget/SideBar.astro";
 import TOC from "../components/widget/TOC.astro";
@@ -412,44 +410,6 @@ const {
         th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable)}"
       >
         <HomeMoments />
-      </div>
-
-      <!-- 首页内容横带（1.5.50）：系列行 + 双卡行，整页宽（横跨侧栏位置），位于走马灯
-           之下、#main-grid 之前 ⇒ 左右侧栏的起始行被整体下压到「分类栏」那一行
-           （与改动前「侧栏顶对齐分类栏」的关系一致，只是整体低了两条横带的高度）。
-           ⚠️ 本容器必须**无条件输出**（Swup 容器契约：每个页面都要存在），内容靠
-           ① 编译期 isHomePage —— 只有首页模板输出内容，归档/分类/标签页即使
-              posts.page == 1 也不会长出这两块（它们的数据源同样是 posts）；
-           ② 运行期 posts.page == 1 —— 首页第 2 页起不渲染。
-           ⚠️ 它在 #swup-container 之外但已注册为 Swup 容器（astro.config 的 containers）
-           ⇒ 换页时随新页面 HTML 一起替换：非首页自动清空、回首页自动填充，不需要
-           任何 JS 兜底（这正是「持久元素」方案做不到的：进入文章页时该区域是空的，
-           Swup 不重建容器外的 DOM，回首页就会缺块）。
-           ⚠️ 两个组件的门控/取数逻辑保持原样：SeriesStrip 自带插件版本 + 后台开关 +
-           首页第一页门控；FeaturedCards 的后台开关 + 首页第一页门控在下面这层 div 上。
-           ⚠️ banner 下推（1.5.51 补）：横幅/全屏模式下 #main-grid 与 .moment-marquee-anchor
-           都会 translateY(--banner-height-extend)，本容器**也必须同速下推**，否则会
-           被下推后的走马灯压住、且与网格之间多出整段空白。规则写在 global.css 的
-           is-home.enable-banner 块里（用原生 transform，避开 swup 动画的 translate）。
-           下面这个 transition + duration 是让 banner 展开/收起时与走马灯同步，
-           不写会在切换时"跳"一下。 -->
-      <div
-        id="home-feature-region"
-        class="pointer-events-auto px-0 transition-swup-fade transition duration-[var(--dur-banner,700ms)] md:px-4"
-      >
-        {
-          isHomePage && (
-            <>
-              <SeriesStrip />
-              <div
-                class="contents"
-                th:if="${(theme.config?.layout?.postList?.featuredEnable == null or theme.config?.layout?.postList?.featuredEnable) and posts != null and posts.page == 1}"
-              >
-                <FeaturedCards />
-              </div>
-            </>
-          )
-        }
       </div>
 
       <div
