@@ -43,6 +43,17 @@
     @apply translate-y-(--banner-height-extend);
   }
 
+  /* 首页两块横带（1.5.50 补）：系列行 + 双卡行，与 #main-grid / 瞬间走马灯
+     **同条件**随 banner 下推。漏这条的表现：横幅/全屏模式下这两条横带停在原处，
+     被下推后的瞬间走马灯压住（重叠），且与下推后的 #main-grid 之间多出整段空白。
+     ⚠️ 这里用**原生 transform** 而不是 Tailwind 的 `translate-y-*` utility：
+     本容器带 `.transition-swup-fade`，换页时 `html.is-animating` 会把
+     `--tw-translate-y` 覆写成 1rem（`@apply translate-y-4`）。CSS 的 `translate`
+     属性与 `transform` 属性彼此独立、会叠加，所以 banner 位移不会被换页动画吃掉。 */
+  &.enable-banner #home-feature-region {
+    transform: translateY(var(--banner-height-extend));
+  }
+
   &.enable-banner #sidebar-sticky {
     @apply top-[calc(1rem-var(--banner-height-extend))];
   }

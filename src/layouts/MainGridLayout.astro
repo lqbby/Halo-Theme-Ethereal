@@ -427,11 +427,15 @@ const {
            Swup 不重建容器外的 DOM，回首页就会缺块）。
            ⚠️ 两个组件的门控/取数逻辑保持原样：SeriesStrip 自带插件版本 + 后台开关 +
            首页第一页门控；FeaturedCards 的后台开关 + 首页第一页门控在下面这层 div 上。
-           ⚠️ 写在 #home-moments-wrap 之后：#main-grid 的 translate-y（banner 模式）
-           只管网格自身，两条横带要跟走马灯同速下推，故不参与 main-grid 的位移。 -->
+           ⚠️ banner 下推（1.5.51 补）：横幅/全屏模式下 #main-grid 与 .moment-marquee-anchor
+           都会 translateY(--banner-height-extend)，本容器**也必须同速下推**，否则会
+           被下推后的走马灯压住、且与网格之间多出整段空白。规则写在 global.css 的
+           is-home.enable-banner 块里（用原生 transform，避开 swup 动画的 translate）。
+           下面这个 transition + duration 是让 banner 展开/收起时与走马灯同步，
+           不写会在切换时"跳"一下。 -->
       <div
         id="home-feature-region"
-        class="pointer-events-auto px-0 transition-swup-fade md:px-4"
+        class="pointer-events-auto px-0 transition-swup-fade transition duration-[var(--dur-banner,700ms)] md:px-4"
       >
         {
           isHomePage && (
