@@ -99,7 +99,8 @@
     .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
       .bg-\(--primary\)
     ),
-  :root.mods-card-shell .float-panel {
+  :root.mods-card-shell .float-panel,
+  :root.mods-card-shell .pager-strip {
     outline: 1px solid
       color-mix(in srgb, var(--primary) 14%, var(--line-divider));
     outline-offset: -1px;
@@ -114,7 +115,8 @@
     .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
       .bg-\(--primary\)
     ),
-  :root.dark.mods-card-shell .float-panel {
+  :root.dark.mods-card-shell .float-panel,
+  :root.dark.mods-card-shell .pager-strip {
     outline-color: color-mix(in srgb, var(--primary) 26%, var(--line-divider));
     box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 0.22);
   }
@@ -229,6 +231,62 @@
 
   .btn-card.disabled {
     @apply pointer-events-none text-black/10 dark:text-white/10;
+  }
+
+  /* ===== 分页：一体化分段控件（2026-09-19 重构）=====
+     旧版（mods-card-shell 开启时）：strip 是卡片底、每个数字又是 .btn-card、
+     两个 chevron 也是 .btn-card ⇒ 一排 5+ 个各自带描边+暗晕的「卡包卡」。
+     新版：一个容器（.pager-strip，外壳在上面 shell 段只加一次），内部按钮
+     透明、hover/active 才出底色；当前页保留主色胶囊。 */
+  .pager-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    border-radius: 0.5rem;
+    transition:
+      background-color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .pager-btn:hover {
+    background: var(--btn-card-bg-hover);
+  }
+  .pager-btn:active {
+    background: var(--btn-card-bg-active);
+    transform: scale(0.9);
+  }
+  .pager-btn-disabled {
+    pointer-events: none;
+    opacity: 0.25;
+  }
+  .pager-num-current {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    padding-inline: 0.375rem;
+    border-radius: 0.5rem;
+    background: var(--primary);
+    color: #fff;
+  }
+  :root.dark .pager-num-current {
+    color: rgb(0 0 0 / 0.7);
+  }
+  .pager-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    padding-inline: 0.25rem;
+    color: rgb(163 163 163 / 0.7);
+  }
+  :root.dark .pager-ellipsis {
+    color: #737373;
   }
 
   .btn-card-outline {

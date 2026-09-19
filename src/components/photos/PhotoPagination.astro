@@ -23,29 +23,29 @@ const pageWindow = `
 <nav
   th:if={hasPages}
   th:with={pageWindow}
-  class:list={[className, "flex flex-row justify-center gap-3"]}
+  class:list={[className, "flex flex-row justify-center"]}
   style={style}
   th:aria-label="#{pagination.label}"
   aria-label="Pagination"
 >
-  <a
-    th:href={prevUrl}
-    th:classappend={`\${not ${context}.hasPrevious() ? ' disabled' : ''}`}
-    th:aria-label="#{pagination.previous}"
-    class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
-  >
-    <span class="icon-[material-symbols--chevron-left-rounded] text-[1.75rem]"
-    ></span>
-  </a>
   <div
-    class="flex flex-row items-center rounded-lg bg-(--card-bg) font-bold text-neutral-700 dark:text-neutral-300"
+    class="pager-strip flex max-w-full items-center gap-1 overflow-x-auto rounded-2xl bg-(--card-bg) p-1 font-bold text-neutral-700 dark:text-neutral-300"
   >
+    <a
+      th:href={prevUrl}
+      th:classappend={`\${not ${context}.hasPrevious() ? ' pager-btn-disabled' : ''}`}
+      th:aria-label="#{pagination.previous}"
+      class="pager-btn text-(--primary)"
+    >
+      <span class="icon-[material-symbols--chevron-left-rounded] text-[1.5rem]"
+      ></span>
+    </a>
     <a
       th:if="${windowStart gt 1}"
       th:with="pageNumber=1, targetUrl=${photoUrl.list(currentGroup, pageNumber, pageSize)}"
       th:href="@{${targetUrl}}"
       th:aria-label="#{pagination.page(${pageNumber})}"
-      class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+      class="pager-btn"
     >
       1
     </a>
@@ -54,13 +54,13 @@ const pageWindow = `
       th:with="pageNumber=2, targetUrl=${photoUrl.list(currentGroup, pageNumber, pageSize)}"
       th:href="@{${targetUrl}}"
       th:aria-label="#{pagination.page(${pageNumber})}"
-      class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+      class="pager-btn"
     >
       2
     </a>
     <span
       th:if="${windowStart gt 3}"
-      class="icon-[material-symbols--more-horiz] mx-1"></span>
+      class="pager-ellipsis icon-[material-symbols--more-horiz]"></span>
 
     <span
       class="contents"
@@ -68,7 +68,8 @@ const pageWindow = `
     >
       <div
         th:if="${pageNumber == currentPage}"
-        class="flex h-11 w-11 items-center justify-center rounded-lg bg-(--primary) font-bold text-white dark:text-black/70"
+        aria-current="page"
+        class="pager-num-current"
         th:text="${pageNumber}"
       >
         1
@@ -78,7 +79,7 @@ const pageWindow = `
         th:with="targetUrl=${photoUrl.list(currentGroup, pageNumber, pageSize)}"
         th:href="@{${targetUrl}}"
         th:aria-label="#{pagination.page(${pageNumber})}"
-        class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+        class="pager-btn"
         th:text="${pageNumber}"
       >
         2
@@ -87,13 +88,13 @@ const pageWindow = `
 
     <span
       th:if="${windowEnd lt totalPages - 2}"
-      class="icon-[material-symbols--more-horiz] mx-1"></span>
+      class="pager-ellipsis icon-[material-symbols--more-horiz]"></span>
     <a
       th:if="${windowEnd == totalPages - 2}"
       th:with="pageNumber=${totalPages - 1}, targetUrl=${photoUrl.list(currentGroup, pageNumber, pageSize)}"
       th:href="@{${targetUrl}}"
       th:aria-label="#{pagination.page(${pageNumber})}"
-      class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+      class="pager-btn"
       th:text="${pageNumber}"
     >
       8
@@ -103,19 +104,20 @@ const pageWindow = `
       th:with="pageNumber=${totalPages}, targetUrl=${photoUrl.list(currentGroup, pageNumber, pageSize)}"
       th:href="@{${targetUrl}}"
       th:aria-label="#{pagination.page(${pageNumber})}"
-      class="btn-card h-11 w-11 overflow-hidden rounded-lg active:scale-[0.85]"
+      class="pager-btn"
       th:text="${pageNumber}"
     >
       9
     </a>
+
+    <a
+      th:href={nextUrl}
+      th:classappend={`\${not ${context}.hasNext() ? ' pager-btn-disabled' : ''}`}
+      th:aria-label="#{pagination.next}"
+      class="pager-btn text-(--primary)"
+    >
+      <span class="icon-[material-symbols--chevron-right-rounded] text-[1.5rem]"
+      ></span>
+    </a>
   </div>
-  <a
-    th:href={nextUrl}
-    th:classappend={`\${not ${context}.hasNext() ? ' disabled' : ''}`}
-    th:aria-label="#{pagination.next}"
-    class="btn-card h-11 w-11 overflow-hidden rounded-lg text-(--primary)"
-  >
-    <span class="icon-[material-symbols--chevron-right-rounded] text-[1.75rem]"
-    ></span>
-  </a>
 </nav>
