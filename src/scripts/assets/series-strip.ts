@@ -4,6 +4,9 @@
 // 参考站 daily.yybb.us 只有一条轨道（他只有一个系列），本站多一层「系列切换」：
 //   · 切换：点击 tab，或聚焦 tab 后按 ←/→/Home/End（WAI-ARIA tabs 的 roving tabindex 模式）；
 //     切换 = 给面板换 `is-hidden` class，不重新取数（全部面板都已在 SSR 渲染好）；
+//   · 「全部」面板（1.5.53 起是第 0 个且默认选中）：SSR 只能按「系列分组」输出 ⇒ 本脚本
+//     按每张卡的 `data-publish-time` 把它重排成「发布时间倒序」。排序是幂等的
+//     （`dataset.seriesSorted`），且必须在 sync() 之前跑（重排会改 scrollWidth）。
 //   · 箭头步进：步长 = 第 1 张与第 2 张卡 offsetLeft 之差（= 卡宽 + gap），比量
 //     getBoundingClientRect 更稳（不受 transform / 缩放影响）；
 //   · 箭头状态：按**当前面板**的 scrollLeft 边界置 `disabled`（到左头禁 ‹、到右头禁 ›）。
@@ -166,10 +169,44 @@
       { capture: true, passive: true },
     );
 
+    /** 「全部」面板里一张卡的发布时间（毫秒）；拿不到就当 0（排到末尾） */
+    function timeOf(card) {
+      var v = card.getAttribute && card.getAttribute("data-publish-time");
+      if (!v) return 0;
+      var t = Date.parse(v);
+      return isNaN(t) ? 0 : t;
+    }
+
+    /**
+     * 「全部」面板：把 SSR 按「系列分组」输出的卡片重排成**按发布时间倒序**（最新在前）。
+     * 为什么在这里排：Thymeleaf 的 `#lists` 只有自然序 sort()，没有 sortBy，跨系列合并
+     * 成一张扁平列表更是做不到 ⇒ 只能在客户端排。SSR 侧的分组顺序是刻意保留的兜底
+     * （脚本没跑时这条轨道照样有内容，只是未按时间排）。
+     * ⚠️ `appendChild` 对**已在文档里的节点**是「移动」而非复制 ⇒ 依次 append 即完成重排。
+     */
+    function sortAllPanel() {
+      var box = el.querySelector("[data-series-all]");
+      if (!box || box.dataset.seriesSorted === "1") return;
+      var track = box.querySelector("[data-series-track]");
+      if (!track) return;
+      var cards = [];
+      for (var i = 0; i < track.children.length; i++)
+        cards.push(track.children[i]);
+      if (cards.length > 1) {
+        cards.sort(function (a, b) {
+          return timeOf(b) - timeOf(a);
+        });
+        for (var k = 0; k < cards.length; k++) track.appendChild(cards[k]);
+      }
+      box.dataset.seriesSorted = "1";
+    }
+
     // 供 resize 复算（见下方文档级监听）
     el.__seriesSync = function () {
       sync();
     };
+    // 先排「全部」面板再算首屏状态：重排会改变 scrollWidth，箭头置灰要按排完的结果算
+    sortAllPanel();
     sync();
 
     // 预热非当前面板的**首张**封面。

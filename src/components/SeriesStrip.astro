@@ -37,10 +37,9 @@
  *    时间顺序倒推 `#lists.size(posts) - 下标`（插件对「未填序号」的排法是「按发布时间倒序」，
  *    所以 下标 0 = 最新 = 总篇数）。LQ 目前 8 篇文章都没填 `seriesOrder`，走的就是后一条。
  */
-import { imageSuffixThWith } from "../utils/image-suffix";
+import SeriesStripCard from "./SeriesStripCard.astro";
 
-/** 封面取图宽度（16:9 小卡，480 足够） */
-const COVER_WIDTH = "480";
+/** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
 /** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
 const VISIBLE_DESKTOP = 5;
 const VISIBLE_TABLET = 3;
@@ -97,16 +96,37 @@ const MAX_POSTS_PER_SERIES = 30;
           th:if="${#lists.size(seriesList) > 1}"
           th:aria-label="#{seriesStrip.tabsAria}"
         >
+          <!-- 「全部」：恒为第 0 个 tab 且**默认选中** —— 首个面板就是它，
+               里面是所有系列的文章合在一起、按发布时间倒序（见下方面板注释）。
+               ⚠️ 脚本靠「索引」把 tab 与 panel 对应（同步遍历两个 NodeList）⇒
+                  「全部」必须是 tab 列表和 panel 列表的**第一个**，系列的索引全部 +1。
+                  只要保持这个对齐，series-strip.ts 的切换逻辑一行都不用改。 -->
+          <button
+            type="button"
+            role="tab"
+            class="series-strip__tab btn-card"
+            id="series-tab-all"
+            data-series-tab="0"
+            aria-controls="series-panel-all"
+            aria-selected="true"
+            tabindex="0"
+            th:text="#{seriesStrip.all}"
+          >
+            全部
+          </button>
+          <!-- 各系列：索引从 1 起（0 让给「全部」）。
+               默认**永远不选中**（首屏一定是「全部」），所以 aria-selected / tabindex
+               直接写死，不开表达式 —— 少一层运行期求值，也不给 roving 留歧义。 -->
           <button
             th:each="s, st : ${seriesList}"
             type="button"
             role="tab"
             class="series-strip__tab btn-card"
-            th:id="|series-tab-${st.index}|"
-            th:data-series-tab="${st.index}"
-            th:aria-controls="|series-panel-${st.index}|"
-            th:aria-selected="${st.index == 0 ? 'true' : 'false'}"
-            th:tabindex="${st.index == 0 ? '0' : '-1'}"
+            th:id="|series-tab-${st.index + 1}|"
+            th:data-series-tab="${st.index + 1}"
+            th:aria-controls="|series-panel-${st.index + 1}|"
+            aria-selected="false"
+            tabindex="-1"
             th:text="${s.name}"
           >
             系列名
@@ -137,80 +157,70 @@ const MAX_POSTS_PER_SERIES = 30;
         </div>
       </div>
 
-      <!-- 每个系列一个面板；首屏只显示第 0 个。
-           ⚠️ 用 class 而不是 hidden 属性做显隐：`th:attr` 求值为 null 时 Thymeleaf 会写空属性
-              （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。
+      <!-- ⚠️ 用 class 而不是 hidden 属性做显隐：`th:attr` 求值为 null 时 Thymeleaf 会写空属性
+           （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。
            ⚠️ aria-labelledby 必须**永远解析得到**：tablist 只在「系列数 > 1」时渲染
-              （见上方 th:if），所以单系列时页面里没有 `series-tab-0` —— 若无条件写
-              `|series-tab-${st.index}|`，就是一个指向不存在元素的 ARIA 引用（axe 硬性违规）。
-              故三元兜底到段头标题那个恒存在的 id。
-              🔴 别写成 `${cond ? |series-tab-${st.index}| : 'x'}` —— 那是 `${}` 套 `|…|` 再套
-                 `${}` 的嵌套雷区；用字符串拼接（SpEL 的 `+` 遇 String 走拼接）才是单层。 -->
+           （见上方 th:if），所以单系列时页面里没有 `series-tab-*` —— 若无条件写
+           `|series-tab-…|`，就是一个指向不存在元素的 ARIA 引用（axe 硬性违规）。
+           故三元兜底到段头标题那个恒存在的 id。
+           🔴 别写成 `${cond ? |series-tab-${st.index}| : 'x'}` —— 那是 `${}` 套 `|…|` 再套
+              `${}` 的嵌套雷区；用字符串拼接（SpEL 的 `+` 遇 String 走拼接）才是单层。
+           🔴 `'series-tab-' + (st.index + 1)` 的括号不能省：SpEL 的 `+` 从左到右，
+              省了会先拼字符串再拼数字（"series-tab-0" + 1 = "series-tab-01"）。 -->
+
+      <!-- ① 「全部」面板：恒为第 0 个、首屏默认显示。
+           内容是**所有系列的文章合在一起**，SSR 按「系列分组」顺序输出，
+           由 series-strip.ts 在客户端按 `data-publish-time` 倒序重排成「最新发布优先」。
+           ⚠️ 为什么不在服务端排：Thymeleaf 的 `#lists` 只有自然序 `sort()`，没有 sortBy；
+              跨系列合并成一张扁平列表更是做不到（SpEL 没有 flatten）⇒ 只能客户端排。
+              SSR 侧保留「分组顺序」是刻意的：脚本没跑时这条轨道照样有内容（只是未按时间排）。
+           ⚠️ `data-series-all` 只是给脚本的**定位标记**（空属性即可），索引仍走
+              `data-series-panel="0"` —— 脚本靠索引对应 tab，别把它改成别的值。 -->
+      <div
+        class="series-strip__panel"
+        role="tabpanel"
+        id="series-panel-all"
+        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-all' : 'series-strip-title'}"
+        data-series-panel="0"
+        data-series-all
+      >
+        <div class="series-strip__viewport" data-series-viewport>
+          <div class="series-strip__track" data-series-track>
+            <!-- 外层遍历系列、内层遍历该系列文章 ⇒ 双层 each。
+                 外层用 `th:remove="tag"` 的 div 承载（项目惯用法，比 th:block 更可控）：
+                 这层 div 在 SSR 后会被剥掉，轨道里只剩一串 `<a>`。
+                 ⚠️ eager 只给「第一个系列的第一张」：`ap.index` 是**系列内**下标，
+                    直接拿它判会让每个系列的第一张都 eager（N 张抢首屏带宽）。 -->
+            <div th:each="al, als : ${seriesList}" th:remove="tag">
+              <SeriesStripCard
+                listVar="al.posts"
+                iter="ap"
+                eagerExpr="als.index == 0 and ap.index == 0"
+                limit={MAX_POSTS_PER_SERIES}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 各系列面板：索引从 1 起（0 让给「全部」），首屏全部 is-hidden。 -->
       <div
         th:each="s, st : ${seriesList}"
-        class="series-strip__panel"
-        th:classappend="${st.index != 0 ? ' is-hidden' : ''}"
+        class="series-strip__panel is-hidden"
         role="tabpanel"
-        th:id="|series-panel-${st.index}|"
-        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-' + st.index : 'series-strip-title'}"
-        th:data-series-panel="${st.index}"
+        th:id="|series-panel-${st.index + 1}|"
+        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-' + (st.index + 1) : 'series-strip-title'}"
+        th:data-series-panel="${st.index + 1}"
       >
         <!-- 横向轨道：SSR 渲染该系列的全部卡片，脚本只负责接线 -->
         <div class="series-strip__viewport" data-series-viewport>
           <div class="series-strip__track" data-series-track>
-            <!-- ⚠️ th:each 与 th:if 同层：each(2) 先于 if(3)，逐条判定。
-                 · 封顶写成 `not (ps.index >= N)` 而不是 `ps.index < N` —— `>` 会被 Astro
-                   转义成 `&gt;` 再由 attoparser 还原（实测可用），裸 `<` 在属性里更易踩坑。
-                 · permalink 拿不到就整卡不输出：th:href 求值为 null 时 Thymeleaf 写出 `href=""`
-                   （不是删属性！实测 3.1.5.RELEASE），空 href 点一下等于刷新当前页。 -->
-            <a
-              th:each="post, ps : ${s.posts}"
-              th:if={`\${not (ps.index >= ${MAX_POSTS_PER_SERIES}) and post.permalink != null}`}
-              class="series-strip-card card-base"
-              th:href="${post.permalink}"
-            >
-              <!-- 封面：无封面用主题色渐变 + 占位图标 -->
-              <span
-                class="series-strip-card__cover"
-                th:classappend="${#strings.isEmpty(post.cover) ? 'is-empty' : ''}"
-              >
-                <!-- ⚠️ alt 空 + aria-hidden：标题就在同一张卡里，图片再念一遍会让读屏重复；
-                     链接的可访问名 = 标题 + 期号，够用。
-                     ⚠️ loading / fetchpriority 用 th:attr 而不是静态属性：只有「第一个系列的
-                     第一张卡」是首屏 LCP 候选，给它 eager + high；其余全部 lazy + auto
-                     （一条 30 张的轨道若整条 lazy，翻到后面会白闪；全 eager 又会跟正文抢带宽）。
-                     `th:attr` 里两个 `${}` 之间隔着 `,fetchpriority=` 这种非空白字符 ⇒ 合法；
-                     若写成两个紧邻 `${}`（中间只有空白）会被 Thymeleaf 解析器拒掉。 -->
-                <img
-                  class="series-strip-card__img"
-                  th:if="${not #strings.isEmpty(post.cover)}"
-                  th:src="${post.cover + suffix}"
-                  alt=""
-                  aria-hidden="true"
-                  th:with={imageSuffixThWith(COVER_WIDTH)}
-                  th:attr="loading=${st.index == 0 and ps.index == 0 ? 'eager' : 'lazy'},fetchpriority=${st.index == 0 and ps.index == 0 ? 'high' : 'auto'}"
-                  decoding="async"
-                />
-                <span class="series-strip-card__placeholder" aria-hidden="true">
-                  <span
-                    class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
-                  ></span>
-                </span>
-                <!-- 期号胶囊：挂在封面左上角。order 优先，没填就按系列内时间倒推。 -->
-                <span
-                  class="series-strip-card__issue"
-                  aria-hidden="true"
-                  th:text="#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(s.posts) - ps.index})}"
-                  >第 1 期</span
-                >
-              </span>
-
-              <span class="series-strip-card__body">
-                <span class="series-strip-card__title" th:text="${post.title}"
-                  >文章标题</span
-                >
-              </span>
-            </a>
+            <SeriesStripCard
+              listVar="s.posts"
+              iter="ps"
+              eagerExpr="st.index == 0 and ps.index == 0"
+              limit={MAX_POSTS_PER_SERIES}
+            />
           </div>
         </div>
       </div>

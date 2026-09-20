@@ -1,0 +1,120 @@
+---
+/**
+ * 首页「系列」卡片条里的**一张卡片**（1.5.53 从 SeriesStrip.astro 抽出）。
+ *
+ * 抽出来的唯一理由：同一张卡要在**两处**渲染 ——
+ *   ① 各系列面板（该系列的全部文章）；
+ *   ② 「全部」面板（所有系列的文章合在一起，再按发布时间倒序）。
+ * 卡片结构 ~45 行，写两遍迟早会改漏一处。
+ *
+ * ⚠️⚠️ props 传的是 **Thymeleaf 表达式里的「变量名字面量」**，不是值：
+ * 本组件是 SSR 片段，卡片内容全靠运行期变量（`s.posts` / `post.xxx`），Astro 编译期
+ * 拿不到任何数据 ⇒ 只能把变量名当字符串拼进 `th:*` 属性。
+ *
+ * 🔴🔴 所有 `th:*` 的表达式都在 frontmatter 里用**普通字符串 `+` 拼接**生成，
+ *      **不要**写回 `th:x={\`...${a}...${b}...\`}` 的模板字符串形式：
+ *      `${}` 里再套 `${}` 会让 Astro 编译器在解析属性时炸
+ *      `Expected "in" but found "."`（2026-09-20 实测，报错点在 th:text）。
+ *      普通字符串里的 `${...}` 只是字符，不会被 JS 求值 —— 正是我们要的。
+ *
+ * @param listVar   文章列表变量名（如 `s.posts` / `al.posts`）
+ * @param iter      迭代状态变量名（如 `ps` / `ap`），用于 `*.index`
+ * @param eagerExpr 「这张卡是不是首屏 LCP 候选」的 SpEL 表达式（仅第一张给 eager+high）
+ * @param limit     该列表最多渲染几张（防御性封顶，防止超长系列撑爆首屏）
+ */
+import { imageSuffixThWith } from "../utils/image-suffix";
+
+/** 封面取图宽度（16:9 小卡，480 足够） */
+const COVER_WIDTH = "480";
+/** 默认封顶：与 SeriesStrip 的 MAX_POSTS_PER_SERIES 对齐 */
+const DEFAULT_LIMIT = 30;
+
+const {
+  listVar = "s.posts",
+  iter = "ps",
+  eagerExpr = "false",
+  limit = DEFAULT_LIMIT,
+} = Astro.props;
+
+/** `post, ps : ${s.posts}` */
+const eachExpr = "post, " + iter + " : ${" + listVar + "}";
+/** `${not (ps.index >= 30) and post.permalink != null}` */
+const ifExpr =
+  "${not (" + iter + ".index >= " + limit + ") and post.permalink != null}";
+/** `loading=${… ? 'eager' : 'lazy'},fetchpriority=${… ? 'high' : 'auto'}` */
+const imgAttrExpr =
+  "loading=${" +
+  eagerExpr +
+  " ? 'eager' : 'lazy'},fetchpriority=${" +
+  eagerExpr +
+  " ? 'high' : 'auto'}";
+/**
+ * 期号：`#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(s.posts) - ps.index})}`
+ * ⚠️ `#lists.size(s.posts)` 里**不能再套 `${}`** —— 它本来就处在 `#{…(…)}` 的表达式
+ *    内部，SpEL 变量直接写名字。
+ */
+const issueExpr =
+  "#{seriesStrip.issue(${post.order != null ? post.order : #lists.size(" +
+  listVar +
+  ") - " +
+  iter +
+  ".index})}";
+---
+
+<!-- ⚠️ th:each 与 th:if 同层：each(2) 先于 if(3)，逐条判定。
+     · 封顶写成 `not (ps.index >= N)` 而不是 `ps.index < N` —— `>` 会被 Astro
+       转义成 `&gt;` 再由 attoparser 还原（实测可用），裸 `<` 在属性里更易踩坑。
+     · permalink 拿不到就整卡不输出：th:href 求值为 null 时 Thymeleaf 写出 `href=""`
+       （不是删属性！实测 3.1.5.RELEASE），空 href 点一下等于刷新当前页。
+     · data-publish-time 供「全部」面板在客户端按发布时间倒序重排（SSR 侧排不了：
+       Thymeleaf 的 #lists 没有 sortBy，跨系列合并更是做不到）。值为 null 时
+       th:attr 会**删掉**这个属性，脚本侧已兜底为 0。 -->
+<a
+  th:each={eachExpr}
+  th:if={ifExpr}
+  class="series-strip-card card-base"
+  th:href="${post.permalink}"
+  th:attr="data-publish-time=${post.publishTime}"
+>
+  <!-- 封面：无封面用主题色渐变 + 占位图标 -->
+  <span
+    class="series-strip-card__cover"
+    th:classappend="${#strings.isEmpty(post.cover) ? 'is-empty' : ''}"
+  >
+    <!-- ⚠️ alt 空 + aria-hidden：标题就在同一张卡里，图片再念一遍会让读屏重复；
+         链接的可访问名 = 标题 + 期号，够用。
+         ⚠️ loading / fetchpriority 用 th:attr 而不是静态属性：只有「首屏第一张」是
+         LCP 候选，给它 eager + high；其余全部 lazy + auto
+         （一条 30 张的轨道若整条 lazy，翻到后面会白闪；全 eager 又会跟正文抢带宽）。
+         `th:attr` 里两个 `${}` 之间隔着 `,fetchpriority=` 这种非空白字符 ⇒ 合法；
+         若写成两个紧邻 `${}`（中间只有空白）会被 Thymeleaf 解析器拒掉。 -->
+    <img
+      class="series-strip-card__img"
+      th:if="${not #strings.isEmpty(post.cover)}"
+      th:src="${post.cover + suffix}"
+      alt=""
+      aria-hidden="true"
+      th:with={imageSuffixThWith(COVER_WIDTH)}
+      th:attr={imgAttrExpr}
+      decoding="async"
+    />
+    <span class="series-strip-card__placeholder" aria-hidden="true">
+      <span
+        class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"
+      ></span>
+    </span>
+    <!-- 期号胶囊：挂在封面左上角。order 优先，没填就按**该系列内**的时间倒推
+         （插件对「未填序号」的排法是按发布时间倒序，所以 下标 0 = 最新 = 总篇数）。 -->
+    <span
+      class="series-strip-card__issue"
+      aria-hidden="true"
+      th:text={issueExpr}>第 1 期</span
+    >
+  </span>
+
+  <span class="series-strip-card__body">
+    <span class="series-strip-card__title" th:text="${post.title}"
+      >文章标题</span
+    >
+  </span>
+</a>

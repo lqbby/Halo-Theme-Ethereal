@@ -180,15 +180,29 @@ check(
   //    stripHtml 从 <section id="series-strip"> 切到 #post-list-container，中间**还夹着两卡行**
   //    （FeaturedCards 的封面本来就写着静态 `loading="eager" fetchpriority="high"`）
   //    ⇒ 用「整段里不存在 loading=」当判据会误报（1.5.37 实测，A8d 因此误报）。
+  // ⚠️ 1.5.53 起系列条里有**两处**这种 img：① 「全部」面板用 als/ap；② 各系列面板用 st/ps。
+  //    别只验第一处 —— 那样「全部」面板一插入，这条断言就会静默变成只测了新面板。
   (() => {
-    const tag =
-      (/<img[^>]*series-strip-card__img[^>]*>/.exec(stripHtml) || [])[0] || "";
-    if (!tag) return false;
-    return (
-      /th:attr="loading=\$\{st\.index == 0 and ps\.index == 0 \? 'eager' : 'lazy'\},fetchpriority=\$\{st\.index == 0 and ps\.index == 0 \? 'high' : 'auto'\}"/.test(
-        tag,
-      ) && !/\sloading="/.test(tag)
-    );
+    const tags = [
+      ...stripHtml.matchAll(/<img[^>]*series-strip-card__img[^>]*>/g),
+    ].map((m) => m[0]);
+    if (tags.length < 2) return false;
+    const eager = (a, b) =>
+      new RegExp(
+        'th:attr="loading=\\$\\{' +
+          a +
+          "\\.index == 0 and " +
+          b +
+          "\\.index == 0 \\? 'eager' : 'lazy'\\},fetchpriority=\\$\\{" +
+          a +
+          "\\.index == 0 and " +
+          b +
+          "\\.index == 0 \\? 'high' : 'auto'\\}" +
+          '"',
+      );
+    const hasAll = tags.some((t) => eager("als", "ap").test(t));
+    const hasSeries = tags.some((t) => eager("st", "ps").test(t));
+    return hasAll && hasSeries && tags.every((t) => !/\sloading="/.test(t));
   })(),
   (/(<img[^>]*series-strip-card__img[^>]*>)/.exec(stripHtml) || [])[1]?.slice(
     0,
@@ -230,23 +244,44 @@ check(
     ),
 );
 check(
-  "A12 tab 以 th:each 遍历 seriesList 渲染（role=tab + data-series-tab）",
-  /<button[^>]*th:each="s, st : \$\{seriesList\}"[^>]*role="tab"[^>]*th:data-series-tab="\$\{st\.index\}"/.test(
+  "A11b 「全部」tab 恒为第 0 个且 SSR 就是选中态（默认看全部，不等 JS）",
+  (() => {
+    const m = /<button[^>]*data-series-tab="0"[^>]*>/.exec(stripHtml);
+    if (!m) return false;
+    const t = m[0];
+    return (
+      t.includes('id="series-tab-all"') &&
+      t.includes('aria-controls="series-panel-all"') &&
+      t.includes('aria-selected="true"') &&
+      t.includes('tabindex="0"') &&
+      t.includes('th:text="#{seriesStrip.all}"')
+    );
+  })(),
+  (/(<button[^>]*data-series-tab="0"[^>]*>)/.exec(stripHtml) || [])[1] ||
+    "未找到第 0 个 tab",
+);
+check(
+  "A12 tab 以 th:each 遍历 seriesList 渲染（role=tab + data-series-tab，索引从 1 起 —— 0 让给「全部」）",
+  /<button[^>]*th:each="s, st : \$\{seriesList\}"[^>]*role="tab"[^>]*th:data-series-tab="\$\{st\.index \+ 1\}"/.test(
     stripHtml,
   ),
 );
 check(
-  "A13 tab 的 aria-selected / tabindex 是 roving 的（仅首个为 true / 0）",
-  stripHtml.includes(
-    "th:aria-selected=\"${st.index == 0 ? 'true' : 'false'}\"",
-  ) && stripHtml.includes("th:tabindex=\"${st.index == 0 ? '0' : '-1'}\""),
+  "A13 roving tabindex 初始态：首屏恒为「全部」选中 ⇒ 系列 tab 写死未选中（不跑运行期求值）",
+  // 1.5.53 起第 0 个 tab 是「全部」且默认选中，各系列**永远**不是初始选中项
+  // ⇒ 表达式退化成常量，写死 aria-selected/tabindex 比留一个恒 false 的三元更好读
+  //   （JS 的 sync() 仍会按索引改写这两个属性）。
+  /<button[^>]*th:each="s, st : \$\{seriesList\}"[^>]*aria-selected="false"[^>]*tabindex="-1"/.test(
+    stripHtml,
+  ),
 );
 check(
-  "A14 tab 与面板用 aria-controls / aria-labelledby 双向绑定",
-  stripHtml.includes('th:aria-controls="|series-panel-${st.index}|"') &&
-    // ⚠️ 面板侧 1.5.37 起带三元兜底（见 A16b）⇒ 只断言「引用了 tab 的 id 形态」
-    stripHtml.includes("'series-tab-' + st.index") &&
-    stripHtml.includes('th:id="|series-tab-${st.index}|"'),
+  "A14 tab 与面板用 aria-controls / aria-labelledby 双向绑定（索引从 1 起）",
+  stripHtml.includes('th:aria-controls="|series-panel-${st.index + 1}|"') &&
+    // ⚠️ 面板侧带三元兜底（见 A16b）⇒ 只断言「引用了 tab 的 id 形态」。
+    //   括号不能省：SpEL 的 `+` 从左到右，省了会拼成 "series-tab-01"。
+    stripHtml.includes("'series-tab-' + (st.index + 1)") &&
+    stripHtml.includes('th:id="|series-tab-${st.index + 1}|"'),
 );
 
 // ---- 每个系列一个面板 ----
@@ -257,32 +292,39 @@ check(
   //    （1.5.37 实测，A15 因此误报）。正解 = `[\s\S]*?` + 明确终点（最后一个属性 + `>`）抠开标签。
   (() => {
     const m =
-      /<div[^>]*th:each="s, st : \$\{seriesList\}"[\s\S]*?th:data-series-panel="\$\{st\.index\}">/.exec(
+      /<div[^>]*th:each="s, st : \$\{seriesList\}"[\s\S]*?th:data-series-panel="\$\{st\.index \+ 1\}">/.exec(
         stripHtml,
       );
     if (!m) return false;
     const tag = m[0];
     return (
-      tag.includes('class="series-strip__panel"') &&
+      tag.includes('class="series-strip__panel is-hidden"') &&
       tag.includes('role="tabpanel"') &&
-      tag.includes('th:id="|series-panel-${st.index}|"')
+      tag.includes('th:id="|series-panel-${st.index + 1}|"')
     );
   })(),
 );
 check(
-  "A16 非首个面板 SSR 就带 is-hidden（首屏只露第 0 个，不等 JS）",
-  stripHtml.includes("th:classappend=\"${st.index != 0 ? ' is-hidden' : ''}\""),
+  "A16 各系列面板 SSR 就带 is-hidden（首屏只露第 0 个「全部」，不等 JS）",
+  // 1.5.53 起第 0 个面板恒为「全部」⇒ 系列面板**全部** hide，不再需要三元 classappend。
+  /<div[^>]*th:each="s, st : \$\{seriesList\}"[^>]*class="series-strip__panel is-hidden"/.test(
+    stripHtml,
+  ),
 );
 check(
   "A16b 面板 aria-labelledby 恒可解析：多系列指向 tab，单系列兜底到段头标题（否则 axe 报 dangling reference）",
   // tablist 有 th:if="size > 1" ⇒ 单系列时页面没有 #series-tab-0。面板若无条件引用它，
   // 就是「指向不存在元素」的 ARIA 引用（axe 硬性违规）。兜底目标必须是**恒存在**的节点。
   (() => {
-    const m = /th:aria-labelledby="([^"]*)"/.exec(stripHtml);
+    // ⚠️ 1.5.53 起「全部」面板排在最前 ⇒ **第一个** aria-labelledby 是它的
+    //    （指向 'series-tab-all'），只取第一处会漏掉系列面板那条。
+    const all = [...stripHtml.matchAll(/th:aria-labelledby="([^"]*)"/g)].map(
+      (m) => m[1],
+    );
     return (
-      !!m &&
-      m[1].includes("'series-tab-' + st.index") &&
-      m[1].includes("series-strip-title") &&
+      all.length >= 2 &&
+      all.some((v) => v.includes("'series-tab-' + (st.index + 1)")) &&
+      all.every((v) => v.includes("series-strip-title")) &&
       stripHtml.includes('id="series-strip-title"')
     );
   })(),
@@ -295,6 +337,26 @@ check(
     !/th:aria-labelledby="\$\{[^"]*\$\{/.test(stripHtml),
   (/(th:aria-labelledby="[^"]*")/.exec(stripHtml) || [])[1] ||
     "未找到 th:aria-labelledby",
+);
+check(
+  "A15b 「全部」面板：第 0 个 + data-series-all 标记 + 双层 each（外层 th:remove=tag 剥壳）",
+  // ⚠️ 开标签里有 `th:aria-labelledby="…#lists.size(seriesList) > 1…"`，unesc 后是**裸 `>`**
+  //    ⇒ `[^>]*` 会被它打断（A15 早已踩过）。先锚 id（在 aria-labelledby 之前），
+  //    再用 `[\s\S]*?` 跨过去。
+  /<div[^>]*id="series-panel-all"[\s\S]*?data-series-panel="0"[\s\S]*?data-series-all[^>]*>/.test(
+    stripHtml,
+  ) &&
+    stripHtml.includes(
+      '<div th:each="al, als : ${seriesList}" th:remove="tag">',
+    ) &&
+    stripHtml.includes('th:each="post, ap : ${al.posts}"'),
+  (/(<div[^>]*data-series-panel="0"[^>]*>)/.exec(stripHtml) || [])[1] ||
+    "未找到第 0 个面板",
+);
+check(
+  "A15c 每张卡都带 data-publish-time（「全部」面板靠它在客户端按发布时间倒序重排）",
+  // ⚠️ 值为 null 时 th:attr 会**删掉**这个属性 ⇒ 脚本侧必须兜底（见 C29）。
+  stripHtml.includes('th:attr="data-publish-time=${post.publishTime}"'),
 );
 check(
   "A17 卡片渲染在面板的横向轨道里（viewport 先于 card 出现）",
@@ -630,6 +692,12 @@ function mkEl(tag, attrs = {}) {
     scrollWidth: 0,
     clientWidth: 0,
     scrollCalls: [],
+    // 真实 DOM 的 `children`（HTMLCollection 语义：只有元素子节点）。
+    // 1.5.53 起产物 js 用 `track.children` 遍历卡片做重排 ⇒ 桩件必须有，否则
+    // 脚本在桩件上会抛「Cannot read properties of undefined」，测不出真问题。
+    get children() {
+      return el._children;
+    },
     get className() {
       return [...el._cls].join(" ");
     },
@@ -654,6 +722,11 @@ function mkEl(tag, attrs = {}) {
       (el._listeners[t] || []).forEach((fn) => fn(ev || {}));
     },
     appendChild(c) {
+      // ⚠️ 真实 DOM 的 appendChild 对「已在文档里的节点」是**移动**而不是复制
+      //    ⇒ 1.5.53 起产物 js 正是靠这个语义重排「全部」面板（按时间排序后依次 append）。
+      //    桩件若不实现「先摘后挂」，排序测试会得到「卡片翻倍」的假结果。
+      const at = el._children.indexOf(c);
+      if (at >= 0) el._children.splice(at, 1);
       c.parentNode = el;
       el._children.push(c);
       return c;
@@ -713,7 +786,12 @@ const STEP = CARD_W + GAP; // 212 —— 脚本步长 = cards[1].offsetLeft - ca
  * @param cards 每个面板的卡片数数组（长度 = 系列数；1 个时按真实模板不渲染 tablist）
  * @param visible 可见卡片数（决定 viewport.clientWidth）
  */
-function makeStrip({ cards, visible = 4 }) {
+function makeStrip({
+  cards,
+  visible = 4,
+  allCount = cards[0],
+  allTimes = null,
+}) {
   const section = mkEl("section", {
     id: "series-strip",
     class: "series-strip onload-animation",
@@ -743,13 +821,24 @@ function makeStrip({ cards, visible = 4 }) {
       "data-series-tabs": "",
       role: "tablist",
     });
+    // ⚠️ 1.5.53 起第 0 个 tab 是「全部」（默认选中），各系列索引从 1 起。
+    //    桩件必须与生产同构 —— 否则「DOM 索引」类回归根本测不出来（1.5.36 已踩过一次）。
+    const allTab = mkEl("button", {
+      class: "series-strip__tab",
+      role: "tab",
+      "data-series-tab": "0",
+      "aria-selected": "true",
+      tabindex: "0",
+    });
+    tabs.push(allTab);
+    tabsBox.appendChild(allTab);
     cards.forEach((_, i) => {
       const t = mkEl("button", {
         class: "series-strip__tab",
         role: "tab",
-        "data-series-tab": String(i),
-        "aria-selected": i === 0 ? "true" : "false",
-        tabindex: i === 0 ? "0" : "-1",
+        "data-series-tab": String(i + 1),
+        "aria-selected": "false",
+        tabindex: "-1",
       });
       tabs.push(t);
       tabsBox.appendChild(t);
@@ -763,12 +852,20 @@ function makeStrip({ cards, visible = 4 }) {
   const panels = [];
   const viewports = [];
   const tracks = [];
-  cards.forEach((count, i) => {
+  /**
+   * 建一个面板并挂到 section 上。
+   * @param idx   面板索引（0 = 「全部」，系列从 1 起）
+   * @param hidden 是否带 is-hidden
+   * @param count 卡片数
+   * @param times 给卡片依次写上这些 data-publish-time（排序测试用）
+   */
+  const addPanel = (idx, hidden, count, times) => {
     const panel = mkEl("div", {
-      class: "series-strip__panel" + (i === 0 ? "" : " is-hidden"),
-      "data-series-panel": String(i),
+      class: "series-strip__panel" + (hidden ? " is-hidden" : ""),
+      "data-series-panel": String(idx),
       role: "tabpanel",
     });
+    if (idx === 0) panel.setAttribute("data-series-all", "");
     const vp = mkEl("div", {
       class: "series-strip__viewport",
       "data-series-viewport": "",
@@ -780,8 +877,13 @@ function makeStrip({ cards, visible = 4 }) {
     for (let c = 0; c < count; c++) {
       const a = mkEl("a", {
         class: "series-strip-card",
-        href: `/p${i}-${c}`,
+        href: `/p${idx}-${c}`,
       });
+      // ⚠️ `times[c]` 为 null 时**不写**这个属性 —— 模拟真实行为：th:attr 求值为
+      //    null 时 Thymeleaf 会**删掉**属性（不是写 "null"）。
+      if (times && times[c] != null) {
+        a.setAttribute("data-publish-time", times[c]);
+      }
       a.offsetLeft = c * STEP;
       track.appendChild(a);
     }
@@ -793,7 +895,12 @@ function makeStrip({ cards, visible = 4 }) {
     panels.push(panel);
     viewports.push(vp);
     tracks.push(track);
-  });
+  };
+  // ① 「全部」面板（第 0 个、可见）。默认卡片数取 cards[0]：让既有断言的
+  //    scrollWidth / 步进数值保持不变；排序测试会显式传 allTimes 覆盖。
+  addPanel(0, false, allCount, allTimes);
+  // ② 各系列面板（索引从 1 起、全部隐藏）
+  cards.forEach((count, i) => addPanel(i + 1, true, count, null));
 
   return {
     section,
@@ -929,29 +1036,54 @@ const tix = (t) => t.getAttribute("tabindex");
   check("C13 非当前面板的 scroll 不影响箭头状态", strip.prev.disabled === true);
 
   // ---- 键盘导航（WAI-ARIA tabs roving tabindex） ----
+  // ⚠️ 1.5.53 起 tab 数 = 系列数 + 1（第 0 个是「全部」）⇒ 索引一律按 tabs.length 现算，
+  //    别写死 0/1 —— 否则以后再动 tab 结构时这些断言会静默变成「测了个寂寞」。
   const noop = () => {};
+  const activeIdx = () => strip.panels.findIndex((p) => !clipped(p));
+  const last = strip.tabs.length - 1;
+
+  let beforeKey = activeIdx();
   strip.tabsBox.dispatch("keydown", {
     key: "ArrowRight",
     preventDefault: noop,
   });
   check(
-    "C14 → 键切到下一个 tab 并把焦点移过去（1 → 回绕 0）",
-    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+    "C14 → 键切到下一个 tab 并把焦点移过去（到头则回绕）",
+    (() => {
+      const i = activeIdx();
+      return (
+        i === (beforeKey + 1) % strip.tabs.length &&
+        strip.tabs[i]._focused === true
+      );
+    })(),
+    `before=${beforeKey} after=${activeIdx()} n=${strip.tabs.length}`,
   );
   strip.tabsBox.dispatch("keydown", { key: "End", preventDefault: noop });
   check(
     "C15 End 跳到最后一个 tab",
-    !clipped(strip.panels[1]) && strip.tabs[1]._focused === true,
+    (() => {
+      const i = activeIdx();
+      return i === last && strip.tabs[i]._focused === true;
+    })(),
+    `after=${activeIdx()} last=${last}`,
   );
   strip.tabsBox.dispatch("keydown", { key: "ArrowLeft", preventDefault: noop });
   check(
     "C16 ← 键回到上一个 tab",
-    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+    (() => {
+      const i = activeIdx();
+      return i === last - 1 && strip.tabs[i]._focused === true;
+    })(),
+    `after=${activeIdx()} expect=${last - 1}`,
   );
   strip.tabsBox.dispatch("keydown", { key: "Home", preventDefault: noop });
   check(
-    "C17 Home 跳回第一个 tab",
-    !clipped(strip.panels[0]) && strip.tabs[0]._focused === true,
+    "C17 Home 跳回第一个 tab（= 「全部」）",
+    (() => {
+      const i = activeIdx();
+      return i === 0 && strip.tabs[i]._focused === true;
+    })(),
+    `after=${activeIdx()}`,
   );
   strip.tabsBox.dispatch("keydown", { key: "Enter", preventDefault: noop });
   check(
@@ -1075,6 +1207,75 @@ const tix = (t) => t.getAttribute("tabindex");
     "C28 页面上没有 #series-strip 时不抛异常",
     threw === null,
     threw && String(threw.message),
+  );
+}
+
+// ---------- 「全部」面板：客户端按发布时间倒序重排（1.5.53） ----------
+{
+  // SSR 侧只能按「系列分组」输出 ⇒ 时间是「系列A 新→旧、系列B 新→旧」的锯齿状，
+  // 客户端要把它重排成**全局**倒序。Thymeleaf 的 #lists 没有 sortBy，跨系列合并
+  // 更是做不到 ⇒ 这段排序是唯一的实现路径，必须钉住。
+  const times = [
+    "2026-01-01T00:00:00Z",
+    "2025-06-01T00:00:00Z",
+    "2026-08-01T00:00:00Z",
+    "2024-03-01T00:00:00Z",
+    "2026-05-20T00:00:00Z",
+  ];
+  const want = [...times].sort().reverse(); // ISO-8601 同格式 ⇒ 字典序 = 时间序
+  const strip = makeStrip({
+    cards: [3, 2],
+    visible: 4,
+    allCount: times.length,
+    allTimes: times,
+  });
+  const order = () =>
+    [...strip.tracks[0].children].map((c) =>
+      c.getAttribute("data-publish-time"),
+    );
+
+  runJs(strip);
+  check(
+    "C29 「全部」面板重排成发布时间倒序（最新在前）",
+    JSON.stringify(order()) === JSON.stringify(want),
+    `got=${order().join(" ")}`,
+  );
+  check(
+    "C29b 只动「全部」面板：各系列面板保持 SSR 原序、卡片数不变",
+    strip.tracks[1].children.length === 3 &&
+      strip.tracks[2].children.length === 2,
+  );
+  // 幂等：脚本随 Swup 换页**重执行**，同一元素不该被反复重排（守卫 = dataset.seriesSorted）
+  runJs(strip);
+  check(
+    "C29c 重排幂等：脚本重执行后顺序不变",
+    JSON.stringify(order()) === JSON.stringify(want),
+    `got=${order().join(" ")}`,
+  );
+
+  // publishTime 为 null 时 th:attr 会**删掉**这个属性 ⇒ 脚本必须兜底（否则 Date.parse(undefined)）
+  const strip2 = makeStrip({
+    cards: [2],
+    visible: 4,
+    allCount: 3,
+    allTimes: ["2026-02-02T00:00:00Z", null, "2026-09-09T00:00:00Z"],
+  });
+  let threw2 = null;
+  try {
+    runJs(strip2);
+  } catch (e) {
+    threw2 = e;
+  }
+  check(
+    "C29d 卡片缺 data-publish-time 时不抛（兜底 0，排到末尾）",
+    threw2 === null &&
+      [...strip2.tracks[0].children]
+        .map((c) => c.getAttribute("data-publish-time"))
+        .join(",") === "2026-09-09T00:00:00Z,2026-02-02T00:00:00Z,",
+    (threw2 && String(threw2.message)) ||
+      [...strip2.tracks[0].children]
+        .map((c) => c.getAttribute("data-publish-time"))
+        .join(","),
   );
 }
 
