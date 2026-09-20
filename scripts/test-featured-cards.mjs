@@ -654,12 +654,29 @@ console.log(`产物目录：${tplDir}\n`);
   );
   check(
     "面板内两条内容从 -14px 归位、依次入场（.05s / .1s 错开）",
-    /:hover \.featured-random-plane,[\s\S]*?transform \.32s cubic-bezier\(\.22,1,\.36,1\) 50ms;transform:translate\(0\)/.test(
+    /:hover \.featured-random-plane,[\s\S]*?\{transform:translateX\(0\) rotate\(var\(--plane-tilt,0deg\)\);transition:transform \.32s cubic-bezier\(\.22,1,\.36,1\) 50ms\}/.test(
       css,
     ) &&
-      /:hover \.featured-random-banner,[\s\S]*?transform \.32s cubic-bezier\(\.22,1,\.36,1\) \.1s;transform:translate\(0\)/.test(
+      /:hover \.featured-random-banner,[\s\S]*?\{transform:translateX\(0\) rotate\(var\(--banner-tilt,0deg\)\);transition:transform \.32s cubic-bezier\(\.22,1,\.36,1\) \.1s\}/.test(
         css,
       ),
+  );
+  check(
+    "缩放倍数 / 倾斜角度抽成变量，飞机与文案**共用同一个 scale**（不会只放大一个）",
+    /--plane-scale:[\d.]+;--plane-tilt:-?[\d.]+deg;--banner-tilt:-?[\d.]+deg/.test(
+      css,
+    ) &&
+      /\.featured-random-plane\{[^}]*font-size:calc\(clamp\(2\.1rem, ?5vw, ?2\.6rem\) \* var\(--plane-scale/.test(
+        css,
+      ) &&
+      /\.featured-random-banner\{[^}]*font-size:calc\(clamp\(1\.15rem, ?2vw, ?1\.35rem\) \* var\(--plane-scale/.test(
+        css,
+      ),
+  );
+  check(
+    "间距也跟着 scale 走；面板 align-items:flex-start（否则旋转支点是整行中心，图标会被甩飞）",
+    /gap:calc\(\.35rem \* var\(--plane-scale/.test(css) &&
+      /\.featured-random-hover\{[^}]*align-items:flex-start/.test(css),
   );
   check(
     "🔴 悬停规则全关在 @media (hover:hover) 里 ⇒ 触屏永远停在默认面",

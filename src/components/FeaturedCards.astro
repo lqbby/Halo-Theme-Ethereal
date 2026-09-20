@@ -367,6 +367,19 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     text-align: left;
     cursor: pointer;
     font: inherit;
+    /* ===== 悬停面板里「飞机 + 副文案」这一组的两个旋钮（想微调只动这两行）=====
+       · --plane-scale：整组**等比**放大倍数（飞机与文案的 font-size、两者间距都乘它，
+         ⇒ 相对大小 / 间距 / 左对齐关系全部不变，不会出现「只放大其中一个」）；
+       · --plane-tilt：飞机倾斜角度。参考站的飞机字形本身就是约 45° 斜向的纸飞机，
+         本站 material-symbols 的 send 是**水平朝向**的 ⇒ 靠这个角度把它摆成同样的斜势；
+       · --banner-tilt：文案倾斜，**默认 0deg**（与参考站一致，文案是正的）。
+         想让文案跟着一起斜，把它改成 `var(--plane-tilt)` 即可。
+       ⚠️ 放大上限受卡高约束：--featured-h = 200px，目前这组（1.5 倍 + 45° 倾斜）
+         总高 ≈ 88(飞机外接框) + 8.4(间距) + 34(文案) ≈ 130px，上下各余 ≈35px。
+         再往上调 --plane-scale 请同步看这个数，别顶到卡边。 */
+    --plane-scale: 1.5;
+    --plane-tilt: -45deg;
+    --banner-tilt: 0deg;
     /* 图标群故意画到卡外再被这里裁掉（= 参考图那种「窗开到图标场里」的出血感） */
     contain: layout paint style;
     isolation: isolate;
@@ -559,7 +572,12 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 0.3rem;
+    /* 🔴 flex-start 而不是默认 stretch：飞机要 rotate，若盒子被拉成整行宽，
+       旋转支点会落到**整行的中心**，一转就把图标甩到几十像素开外；
+       收缩到内容宽后，支点就是它自己的中心 ⇒ 只转不位移。 */
+    align-items: flex-start;
+    /* 间距一起乘 --plane-scale ⇒ 等比放大后「飞机 : 间距 : 文案」的比例不变 */
+    gap: calc(0.35rem * var(--plane-scale, 1));
     padding-left: 0.75rem;
     background: linear-gradient(
       145deg,
@@ -584,9 +602,11 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   .featured-random-plane {
     display: block;
     margin-left: 0.5rem;
-    font-size: clamp(2.1rem, 5vw, 2.6rem);
+    font-size: calc(clamp(2.1rem, 5vw, 2.6rem) * var(--plane-scale, 1));
     line-height: 1;
-    transform: translateX(-14px);
+    /* 先平移再旋转：平移保持水平入场，旋转只改朝向（顺序反了会变成斜着飞进来） */
+    transform: translateX(-14px) rotate(var(--plane-tilt, 0deg));
+    transform-origin: center center;
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .featured-random-banner {
@@ -594,7 +614,9 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     align-items: center;
     gap: 0.25rem;
     margin-left: 0.5rem;
-    transform: translateX(-14px);
+    font-size: calc(clamp(1.15rem, 2vw, 1.35rem) * var(--plane-scale, 1));
+    transform: translateX(-14px) rotate(var(--banner-tilt, 0deg));
+    transform-origin: center center;
     transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
   .featured-random-banner-arrow {
@@ -640,12 +662,12 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     }
     .featured-card--random:hover .featured-random-plane,
     .featured-card--random:focus-visible .featured-random-plane {
-      transform: translateX(0);
+      transform: translateX(0) rotate(var(--plane-tilt, 0deg));
       transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
     }
     .featured-card--random:hover .featured-random-banner,
     .featured-card--random:focus-visible .featured-random-banner {
-      transform: translateX(0);
+      transform: translateX(0) rotate(var(--banner-tilt, 0deg));
       transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
     }
   }
