@@ -594,6 +594,89 @@ console.log(`产物目录：${tplDir}\n`);
     ),
   );
 
+  // ---- 左卡悬停态：整卡翻成主色面板 + 副文案（对齐参考站 __random-hover） ----
+  const ruleBody = (sel) => {
+    const esc = sel.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const m = css.match(new RegExp(esc + "\\{([^}]*)\\}"));
+    return m ? m[1] : "";
+  };
+  /** 某条 rule 是否落在 `@media (hover:hover){…}` 里 —— 触屏保持默认面的唯一保障 */
+  const inHoverMedia = (needle) => {
+    const head = "@media (hover:hover){";
+    for (let i = css.indexOf(head); i !== -1; i = css.indexOf(head, i + 1)) {
+      let depth = 0;
+      let j = i + head.length - 1;
+      for (; j < css.length; j++) {
+        if (css[j] === "{") depth++;
+        else if (css[j] === "}" && --depth === 0) break;
+      }
+      if (css.slice(i, j + 1).includes(needle)) return true;
+    }
+    return false;
+  };
+  const hoverPanel = ruleBody(".featured-random-hover");
+  check(
+    "悬停面板进了产物：副文案走 i18n 键、对读屏隐藏",
+    idx.includes('class="featured-random-hover" aria-hidden="true"') &&
+      idx.includes('th:text="#{featured.random.hover}"') &&
+      idx.includes("随便逛逛"),
+  );
+  check(
+    "悬停面板默认不可见、不吃点击（opacity:0 + visibility:hidden + pointer-events:none）",
+    /opacity:0/.test(hoverPanel) &&
+      /visibility:hidden/.test(hoverPanel) &&
+      /pointer-events:none/.test(hoverPanel),
+    hoverPanel.slice(0, 120),
+  );
+  check(
+    "面板 = 145° 主色渐变 + 白字，且**混黑**不混白（混白会把白字压到 3:1 以下）",
+    /linear-gradient\(145deg/.test(hoverPanel) &&
+      /color-mix\(in oklab,\s*var\(--primary\) 68%,\s*#000\)/.test(
+        hoverPanel,
+      ) &&
+      /color:#fff/.test(hoverPanel),
+  );
+  check(
+    "hover/focus-visible：面板淡入并右让（padding-left .75rem → 1.5rem）",
+    /\.featured-card--random:hover \.featured-random-hover,\.featured-card--random:focus-visible \.featured-random-hover\{opacity:1;visibility:visible;padding-left:1\.5rem/.test(
+      css,
+    ),
+  );
+  check(
+    "hover/focus-visible：默认面（站点名/副标题/动作胶囊）+ 图标带淡出，图标流**暂停**",
+    /:hover \.featured-random-face-title,[\s\S]*?\{opacity:0/.test(css) &&
+      /:hover \.featured-random-tags,\.featured-card--random:focus-visible \.featured-random-tags\{opacity:0;visibility:hidden/.test(
+        css,
+      ) &&
+      /:hover \.featured-random-tags-scroll,\.featured-card--random:focus-visible \.featured-random-tags-scroll\{animation-play-state:paused/.test(
+        css,
+      ),
+  );
+  check(
+    "面板内两条内容从 -14px 归位、依次入场（.05s / .1s 错开）",
+    /:hover \.featured-random-plane,[\s\S]*?transform \.32s cubic-bezier\(\.22,1,\.36,1\) 50ms;transform:translate\(0\)/.test(
+      css,
+    ) &&
+      /:hover \.featured-random-banner,[\s\S]*?transform \.32s cubic-bezier\(\.22,1,\.36,1\) \.1s;transform:translate\(0\)/.test(
+        css,
+      ),
+  );
+  check(
+    "🔴 悬停规则全关在 @media (hover:hover) 里 ⇒ 触屏永远停在默认面",
+    inHoverMedia(".featured-card--random:hover .featured-random-hover") &&
+      inHoverMedia(
+        ".featured-card--random:hover,.featured-card--random:focus-visible{",
+      ) &&
+      !/\.featured-card--random:hover\{/.test(css),
+  );
+  check(
+    "减少动态效果：悬停面板的过渡与位移一并取消",
+    /featured-random-tags\{transition:none!important\}/.test(css) &&
+      /\.featured-card--random:focus-visible \.featured-random-banner,[\s\S]*?\{transform:none\}/.test(
+        css,
+      ),
+  );
+
   // ---- 右卡（热门/最近）：三档叠层 + ‹ › ----
   check(
     "右卡叠层容器有 perspective（没有它就只是平面平移）",
@@ -727,6 +810,7 @@ console.log(`产物目录：${tplDir}\n`);
       "default.properties",
       {
         "featured.random.title": "Random post",
+        "featured.random.hover": "Look around",
         "featured.nav.prev": "Previous",
         "featured.nav.next": "Next",
         "featured.ring.hint": "Press Esc to cancel",
@@ -736,6 +820,7 @@ console.log(`产物目录：${tplDir}\n`);
       "zh_CN.properties",
       {
         "featured.random.title": "随机一篇文章",
+        "featured.random.hover": "随便逛逛",
         "featured.nav.prev": "上一篇",
         "featured.nav.next": "下一篇",
         "featured.ring.hint": "按 Esc 取消",
@@ -745,6 +830,7 @@ console.log(`产物目录：${tplDir}\n`);
       "zh_TW.properties",
       {
         "featured.random.title": "隨機一篇文章",
+        "featured.random.hover": "隨便逛逛",
         "featured.nav.prev": "上一篇",
         "featured.nav.next": "下一篇",
         "featured.ring.hint": "按 Esc 取消",
@@ -753,7 +839,7 @@ console.log(`产物目录：${tplDir}\n`);
   ]) {
     const txt = read(path.join(themeRoot, "i18n", file));
     check(
-      `${file} 新增键齐全（随机标题 / 上一篇 / 下一篇 / Esc 提示）`,
+      `${file} 新增键齐全（随机标题 / 悬停副文案 / 上一篇 / 下一篇 / Esc 提示）`,
       Object.entries(kv).every(([k, v]) =>
         new RegExp(`^${k.replace(/\./g, "\\.")}=${v}$`, "m").test(txt),
       ),

@@ -6,7 +6,10 @@
  *     · 图标群装在 rotate(-30deg) 的容器里、整行 translate3d(0→-33.33%) 以 50s linear infinite
  *       循环 ⇒ 视觉上就是 LQ 要的「斜着往下（左下）一直缓慢流动」；
  *     · 点击**不再**是「方块整组转一圈」，而是拉开**全屏 3D 转盘**把一篇文章「转」出来
- *       （参考站的 random-post-carousel，见 src/scripts/assets/_random-post-carousel.ts）。
+ *       （参考站的 random-post-carousel，见 src/scripts/assets/_random-post-carousel.ts）；
+ *     · 悬停：整卡翻成主色渐变面板，文案由「摇一篇」切成副文案「随便逛逛」（参考站
+ *       __random-hover 的观感，参数逐条比对自其 main.min.css 的 (min-width:769px) 段，
+ *       见 <style> 里「悬停态」那一节的注释）。
  *
  *   右「热门 / 最近」= 参考站的 home-desktop-spotlight__pins：
  *     · 多张卡绝对定位叠在一起，靠 is-front / is-mid / is-back 三档 transform 区分
@@ -141,6 +144,24 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
       <span
         class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"
       ></span>
+    </span>
+
+    <!-- 悬停态：整卡翻成主色渐变面板，文案换成副文案
+         ⚠️ 文案占位符：默认态是上面的 `featured.random.action`（摇一篇），
+            这里是 `featured.random.hover`（随便逛逛）—— 想换字只改 i18n，别动结构。
+         aria-hidden：读屏仍念 button 自己的 aria-label（随机一篇文章），不重复。 -->
+    <span class="featured-random-hover" aria-hidden="true">
+      <span
+        class="featured-random-plane icon-[material-symbols--send-rounded] leading-none"
+      ></span>
+      <span class="featured-random-banner">
+        <span class="leading-none" th:text="#{featured.random.hover}"
+          >随便逛逛</span
+        >
+        <span
+          class="featured-random-banner-arrow icon-[material-symbols--arrow-right-alt-rounded] leading-none"
+        ></span>
+      </span>
     </span>
   </button>
 
@@ -350,14 +371,22 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     contain: layout paint style;
     isolation: isolate;
   }
-  .featured-card--random:hover {
-    border-color: color-mix(in oklab, var(--primary) 40%, transparent);
-    box-shadow:
-      0 5px 12px color-mix(in srgb, #000 10%, transparent),
-      0 1px 4px color-mix(in srgb, #000 6%, transparent);
+  /* 🔴 悬停态整块关在 `@media (hover: hover)` 里 ⇒ 触屏（无 hover）永远停在默认面，
+     不会出现「点一下就卡在 hover 态」。参考站反过来（(hover:none) 时**常显**悬停面），
+     本站按「移动端保持默认」处理。
+     位移：参考站只动描边/阴影；本站另加 -2px 上浮，与右卡 hover（-3px）同一套语言。 */
+  @media (hover: hover) {
+    .featured-card--random:hover,
+    .featured-card--random:focus-visible {
+      border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      box-shadow:
+        0 5px 12px color-mix(in srgb, #000 10%, transparent),
+        0 1px 4px color-mix(in srgb, #000 6%, transparent);
+      transform: translateY(-2px);
+    }
   }
   .featured-card--random:active {
-    transform: scale(0.995);
+    transform: translateY(0) scale(0.995);
     transition-duration: 0.08s;
   }
 
@@ -379,6 +408,10 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     line-height: 1.2;
     color: var(--deep-text);
     pointer-events: none;
+    /* 悬停时淡出、回来时**延迟**入场（.3s）⇒ 让覆盖层先走完，两层不会打架 */
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.3s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
   }
   .featured-random-face-desc {
     position: absolute;
@@ -390,6 +423,9 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     line-height: 1.35;
     color: color-mix(in oklab, var(--deep-text) 62%, transparent);
     pointer-events: none;
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.34s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
   }
 
   /* 图标群：外层 -30°，内层整行循环位移 ⇒ 运动方向 = 旋转坐标系的 -X = 左下（「斜着往下」） */
@@ -400,6 +436,9 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     overflow: hidden;
     pointer-events: none;
     contain: strict;
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.28s,
+      visibility 0s linear 0.28s;
   }
   .featured-random-tags-group {
     position: absolute;
@@ -488,10 +527,127 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     font-weight: 600;
     color: var(--primary);
     pointer-events: none;
-    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+    /* 悬停时随默认面一起淡出（见下面「悬停态」那一节的 @media 块）；
+       回来时**延迟**入场（.3s），让覆盖层先退干净 */
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.3s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
   }
-  .featured-card--random:hover .featured-random-action {
-    transform: translateX(2px);
+
+  /* ---------- 悬停态：整卡翻成主色面板 + 副文案滑入（参考站 __random-hover） ----------
+     观感逐条比对自参考站 main.min.css 的 `@media (min-width:769px)` 段（不靠印象）：
+       · 覆盖层：145° 主色渐变、absolute inset:0、默认 opacity:0 + visibility:hidden；
+         hover 时 opacity→1、padding-left .75rem→1.5rem（整块内容往右让一点）；
+       · 默认面（站点名 / 副标题 / 图标带）opacity→0 + translateX(-10px)，图标流动画**暂停**
+         （animation-play-state:paused ⇒ 松手后从原处接着走，不会跳回起点）；
+       · 面板内两条内容（大图标 / 副文案）从 translateX(-14px) 归位，延迟 .05s / .1s 依次入场；
+       · 时长口径全抄参考站：面板 opacity .28s、padding-left .32s、内容位移 .32s，
+         统一 cubic-bezier(.22,1,.36,1)（本站 .featured-card 的过渡也是这条曲线）；
+       · 卡片本身只加 -2px 上浮 + 描边/阴影（见上面那条 @media）。
+
+     🔴 覆盖层 `pointer-events: none` ⇒ 点击仍落在 button 上，不会吃掉「摇一篇」的点击。
+     🔴 渐变**混黑不混白**：`--primary` 是 oklch L .70（暗色 .75）且 hue 用户可配，
+        按参考站那样**混白**，在青色区（hue≈190）会掉到 2.5:1 以下，白字直接读不清；
+        混黑后按 oklab 线性插值（L=.70×p、C=.14×p），脚本实测**全色相最差**的那一档
+        （73%）对 #fff 仍有 4.6:1、70% 档 5.1:1 ⇒ 任意 hue 都过 WCAG AA 普通文本 4.5:1。
+        （算法：oklch→sRGB→相对亮度→对比度，hue 每 10° 扫一圈取最小值。）
+     🔴 下面所有 `:hover` 规则都在 `@media (hover: hover)` 内 ⇒ 触屏保持默认面。 */
+  .featured-random-hover {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.3rem;
+    padding-left: 0.75rem;
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--primary) 68%, #000),
+      color-mix(in oklab, var(--primary) 73%, #000) 58%,
+      color-mix(in oklab, var(--primary) 70%, #000)
+    );
+    color: #fff;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    pointer-events: none;
+    font-size: clamp(1.15rem, 2vw, 1.35rem);
+    font-weight: 700;
+    line-height: 1.15;
+    transition:
+      opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0s linear 0.28s,
+      padding-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-plane {
+    display: block;
+    margin-left: 0.5rem;
+    font-size: clamp(2.1rem, 5vw, 2.6rem);
+    line-height: 1;
+    transform: translateX(-14px);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+    transform: translateX(-14px);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-banner-arrow {
+    font-size: 1.35em;
+    line-height: 1;
+  }
+
+  @media (hover: hover) {
+    .featured-card--random:hover .featured-random-hover,
+    .featured-card--random:focus-visible .featured-random-hover {
+      opacity: 1;
+      visibility: visible;
+      padding-left: 1.5rem;
+      transition:
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0s,
+        padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    /* 默认面淡出并左移（.16s 快出，不给延迟 —— 退场必须比入场快） */
+    .featured-card--random:hover .featured-random-face-title,
+    .featured-card--random:focus-visible .featured-random-face-title,
+    .featured-card--random:hover .featured-random-face-desc,
+    .featured-card--random:focus-visible .featured-random-face-desc,
+    .featured-card--random:hover .featured-random-action,
+    .featured-card--random:focus-visible .featured-random-action {
+      opacity: 0;
+      transform: translateX(-10px);
+      transition:
+        opacity 0.16s ease,
+        transform 0.2s ease;
+    }
+    .featured-card--random:hover .featured-random-tags,
+    .featured-card--random:focus-visible .featured-random-tags {
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 0.16s ease,
+        visibility 0s linear 0.16s;
+    }
+    .featured-card--random:hover .featured-random-tags-scroll,
+    .featured-card--random:focus-visible .featured-random-tags-scroll {
+      animation-play-state: paused;
+    }
+    .featured-card--random:hover .featured-random-plane,
+    .featured-card--random:focus-visible .featured-random-plane {
+      transform: translateX(0);
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+    }
+    .featured-card--random:hover .featured-random-banner,
+    .featured-card--random:focus-visible .featured-random-banner {
+      transform: translateX(0);
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+    }
   }
 
   /* ---------- ② 右卡：三档叠层 + ‹ › 换档 ---------- */
@@ -989,15 +1145,33 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     .featured-title,
     .featured-star,
     .featured-nav,
-    .featured-random-action {
+    .featured-random-action,
+    .featured-random-hover,
+    .featured-random-plane,
+    .featured-random-banner,
+    .featured-random-face-title,
+    .featured-random-face-desc,
+    .featured-random-tags {
       transition: none !important;
     }
     .featured-card--random:active,
+    /* 悬停态的四类位移（卡片上浮、默认面左移、面板内容归位）全部取消 */
+    .featured-card--random:hover,
+    .featured-card--random:focus-visible,
+    .featured-card--random:hover .featured-random-face-title,
+    .featured-card--random:focus-visible .featured-random-face-title,
+    .featured-card--random:hover .featured-random-face-desc,
+    .featured-card--random:focus-visible .featured-random-face-desc,
+    .featured-card--random:hover .featured-random-action,
+    .featured-card--random:focus-visible .featured-random-action,
+    .featured-card--random:hover .featured-random-plane,
+    .featured-card--random:focus-visible .featured-random-plane,
+    .featured-card--random:hover .featured-random-banner,
+    .featured-card--random:focus-visible .featured-random-banner,
     .featured-card--post.is-front:hover,
     .featured-card--post.is-front:hover .featured-img,
     .featured-card--post.is-front:hover .featured-arrow,
-    .featured-card--post.is-front:hover .featured-star,
-    .featured-card--random:hover .featured-random-action {
+    .featured-card--post.is-front:hover .featured-star {
       transform: none;
     }
     /* ⚠️ 减少动态效果下**停掉流动**：常驻循环最容易被前庭敏感用户投诉 */
