@@ -783,10 +783,14 @@
      .cl-stat/.cl-milestone 等）写的是 `background: var(--card-bg)`。变量本身
      没被改 ⇒ 它们仍解析到 :root 的**实心** white/黑 ⇒ 在磨砂卡里叠成一块块
      实心色板，「不受透明影响」。令牌与容器实底色对齐后，这些派生面自然跟随
-     （color-mix 派生色也随 alpha 一起走，层次关系不变）。 */
+     （color-mix 派生色也随 alpha 一起走，层次关系不变）。
+     ⚠️ `:not(.category-bar)` —— 分类栏自 1.5.59 起改用**真玻璃**（磨砂直接挂
+     `.category-bar` 自身，配方见该组件）。本规则只强制 background-color 且带
+     `!important`，若不排除，本栏会被压成 var(--transparent-card-alpha) 的半透明底、
+     盖掉组件那份 0.62 / 0.65 的玻璃底色。 */
   html[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)):not(.category-bar),
   html[data-banner-display="transparent"]
     body.navbar-blur-enabled
     .btn-card:not(.btn-regular):not(.is-active):not(
@@ -805,7 +809,7 @@
 
   :root.dark[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)):not(.category-bar),
   :root.dark[data-banner-display="transparent"]
     body.navbar-blur-enabled
     .btn-card:not(.btn-regular):not(.is-active):not(

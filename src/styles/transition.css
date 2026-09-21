@@ -110,7 +110,10 @@ html.swup-visited .bangumi-page .onload-animation {
 
 /* 首页分类导航栏：视觉上位于内容卡片上方（内容列第一项），延迟对齐内容区
    与内容卡片一起入场，避免刷新瞬间抢跑可见（同 #home-moments 修复）；
-   疾速档 --dur-entry-max:0 → 错峰清零立即入场 */
+   疾速档 --dur-entry-max:0 → 错峰清零立即入场。
+   ⚠️ 动画挂在 #category-bar 根节点本身（1.5.59 起磨砂也挂该节点）。
+   元素自身的 opacity<1 不会挡掉它自己的 backdrop-filter（Backdrop Root 只作用于后代，
+   同 .floating-btn / .toc-popup-card）⇒ 玻璃整段入场都保持模糊，无需拆层。 */
 #category-bar {
   animation-delay: min(var(--content-delay), var(--dur-entry-max, 400ms));
 }

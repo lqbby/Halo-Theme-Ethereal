@@ -36,9 +36,16 @@
 ---
 
 <div
-  class="card-base category-bar onload-animation overflow-hidden p-3"
+  class="card-base category-bar onload-animation overflow-hidden p-1.5 rounded-2xl sm:rounded-3xl md:p-2"
   id="category-bar"
 >
+  <!-- ⚠️ 磨砂直接挂在本栏**自身**，绝不能再套子元素承载 backdrop-filter（1.5.59 实证）：
+       .card-base 的 `will-change: transform` 会让本栏成为 Backdrop Root，而 Backdrop Root
+       **只作用于后代** ⇒ 子层的 backdrop-filter 采样不到栏后的壁纸，磨砂静默失效
+       （CDP 实测：子层的 Laplacian 高频能量与「完全无模糊」基线无差异）。
+       元素自身的 backdrop-filter 不受**自己**的 will-change 影响，故挂自身即可。
+       同理入场动画（fade-in-up 含 opacity 起点）留在根节点上也安全：元素自身的
+       opacity<1 不会挡掉它自己的 backdrop-filter（同 .floating-btn / .toc-popup-card）。 -->
   <div class="category-bar-track flex items-center gap-2">
     <span class="category-liquid" aria-hidden="true"></span>
     <a
@@ -98,11 +105,48 @@
 
 <style is:global>
   .category-bar {
+    /* 边框浓度提到变量里：玻璃模式下要换档（见下），走变量可以避免
+       再写一条高特异性的 .category-pill 覆写去压 [data-active] 等状态。 */
+    --cb-bar-border: 6%;
     position: relative;
-    border: 1px solid color-mix(in srgb, var(--btn-content) 6%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--btn-content) var(--cb-bar-border), transparent);
     box-shadow:
       0 1px 2px color-mix(in srgb, var(--btn-content) 4%, transparent),
       inset 0 1px 0 color-mix(in srgb, var(--btn-content) 4%, transparent);
+  }
+
+  /* ── 真玻璃（门控开启时）──────────────────────────────────────────────────
+     ⚠️ 磨砂必须挂在**本栏自身**（见标记处注释）：.card-base 的 will-change:transform
+     会让本栏成为 Backdrop Root，Backdrop Root 只作用于后代 ⇒ 任何子层的 backdrop-filter
+     都采样不到栏后壁纸、会静默失效。
+     门控与站内「真玻璃」阵营严格同源（.float-panel / .navbar-blur / .floating-btn /
+     .toc-popup-card 用的都是这一组条件）：全屏透明壁纸 + 高级材质。
+     配方 = 导航栏面板同款 saturate(180%) blur(20px)，浅 0.62 白 / 深 0.65 黑。
+     关闭门控 ⇒ 本节整段不命中，自动回落到 .card-base 的实心卡底（零副作用）。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .category-bar {
+    --cb-bar-border: 5%;
+    outline: none;
+    background-color: rgb(255 255 255 / 0.62);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+    box-shadow:
+      0 4px 24px -1px rgb(0 0 0 / 0.08),
+      inset 0 1px 1px rgb(255 255 255 / 0.7);
+  }
+
+  /* 暗色：边界在深底上要提亮一档；投影转纯黑（冷蓝在深底显灰），
+     并保留一条内高光勾出玻璃上缘。 */
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .category-bar {
+    --cb-bar-border: 8%;
+    background-color: rgb(0 0 0 / 0.65);
+    box-shadow:
+      0 8px 32px rgb(0 0 0 / 0.35),
+      inset 0 1px 1px rgb(255 255 255 / 0.08);
   }
 
   .category-bar-track {
