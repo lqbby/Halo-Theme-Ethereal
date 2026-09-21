@@ -381,6 +381,7 @@ public class ThRenderProbe {
         words.put("p-nocover-series", 2281);
         words.put("p-nocover-notags", 1588);
         words.put("p-cover-longtag", 2263);
+        words.put("p-cover-manytags", 4120);
         java.util.Calendar c = java.util.Calendar.getInstance();
         c.set(2026, java.util.Calendar.SEPTEMBER, 12, 10, 30, 0);
         java.util.Date d1 = c.getTime();
@@ -429,7 +430,7 @@ public class ThRenderProbe {
                         "tModLoader 版本必须与客户端精确匹配，否则 Mod 直接加载失败。",
                         mockTerms(new String[]{"怀旧游戏", "在线游戏", "模拟器"}), mockTerms(new String[]{"折腾"}),
                         true, 17, 0, 0), 3});
-        scenes.add(new Object[]{"⑤ 无封面 · 无标签 · 无统计（no-tags + 三源全空守卫分支）",
+        scenes.add(new Object[]{"⑤ 无封面 · 无标签 · 无统计（no-tags + 两源全空守卫分支）",
                 mockPost("p-nocover-notags", "换了 MosDNS 之后国内域名解析更干净了",
                         null, false, null, d2,
                         "fake-ip 与 geosite 数据源撕裂会导致国内域名被丢给代理，这次两侧对齐了。",
@@ -445,6 +446,15 @@ public class ThRenderProbe {
                         coverUrl, false, null, d2, longExcerpt,
                         mockTerms(new String[]{"AI 工具", "AI Agent", "浏览器自动化"}), mockTerms(new String[]{"折腾"}),
                         true, 142, 0, 3), 6});
+        // ⚠️ 1.5.58 新增：**5 个标签**——只有 ≥4 个才能看到 `+N`，而 `+N` 的**计数**
+        //    正是这次分档改动最容易错的地方（窄档按 2 算显示 `+3`、宽档按 3 算显示 `+2`）。
+        scenes.add(new Object[]{"⑧ 有封面 · 5 标签（唯一能看到 +N 的场景：窄档应显示 +3、宽档应显示 +2）",
+                mockPost("p-cover-manytags", "一年下来我删掉的七个 Halo 插件与替代方案",
+                        coverUrl, false, null, d1,
+                        "插件少而稳比多而全更重要，这七个被换成了更轻的实现。",
+                        mockTerms(new String[]{"免费工具", "Windows", "博客", "效率", "折腾"}),
+                        mockTerms(new String[]{"折腾"}),
+                        true, 988, 4, 0), 7});
 
         StringBuilder out = new StringBuilder();
         out.append("<!-- 本文件由 ThRenderProbe.java --card 生成，勿手改 -->\n");

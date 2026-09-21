@@ -18,7 +18,9 @@ import { imageSuffixThWith } from "../utils/image-suffix";
  *
  * 各变量：
  *   coverEmpty     —— 无封面标记；供 classappend 与「角标挂封面还是挂 eyebrow」分流
- *   postWordCount  —— extra-api 插件按篇字数（插件启动即缓存好 ⇒ 卡片零请求）；取不到给 0，该项不渲染
+ *   postWordCount  —— extra-api 插件按篇字数（插件启动即缓存好 ⇒ 卡片零请求）。**1.5.58 起只喂给
+ *                     readMinutes，底栏不再单独显示它**（eyebrow 的「N 分钟」已表达同一信息，
+ *                     而它是底栏最宽的一项 63px）。取不到给 0 ⇒ 阅读时长那一项不渲染。
  *   readMinutes    —— 阅读时长（分钟）。**口径与文章页完全一致**：`Math.max(1, ceil(字数/400))`。
  *                     这里用整数除法 `(n + 399) div 400` 代替 `Math.ceil` —— 真引擎实测 7→1、400→1、
  *                     401→2、0→0，与 ceil 等价；**不用 `T(java.lang.Math)`**，那要类型白名单，不保证放行。
@@ -101,48 +103,71 @@ const cardThWith: string =
     </div>
 
     <!-- ④ 合并底栏：标签行与统计行**并成一条**带 border-t 的底栏 —— 左标签、右统计。
-         ⚠️ 这是本次重构对布局影响最大的一步：原来标签独占一行、统计另起一行，两行吃掉两次行高
-            加两次间距；合并后等高网格里能省出约一行高度还给摘要/标题。
-         ⚠️ 右侧统计改 `flex-shrink-0` + 不折行：原来 `flex-wrap` 是**允许折行**的，窄卡下
-            「浏览/评论/字数/点赞」会掉到第二行，把底栏撑成两行、破坏跨卡平齐。
+         【设计契约 · 2026-09-21 定，1.5.58】底栏**恒为单行**，靠一条**容器查询**分档
+         （判据挂 `.post-card-content`，参数见 PostList.astro）：
+           · 卡片内容 <400px（桌面网格 / 移动端）→ 紧档：chip 11px·px-1.5、统计间距 8px、项内 4px、
+             最多 **2** 个标签
+           · 卡片内容 ≥400px（桌面列表）→ 宽松档：chip 12px·px-2.5、统计间距 12px、项内 6px、
+             最多 **3** 个标签
+         ⚠️ 因此标签**服务端渲染 3 个**、窄档由 CSS 收起第 3 个（`--extra`）；`+N` 同理渲染
+            **两份**（按 2 算 / 按 3 算，title 各对应）由 CSS 切换 —— 服务端算不出卡片最终宽度，
+            **绝不能靠 overflow 裁切假装**（那会让 +N 计数与实际隐藏数不符）。
          ⚠️ 数字不做千/万缩写：点赞计数由 post-card-like.js 在初始化时**用原始数字覆盖**文本
-            （它只从 data-count 读值），缩写会被立刻冲掉；只缩写其余三项又会让底栏缩写口径不一致
-            ⇒ 统一不缩写，靠 nowrap 保证不折行。
+            （它只从 data-count 读值），缩写会被立刻冲掉；只缩写其余两项又会让底栏缩写口径不一致
+            ⇒ 统一不缩写。
          ⚠️ 无标签时只剩统计组 ⇒ 需要 `justify-content: flex-end` 把它推到右侧（见 PostList.astro）。
-         ⚠️ 整条底栏带 th:if 守卫：三个来源（标签 / 统计 / 字数）**全空**时整条不渲染，
-            否则会留下一条只有 border-t 的悬空细线，看起来像渲染坏了。 -->
+         ⚠️ 整条底栏带 th:if 守卫：两个来源（标签 / 统计）**全空**时整条不渲染，
+            否则会留下一条只有 border-t 的悬空细线，看起来像渲染坏了。
+         ⚠️ 「字数」项 1.5.58 移除：eyebrow 的阅读时长与它同源（extra-api 按篇字数），是同一信息的
+            两种表达；而它又是最宽的一项（实测 63px）—— 去掉它才让「2 标签 + 3 统计」
+            在 288px 硬预算（最窄网格卡 320px − 32px 内距，也是 320px 视口手机的值）下落得下。 -->
     <div
       class="post-card-bottom mt-auto flex items-center justify-between gap-2 border-t pt-3 text-sm text-50 transition"
-      th:if="${not #lists.isEmpty(post.tags) or post.stats != null or postWordCount > 0}"
+      th:if="${not #lists.isEmpty(post.tags) or post.stats != null}"
       th:classappend="${#lists.isEmpty(post.tags) ? ' no-tags' : ''}"
     >
-      <!-- 左：标签（最多 2 个，超出折叠为 +N）
-           ⚠️ 3 → 2 是刻意的：合并底栏后左侧空间被右侧四项统计挤压，3 个 chip 在窄卡下必然溢出。 -->
+      <!-- 左：标签（窄档 2 个 / 宽档 3 个，超出折叠为 +N）
+           ⚠️ 上限由**容器查询**决定（见 PostList.astro）⇒ 这里渲染到 3 个、窄档用 CSS 收起第 3 个
+              （`--extra`）。第 3 个被收起时必须换成「按 2 算」的 `+N` ⇒ 两份都渲染、由 CSS 切换。
+              这是服务端算不出卡片宽度时，唯一能保证 `+N` 计数与实际隐藏数一致的做法。
+           ⚠️ `th:title` 给全名：窄档 chip 允许收缩并把超出部分省略成 `…`（见 PostList.astro），
+              悬停能看回完整标签名；`th:aria-label` 则让读屏始终拿到全名。 -->
       <div
         class="post-card-bottom-tags flex min-w-0 items-center gap-1.5 overflow-hidden"
         th:if="${not #lists.isEmpty(post.tags)}"
       >
         <a
           th:each="tag, tagStat : ${post.tags}"
-          th:if="${tagStat.index < 2}"
+          th:if="${tagStat.index < 3}"
+          th:classappend="${tagStat.index >= 2 ? ' post-card-tag--extra' : ''}"
           th:href="@{${tag.status.permalink}}"
           th:aria-label="${tag.spec.displayName}"
+          th:title="${'#' + tag.spec.displayName}"
           class="post-card-tag inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
         >
           <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
         </a>
+        <!-- +N 两份：紧档按「已显示 2 个」算，宽松档按「已显示 3 个」算（title 同步） -->
         <span
           th:if="${#lists.size(post.tags) > 2}"
           th:title="|还有 ${#lists.size(post.tags) - 2} 个标签|"
-          class="post-card-tag post-card-tag-more inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+          class="post-card-tag post-card-tag-more post-card-tag-more--compact inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
         >
           +<span th:text="${#lists.size(post.tags) - 2}">2</span>
         </span>
+        <span
+          th:if="${#lists.size(post.tags) > 3}"
+          th:title="|还有 ${#lists.size(post.tags) - 3} 个标签|"
+          class="post-card-tag post-card-tag-more post-card-tag-more--wide inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+        >
+          +<span th:text="${#lists.size(post.tags) - 3}">2</span>
+        </span>
       </div>
 
-      <!-- 右：统计（浏览 / 评论 / 字数 / 点赞）
-           字数紧跟浏览/评论两个客观量之后、点赞之前 —— 点赞是唯一带交互态的项，置于末位避免被静态
-           数字夹住。单位「字」字号略小并贴近数字（见 PostList.astro 的 .post-card-stat-unit）。
+      <!-- 右：统计（浏览 / 评论 / 点赞）
+           1.5.58 移除「字数」项：它与 eyebrow 的阅读时长同源、是同一信息的两种表达，且是最宽的
+           一项（实测 63px）—— 去掉它才让「2 标签 + 3 统计」在 288px 硬预算下落得下。
+           点赞是唯一带交互态的项，置于末位避免被静态数字夹住。
            🔴 选择器 .post-card-stat-like / .post-card-like-count 与 data-post / data-count 是
               post-card-like.js 的契约，不许改名。 -->
       <div class="post-card-stats flex shrink-0 items-center gap-3">
@@ -165,16 +190,6 @@ const cardThWith: string =
           ></span>
           <span class="leading-none" th:text="${post.stats.comment}">0</span>
         </a>
-        <span
-          th:if="${postWordCount > 0}"
-          class="post-card-stat inline-flex items-center gap-1.5"
-        >
-          <span
-            class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
-          ></span>
-          <span class="leading-none" th:text="${postWordCount}">0</span>
-          <span class="post-card-stat-unit leading-none">字</span>
-        </span>
         <button
           type="button"
           th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"

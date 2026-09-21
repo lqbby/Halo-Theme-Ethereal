@@ -125,54 +125,125 @@ const { pagination = "posts", featured = false } = Astro.props;
     opacity: 1;
   }
 
-  /* 字数单位「字」（1.5.15）：字号略小 + 负 margin 吃掉一部分 gap-1.5
-     （0.375rem → 净 0.125rem），让它贴着数字、不跟「图标 + 数字」并列成两个独立项 */
-  #post-list-container .post-card-stat-unit {
-    font-size: 0.9em;
-    margin-left: -0.25rem;
-  }
-
-  /* ===== 合并底栏（1.5.57）=====
+  /* ===== 合并底栏（1.5.58 定契约：**恒单行** + 一条容器查询分档）=====
      标签行与统计行并成一条带 border-t 的底栏：左标签、右统计。
      ⚠️ 描边走 --line-divider 而不是写死 black/10 + dark:white/10：
         主题在浅底卡片外壳下需要更淡的分隔线，token 会跟着卡片外壳一起变。
 
-     🔴🔴 **允许折行是实测逼出来的，不是偷懒**（2026-09-21 CDP 量的线上真值）：
-         · 首页在 1440 视口下 `#post-list-container` 只有 **701px**（双列 @343px），
-           卡片内容宽 **311px**；
-         · 四项统计实测 `36 + 29 + 63 + 29 + 3×12(间距) = 193px`；
-         · 两个标签（`#免费工具` + `#办公工具`）实测 `75 + 6 + 75 = 156px`；
-         ⇒ 强行一行需要 156 + 8 + 193 = **357px > 311px**，溢出 46px；
-           而把「字数」挪走、只留三项也要 282px，遇到长标签对（`#Chrome 扩展`+`#DeepSeek`）
-           仍是 −5px。**结论：一行放不下，任何「缩字号/去单位」都是贴边赌运气。**
-         ⇒ 取「宽处一行、窄处自动分成两行」：列表模式等宽容器下就是设计要的
-            「左标签 / 右统计」一行；343px 网格卡上退化成「标签一行 + 统计一行（贴右）」，
-           **永不裁切**、也不再出现原来那种「四项统计折成两行、跨卡底栏参差」的毛病。 */
+     🔴🔴 **为什么必须分档：底栏可用宽最窄只有 288px**
+         · 网格是 `repeat(auto-fill, minmax(320px, 1fr))` ⇒ 卡片内容宽下限 = 320 − 32(内距) = **288px**；
+           这也正是 320px 视口手机的值（移动端主壳 px-0、网格 padding 0，卡片满宽）。
+         · CDP 实测锚点：四项统计 `36+29+63+29 + 3×12 = 193px`、两个标签 `75+6+75 = 156px`；
+           「字数」一项就占 63px；1440 视口双列卡内容宽 311px。
+         · 旧版（1.5.57）靠 `flex-wrap: wrap` 兜底 ⇒ 357px > 311px 溢出 46px ⇒ 统计整组掉到
+           第二行（就是「标签和数据不在同一行」）。
+         ⇒ 1.5.58 改为**两套参数 + 恒单行**（下面同名块 + 文件后部的 @container）：
+             紧档（内容 <400px）：chip 11px·px-1.5、标签组 4px、统计组 8px、项内 4px、最多 **2** 个标签
+                                  ⇒ 常规 240px / 最宽标签对 ≈264px（288 预算下余 24px）
+             宽松档（内容 ≥400px）：chip 12px·px-2.5、标签组 6px、统计组 12px、项内 6px、最多 **3** 个标签
+                                  ⇒ 常规 363px / 最宽三标签 ≈378px（400 预算下余 22px）
+         ⇒ 效果：桌面列表（592–800px）宽松+3；桌面网格（288–455px）与移动端（288–398px）紧+2。
+
+     🔴 **判据挂 `.post-card-content` 而不是卡片**：列表模式内容区是 `calc(100% − 封面 − 12px)`，
+        与卡宽不成比例 ⇒ 只有内容区宽才等于底栏真正可用的宽度。
+        `container-type: inline-size` 会带来 layout containment（成为 abs 定位包含块 + 新层叠上下文）；
+        已确认 `.post-card-content` 内所有 abs 元素（标题装饰条 / hover 箭头 / 点赞实心心）
+        都以组件内部的 relative 元素为包含块 ⇒ 无副作用。
+
+     🔴 **标签数只能由 CSS 分档** ⇒ 标记里服务端渲染 3 个、窄档收起第 3 个（`--extra`）；`+N` 同理
+        渲染两份（按 2 算 / 按 3 算）由 CSS 切换。**不要改成 overflow 裁切**：
+        那会让 +N 计数与实际隐藏数不符。 */
+  #post-list-container .post-card-content {
+    container-type: inline-size;
+    container-name: post-card;
+  }
+
+  /* ---- 紧档（默认：所有窄场景）---- */
   #post-list-container .post-card-bottom {
-    /* 折行安全网：空间够就一行，不够就让统计整组掉到第二行（见下 stats 的 margin-left:auto） */
-    flex-wrap: wrap !important;
-    /* 折行后两组之间的行距；列距仍由 grid-mode 那条 gap 覆盖 */
-    row-gap: 0.25rem;
+    /* 恒单行：分档已保证放得下，不再用 flex-wrap 兜底（那正是「标签和数据不同行」的成因） */
+    flex-wrap: nowrap !important;
     border-top-color: var(--line-divider);
+    gap: 0.5rem; /* 标签组 ↔ 统计组 */
   }
   /* 无标签时只剩统计组：justify-between 对单个子项会把它留在最左，需显式推到右侧
      （否则底栏右半边空着、视觉上像「统计掉到了左边」） */
   #post-list-container .post-card-bottom.no-tags {
     justify-content: flex-end !important;
   }
-  /* 左侧标签组：单行、超出裁掉。min-width:0 是 flex 子项能真正收缩的前提
+  /* 左侧标签组：单行。min-width:0 是 flex 子项能真正收缩的前提
      （flex 项默认 min-width:auto，会被内容撑开、把右侧统计挤出卡片） */
   #post-list-container .post-card-bottom-tags {
     flex-wrap: nowrap !important;
+    gap: 0.25rem;
   }
-  /* 右侧统计组：永不折行（四项 193px，最窄卡 311px 也放得下），并**永远贴右**。
+  /* 第 3 个标签只在宽松档出现（由文件后部的 @container 放回来） */
+  #post-list-container .post-card-tag--extra {
+    display: none !important;
+  }
+  /* +N 两份：紧档用 --compact（按 2 算），--wide 只在宽松档出现 */
+  #post-list-container .post-card-tag-more--wide {
+    display: none !important;
+  }
+  /* chip 紧档收一档：px-2.5 → px-1.5、text-xs(12px) → 11px */
+  #post-list-container .post-card-tag {
+    padding-inline: 0.375rem !important;
+    font-size: 0.6875rem !important;
+  }
+  /* 🔴 极端长标签的兜底（不让它被标签组右缘硬切）：允许 chip 收缩 + 文本省略成 `…`。
+     ⚠️ `+N` 合并项**不参与收缩**（Tailwind 的 shrink-0 保留），否则数字会被挤没。
+     ⚠️ 全名仍可达：<a> 带 th:title + th:aria-label（见 PostCard.astro）。 */
+  #post-list-container
+    .post-card-bottom-tags
+    .post-card-tag:not(.post-card-tag-more) {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  #post-list-container .post-card-bottom-tags .post-card-tag > span {
+    /* min-width:0 缺一不可：flex 子项默认 min-width:auto ⇒ 不写它即使有 overflow:hidden
+       也只会停在 min-content 宽、省略号永远不出现（真机踩过） */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* 右侧统计组：永不折行，并**永远贴右**（有/无标签、宽/窄档都贴右）。
      ⚠️ 用 `margin-left:auto` 而不是只靠容器的 justify-content: space-between：
-        底部这行会折行（见下），折行后统计独占第二行，space-between 会把它留在**最左**；
-        auto 外边距才能保证「有没有标签、折不折行」都贴右。 */
+        no-tags 时只剩一个子项，space-between 会把它留在**最左**；auto 才能保证恒贴右。 */
   #post-list-container .post-card-stats {
     flex-wrap: nowrap !important;
     white-space: nowrap;
     margin-left: auto;
+    gap: 0.5rem;
+  }
+  #post-list-container .post-card-stat {
+    gap: 0.25rem;
+  }
+
+  /* ---- 宽松档：卡片内容 ≥400px（桌面列表模式是唯一常态命中者）----
+     ⚠️ 这个块只做「档位切换」，不许再写第三套数值 —— 两档就是全部。 */
+  @container post-card (min-width: 400px) {
+    #post-list-container .post-card-bottom-tags {
+      gap: 0.375rem;
+    }
+    #post-list-container .post-card-tag--extra {
+      display: inline-flex !important;
+    }
+    #post-list-container .post-card-tag-more--compact {
+      display: none !important;
+    }
+    #post-list-container .post-card-tag-more--wide {
+      display: inline-flex !important;
+    }
+    #post-list-container .post-card-tag {
+      padding-inline: 0.625rem !important;
+      font-size: 0.75rem !important;
+    }
+    #post-list-container .post-card-stats {
+      gap: 0.75rem;
+    }
+    #post-list-container .post-card-stat {
+      gap: 0.375rem;
+    }
   }
 
   /* ===== 系列角标 / 置顶角标（1.5.57）=====
@@ -403,20 +474,18 @@ const { pagination = "posts", featured = false } = Astro.props;
     top: calc(100% - 1.5rem / 2) !important;
     font-size: 1.75rem !important;
   }
-  /* 网格：元信息与统计缩小（统计去胶囊底后需略大的间距才不成一坨） */
+  /* 网格：元信息与统计缩小（统计去胶囊底后需略大的间距才不成一坨）
+     ⚠️ 这里**不再写 gap** —— 间距已由「合并底栏」那条容器查询独占（两档制，避免第三套数值）。 */
   #post-list-container.post-grid-mode .post-meta {
     font-size: 0.8rem !important;
     gap: 0.5rem !important;
   }
   #post-list-container.post-grid-mode .post-card-stats {
     font-size: 0.8rem !important;
-    gap: 0.75rem !important;
   }
-  /* 合并底栏（1.5.57）：整条跟随 meta 的 0.8rem 档；间距 0.5rem 是「标签组 ↔ 统计组」之间的
-     最小呼吸（不是统计项之间 —— 那个由上面的 .post-card-stats gap 决定） */
+  /* 合并底栏：整条跟随 meta 的 0.8rem 档；间距交给容器查询（窄档 8px / 宽松档 12px） */
   #post-list-container.post-grid-mode .post-card-bottom {
     font-size: 0.8rem !important;
-    gap: 0.5rem !important;
   }
   /* 阅读时长（eyebrow 行右侧）与 meta 同档，否则一行里会出现两种字号 */
   #post-list-container.post-grid-mode .post-card-reading-time {
@@ -487,12 +556,11 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
     #post-list-container.post-list-mode .post-card-stats {
       font-size: 0.8rem !important;
-      gap: 0.75rem !important;
     }
-    /* 合并底栏与阅读时长（1.5.57）：移动端列表与网格观感统一，档位同步 */
+    /* 合并底栏与阅读时长（1.5.57）：移动端列表与网格观感统一，档位同步
+       ⚠️ gap 不再在这里写 —— 间距由容器查询按**实际内容宽**决定，与「模式」无关 */
     #post-list-container.post-list-mode .post-card-bottom {
       font-size: 0.8rem !important;
-      gap: 0.5rem !important;
     }
     #post-list-container.post-list-mode .post-card-reading-time {
       font-size: 0.8rem !important;
