@@ -577,6 +577,74 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
   }
 
+  /* ===== 列表模式：封面满幅贴边 + 文本内距收窄（1.5.61）=================
+     只作用于 .post-list-mode；网格 / 瀑布流保持「内缩 + 四角圆角」不变。
+       · 桌面 ≥768px：封面贴卡片右侧外框（右/上/下内距 3px → 0）⇒ 右侧一条齐边竖栏；
+       · 移动 <768px：封面满宽贴卡片顶部（原 mx-4 / mt-4 / w-calc(100%-2rem) → 0 / 0 / 100%）。
+     两者都去圆角 —— 卡片自带 overflow-hidden + rounded-(--radius-large)，
+     贴边后的外侧圆角由**卡片裁剪**产出，无需给封面写半径。
+     ⚠️ border-radius 写在这里而不是改 PostCard 的 rounded-xl 工具类：PostCard 是
+        列表 / 网格 / 瀑布流三态共用组件，改它的类会同时改到另两态。
+     ⚠️ 内容区宽度公式 `calc(100% - cover宽 - 12px)` **不动**：封面仍自右边缘占位，
+        那 12px 是图文间隙，与封面自身内距无关。
+     ⚠️ 本块必须排在文件后部（移动端块**之后**）：与 `.no-cover .post-card-content`
+        的 padding-right 属同特异性，靠源序取胜，放前面会被后者覆盖。 */
+  #post-list-container.post-list-mode .post-card-cover {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    border-radius: 0 !important;
+  }
+  #post-list-container.post-list-mode .post-card-enter-btn {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+  @media (max-width: 767.98px) {
+    /* 窄屏列表（<768px 被渲染成网格式）：文本内距 1.5rem → 1.25rem。
+       ⚠️ 别按「px」记：移动端根字号是 14px（桌面 16px）⇒ 1.25rem 实测 **17.5px**（基础 p-6 = 21px），
+          与桌面那条 1.5rem（= 24px）同源不同 px，属主题移动端整体缩放的正常结果。
+       ⚠️ 必须同时写 `.cover-left` 变体：文件前部那条 `.cover-left .post-card-content`
+          的 padding-left（2.25rem）与它同特异性，靠**源序靠后**才压得住。
+       无封面卡右侧留位 4.5rem → 4rem（覆盖按钮 3.25rem = 46px + 10px 间隙）。 */
+    #post-list-container.post-list-mode .post-card-content,
+    #post-list-container.post-list-mode.cover-left .post-card-content {
+      padding: 1.25rem !important;
+    }
+    #post-list-container.post-list-mode .no-cover .post-card-content {
+      padding-right: 4rem !important;
+    }
+  }
+  @media (min-width: 768px) {
+    /* 桌面文本内距：左 36 / 上 28 / 下 24 → 统一 24px。
+       ⚠️ 刻意**不写** padding-right：它仍由上面两条接管 ——
+          .has-cover 0.5rem（图文间隙）/ .no-cover 4rem（按钮留位）。 */
+    #post-list-container.post-list-mode .post-card-content {
+      padding-left: 1.5rem !important;
+      padding-top: 1.5rem !important;
+      padding-bottom: 1.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-cover {
+      width: var(--post-card-cover-width) !important;
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+    }
+    /* 封面居左（coverPosition: left）随贴边同步：左内距 12px → 0、文本左内距 36 → 24px。
+       选择器比上面的「居中」规则多一个 .cover-left ⇒ 特异性更高，能压过文件前部那条左置规则。
+       ⚠️ 必须写在同一个 min-width 媒体块内：mobile 块的 padding 与它同特异性，
+          若把这两条放到媒体查询之外（源序更靠后），窄屏就会退回 24px 而不是 20px。 */
+    #post-list-container.post-list-mode.cover-left .post-card-cover {
+      left: 0 !important;
+    }
+    #post-list-container.post-list-mode.cover-left .post-card-content {
+      padding-left: 1.5rem !important;
+    }
+  }
+
   /* 瀑布流模式：post-card-item 参与绝对定位，关闭入场过渡 */
   #post-list-container.post-grid-mode.masonry-active .post-card-item {
     position: absolute;
