@@ -178,12 +178,315 @@ public class ThRenderProbe {
                         d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 70));
             }
         }
+        // —— 2026-09-21 追加：文章卡片重构相关（阅读时长整数除法 / 系列注解 map 索引 / 期号定位）——
+        // 动机：卡片要新加「阅读时长」与「系列名 + 期号」，两处都踩没验过的 SpEL 语义：
+        //   ① 时长口径必须与文章页一致 = ceil(字数/400)，但不能用 T(java.lang.Math)（不保证被 Halo 放行）
+        //      ⇒ 改试「整数除法 (n+399) div 400」；
+        //   ② 系列名从 post.metadata.annotations['series'] 取（绕开 #annotations 方言，只依赖 metadata POJO）；
+        //   ③ 期号要在当前系列的 posts 里按 name 定位；LQ 全部文章都没填 order ⇒ 走「总数 - 下标」倒推，
+        //      所以必须验证「嵌套 each + 内层 th:if」这条定位路（选择语法 ?[...] 也要验，看它未命中时炸不炸）。
+        System.out.println("—— 卡片重构电池：整数除法 / map 索引 / 期号定位 ——");
+        Map<String, Object> ann = map("series", "网站推荐", "other", "x");
+        Map<String, Object> metaObj = map("annotations", ann, "name", "p-mid");
+        Map<String, Object> postObj = map("metadata", metaObj, "spec", map("pinned", true));
+        ctx.setVariable("post", postObj);
+        ctx.setVariable("nilMap", null);
+        List<Object> seriesPosts = new ArrayList<>();
+        seriesPosts.add(map("name", "p-new", "order", null));
+        seriesPosts.add(map("name", "p-mid", "order", null));
+        seriesPosts.add(map("name", "p-old", "order", 7));
+        ctx.setVariable("seriesView", map("posts", seriesPosts));
+        ctx.setVariable("wc", 1234);
+        // —— 2026-09-21 追加②：卡片角标改成「一次 listAll + 逐卡按名定位」后的语义 ——
+        // 动机：初版角标在**每张卡**上调 recentCommentsSeriesFinder.get(seriesName)，
+        //   而插件 SeriesFinderImpl.get() 每次都 loadSeries() = client.listAll(Post.class) 全表扫。
+        //   首页 9 张卡 = 9 次全表扫。改成在列表容器上 `th:with` 调**一次** listAll()，
+        //   卡片再按名从结果里挑（外层 each + th:if，O(系列数) 字符串比较）。
+        //   但这条依赖两个没验过的语义：① th:each 遍历 null 会不会抛；② 外层 each + 同层 th:if 能否按名过滤。
+        ctx.setVariable("seriesName", "网站推荐");
+        List<Object> seriesAll = new ArrayList<>();
+        seriesAll.add(map("name", "网站推荐", "posts", seriesPosts));
+        seriesAll.add(map("name", "另一个系列", "posts", new ArrayList<>()));
+        ctx.setVariable("seriesAll", seriesAll);
+        ctx.setVariable("seriesAllNull", null);
+        String[][] battery4 = {
+            {"整数除法 7→1", "<div th:text=\"${(7 + 399) div 400}\"></div>"},
+            {"整数除法 400→1", "<div th:text=\"${(400 + 399) div 400}\"></div>"},
+            {"整数除法 401→2", "<div th:text=\"${(401 + 399) div 400}\"></div>"},
+            {"整数除法 0→0", "<div th:text=\"${(0 + 399) div 400}\"></div>"},
+            {"th:with 算出分钟再进 i18n", "<div th:with=\"m=${(wc + 399) div 400}\" th:text=\"#{seriesStrip.issue(${m})}\"></div>"},
+            {"annotations 两层方括号", "<div th:text=\"${post.metadata.annotations['series']}\"></div>"},
+            {"annotations 缺键", "<div th:text=\"${post.metadata.annotations['nope']}\"></div>"},
+            {"annotations 父为 null 带守卫", "<div th:text=\"${nilMap != null ? nilMap['series'] : null}\"></div>"},
+            {"annotations 父为 null 裸索引", "<div th:text=\"${nilMap['series']}\"></div>"},
+            {"isEmpty(null)", "<div th:text=\"${#strings.isEmpty(nilMap)}\"></div>"},
+            {"嵌套 each 定位（未填 order 倒推）", "<div th:remove=\"tag\"><span th:each=\"sp, ss : ${seriesView.posts}\"><span th:if=\"${sp.name == 'p-mid'}\" th:text=\"${#lists.size(seriesView.posts) - ss.index}\"></span></span></div>"},
+            {"嵌套 each 定位（填了 order 优先）", "<div th:remove=\"tag\"><span th:each=\"sp, ss : ${seriesView.posts}\"><span th:if=\"${sp.name == 'p-old'}\" th:text=\"${sp.order != null ? sp.order : #lists.size(seriesView.posts) - ss.index}\"></span></span></div>"},
+            {"未填 order 时 order 为 null 判定", "<div th:remove=\"tag\"><span th:each=\"sp, ss : ${seriesView.posts}\"><span th:if=\"${sp.name == 'p-new'}\" th:text=\"${sp.order != null ? 'HAS' : 'NIL'}\"></span></span></div>"},
+            {"选择语法 ?, 命中", "<div th:text=\"${seriesView.posts.?[name == 'p-old']}\"></div>"},
+            {"选择后取下标", "<div th:text=\"${seriesView.posts.?[name == 'p-old'][0].order}\"></div>"},
+            {"选择未命中后取下标", "<div th:text=\"${seriesView.posts.?[name == 'zzz'][0].order}\"></div>"},
+            {"#lists.size", "<div th:text=\"${#lists.size(seriesView.posts)}\"></div>"},
+            {"th:each 遍历 null 列表", "<div th:each=\"a : ${seriesAllNull}\">X</div>"},
+            {"th:each 遍历 null（带同层 th:if 守卫）", "<div th:each=\"a : ${seriesAllNull}\" th:if=\"${seriesAllNull != null}\">X</div>"},
+            {"外层 each + 同层 th:if 按名过滤", "<div th:remove=\"tag\"><span th:each=\"sv : ${seriesAll}\" th:if=\"${sv.name == seriesName}\" th:text=\"${sv.name}\"></span></div>"},
+            {"按名过滤 + 内层 each 取期号", "<div th:remove=\"tag\"><span th:each=\"sv : ${seriesAll}\"><span th:remove=\"tag\" th:if=\"${sv.name == seriesName}\"><span th:each=\"sp, ss : ${sv.posts}\"><span th:if=\"${sp.name == 'p-mid'}\" th:text=\"#{seriesStrip.issue(${sp.order != null ? sp.order : #lists.size(sv.posts) - ss.index})}\"></span></span></span></span></div>"},
+            {"按名过滤（未命中：不输出）", "<div th:remove=\"tag\"><span th:each=\"sv : ${seriesAll}\" th:if=\"${sv.name == '不存在'}\" th:text=\"X\"></span></div>"},
+            {"seriesAll 为 null 时的完整角标", "<div th:remove=\"tag\"><span th:each=\"sv : ${seriesAllNull}\" th:if=\"${seriesAllNull != null and sv.name == seriesName}\" th:text=\"X\"></span></div>"},
+            {"th:remove=tag + each + if 同层", "<div th:remove=\"tag\" th:each=\"sv : ${seriesAll}\" th:if=\"${seriesAll != null and sv.name == seriesName}\"><span th:text=\"${sv.name}\"></span></div>"},
+            {"完整角标（真标记，命中）", "<span th:remove=\"tag\" th:each=\"sv : ${seriesAll}\" th:if=\"${seriesAll != null and sv.name == seriesName}\"><span class=\"post-card-series post-card-series--cover\" th:if=\"${not #lists.isEmpty(sv.posts)}\"><span class=\"post-card-series__name\" th:text=\"${seriesName}\"></span><div th:remove=\"tag\" th:each=\"sp, ss : ${sv.posts}\"><span class=\"post-card-series__issue\" th:if=\"${sp.name == post.metadata.name}\" th:text=\"#{seriesStrip.issue(${sp.order != null ? sp.order : #lists.size(sv.posts) - ss.index})}\"></span></div></span></span>"},
+            {"完整角标（系列没对上→整块不输出）", "<span th:remove=\"tag\" th:each=\"sv : ${seriesAll}\" th:if=\"${seriesAll != null and sv.name == '不存在'}\"><span class=\"post-card-series\" th:if=\"${not #lists.isEmpty(sv.posts)}\"><span th:text=\"${seriesName}\"></span></span></span>"},
+            {"完整角标（seriesAll 为 null）", "<span th:remove=\"tag\" th:each=\"sv : ${seriesAllNull}\" th:if=\"${seriesAllNull != null and sv.name == seriesName}\"><span class=\"post-card-series\"><span th:text=\"${seriesName}\"></span></span></span>"},
+        };
+        for (String[] c : battery4) {
+            try {
+                String out = engine.process(c[1], ctx).replaceAll("\\s+", " ").trim();
+                System.out.printf("  OK    %-26s → %s%n", c[0], clip(out, 110));
+            } catch (Throwable ex) {
+                Throwable d = ex;
+                while (d.getCause() != null && d.getCause() != d) d = d.getCause();
+                System.out.printf("  THROW %-26s → %s%n", c[0],
+                        d.getClass().getSimpleName() + ": " + clip(String.valueOf(d.getMessage()), 70));
+            }
+        }
         System.out.println("—— 电池结束 ——");
     }
 
     static String clip(String s, int n) {
         String t = s.replaceAll("\\s+", " ").trim();
         return t.length() > n ? t.substring(0, n) + " …" : t;
+    }
+
+    // ==================== 文章卡片真渲染（--card） ====================
+    //
+    // 动机（2026-09-21，1.5.57 卡片重构）：卡片是「全站三态共用」的组件，光看产物里有没有
+    // 某个 class 只能证明标记存在，证明不了**求值结果对不对** —— 系列角标要靠祖先作用域的
+    // `seriesAll` 过滤、阅读时长靠整数除法、底栏靠 `#lists.isEmpty(post.tags)` 切 no-tags。
+    // 这里把产物里的**真卡片片段**抠出来、喂 mock 数据用真引擎渲染，一次把所有分支铺开。
+    //
+    // 产物给了什么、本方法补了什么：
+    //   · 产物里已有：<article class="card-base post-card …" th:with="coverEmpty=…"> 整块
+    //   · 本方法补的上下文：post / postStat / theme / pluginFinder / extraApiStatsFinder /
+    //     seriesAll。其中 `seriesAll` 在真页面里由**列表容器**的 th:with 声明
+    //     （postListContainerThWith()），本探针直接当上下文变量喂进来 —— 等价，且更省事。
+    //   · 🔴 `pluginFinder` / `extraApiStatsFinder` 必须是**真对象**（不是 Map）：
+    //     模板里是 `pluginFinder.available('extra-api','3.*')` 这种**方法调用**，Map 没有
+    //     这些方法 ⇒ EL1008E。所以下面写了两个极简桩类。
+    //   · ⚠️ 裸 SpringTemplateEngine 对「缺失键 + 点号」抛 EL1008E（真 Halo 返回 null）
+    //     ⇒ mock 里所有会被点号读到的键都要**显式给值**，这也是 Stub#available 恒 true 的原因
+    //     （不能省掉 imageProcessing.card_cover_width 之类）。
+
+    /** 桩：pluginFinder.available(plugin, range) —— 恒 true，让门控分支全开 */
+    public static class StubPluginFinder {
+        public boolean available(String plugin, String range) {
+            return true;
+        }
+    }
+
+    /** 桩：extraApiStatsFinder.getPostWordCount({name:…}) —— 按 metadata.name 查字数表 */
+    public static class StubStatsFinder {
+        private final Map<String, Integer> words;
+
+        StubStatsFinder(Map<String, Integer> words) {
+            this.words = words;
+        }
+
+        public int getPostWordCount(Map<String, Object> ref) {
+            Object n = ref == null ? null : ref.get("name");
+            Integer w = n == null ? null : words.get(String.valueOf(n));
+            return w == null ? 0 : w;
+        }
+    }
+
+    /** mock 文章：键一律显式给（见上「缺失键」注意事项） */
+    static Map<String, Object> mockPost(String name, String title, String cover, boolean pinned,
+                                        String series, java.util.Date publish, String excerpt,
+                                        List<Object> tags, List<Object> cats, boolean withStats,
+                                        int visit, int comment, int upvote) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("metadata", map("name", name, "annotations", series == null ? null : map("series", series)));
+        m.put("spec", map("title", title, "cover", cover, "pinned", pinned,
+                "publishTime", publish, "slug", name));
+        m.put("status", map("permalink", "/archives/" + name, "excerpt", excerpt,
+                "lastModifyTime", publish));
+        m.put("stats", withStats ? map("visit", visit, "comment", comment, "upvote", upvote) : null);
+        m.put("tags", tags);
+        m.put("categories", cats);
+        return m;
+    }
+
+    static List<Object> mockTerms(String[] names) {
+        List<Object> out = new ArrayList<>();
+        for (String n : names) {
+            out.add(map("spec", map("displayName", n), "status", map("permalink", "/tags/" + n)));
+        }
+        return out;
+    }
+
+    static Map<String, Object> mockSeriesPost(String name, Integer order) {
+        return map("name", name, "title", name, "permalink", "/archives/" + name,
+                "order", order, "publishTime", null, "cover", null);
+    }
+
+    /** 从产物里抠出「文章卡片 + 后面那条移动端分隔线」 */
+    static String extractCard(String text) {
+        int a = text.indexOf("card-base post-card");
+        if (a < 0) {
+            System.out.println("✖ 产物里找不到 card-base post-card");
+            System.exit(2);
+        }
+        int aStart = text.lastIndexOf("<article", a);
+        int aEnd = text.indexOf("</article>", a);
+        if (aStart < 0 || aEnd < 0) {
+            System.out.println("✖ <article> 定位失败");
+            System.exit(2);
+        }
+        aEnd += "</article>".length();
+        int d = text.indexOf("<div class=\"post-card-divider", aEnd);
+        int dEnd = aEnd;
+        if (d >= 0) {
+            dEnd = text.indexOf("</div>", d);
+            dEnd = dEnd < 0 ? aEnd : dEnd + "</div>".length();
+        }
+        return text.substring(aStart, dEnd);
+    }
+
+    static void card(SpringTemplateEngine engine, String builtHtml, String outFile) throws Exception {
+        engine.setMessageResolver(new I18n("../../i18n/zh_CN.properties"));
+        String text = new String(Files.readAllBytes(Paths.get(builtHtml)), StandardCharsets.UTF_8);
+        String card = extractCard(text);
+        System.out.println("抠出卡片片段：" + card.length() + " 字符");
+        // 🔴 必须把 `@{}` 链接表达式降级成普通 `${}`：
+        //    裸 SpringTemplateEngine + 普通 Context **不是 IWebContext**，而 `@{${x}}` 里
+        //    x 求出来是 `/archives/xxx` 这种**上下文相对路径** ⇒ 解析期直接抛
+        //    `ParseException: Link base "/…" cannot be context relative (/...) unless the
+        //    context … implements IWebContext`（2026-09-21 实测）。预览里 href 只是装饰，
+        //    换成普通表达式即可；这也解释了为什么 about 页那路探针一直没踩到 —— 那段没有 @{}。
+        card = card.replaceAll("@\\{(\\$\\{[^{}]*\\})\\}", "$1")
+                   .replaceAll("@\\{(/[^}]*)\\}", "$1");
+        if (card.contains("@{")) {
+            System.out.println("⚠️ 片段里仍有 @{} 未降级（多层嵌套？）—— 可能再次抛 IWebContext 异常");
+        }
+        if (card.contains("th:each=\"post")) {
+            System.out.println("⚠️ 片段里含列表级 th:each（应只含单卡）——请人工确认");
+        }
+
+        // ⚠️ 数据一律取**线上真值**（2026-09-21 从 www.lqbby.com 首页抓的真实统计/标签），
+        //    否则量出来的宽度没有说服力 —— 底栏放不放得下，全看数字位数与标签字数。
+        Map<String, Integer> words = new LinkedHashMap<>();
+        words.put("p-cover-pinned", 3015);
+        words.put("p-cover-series", 2717);
+        words.put("p-cover-plain", 1874);
+        words.put("p-cover-long", 2323);
+        words.put("p-nocover-series", 2281);
+        words.put("p-nocover-notags", 1588);
+        words.put("p-cover-longtag", 2263);
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        c.set(2026, java.util.Calendar.SEPTEMBER, 12, 10, 30, 0);
+        java.util.Date d1 = c.getTime();
+        c.set(2026, java.util.Calendar.AUGUST, 3, 9, 0, 0);
+        java.util.Date d2 = c.getTime();
+
+        // 系列快照：真页面里由容器 th:with 的 listAll() 提供
+        List<Object> seriesAll = new ArrayList<>();
+        seriesAll.add(map("name", "网站推荐",
+                "posts", new ArrayList<>(List.of(
+                        mockSeriesPost("p-cover-series", null),
+                        mockSeriesPost("p-nocover-series", null),
+                        mockSeriesPost("p-cover-pinned", null))),
+                "latest", mockSeriesPost("p-cover-series", null)));
+        seriesAll.add(map("name", "折腾记录",
+                "posts", new ArrayList<>(List.of(mockSeriesPost("p-other-1", 1))),
+                "latest", mockSeriesPost("p-other-1", 1)));
+
+        String coverUrl = "https://tc.lqbby.com/uploads/2026/09/cover-sample.webp";
+        String longTitle = "把 NAS 上的签到中心从单项目脚本重构成多项目面板";
+        String longExcerpt =
+                "面板原来只服务美团一个项目，加第二个项目时才发现路由、鉴权、存储三处都写死了项目名。";
+
+        // 场景：名称 → [卡片片段, eager 下标]
+        List<Object[]> scenes = new ArrayList<>();
+        scenes.add(new Object[]{"① 有封面 · 置顶 · 系列 · 3 标签（#免费工具/#办公工具/#Windows，首卡 eager）",
+                mockPost("p-cover-pinned", longTitle, coverUrl, true, "网站推荐", d1,
+                        "把自己常用的一批 Windows 小工具整理成一张清单，附下载地址与许可证说明。",
+                        mockTerms(new String[]{"免费工具", "办公工具", "Windows"}), mockTerms(new String[]{"网站推荐"}),
+                        true, 57, 0, 1), 0});
+        scenes.add(new Object[]{"② 有封面 · 系列 · 3 标签（#macOS/#工具箱/#应用分身）",
+                mockPost("p-cover-series", "macOS 上让同一个应用开两份的几个办法",
+                        coverUrl, false, "网站推荐", d2,
+                        "不用第三方分身工具，靠系统自带的能力就能做到多开。",
+                        mockTerms(new String[]{"macOS", "工具箱", "应用分身"}), mockTerms(new String[]{"折腾"}),
+                        true, 26, 0, 1), 1});
+        scenes.add(new Object[]{"③ 有封面 · 无系列 · 2 标签（#Ethereal/#魔改）· 3 位浏览数",
+                mockPost("p-cover-plain", "给自己的 Halo 主题做了一次排版重构",
+                        coverUrl, false, null, d2,
+                        "卡片的信息层级重新排了一遍，元信息提到标题之前。",
+                        mockTerms(new String[]{"Ethereal", "魔改"}), mockTerms(new String[]{"折腾"}),
+                        true, 242, 1, 1), 2});
+        scenes.add(new Object[]{"④ 无封面 · 系列 · 3 标签（走 inline 系列 chip 分支）",
+                mockPost("p-nocover-series", "群晖上跑泰拉瑞亚灾厄服：版本对不上的坑",
+                        null, false, "网站推荐", d1,
+                        "tModLoader 版本必须与客户端精确匹配，否则 Mod 直接加载失败。",
+                        mockTerms(new String[]{"怀旧游戏", "在线游戏", "模拟器"}), mockTerms(new String[]{"折腾"}),
+                        true, 17, 0, 0), 3});
+        scenes.add(new Object[]{"⑤ 无封面 · 无标签 · 无统计（no-tags + 三源全空守卫分支）",
+                mockPost("p-nocover-notags", "换了 MosDNS 之后国内域名解析更干净了",
+                        null, false, null, d2,
+                        "fake-ip 与 geosite 数据源撕裂会导致国内域名被丢给代理，这次两侧对齐了。",
+                        new ArrayList<>(), new ArrayList<>(), false, 0, 0, 0), 4});
+        scenes.add(new Object[]{"⑥ 有封面 · 置顶 · 最长标签对（#Chrome 扩展/#DeepSeek）· 底栏压力最大",
+                mockPost("p-cover-longtag", "从 Chrome 书签迁移到自建书签站的两个坑",
+                        coverUrl, true, null, d1,
+                        "书签树的结构与浏览器 API 返回的结构不一致，得先拍平再重建。",
+                        mockTerms(new String[]{"Chrome 扩展", "DeepSeek", "书签管理"}) , mockTerms(new String[]{"折腾"}),
+                        true, 182, 0, 0), 5});
+        scenes.add(new Object[]{"⑦ 有封面 · 长标题 + 长摘要（看摘要截断与卡片等高）",
+                mockPost("p-cover-long", "用 Astro 把 Halo 主题拆成可维护的组件之后，我踩到的七个静默失败",
+                        coverUrl, false, null, d2, longExcerpt,
+                        mockTerms(new String[]{"AI 工具", "AI Agent", "浏览器自动化"}), mockTerms(new String[]{"折腾"}),
+                        true, 142, 0, 3), 6});
+
+        StringBuilder out = new StringBuilder();
+        out.append("<!-- 本文件由 ThRenderProbe.java --card 生成，勿手改 -->\n");
+        for (Object[] sc : scenes) {
+            String label = (String) sc[0];
+            @SuppressWarnings("unchecked")
+            Map<String, Object> post = (Map<String, Object>) sc[1];
+            int idx = (Integer) sc[2];
+
+            Context ctx = new Context();
+            ctx.setVariable("post", post);
+            ctx.setVariable("postStat", map("index", idx, "count", idx + 1));
+            ctx.setVariable("seriesAll", seriesAll);
+            ctx.setVariable("seriesAllNull", null);
+            ctx.setVariable("pluginFinder", new StubPluginFinder());
+            ctx.setVariable("extraApiStatsFinder", new StubStatsFinder(words));
+            ctx.setVariable("theme", map("config", map(
+                    "layout", map("postList", map("descriptionLines", 2)),
+                    "post", map("actionBar", map("like", true)),
+                    // ⚠️ imageProcessing 的键必须齐（见 Stub 注释）
+                    "performance", map("imageProcessing", map(
+                            "provider", "none", "card_cover_width", 400, "custom_format", "")))));
+
+            String tpl = "<div xmlns:th=\"http://www.thymeleaf.org\">" + card + "</div>";
+            out.append("<!--SCENE ").append(label).append(" -->\n");
+            try {
+                String rendered = engine.process(tpl, ctx);
+                // 去掉最外层包装 div
+                int open = rendered.indexOf('>', rendered.indexOf("<div")) + 1;
+                int close = rendered.lastIndexOf("</div>");
+                out.append(rendered, open, close).append('\n');
+                System.out.println("  OK    " + label);
+            } catch (Throwable e) {
+                System.out.println("  THROW " + label);
+                for (Throwable t = e; t != null; t = t.getCause()) {
+                    System.out.println("        CAUSE: " + t.getClass().getSimpleName() + ": " + t.getMessage());
+                }
+                out.append("<!--FAILED ").append(label).append(" -->\n");
+            }
+        }
+        Files.write(Paths.get(outFile), out.toString().getBytes(StandardCharsets.UTF_8));
+        System.out.println("已写出：" + outFile);
     }
 
     /**
@@ -237,6 +540,7 @@ public class ThRenderProbe {
         if (args.length < 1) {
             System.out.println("✖ 用法：ThRenderProbe.java <built.html> [count|none] [changelog条数] [锚点文本]");
             System.out.println("        ThRenderProbe.java --semantics");
+            System.out.println("        ThRenderProbe.java --card <built index.html> <out.html>");
             System.exit(2);
         }
 
@@ -248,6 +552,10 @@ public class ThRenderProbe {
 
         if ("--semantics".equals(args[0])) {
             semantics(engine);
+            return;
+        }
+        if ("--card".equals(args[0])) {
+            card(engine, args[1], args[2]);
             return;
         }
 

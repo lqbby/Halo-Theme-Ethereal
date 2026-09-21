@@ -1,0 +1,67 @@
+---
+/**
+ * 文章卡片上的「系列角标」（1.5.57 新增，配合 PostCard 的底栏/元信息重构）。
+ *
+ * 显示内容 = **系列名 + 期号**（D9）。期号取值优先级与首页系列条、文章页系列导航一致：
+ *   `SeriesPostView.order`（文章注解 `seriesOrder`）→ 没填就在该系列内按发布顺序倒推
+ *   `#lists.size(posts) - 下标`（插件对「未填序号」的排法是按发布时间倒序，所以 下标 0 = 最新 = 总篇数）。
+ *   ⚠️ LQ 目前所有文章都没填 `seriesOrder` ⇒ 实际走的是倒推那一条，别只测 order 分支。
+ *
+ * 数据链（**都不在本组件里取数**，全部来自外层作用域）：
+ *   `seriesName` = post.metadata.annotations['series']（实测列表接口就带 annotations ⇒ 不必用 #annotations 方言）
+ *                  —— 声明在**卡片**（PostCard 的 th:with）上
+ *   `seriesAll`  = recentCommentsSeriesFinder.listAll()（ethereal-companion ≥1.1.0）
+ *                  —— 声明在**列表容器**（PostList → postListContainerThWith()）上，整页只取一次
+ *
+ * 🔴🔴 为什么是 `listAll()` 一次 + 逐卡按名挑，而**不是**逐卡 `get(seriesName)`：
+ *      插件 `SeriesFinderImpl.get()` 内部就是 `loadSeries()`＝`client.listAll(Post.class)` 全表扫，
+ *      **无缓存**。首页 9 张卡逐卡调 = 9 次全表扫。容器上取一次 listAll() 后，卡片只需
+ *      O(系列数) 次字符串比较。这是本组件在 1.5.57 从「逐卡 get」改成「容器 listAll」的唯一原因。
+ *      ⚠️ `seriesAll` 由**祖先**节点声明、本组件读取 —— 与 SeriesStrip 里 `seriesList` 声明在
+ *         div、`<section>` 在子层读是同一套作用域语义（线上已验证可用）。
+ *
+ * ⚠️⚠️ 两种变体（由 CSS 决定同一时刻只显示一个）：
+ *   · `cover`  —— 压在封面左上角的深色胶囊（网格/移动端：封面在卡片顶部）
+ *   · `inline` —— 混进 eyebrow 行的浅色 chip（无封面卡；以及**列表模式**——那时封面是条窄竖条，挂不下）
+ *   所以本组件会被渲染**两次**，靠 `has-cover` / 模式类切换显隐，而不是用两套模板。
+ *
+ * 🔴🔴 按名挑系列**必须**用「外层 th:each + 同层 th:if」，**不能**用选择语法：
+ *      真引擎实测（ThRenderProbe --semantics）`seriesView.posts.?[name == 'x'][0].order`
+ *      **未命中时抛 EL1025E**（collection has '0' elements）⇒ 一条对不上系列的文章就让整页 500。
+ *      而「th:each 遍历 null / 每条 th:if 过滤」实测安全：null 列表 → 零次迭代、无异常。
+ * 🔴 也别改回 `${#annotations.get(post, 'series')}`：那依赖 Halo 方言，而 `post.metadata.annotations['series']`
+ *      只依赖 metadata POJO，实测能取到值、缺键返回 null、父为 null 时**必须**先判空（裸索引抛 EL1012E）。
+ *
+ * ⚠️ 所有 `th:*` 表达式都写成**普通字符串字面量**，不要在 Astro 属性里套模板字符串 ——
+ *    属性里 `${...}` 再嵌套会让 Astro 编译器在解析时炸（见 SeriesStripCard 头注释）。
+ */
+interface Props {
+  /** 视觉变体：封面胶囊 / eyebrow 行内 chip */
+  variant?: "cover" | "inline";
+}
+
+const { variant = "cover" } = Astro.props;
+---
+
+<!-- 外层 span 只做「按名筛选」；th:remove="tag" 让它自己不留痕（th:each 的每条迭代各自被移除标签）。
+     ⚠️ `th:each`(优先级 2) 早于 `th:if`(3)：先遍历、再逐条判名，未命中的那条整块不输出。 -->
+<span
+  th:remove="tag"
+  th:each="sv : ${seriesAll}"
+  th:if="${seriesAll != null and sv.name == seriesName}"
+>
+  <span
+    class={`post-card-series post-card-series--${variant}`}
+    th:if="${not #lists.isEmpty(sv.posts)}"
+  >
+    <span class="post-card-series__name" th:text="${seriesName}">系列</span>
+    <div th:remove="tag" th:each="sp, spStat : ${sv.posts}">
+      <span
+        class="post-card-series__issue"
+        th:if="${sp.name == post.metadata.name}"
+        th:text="#{seriesStrip.issue(${sp.order != null ? sp.order : #lists.size(sv.posts) - spStat.index})}"
+        >第 1 期</span
+      >
+    </div>
+  </span>
+</span>

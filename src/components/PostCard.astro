@@ -1,16 +1,86 @@
 ---
 import PostMeta from "./PostMeta.astro";
+import PostCardSeriesBadge from "./PostCardSeriesBadge.astro";
 import { imageSuffixThWith } from "../utils/image-suffix";
+
+/**
+ * 卡片级 th:with（1.5.57）。
+ *
+ * 🔴🔴 **顺序敏感**：`th:with` 里的变量只能引用**排在它前面**的。真引擎实测（ThRenderProbe
+ *      --semantics）：逆序引用抛 `EL1001E: cannot convert from null to boolean`
+ *      ⇒ 页面 200 但整块渲染截断。coverEmpty → postWordCount → readMinutes →
+ *      seriesName 的先后不能动。
+ * 🔴🔴 **三元运算符的条件不能是「可能为 null 的布尔值」**：同样抛 EL1001E。
+ *      一律写成**比较式**（`x != null ? … : …`、`a == b`），别写 `${someNullableBool ? …}`。
+ * 🔴 Finder 调用必须**内联**短路守卫（`pluginFinder != null and pluginFinder.available(...)`）：
+ *      pluginFinder 缺失 / 插件未装时绝不能去解析 `extraApiStatsFinder`，
+ *      否则整页 SpEL 异常（200 但正文截断）。
+ *
+ * 各变量：
+ *   coverEmpty     —— 无封面标记；供 classappend 与「角标挂封面还是挂 eyebrow」分流
+ *   postWordCount  —— extra-api 插件按篇字数（插件启动即缓存好 ⇒ 卡片零请求）；取不到给 0，该项不渲染
+ *   readMinutes    —— 阅读时长（分钟）。**口径与文章页完全一致**：`Math.max(1, ceil(字数/400))`。
+ *                     这里用整数除法 `(n + 399) div 400` 代替 `Math.ceil` —— 真引擎实测 7→1、400→1、
+ *                     401→2、0→0，与 ceil 等价；**不用 `T(java.lang.Math)`**，那要类型白名单，不保证放行。
+ *   seriesName     —— 文章上的 `series` 注解。实测线上列表接口就带 metadata.annotations ⇒ 直接读
+ *                     metadata POJO，**不必依赖 Halo 的 `#annotations` 方言**。父为 null 必须先判空：
+ *                     裸索引 `${nilMap['series']}` 会抛 `EL1012E: Cannot index into a null value`。
+ *
+ * ⚠️ **本组件不再自己取「该系列的全部文章」**：那要调 `recentCommentsSeriesFinder.get(name)`，
+ *    而插件里它=每次全表扫（无缓存）⇒ 一页 9 张卡 = 9 次全表扫。现在改由 `PostList.astro`
+ *    的容器 `th:with` 取**一次** `listAll()`（变量名 `seriesAll`），卡片角标从祖先作用域读它、
+ *    按名挑自己的系列。详见 `src/utils/post-list-config.ts` 的同名注释。
+ */
+const cardThWith: string =
+  "coverEmpty=${#strings.isEmpty(post.spec.cover)}, " +
+  "postWordCount=${pluginFinder != null and pluginFinder.available('extra-api', '3.*') " +
+  "? extraApiStatsFinder.getPostWordCount({name: post.metadata.name}) : 0}, " +
+  "readMinutes=${(postWordCount + 399) div 400}, " +
+  "seriesName=${post.metadata.annotations != null ? post.metadata.annotations['series'] : null}";
 ---
 
+<!-- 结构（1.5.57 重构）。DOM 序与视觉序相反，靠 flex 方向翻转：
+       · 网格 / 移动端：封面在上、内容在下（`column-reverse` / `flex-col-reverse`）
+       · 列表模式桌面端：内容在左、封面绝对定位在右（`md:flex-col` + 封面 `md:absolute`）
+     内容区内部顺序 = 视觉顺序：eyebrow（分类·日期·时长）→ 标题 → 摘要 → 合并底栏。
+     ⚠️ eyebrow 提到标题**之上**是刻意的：分类/日期是「栏目前缀」，先于标题更好扫读，也顺带给
+        阅读时长一个位置。这条会同时影响列表 / 网格 / 瀑布流三态（三态共用本组件）。 -->
 <article
   class="card-base post-card relative flex w-full flex-col-reverse rounded-(--radius-large) md:flex-col card-hover-lift overflow-hidden"
-  th:with="coverEmpty = ${#strings.isEmpty(post.spec.cover)}"
+  th:with={cardThWith}
   th:classappend="${(coverEmpty ? ' no-cover' : ' has-cover') + (post.spec.pinned == true ? ' is-pinned' : '')}"
 >
   <div
     class="post-card-content relative flex w-full flex-col pb-6 pl-6 pr-6 pt-6 md:pb-6 md:pl-9 md:pt-7"
   >
+    <!-- ① eyebrow 行：分类 · 日期 · [系列 chip] · 阅读时长
+         ⚠️ 置顶胶囊由 PostMeta 渲染，但有封面时会被 CSS 隐藏（改由封面右上角的角标承担）——
+            底栏合并后 eyebrow 行本身要挤下「日期 + 分类 + 时长」，再塞个置顶就溢出了。
+         ⚠️ 系列 chip 只在**无封面**卡上出现（有封面时角标挂封面）；inline 变体在列表模式桌面端
+            也会顶上来（那时封面是条窄竖条、挂不下角标），切换规则见 PostList.astro。 -->
+    <div
+      class="post-card-eyebrow mb-2 flex flex-wrap items-center gap-x-3 gap-y-1.5"
+    >
+      <PostMeta hideTags={true} hideUpdateDate={true} class="post-meta" />
+      <div th:remove="tag" th:if="${coverEmpty}">
+        <PostCardSeriesBadge variant="inline" />
+      </div>
+      <!-- 阅读时长：与「字数」同一数据源（extra-api 按篇字数）⇒ 同时出现时口径自洽 -->
+      <span
+        class="post-card-reading-time inline-flex items-center gap-1 text-sm text-50"
+        th:if="${postWordCount > 0}"
+      >
+        <span
+          class="icon-[material-symbols--schedule-rounded] text-base leading-none"
+        ></span>
+        <span
+          class="leading-none"
+          th:text="#{postCard.readingTime(${readMinutes})}">5 分钟</span
+        >
+      </span>
+    </div>
+
+    <!-- ② 标题 -->
     <a
       th:href="@{${post.status.permalink}}"
       class="post-card-title relative group mb-3 block w-full text-3xl font-bold text-90 transition before:absolute before:-left-[18px] before:top-2 before:hidden before:h-5 before:w-1 before:rounded-md before:bg-(--primary) hover:text-(--primary) active:text-(--title-active) dark:hover:text-(--primary) dark:active:text-(--title-active) md:before:block"
@@ -21,8 +91,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
       ></span>
     </a>
 
-    <PostMeta hideTags={true} hideUpdateDate={true} class="post-meta mb-4" />
-
+    <!-- ③ 摘要 -->
     <div
       class="post-card-excerpt grow mb-3.5 pr-4 text-75 transition"
       th:classappend="${theme.config?.layout?.postList?.descriptionLines == 0 ? ' no-clamp' : ''}"
@@ -31,96 +100,103 @@ import { imageSuffixThWith } from "../utils/image-suffix";
       Excerpt
     </div>
 
-    <!-- 底部标签：firefly 同款药丸 chip + # 前缀，超出 3 个折叠为 +N -->
+    <!-- ④ 合并底栏：标签行与统计行**并成一条**带 border-t 的底栏 —— 左标签、右统计。
+         ⚠️ 这是本次重构对布局影响最大的一步：原来标签独占一行、统计另起一行，两行吃掉两次行高
+            加两次间距；合并后等高网格里能省出约一行高度还给摘要/标题。
+         ⚠️ 右侧统计改 `flex-shrink-0` + 不折行：原来 `flex-wrap` 是**允许折行**的，窄卡下
+            「浏览/评论/字数/点赞」会掉到第二行，把底栏撑成两行、破坏跨卡平齐。
+         ⚠️ 数字不做千/万缩写：点赞计数由 post-card-like.js 在初始化时**用原始数字覆盖**文本
+            （它只从 data-count 读值），缩写会被立刻冲掉；只缩写其余三项又会让底栏缩写口径不一致
+            ⇒ 统一不缩写，靠 nowrap 保证不折行。
+         ⚠️ 无标签时只剩统计组 ⇒ 需要 `justify-content: flex-end` 把它推到右侧（见 PostList.astro）。
+         ⚠️ 整条底栏带 th:if 守卫：三个来源（标签 / 统计 / 字数）**全空**时整条不渲染，
+            否则会留下一条只有 border-t 的悬空细线，看起来像渲染坏了。 -->
     <div
-      class="post-card-bottom-tags mb-3 flex flex-wrap items-center gap-1.5"
-      th:if="${not #lists.isEmpty(post.tags)}"
+      class="post-card-bottom mt-auto flex items-center justify-between gap-2 border-t pt-3 text-sm text-50 transition"
+      th:if="${not #lists.isEmpty(post.tags) or post.stats != null or postWordCount > 0}"
+      th:classappend="${#lists.isEmpty(post.tags) ? ' no-tags' : ''}"
     >
-      <a
-        th:each="tag, tagStat : ${post.tags}"
-        th:if="${tagStat.index < 3}"
-        th:href="@{${tag.status.permalink}}"
-        th:aria-label="${tag.spec.displayName}"
-        class="post-card-tag inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+      <!-- 左：标签（最多 2 个，超出折叠为 +N）
+           ⚠️ 3 → 2 是刻意的：合并底栏后左侧空间被右侧四项统计挤压，3 个 chip 在窄卡下必然溢出。 -->
+      <div
+        class="post-card-bottom-tags flex min-w-0 items-center gap-1.5 overflow-hidden"
+        th:if="${not #lists.isEmpty(post.tags)}"
       >
-        <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
-      </a>
-      <span
-        th:if="${#lists.size(post.tags) > 3}"
-        th:title="|还有 ${#lists.size(post.tags) - 3} 个标签|"
-        class="post-card-tag post-card-tag-more inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
-      >
-        +<span th:text="${#lists.size(post.tags) - 3}">2</span>
-      </span>
-    </div>
-
-    <!-- 底部统计：浏览/评论/字数/点赞（纯「图标 + 数字」，无胶囊底；前景走 text-50
-         中性灰，与上方标签 chip 拉开权重。配色细则见 PostList.astro 的 .post-card-stat）
-         postWordCount = extra-api 插件按篇字数（插件启动时就缓存好 ⇒ 卡片零请求）。
-         ⚠️ 守卫必须内联且**短路**：pluginFinder 缺失 / 插件未装时绝不能去解析
-         extraApiStatsFinder，否则整页 SpEL 异常（200 但正文截断）。
-         取不到（含新文章尚未进插件缓存）时给 0 ⇒ 该项整条不渲染，不会显示「0 字」 -->
-    <div
-      class="post-card-stats mt-auto flex flex-wrap items-center gap-3 text-sm text-50 transition"
-      th:with="postWordCount = ${pluginFinder != null and pluginFinder.available('extra-api', '3.*') ? extraApiStatsFinder.getPostWordCount({name: post.metadata.name}) : 0}"
-    >
-      <span
-        th:if="${post.stats != null}"
-        class="post-card-stat inline-flex items-center gap-1.5"
-      >
-        <span
-          class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
-        ></span>
-        <span class="leading-none" th:text="${post.stats.visit}">0</span>
-      </span>
-      <a
-        th:if="${post.stats != null}"
-        th:href="${post.status.permalink + '#comment'}"
-        th:aria-label="评论"
-        class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5"
-      >
-        <span class="icon-[mdi--comment-text-outline] text-base leading-none"
-        ></span>
-        <span class="leading-none" th:text="${post.stats.comment}">0</span>
-      </a>
-      <!-- 字数：内容体量而非互动量，紧跟浏览/评论两个客观量之后、点赞之前 ——
-           点赞是唯一带交互态的项，置于末位避免被静态数字夹住。
-           单位「字」字号略小并贴近数字（见 PostList.astro 的 .post-card-stat-unit），
-           否则 gap-1.5 会把它读成一个独立项 -->
-      <span
-        th:if="${postWordCount > 0}"
-        class="post-card-stat inline-flex items-center gap-1.5"
-      >
-        <span
-          class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
-        ></span>
-        <span class="leading-none" th:text="${postWordCount}">0</span>
-        <span class="post-card-stat-unit leading-none">字</span>
-      </span>
-
-      <!-- 点赞：真实点赞按钮（调 Halo upvote API，见 post-card-like.js）；跟随后台
-           文章操作栏"启用点赞"开关；hover 描边→实心，liked 态由脚本实心点亮 -->
-      <button
-        type="button"
-        th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
-        th:attr="data-post=${post.metadata.name}"
-        th:data-count="${post.stats.upvote}"
-        aria-label="点赞"
-        class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent"
-      >
-        <span class="relative inline-flex text-base leading-none">
-          <span
-            class="stat-heart-outline icon-[material-symbols--favorite-outline-rounded]"
-          ></span>
-          <span
-            class="stat-heart-filled icon-[material-symbols--favorite-rounded] absolute inset-0 opacity-0"
-          ></span>
-        </span>
-        <span
-          class="post-card-like-count leading-none"
-          th:text="${post.stats.upvote}">0</span
+        <a
+          th:each="tag, tagStat : ${post.tags}"
+          th:if="${tagStat.index < 2}"
+          th:href="@{${tag.status.permalink}}"
+          th:aria-label="${tag.spec.displayName}"
+          class="post-card-tag inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
         >
-      </button>
+          <span th:text="${'#' + tag.spec.displayName}">#Tag</span>
+        </a>
+        <span
+          th:if="${#lists.size(post.tags) > 2}"
+          th:title="|还有 ${#lists.size(post.tags) - 2} 个标签|"
+          class="post-card-tag post-card-tag-more inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-medium transition"
+        >
+          +<span th:text="${#lists.size(post.tags) - 2}">2</span>
+        </span>
+      </div>
+
+      <!-- 右：统计（浏览 / 评论 / 字数 / 点赞）
+           字数紧跟浏览/评论两个客观量之后、点赞之前 —— 点赞是唯一带交互态的项，置于末位避免被静态
+           数字夹住。单位「字」字号略小并贴近数字（见 PostList.astro 的 .post-card-stat-unit）。
+           🔴 选择器 .post-card-stat-like / .post-card-like-count 与 data-post / data-count 是
+              post-card-like.js 的契约，不许改名。 -->
+      <div class="post-card-stats flex shrink-0 items-center gap-3">
+        <span
+          th:if="${post.stats != null}"
+          class="post-card-stat inline-flex items-center gap-1.5"
+        >
+          <span
+            class="icon-[material-symbols--visibility-outline-rounded] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="${post.stats.visit}">0</span>
+        </span>
+        <a
+          th:if="${post.stats != null}"
+          th:href="${post.status.permalink + '#comment'}"
+          th:aria-label="评论"
+          class="post-card-stat post-card-stat-link inline-flex items-center gap-1.5"
+        >
+          <span class="icon-[mdi--comment-text-outline] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="${post.stats.comment}">0</span>
+        </a>
+        <span
+          th:if="${postWordCount > 0}"
+          class="post-card-stat inline-flex items-center gap-1.5"
+        >
+          <span
+            class="icon-[material-symbols--description-outline-rounded] text-base leading-none"
+          ></span>
+          <span class="leading-none" th:text="${postWordCount}">0</span>
+          <span class="post-card-stat-unit leading-none">字</span>
+        </span>
+        <button
+          type="button"
+          th:if="${post.stats != null and theme.config?.post?.actionBar?.like == true}"
+          th:attr="data-post=${post.metadata.name}"
+          th:data-count="${post.stats.upvote}"
+          aria-label="点赞"
+          class="post-card-stat post-card-stat-like inline-flex cursor-pointer items-center gap-1.5 border-none bg-transparent"
+        >
+          <span class="relative inline-flex text-base leading-none">
+            <span
+              class="stat-heart-outline icon-[material-symbols--favorite-outline-rounded]"
+            ></span>
+            <span
+              class="stat-heart-filled icon-[material-symbols--favorite-rounded] absolute inset-0 opacity-0"
+            ></span>
+          </span>
+          <span
+            class="post-card-like-count leading-none"
+            th:text="${post.stats.upvote}">0</span
+          >
+        </button>
+      </div>
     </div>
   </div>
 
@@ -142,6 +218,22 @@ import { imageSuffixThWith } from "../utils/image-suffix";
         class="icon-[material-symbols--chevron-right-rounded] scale-50 text-5xl text-white opacity-0 transition group-hover:scale-100 group-hover:opacity-100"
       ></span>
     </div>
+    <!-- 封面角标层（z-30 盖住上面两层遮罩）：左系列、右置顶。
+         ⚠️ 父 <a> 已写死 aria-label=标题 ⇒ 这里的文字不会污染链接的可访问名。
+         ⚠️ pointer-events-none：角标纯标识，点击应落到整张封面链接上。 -->
+    <span
+      class="post-card-badges pointer-events-none absolute inset-x-2 top-2 z-30 flex items-start justify-between gap-2"
+    >
+      <PostCardSeriesBadge variant="cover" />
+      <span
+        class="post-card-pinned inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white"
+        th:if="${post.spec.pinned == true}"
+      >
+        <span class="icon-[material-symbols--pinboard] text-sm leading-none"
+        ></span>
+        <span class="leading-none">置顶</span>
+      </span>
+    </span>
     <img
       th:src="|${post.spec.cover}${suffix}|"
       th:alt="${post.spec.title}"

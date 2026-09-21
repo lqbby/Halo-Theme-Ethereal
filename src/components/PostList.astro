@@ -132,6 +132,125 @@ const { pagination = "posts", featured = false } = Astro.props;
     margin-left: -0.25rem;
   }
 
+  /* ===== 合并底栏（1.5.57）=====
+     标签行与统计行并成一条带 border-t 的底栏：左标签、右统计。
+     ⚠️ 描边走 --line-divider 而不是写死 black/10 + dark:white/10：
+        主题在浅底卡片外壳下需要更淡的分隔线，token 会跟着卡片外壳一起变。
+
+     🔴🔴 **允许折行是实测逼出来的，不是偷懒**（2026-09-21 CDP 量的线上真值）：
+         · 首页在 1440 视口下 `#post-list-container` 只有 **701px**（双列 @343px），
+           卡片内容宽 **311px**；
+         · 四项统计实测 `36 + 29 + 63 + 29 + 3×12(间距) = 193px`；
+         · 两个标签（`#免费工具` + `#办公工具`）实测 `75 + 6 + 75 = 156px`；
+         ⇒ 强行一行需要 156 + 8 + 193 = **357px > 311px**，溢出 46px；
+           而把「字数」挪走、只留三项也要 282px，遇到长标签对（`#Chrome 扩展`+`#DeepSeek`）
+           仍是 −5px。**结论：一行放不下，任何「缩字号/去单位」都是贴边赌运气。**
+         ⇒ 取「宽处一行、窄处自动分成两行」：列表模式等宽容器下就是设计要的
+            「左标签 / 右统计」一行；343px 网格卡上退化成「标签一行 + 统计一行（贴右）」，
+           **永不裁切**、也不再出现原来那种「四项统计折成两行、跨卡底栏参差」的毛病。 */
+  #post-list-container .post-card-bottom {
+    /* 折行安全网：空间够就一行，不够就让统计整组掉到第二行（见下 stats 的 margin-left:auto） */
+    flex-wrap: wrap !important;
+    /* 折行后两组之间的行距；列距仍由 grid-mode 那条 gap 覆盖 */
+    row-gap: 0.25rem;
+    border-top-color: var(--line-divider);
+  }
+  /* 无标签时只剩统计组：justify-between 对单个子项会把它留在最左，需显式推到右侧
+     （否则底栏右半边空着、视觉上像「统计掉到了左边」） */
+  #post-list-container .post-card-bottom.no-tags {
+    justify-content: flex-end !important;
+  }
+  /* 左侧标签组：单行、超出裁掉。min-width:0 是 flex 子项能真正收缩的前提
+     （flex 项默认 min-width:auto，会被内容撑开、把右侧统计挤出卡片） */
+  #post-list-container .post-card-bottom-tags {
+    flex-wrap: nowrap !important;
+  }
+  /* 右侧统计组：永不折行（四项 193px，最窄卡 311px 也放得下），并**永远贴右**。
+     ⚠️ 用 `margin-left:auto` 而不是只靠容器的 justify-content: space-between：
+        底部这行会折行（见下），折行后统计独占第二行，space-between 会把它留在**最左**；
+        auto 外边距才能保证「有没有标签、折不折行」都贴右。 */
+  #post-list-container .post-card-stats {
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+    margin-left: auto;
+  }
+
+  /* ===== 系列角标 / 置顶角标（1.5.57）=====
+     两种变体（cover / inline）**同时只显示一个**，由 .has-cover 与布局模式切换：
+       · 有封面 + 网格 / 移动端 → cover（压在封面左上角的深色胶囊）＋ 置顶压封面右上
+       · 有封面 + 列表模式桌面端 → inline（那时封面是条窄竖条，整层封面角标都关掉，
+         系列改回 eyebrow 行、置顶改回 PostMeta 内联胶囊）
+       · 无封面 → 只渲染 inline（封面角标所在的那个 cover <a> 根本不存在） */
+  #post-list-container .post-card-series {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  /* 名与期号之间用中圆点分隔；__issue 只在「本文确实属于该系列」时才渲染，
+     所以不会出现悬空的圆点 */
+  #post-list-container .post-card-series__issue::before {
+    content: "·";
+    margin-right: 0.25rem;
+    opacity: 0.6;
+  }
+  /* cover 变体：半透明底 + 毛玻璃，压住再花的封面也读得清（与首页系列条的期号胶囊同款）。
+     ⚠️ 这个 backdrop-filter 只作用在一个小胶囊上（不是卡片本身）⇒ 不会踩
+        「`.card-base` 无 position、加合成层会挪走纹理包含块」那个坑，开销也可忽略。 */
+  #post-list-container .post-card-series--cover {
+    color: #fff;
+    background: color-mix(in srgb, #000 42%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  /* inline 变体：混在 eyebrow 行里的浅色 chip，与标签 chip 同色系但用主色区分「这是系列」 */
+  #post-list-container .post-card-series--inline {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+  /* 有封面时角标默认在封面上 ⇒ 隐藏 eyebrow 行里的 inline 副本（两处都渲染，靠这里二选一） */
+  #post-list-container .post-card.has-cover .post-card-series--inline {
+    display: none;
+  }
+  /* 列表模式桌面端：封面是一条窄竖条，角标挂不下 ⇒ 把**整层**封面角标关掉（系列 + 置顶一起，
+     这样两者不会一半在封面一半在 eyebrow 行），再分别改回 eyebrow 行 / PostMeta。
+     ⚠️ 只关 `.post-card-series--cover` 不够 —— 置顶那颗在同一个 `.post-card-badges` 层里、
+     是另一个元素，会只剩它孤零零挂在窄条上。 */
+  @media (min-width: 768px) {
+    #post-list-container.post-list-mode .post-card.has-cover .post-card-badges {
+      display: none;
+    }
+    #post-list-container.post-list-mode
+      .post-card.has-cover
+      .post-card-series--inline {
+      display: inline-flex;
+    }
+  }
+  /* 置顶角标（封面右上角）：主色实心 + 白字，与系列角标的半透明黑底拉开层级。
+     ⚠️ `margin-left: auto` 而不是靠容器的 justify-content: space-between ——
+        系列角标在「本文不属于任何系列」时不渲染，那时容器只剩置顶一个子项，
+        space-between 会把它留在**最左**。用 auto 外边距才能保证它永远贴右。 */
+  #post-list-container .post-card-pinned {
+    margin-left: auto;
+    background: var(--primary);
+  }
+  /* 有封面时置顶改由封面角标承担 ⇒ 隐藏 PostMeta 里的内联胶囊（同上，两处渲染二选一）。
+     ⚠️ 列表模式桌面端要把 Meta 里那颗还回来 —— 那时封面角标整层都被隐藏了，
+        两处一起藏会导致「列表模式下看不到任何置顶标识」。 */
+  #post-list-container .post-card.has-cover .post-meta-pinned {
+    display: none !important;
+  }
+  @media (min-width: 768px) {
+    #post-list-container.post-list-mode .post-card.has-cover .post-meta-pinned {
+      display: inline-flex !important;
+    }
+  }
+
   /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）=====
      ⚠️ 置顶高亮必须独立于访客样式切换：访客切布局（列表/网格/瀑布流）只改容器类
      与卡片定位，不得改变置顶卡片的描边/光晕。本规则写在 #post-list-container 的
@@ -293,6 +412,16 @@ const { pagination = "posts", featured = false } = Astro.props;
     font-size: 0.8rem !important;
     gap: 0.75rem !important;
   }
+  /* 合并底栏（1.5.57）：整条跟随 meta 的 0.8rem 档；间距 0.5rem 是「标签组 ↔ 统计组」之间的
+     最小呼吸（不是统计项之间 —— 那个由上面的 .post-card-stats gap 决定） */
+  #post-list-container.post-grid-mode .post-card-bottom {
+    font-size: 0.8rem !important;
+    gap: 0.5rem !important;
+  }
+  /* 阅读时长（eyebrow 行右侧）与 meta 同档，否则一行里会出现两种字号 */
+  #post-list-container.post-grid-mode .post-card-reading-time {
+    font-size: 0.8rem !important;
+  }
 
   /* 摘要行数：list/grid 均由配置 --post-desc-lines 控制（0 = 不截断） */
   #post-list-container .post-card-excerpt {
@@ -359,6 +488,14 @@ const { pagination = "posts", featured = false } = Astro.props;
     #post-list-container.post-list-mode .post-card-stats {
       font-size: 0.8rem !important;
       gap: 0.75rem !important;
+    }
+    /* 合并底栏与阅读时长（1.5.57）：移动端列表与网格观感统一，档位同步 */
+    #post-list-container.post-list-mode .post-card-bottom {
+      font-size: 0.8rem !important;
+      gap: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-reading-time {
+      font-size: 0.8rem !important;
     }
 
     /* 列表模式摘要字号与网格一致 */
