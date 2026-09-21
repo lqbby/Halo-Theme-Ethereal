@@ -433,14 +433,13 @@ const { pagination = "posts", featured = false } = Astro.props;
     flex-grow: 1 !important;
   }
 
-  /* ===== 列表模式桌面端（≥768px）：内容区宽度与右侧留白 =====
-     有封面：内容区占左侧，右侧留出封面位（等价原 md:w-[calc(...)] md:pr-2）
-     无封面：内容区占满，右侧留出主题色按钮位（等价原 md:pr-16） */
+  /* ===== 列表模式桌面端（≥768px）：无封面卡的内容区留位 =====
+     🔴 1.5.62：原「有封面」那条（width: calc(100% - var(--post-card-cover-width) - 12px)
+        + padding-right: 0.5rem）已删除 —— 它是 1.5.61 竖条封面时代的写法，
+        与文末列表模式新块的 `calc(100% - 320px)` / `width:100%` **同特异性**，
+        靠源序才压得住；留着会在 768-1279 抢先把右内距打成 8px（不对称）。
+        现在有封面卡的内距由文末两块接管：≥1280 侧封面行 / <1280 封面在上（左右各 1.5rem）。 */
   @media (min-width: 768px) {
-    #post-list-container.post-list-mode .has-cover .post-card-content {
-      width: calc(100% - var(--post-card-cover-width) - 12px) !important;
-      padding-right: 0.5rem !important;
-    }
     #post-list-container.post-list-mode .no-cover .post-card-content {
       width: 100% !important;
       padding-right: 4rem !important;
@@ -513,17 +512,11 @@ const { pagination = "posts", featured = false } = Astro.props;
     font-size: 0.875rem;
   }
 
-  /* ===== 列表模式封面居左（coverPosition: left）===== */
-  #post-list-container.post-list-mode.cover-left .post-card-cover {
-    right: auto !important;
-    left: 0.75rem !important;
-  }
-  #post-list-container.post-list-mode.cover-left .post-card-content {
-    margin-right: 0 !important;
-    margin-left: auto !important;
-    padding-right: 1.5rem !important;
-    padding-left: 2.25rem !important;
-  }
+  /* ===== 列表模式封面居左（coverPosition: left）=====
+     🔴 1.5.62：几何已全部并入文末列表模式块（≥1280 写 left:0/right:auto +
+     内容区 margin-left:auto + padding-left:1.5rem；<1280 写 inset:auto 回到文档流）。
+     此处原写的 left:0.75rem / padding-left:2.25rem 与后置规则**同特异性**、
+     只靠源序分胜负，留着会让 768-1279 的内容区左内距变成 36px（不对称）⇒ 已删除。 */
 
   /* ===== 移动端（<768px）统一为网格式布局：封面居上、独立卡片 =====
      列表与网格在移动端呈现一致的卡片样式（封面在上、无封面用主题色按钮居右） */
@@ -577,18 +570,29 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
   }
 
-  /* ===== 列表模式：封面满幅贴边 + 文本内距收窄（1.5.61）=================
-     只作用于 .post-list-mode；网格 / 瀑布流保持「内缩 + 四角圆角」不变。
-       · 桌面 ≥768px：封面贴卡片右侧外框（右/上/下内距 3px → 0）⇒ 右侧一条齐边竖栏；
-       · 移动 <768px：封面满宽贴卡片顶部（原 mx-4 / mt-4 / w-calc(100%-2rem) → 0 / 0 / 100%）。
-     两者都去圆角 —— 卡片自带 overflow-hidden + rounded-(--radius-large)，
-     贴边后的外侧圆角由**卡片裁剪**产出，无需给封面写半径。
-     ⚠️ border-radius 写在这里而不是改 PostCard 的 rounded-xl 工具类：PostCard 是
-        列表 / 网格 / 瀑布流三态共用组件，改它的类会同时改到另两态。
-     ⚠️ 内容区宽度公式 `calc(100% - cover宽 - 12px)` **不动**：封面仍自右边缘占位，
-        那 12px 是图文间隙，与封面自身内距无关。
+  /* ===== 列表模式（1.5.62 重构）：两种形态按宽度切换 ====================
+     🔴 为什么改：封面被裁的根因不是 object-fit，而是**封面框自己的宽高比**。
+        object-cover 只在「框比 ≈ 原图比例」时才不裁切，而站内封面原图是 500×286（1.75）。
+        1.5.61 的 28% 竖条框比只有 0.47（1280）/ 0.72（1440）⇒ 实测只显示原图 27% / 41% 宽。
+
+     · ≥1280px「侧封面行」= 参考稿形态
+         封面固定 320px 贴右缘、拉满卡高；卡高锁 199px
+         ⇒ 封面框 320×199 = 1.61（原图 500×286 = 1.75）⇒ 原图约 **92%** 可见。
+         同时收起右侧栏（见本文件末尾 `#main-grid:has(...)` 那两条）
+         ⇒ 实测主栏 554→850（1280）/ 701→997（1440）/ 1142→1438（1920）。
+     · <1280px「上封面卡」
+         封面满宽贴卡片顶部、aspect-ratio 16/9 ⇒ 原图基本完整。
+         768-1279 只有左栏、卡宽仅 440~951px，放不下固定 320px 的侧封面
+         （内容区会只剩 88~300px，几何上做不到）⇒ 一并走「封面在上」。
+
+     🔴 卡高 199 是**固定值**、不是 min-height：卡高一变封面框比就变、可见度立刻掉
+        （199→227 时 90% → 79%）⇒ 标题因此锁死 1 行（超出省略）。
+     ⚠️ 只作用于 .post-list-mode；网格 / 瀑布流 / 文章页完全不动。
+     ⚠️ border-radius 一律不给封面写：卡片自带 overflow-hidden + rounded-(--radius-large)，
+        贴边后的外侧圆角由**卡片裁剪**产出。
      ⚠️ 本块必须排在文件后部（移动端块**之后**）：与 `.no-cover .post-card-content`
         的 padding-right 属同特异性，靠源序取胜，放前面会被后者覆盖。 */
+  /* —— 通用（全宽度）：封面贴边 + 覆盖按钮贴边 —— */
   #post-list-container.post-list-mode .post-card-cover {
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -603,6 +607,7 @@ const { pagination = "posts", featured = false } = Astro.props;
     margin: 0 !important;
     border-radius: 0 !important;
   }
+
   @media (max-width: 767.98px) {
     /* 窄屏列表（<768px 被渲染成网格式）：文本内距 1.5rem → 1.25rem。
        ⚠️ 别按「px」记：移动端根字号是 14px（桌面 16px）⇒ 1.25rem 实测 **17.5px**（基础 p-6 = 21px），
@@ -618,29 +623,122 @@ const { pagination = "posts", featured = false } = Astro.props;
       padding-right: 4rem !important;
     }
   }
+
+  /* —— <1280px：封面在上、满宽、16:9（原图基本不裁） —— */
+  @media (max-width: 1279.98px) {
+    /* 容器去连体背景与内距，每张卡片独立显示 */
+    #post-list-container.post-list-mode {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    /* 独立卡片模式下隐藏文章间的虚线分隔 */
+    #post-list-container.post-list-mode .post-card-divider {
+      display: none !important;
+    }
+    /* 卡片方向回到「封面在上」：基础类是 flex-col-reverse，但 md 起改成了 flex-col
+       ⇒ 不覆盖的话封面会被排到内容**之后**（下方）。 */
+    #post-list-container.post-list-mode .post-card {
+      flex-direction: column-reverse !important;
+      height: auto !important;
+    }
+    /* 封面回到文档流（md:absolute 是给 ≥1280 的侧封面行用的） */
+    #post-list-container.post-list-mode .post-card-cover,
+    #post-list-container.post-list-mode.cover-left .post-card-cover {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      left: auto !important;
+      aspect-ratio: 16 / 9 !important;
+      /* 🔴 必须显式 none：PostCard 封面自带 `max-h-[20vh]`，它才是 640px 宽
+         只显示 54.6% 高度的另一半原因（16:9 被 20vh 掐成矮条） */
+      max-height: none !important;
+      flex-shrink: 0 !important;
+    }
+    /* 封面在上时内容区占满宽度（文件前部那条 has-cover 的 calc 是给侧封面用的） */
+    #post-list-container.post-list-mode .has-cover .post-card-content {
+      width: 100% !important;
+    }
+  }
+
+  /* —— ≥768px：列表模式统一「紧凑档」文案（与侧封面行同档） —— */
   @media (min-width: 768px) {
-    /* 桌面文本内距：左 36 / 上 28 / 下 24 → 统一 24px。
-       ⚠️ 刻意**不写** padding-right：它仍由上面两条接管 ——
-          .has-cover 0.5rem（图文间隙）/ .no-cover 4rem（按钮留位）。 */
+    /* 文本内距：左 36 / 上 28 / 下 24 → 统一 24px。
+       ⚠️ 刻意**不写** padding-right：它由上下两条接管 ——
+          .has-cover 1.5rem（图文间隙）/ .no-cover 4rem（按钮留位）。 */
     #post-list-container.post-list-mode .post-card-content {
       padding-left: 1.5rem !important;
       padding-top: 1.5rem !important;
       padding-bottom: 1.5rem !important;
     }
+    /* 标题 18px/28 + 锁 1 行（卡高 199 恒定的前提）。
+       ⚠️ 用 nowrap + ellipsis 而不是 -webkit-line-clamp：clamp 需要 -webkit-box，
+          而绝对定位的箭头在 box + overflow 下会被裁掉。 */
+    #post-list-container.post-list-mode .post-card-title {
+      font-size: 1.125rem !important;
+      line-height: 1.75rem !important;
+      margin-bottom: 0.5rem !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    #post-list-container.post-list-mode .post-card-title::before {
+      display: none !important;
+    }
+    /* 标题旁的 hover 箭头在 1 行标题下没有落点（参考稿也没有），
+       且它的定位依赖标题末尾的静态位置、会被 nowrap + overflow 裁掉
+       ⇒ 列表模式不显示；hover 反馈交给封面上的箭头遮罩 + 卡片抬升。 */
+    #post-list-container.post-list-mode .post-card-arrow {
+      display: none !important;
+    }
+    /* eyebrow 锁定 1 行：卡高固定 199，让它换行会把内容顶出卡片被裁 */
+    #post-list-container.post-list-mode .post-card-eyebrow {
+      flex-wrap: nowrap !important;
+      overflow: hidden !important;
+    }
+    #post-list-container.post-list-mode .post-meta {
+      font-size: 0.75rem !important;
+      gap: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-stats,
+    #post-list-container.post-list-mode .post-card-bottom,
+    #post-list-container.post-list-mode .post-card-reading-time {
+      font-size: 0.75rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-excerpt {
+      font-size: 0.75rem !important;
+      line-height: 1.125rem !important;
+      margin-bottom: 0.75rem !important;
+    }
+  }
+
+  /* —— ≥1280px：侧封面行（封面固定 320px 拉满卡高，卡高锁 199） —— */
+  @media (min-width: 1280px) {
+    /* 卡高锁死 ⇒ 封面框 = 320 × 197 = 1.62 ⇒ 原图约 90% 可见 */
+    #post-list-container.post-list-mode .post-card {
+      height: 199px !important;
+    }
     #post-list-container.post-list-mode .post-card-cover {
-      width: var(--post-card-cover-width) !important;
       top: 0 !important;
       right: 0 !important;
       bottom: 0 !important;
+      width: 320px !important;
     }
-    /* 封面居左（coverPosition: left）随贴边同步：左内距 12px → 0、文本左内距 36 → 24px。
-       选择器比上面的「居中」规则多一个 .cover-left ⇒ 特异性更高，能压过文件前部那条左置规则。
-       ⚠️ 必须写在同一个 min-width 媒体块内：mobile 块的 padding 与它同特异性，
-          若把这两条放到媒体查询之外（源序更靠后），窄屏就会退回 24px 而不是 20px。 */
+    /* 内容区 = 卡宽 − 封面宽；24px 内距同时充当图文间隙（同参考稿，不再另加 12px） */
+    #post-list-container.post-list-mode .has-cover .post-card-content {
+      width: calc(100% - 320px) !important;
+      padding-right: 1.5rem !important;
+    }
+    /* 封面居左（coverPosition: left）随贴边同步 */
     #post-list-container.post-list-mode.cover-left .post-card-cover {
       left: 0 !important;
+      right: auto !important;
     }
-    #post-list-container.post-list-mode.cover-left .post-card-content {
+    #post-list-container.post-list-mode.cover-left
+      .has-cover
+      .post-card-content {
+      margin-left: auto !important;
+      margin-right: 0 !important;
       padding-left: 1.5rem !important;
     }
   }
@@ -658,5 +756,31 @@ const { pagination = "posts", featured = false } = Astro.props;
   #post-list-container.post-grid-mode.masonry-active
     .post-card-item.onload-animation {
     transition: none;
+  }
+
+  /* ===== 列表模式：≥1280px 收起右侧栏（1.5.62）=========================
+     🔴 为什么必须收：`#main-grid` 在 xl 变成 `17.5rem | 1fr | 17.5rem`，
+        而右侧栏当时只放了「访客计数」一个组件，却固定吃掉 280px + 16px 间距。
+        实测主栏宽度在 xl 断点上**断崖**：1279px → 951px，1280px → **554px**
+        （1px 视口变化掉 397px）⇒ 1280-1440 的笔记本看到的是全站最差的封面裁切
+        （原图只显示 27%）。收起后实测主栏 554→850（1280）/ 701→997（1440）/ 1142→1438（1920）。
+        ⚠️ 1280 处仍有 ~101px 收窄（951→850），来源是**主题既有的 `xl:w-[92vw]`**
+        （92vw < 100vw），与本规则无关；相比 1.5.61 的 397px 断崖已可忽略。
+
+     ⚠️ 用 `:has()` 而不是「服务端加 <html> 类 + JS 同步」：
+        `#post-list-container` 的 post-list-mode 类有三个来源（服务端默认值 /
+        访客覆盖脚本 / 面板实时切换），` :has()` 能一次性跟随全部来源，
+        不需要同步两外壳的 th:classappend 与访客脚本（少两处漏改风险）。
+        选择器由 body 子树求值，类变化只走祖先链失效，成本可忽略。
+     ⚠️ 两栏布局（layoutMode: two-column）下右侧栏本来就被 `xl:!hidden` 藏了，
+        这里的 grid-template 与它同值 ⇒ 无副作用。
+     ⚠️ 只在 ≥1280 生效：<1280 时栅格本来就只有两列。 */
+  @media (min-width: 1280px) {
+    #main-grid:has(#post-list-container.post-list-mode) {
+      grid-template-columns: 17.5rem minmax(0, 1fr) !important;
+    }
+    #main-grid:has(#post-list-container.post-list-mode) > #right-sidebar {
+      display: none !important;
+    }
   }
 </style>
