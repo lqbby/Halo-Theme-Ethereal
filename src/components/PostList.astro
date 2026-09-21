@@ -576,14 +576,20 @@ const { pagination = "posts", featured = false } = Astro.props;
         1.5.61 的 28% 竖条框比只有 0.47（1280）/ 0.72（1440）⇒ 实测只显示原图 27% / 41% 宽。
 
      · ≥1280px「侧封面行」= 参考稿形态
-         封面固定 320px 贴右缘、拉满卡高；卡高锁 199px
-         ⇒ 封面框 320×199 = 1.61（原图 500×286 = 1.75）⇒ 原图约 **92%** 可见。
-         同时收起右侧栏（见本文件末尾 `#main-grid:has(...)` 那两条）
-         ⇒ 实测主栏 554→850（1280）/ 701→997（1440）/ 1142→1438（1920）。
+         封面贴右缘、拉满卡高（top/bottom:0）；卡高锁 199px；封面宽 `min(320px, 52%)`。
+         卡高恒定 ⇒ 可见度**只由封面宽**决定：320px → 框比 1.61 → 原图 **92%** 可见；
+         1280 视口下 52% = 288px → 框比 1.45 → **83%** 可见。
+         ⇒ 实测主栏 554 / 701 / 1142（1280 / 1440 / 1920）、封面 288 / 320 / 320、
+            内容区 266 / 381 / 822。**右侧栏保留不动**（1.5.63 撤掉 1.5.62 的收起右栏）。
+     🔴🔴 **卡高 199 的另一半前提：eyebrow 必须恒单行**（1.5.63 补）。
+         内容区 266 / 381（1280 / 1440）时 `.post-meta` 会在内部折 2 行（PostMeta 根是 `flex-wrap:wrap`）
+         ⇒ 内容区涨到 229.7 > 199 ⇒ 底栏被卡片 overflow:hidden 裁掉（实测溢 31px）。
+         故 eyebrow / `.post-meta` / meta 各项**全部锁单行 + 裁切**；内容区 <320px 再收起阅读时长
+         （把宽度让给日期·分类）。详见文末列表模式块 + 其中嵌套的 @container 窄档。
      · <1280px「上封面卡」
-         封面满宽贴卡片顶部、aspect-ratio 16/9 ⇒ 原图基本完整。
-         768-1279 只有左栏、卡宽仅 440~951px，放不下固定 320px 的侧封面
-         （内容区会只剩 88~300px，几何上做不到）⇒ 一并走「封面在上」。
+         封面满宽贴卡片顶部、aspect-ratio 16/9 ⇒ 原图基本完整（可见 ~98%）。
+         ⚠️ 这段本来就没有右栏（栅格只有两列）⇒ 卡片能吃满 440~951px，
+            用「封面在上」比侧封面更完整，故不随 52% 规则走。
 
      🔴 卡高 199 是**固定值**、不是 min-height：卡高一变封面框比就变、可见度立刻掉
         （199→227 时 90% → 79%）⇒ 标题因此锁死 1 行（超出省略）。
@@ -691,10 +697,32 @@ const { pagination = "posts", featured = false } = Astro.props;
     #post-list-container.post-list-mode .post-card-arrow {
       display: none !important;
     }
-    /* eyebrow 锁定 1 行：卡高固定 199，让它换行会把内容顶出卡片被裁 */
+    /* eyebrow 锁定 1 行：卡高固定 199，让它换行会把内容顶出卡片被裁。
+       🔴🔴 只锁 eyebrow **自身不够**：PostMeta 根是 `flex flex-wrap`（gap-4 / gap-y-2，见 PostMeta.astro），
+          右栏保留后主栏收窄（1280 视口内容区仅 266px）⇒ 它在**内部**折成 2 行（72px），
+          把内容区顶到 229.7px > 卡高 199 ⇒ 底栏被卡片 overflow:hidden 裁掉（CDP 实测溢 31px）。
+          ⇒ 「恒单行」必须**下沉到 .post-meta 本身**。 */
     #post-list-container.post-list-mode .post-card-eyebrow {
       flex-wrap: nowrap !important;
       overflow: hidden !important;
+    }
+    #post-list-container.post-list-mode .post-card-eyebrow .post-meta {
+      /* ⚠️ flex 用 `0 1 auto` 而不是 `1 1 auto`：只许**收缩**、不许**撑开** ——
+         撑开会把右侧的阅读时长推到内容区另一端（1920 视口实测差 ~490px）。
+         min-width:0 是 flex 子项能真正收缩的前提（默认 min-width:auto 会被内容撑住）。 */
+      flex: 0 1 auto !important;
+      min-width: 0 !important;
+      flex-wrap: nowrap !important;
+      overflow: hidden !important;
+    }
+    /* meta 内部各项（日期 / 修改日 / 分类 / 标签）一律单行，超出由上面的 overflow 裁切 */
+    #post-list-container.post-list-mode .post-card-eyebrow .post-meta > * {
+      white-space: nowrap !important;
+    }
+    #post-list-container.post-list-mode .post-card-reading-time {
+      white-space: nowrap !important;
+      /* 不参与收缩：否则它会被 .post-meta 的收缩带垮、「5 分钟」折成两行（实测 36px） */
+      flex: 0 0 auto !important;
     }
     #post-list-container.post-list-mode .post-meta {
       font-size: 0.75rem !important;
@@ -712,9 +740,14 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
   }
 
-  /* —— ≥1280px：侧封面行（封面固定 320px 拉满卡高，卡高锁 199） —— */
+  /* —— ≥1280px：侧封面行（封面贴右缘拉满卡高，卡高锁 199） —— */
   @media (min-width: 1280px) {
-    /* 卡高锁死 ⇒ 封面框 = 320 × 197 = 1.62 ⇒ 原图约 90% 可见 */
+    /* 卡高恒定 199 ⇒ 封面框比 = 封面宽 / 199。要看到原图 ~92% 需框比 ≥1.61 ⇒ 封面宽 ≥320。
+       🔴 但右栏保留后主栏只有 554（1280）/ 701（1440）/ 1142（1920），固定 320 会让 1280 的
+          内容区只剩 234px（**比封面还窄**）⇒ 封面改 `min(320px, 52%)` 随卡宽缩：
+            1280 → 封面 288px（框比 1.45 ⇒ 原图可见 83%）+ 内容区 266px
+            1347 起 → 封面吃满 320px（框比 1.61 ⇒ 可见 92%）
+        ⚠️ 别把 52% 调小到让封面宽 < 240：框比会掉到 1.2 以下，可见度跌破 70%。 */
     #post-list-container.post-list-mode .post-card {
       height: 199px !important;
     }
@@ -722,11 +755,13 @@ const { pagination = "posts", featured = false } = Astro.props;
       top: 0 !important;
       right: 0 !important;
       bottom: 0 !important;
-      width: 320px !important;
+      width: min(320px, 52%) !important;
     }
-    /* 内容区 = 卡宽 − 封面宽；24px 内距同时充当图文间隙（同参考稿，不再另加 12px） */
+    /* 内容区 = 卡宽 − 封面宽；24px 内距同时充当图文间隙（同参考稿，不再另加 12px）。
+       🔴 两处的百分比解析基准都是 .post-card 宽度（卡自身无内距）⇒ 必须写**同一个表达式**，
+          一个写 320px 一个写 min(320px,52%) 会对不上、把内容区挤出卡片。 */
     #post-list-container.post-list-mode .has-cover .post-card-content {
-      width: calc(100% - 320px) !important;
+      width: calc(100% - min(320px, 52%)) !important;
       padding-right: 1.5rem !important;
     }
     /* 封面居左（coverPosition: left）随贴边同步 */
@@ -740,6 +775,20 @@ const { pagination = "posts", featured = false } = Astro.props;
       margin-left: auto !important;
       margin-right: 0 !important;
       padding-left: 1.5rem !important;
+    }
+    /* —— 窄档（内容区 <320px ≈ 1280~1427 视口）——
+       「日期 · 分类 · 阅读时长」在 ~217px 里放不下 ⇒ 收起阅读时长，把宽度让给 date / category
+       （CDP 实测 .post-meta 可见度 152/239 = 64% → 217.7/239 = 91%，且 overflowY 恒 0）。
+       ⚠️ 判据挂 .post-card-content（`container-type:inline-size`，见文件前部同名块）而不是视口：
+          可用宽随 --page-width / 侧栏宽度变，只有**内容区宽**才是内容真正的宽度。
+       ⚠️ 外面套 min-width:1280 是为了**不动移动端**：<768 列表卡高自适应、不存在裁切，
+          而 320px 视口下内容区约 280px 会误命中本档 ⇒ 白白丢掉阅读时长。 */
+    @container post-card (max-width: 319.98px) {
+      #post-list-container.post-list-mode
+        .post-card-eyebrow
+        .post-card-reading-time {
+        display: none !important;
+      }
     }
   }
 
@@ -758,29 +807,12 @@ const { pagination = "posts", featured = false } = Astro.props;
     transition: none;
   }
 
-  /* ===== 列表模式：≥1280px 收起右侧栏（1.5.62）=========================
-     🔴 为什么必须收：`#main-grid` 在 xl 变成 `17.5rem | 1fr | 17.5rem`，
-        而右侧栏当时只放了「访客计数」一个组件，却固定吃掉 280px + 16px 间距。
-        实测主栏宽度在 xl 断点上**断崖**：1279px → 951px，1280px → **554px**
-        （1px 视口变化掉 397px）⇒ 1280-1440 的笔记本看到的是全站最差的封面裁切
-        （原图只显示 27%）。收起后实测主栏 554→850（1280）/ 701→997（1440）/ 1142→1438（1920）。
-        ⚠️ 1280 处仍有 ~101px 收窄（951→850），来源是**主题既有的 `xl:w-[92vw]`**
-        （92vw < 100vw），与本规则无关；相比 1.5.61 的 397px 断崖已可忽略。
-
-     ⚠️ 用 `:has()` 而不是「服务端加 <html> 类 + JS 同步」：
-        `#post-list-container` 的 post-list-mode 类有三个来源（服务端默认值 /
-        访客覆盖脚本 / 面板实时切换），` :has()` 能一次性跟随全部来源，
-        不需要同步两外壳的 th:classappend 与访客脚本（少两处漏改风险）。
-        选择器由 body 子树求值，类变化只走祖先链失效，成本可忽略。
-     ⚠️ 两栏布局（layoutMode: two-column）下右侧栏本来就被 `xl:!hidden` 藏了，
-        这里的 grid-template 与它同值 ⇒ 无副作用。
-     ⚠️ 只在 ≥1280 生效：<1280 时栅格本来就只有两列。 */
-  @media (min-width: 1280px) {
-    #main-grid:has(#post-list-container.post-list-mode) {
-      grid-template-columns: 17.5rem minmax(0, 1fr) !important;
-    }
-    #main-grid:has(#post-list-container.post-list-mode) > #right-sidebar {
-      display: none !important;
-    }
-  }
+  /* ===== 1.5.62 的「列表模式收起右侧栏」已于 1.5.63 移除（LQ 否决）==========
+     原方案：`#main-grid:has(#post-list-container.post-list-mode){grid-template-columns:17.5rem minmax(0,1fr)}`
+     + `> #right-sidebar{display:none}` —— 主栏能到 850 / 997 / 1438，封面固定 320 就够 92% 可见。
+     🔴 代价是**右栏整个消失**（LQ：「这样就没有右侧边栏了」）⇒ 改为「保留右栏 + 封面随卡宽缩」，
+        即本文件 ≥1280 那条 `width: min(320px, 52%)`；右栏与主栏栅格都不再动。
+     ⚠️ 若要回滚这个决定：右栏保留后主栏只有 554（1280）/ 701（1440）/ 1142（1920），
+        且 xl 断点仍存在 1279px 951 → 1280px 554 的 **397px 断崖**（主题既有三栏栅格 + `xl:w-[92vw]`
+        共同造成）—— 这次不再用「隐藏右栏」去绕它，断崖就留在那儿。 */
 </style>
