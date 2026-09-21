@@ -158,6 +158,26 @@ const { pagination = "posts", featured = false } = Astro.props;
     container-name: post-card;
   }
 
+  /* ===== 标题字号自适应（1.5.64）=====
+     标题字号随**卡片内容宽**（容器查询单位 cqi）在 16~20px 之间连续缩放：
+       内容区 218px → 16.1px ／ 333px → 17.1px ／ ≥700px → 20px（封顶）
+     🔴 判据用**容器单位**而不是 vw：卡片宽与视口不成比例 —— 1280 的列表卡内容区（217.7px）
+        比网格最窄卡（288px）还窄，用 vw 会把两者算成同一个字号。
+     🔴 用 @supports 而**不是**「两条 font-size 叠写」（后者可能被压缩器当重复声明删掉）。
+        不支持 cqi 时整条 clamp() 会失效 ⇒ 落回上面那条 1.125rem，而不是掉到基类字号。
+     ⚠️ 这里**不写 line-height**：列表 28px / 网格与移动端 24px 是布局常量
+        （列表侧还是「卡高 199 恒定」的前提），只让「字体」自适应。
+     ⚠️ 公式**只此一处** —— 三处模式规则（列表≥768 / 列表<768 / 网格）里的 font-size
+        均已删除；它们的选择器特异性更高（1 个 id + 2 个类），留一条就会盖掉这里。 */
+  #post-list-container .post-card-title {
+    font-size: 1.125rem !important;
+  }
+  @supports (font-size: 1cqi) {
+    #post-list-container .post-card-title {
+      font-size: clamp(1rem, 0.9rem + 0.8cqi, 1.25rem) !important;
+    }
+  }
+
   /* ---- 紧档（默认：所有窄场景）---- */
   #post-list-container .post-card-bottom {
     /* 恒单行：分档已保证放得下，不再用 flex-wrap 兜底（那正是「标签和数据不同行」的成因） */
@@ -446,15 +466,15 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
   }
 
-  /* ===== 紧凑卡片样式（标题缩小、元信息缩小、摘要字号）=====
+  /* ===== 紧凑卡片样式（元信息缩小、摘要字号；标题只留「行高」）=====
      适用：网格模式（全断点）+ 列表模式移动端（两者观感统一）。
      注：网格为全断点、列表仅在移动端生效，断点不同无法共用选择器，
      故分别声明、保持规则体一致，避免修改时遗漏。
-     1.5.14：标题字号 1.35rem/1.75rem → 1.15rem/1.5rem（LQ 反馈偏大），
-     行高同比收窄，箭头 top 定位与箭头字号已随之调整 */
-  /* 网格：标题缩小、去掉装饰条 */
+     1.5.14：标题 1.35rem/1.75rem → 1.15rem/1.5rem（LQ 反馈偏大），行高同比收窄。
+     🔴 1.5.64：**标题字号已全部上收到「标题字号自适应」那一条**（容器单位 cqi 的 clamp）。
+        这里与列表模式两处都**只保留 line-height** —— 留 font-size 会因特异性更高而盖掉它。 */
+  /* 网格：标题去装饰条（字号见「标题字号自适应」） */
   #post-list-container.post-grid-mode .post-card-title {
-    font-size: 1.15rem !important;
     line-height: 1.5rem !important;
     margin-bottom: 0.5rem !important;
   }
@@ -463,11 +483,14 @@ const { pagination = "posts", featured = false } = Astro.props;
   }
   /* hover 箭头垂直对齐标题末行：末行中心 = 100% - 行高/2，配合
      base 的 -translate-y-1/2（箭头中心 = top 值），多行标题也落在
-     最后一行而非居中于整块。列表标题行高为 text-3xl 的 2.25rem */
+     最后一行而非居中于整块。
+     ⚠️ 这条在两种模式下其实**都不可达**：列表模式箭头 display:none（≥768 那条），
+        网格模式被下面的同名规则覆盖。1.5.64 前写的是 2.25rem（绑死基类 text-3xl 的行高，
+        而该基类字号已删）⇒ 改为列表模式的实际行高 1.75rem，仅作「无模式类」时兜底。 */
   #post-list-container .post-card-arrow {
-    top: calc(100% - 2.25rem / 2) !important;
+    top: calc(100% - 1.75rem / 2) !important;
   }
-  /* 网格：标题行高 1.15rem/1.5rem，末行中心相应上移；
+  /* 网格：标题行高 1.5rem，末行中心相应上移；
      箭头字号随标题等比收小（2rem→1.75rem），避免小标题旁挂大箭头 */
   #post-list-container.post-grid-mode .post-card-arrow {
     top: calc(100% - 1.5rem / 2) !important;
@@ -532,9 +555,8 @@ const { pagination = "posts", featured = false } = Astro.props;
     }
     /* 列表模式封面保持居上（PostCard 基础 flex-col-reverse），无需额外覆盖 */
 
-    /* 列表模式标题缩小、隐藏装饰条（与网格一致） */
+    /* 列表模式标题：行高与装饰条同网格（字号见「标题字号自适应」） */
     #post-list-container.post-list-mode .post-card-title {
-      font-size: 1.15rem !important;
       line-height: 1.5rem !important;
       margin-bottom: 0.5rem !important;
     }
@@ -681,7 +703,6 @@ const { pagination = "posts", featured = false } = Astro.props;
        ⚠️ 用 nowrap + ellipsis 而不是 -webkit-line-clamp：clamp 需要 -webkit-box，
           而绝对定位的箭头在 box + overflow 下会被裁掉。 */
     #post-list-container.post-list-mode .post-card-title {
-      font-size: 1.125rem !important;
       line-height: 1.75rem !important;
       margin-bottom: 0.5rem !important;
       white-space: nowrap !important;
