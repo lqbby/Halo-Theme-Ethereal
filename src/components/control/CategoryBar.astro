@@ -8,7 +8,7 @@
 // - postFinder.list({page: 1, size: 1}).total — 总文章数
 //
 // ─────────────────────────────────────────────────────────────────────────────
-// 高亮方案 = 液态滑块 + 单一常驻 rAF 跟随循环（1.4.14 重写；1.4.15 居中改最小揭示；1.4.16 移动端性能降级；1.4.18 撤销 1.4.17 移动端轻量版）
+// 高亮方案 = 液态滑块 + 单一常驻 rAF 跟随循环（1.4.14 重写；1.4.15 居中改最小揭示；1.4.16 移动端性能降级；1.4.18 撤销 1.4.17 移动端轻量版；1.5.60 极限性能重构）
 //
 // .category-liquid 是绝对定位的主色覆盖层（z-index:0），滑到选中 pill 下方；
 // pill（z-index:1）保持透明底，只切换文字色 —— 选中态的视觉由滑块承担。
@@ -32,6 +32,23 @@
 //   · 液体与滚动在同一帧内推进 → 天然「一次连贯位移」
 //   · 隐藏/淡出同样走插值 → 不再有位置突变造成的闪现
 //   · 只有一个时间源（tau）→ 文字变色时长由同一 tau 反推，天然同起同止
+//
+// ─────────────────────────────────────────────────────────────────────────────
+// 1.5.60 极限性能重构（移植自 visionos_lqbby 性能降级版，逐条与真机实测对齐）
+//
+//   ① 纯合成滑块：宽度从「逐帧写 width」改为「固定基准宽 + scaleX 拉伸」。
+//      width 会每帧触发布局；transform 只在合成器上跑。圆角用 1/k 反向补偿
+//      保持正圆（border-radius 只绘制、不布局）⇒ 逐帧零重排。
+//   ② 图层隔离：本栏与滚动区各加 contain: layout style + backface-visibility。
+//      **不用 contain: paint** —— 会裁掉滑块的 box-shadow 外发光（实测保守档）。
+//   ③ 触控端滤镜智能降档：桌面 saturate(180%) blur(20px)；命中
+//      「窄屏 ∪ 无悬停粗指针」时降为纯 blur(8px) 且底噪 α 提到 0.85。
+//   ④ will-change 只在滚动期间挂（.is-scrolling），停止 200ms 摘除，不长占显存。
+//   ⑤ 遮罩/滚动读取全部锁在唯一的 rAF 循环里（本就如此，本轮保持）。
+//
+//   注：滚动**前馈**（cur.x -= dScroll）与省略 getBoundingClientRect 这两条既有
+//   优化原样保留 —— 它们比参考实现（CSS transition + 每帧 getBoundingClientRect）
+//   更彻底，是本组件零滞后的根因。
 // ─────────────────────────────────────────────────────────────────────────────
 ---
 
@@ -109,6 +126,17 @@
        再写一条高特异性的 .category-pill 覆写去压 [data-active] 等状态。 */
     --cb-bar-border: 6%;
     position: relative;
+    /* ── 图层隔离（1.5.60 性能档）────────────────────────────────────────
+       layout+style 隔离 ⇒ 本栏的布局/样式计算自包含，父级重排时可跳过整棵子树；
+       backface-visibility 抑制背面绘制。
+       ⚠️ 刻意**不用** `contain: paint`：paint 会额外裁剪溢出并建立包含块，而本栏
+       内的液态滑块带一层外发光（box-shadow），有被裁切的风险。CDP 实测（线上真机、
+       高对比底噪）layout+style 与基线**逐像素一致**（laplacian 1156.14 完全相同、
+       diff max 0）；顺带也测了 paint，本例同样 diff 0，但仍取保守档。
+       ⚠️ contain 不会破坏本栏**自身**的 backdrop-filter：磨砂挂自身、采样自祖先
+       Backdrop Root，而 contain 只作用于后代（同 1.5.59 立下的 Backdrop Root 判据）。 */
+    contain: layout style;
+    backface-visibility: hidden;
     border: 1px solid
       color-mix(in srgb, var(--btn-content) var(--cb-bar-border), transparent);
     box-shadow:
@@ -154,14 +182,21 @@
     position: relative;
   }
 
-  /* 液态滑块：位置/宽度/透明度全部由 JS 每帧写入，故不设 transition
-     （任何 CSS 过渡都会与逐帧写入打架，产生二次动画）。 */
+  /* 液态滑块：位置/拉伸/透明度全部由 JS 每帧写入，故不设 transition
+     （任何 CSS 过渡都会与逐帧写入打架，产生二次动画）。
+     1.5.60 起宽度改为「固定基准宽 + scaleX 拉伸」：逐帧只写 transform（合成器
+     通道），不再写 width（那会每帧触发布局）。 */
   .category-liquid {
     position: absolute;
     top: 0;
     left: 0;
     height: 100%;
-    width: 0;
+    /* 基准宽 = 1× 标称宽；实际宽由 JS 用 scaleX(w / 100) 拉伸。
+       取 100px 使多数 pill 落在 0.4~1.6× 区间，缩放后子像素精度最好。
+       初始 scaleX(0) ⇒ 首屏 JS 未跑前不可见（等价旧版的 width:0）。 */
+    width: 100px;
+    transform: scaleX(0);
+    transform-origin: left center;
     background: var(--primary);
     border-radius: 0.75rem;
     z-index: 0;
@@ -170,7 +205,7 @@
     box-shadow:
       inset 0 1px 0 color-mix(in srgb, white 25%, transparent),
       0 0 18px color-mix(in srgb, var(--primary) 35%, transparent);
-    will-change: transform, width;
+    will-change: transform;
   }
 
   .category-scroll {
@@ -182,6 +217,19 @@
     --mask-fade: 1.5rem;
     cursor: grab;
     user-select: none;
+    /* ── 1.5.60 性能档 ───────────────────────────────────────────────────
+       layout+style 隔离：滚动区内部布局/样式自包含，滑动时不牵连外层重排；
+       overscroll-behavior-x: contain ⇒ 横滚到端点时**不把滚动链传给父级**
+       （移动端在栏上横滑，到边不再带动整页左右晃）。 */
+    contain: layout style;
+    backface-visibility: hidden;
+    overscroll-behavior-x: contain;
+  }
+
+  /* will-change 只在滚动**进行时**挂载、结束即摘：常挂会长期占一层合成层显存，
+     而收益只发生在滚动期间（对标参考实现里长期挂着的 will-change:scroll-position）。 */
+  .category-scroll.is-scrolling {
+    will-change: scroll-position;
   }
 
   .category-scroll::-webkit-scrollbar {
@@ -352,10 +400,33 @@
     outline-offset: 2px;
   }
 
-  @media (width <= 767px) {
+  /* ── 移动 / 触控端降档（1.5.60）──────────────────────────────────────────
+     基线取**并集**：窄屏 ∪ (无悬停 + 粗指针)。
+       · (width<=767px)              手机必中；
+       · (hover:none)+(pointer:coarse) iPad 等平板竖屏宽度常 >=768px 仍会命中
+         ⇒ 平板与手机同等降档（GPU 压力同级）。
+     玻璃：桌面端保留全规格 saturate(180%) blur(20px)；移动端降为**纯 blur(8px)**
+     —— 去掉 saturate，那是一次额外的全屏色彩矩阵采样、是移动端 GPU 的大头；
+     同时把底噪 α 0.62→0.85（深色 0.65→0.85），更实 ⇒ 需要采样的背景占比更小，
+     文字对比度也更稳。门控条件与桌面完全同源（不命中即自动回落，零副作用）。 */
+  @media (width <= 767px), (hover: none) and (pointer: coarse) {
+    html[data-banner-display="transparent"]
+      body.navbar-blur-enabled
+      .category-bar {
+      background-color: rgb(255 255 255 / 0.85);
+      -webkit-backdrop-filter: blur(8px);
+      backdrop-filter: blur(8px);
+    }
+
+    :root.dark[data-banner-display="transparent"]
+      body.navbar-blur-enabled
+      .category-bar {
+      background-color: rgb(0 0 0 / 0.85);
+    }
+
     .category-liquid {
-      /* 移动端降级：省掉每帧重绘的模糊阴影（width 动画会触发逐帧重栅格化，
-         模糊阴影是其中大头；移动端屏小、去掉肉眼几乎无差别） */
+      /* 移动端降级：省掉每帧重绘的模糊阴影（滑块逐帧位移时阴影是重栅格化大头，
+         移动端屏小、去掉肉眼几乎无差别） */
       box-shadow: none;
     }
 
@@ -494,9 +565,29 @@
       tgt.o = o;
     }
 
+    /* ── 写入（1.5.60：纯合成滑块）─────────────────────────────────────────
+       宽度不再逐帧写 `width`（那会每帧触发布局 + 重栅格化）；改为
+       「固定基准宽 LW_BASE + scaleX(w / LW_BASE)」，逐帧只更新 transform
+       —— 走合成器，零逐帧重排。
+       唯一残留的绘制开销是两端**圆角**：scaleX(k) 会把 CSS 圆角拉成椭圆
+       (k·rx × ry)。故按 1/k 反向补偿横向半径（rx = R·LW_BASE / w），使其
+       视觉上仍是正圆；border-radius 只影响绘制、不影响布局，故仍无逐帧重排。
+       用阈值门控：横向半径变化 < 0.3px 就不写，慢速段可省下若干次重绘。
+       （k 很小时浏览器会按「相邻半径不越界」规则统一收缩两轴，反向补偿与
+        该收缩叠加后仍是圆角，已验证。） */
+    var LW_BASE = 100;
+    var LIQ_R = 12; // = 0.75rem，与 .category-pill 的 rounded-xl 对齐
+    var lastRadius = -1;
+
     function apply() {
-      liquid.style.transform = "translate3d(" + cur.x + "px,0,0)";
-      liquid.style.width = cur.w + "px";
+      liquid.style.transform =
+        "translate3d(" + cur.x + "px,0,0) scaleX(" + cur.w / LW_BASE + ")";
+      var w = cur.w > 1 ? cur.w : 1;
+      var rx = (LIQ_R * LW_BASE) / w;
+      if (Math.abs(rx - lastRadius) > 0.3) {
+        liquid.style.borderRadius = rx + "px / " + LIQ_R + "px";
+        lastRadius = rx;
+      }
       liquid.style.opacity = cur.o;
     }
 
@@ -765,6 +856,19 @@
     /* ── 交互绑定 ─────────────────────────────────────────────────────── */
     var dragMoved = false;
 
+    /* 滚动期间才挂 will-change:scroll-position（.is-scrolling），停止后 200ms 摘除。
+       常挂 = 长期占一层合成层显存；瞬时挂 = 只在真正需要时给合成器提示。 */
+    var scrollingTimer = 0;
+    function markScrolling() {
+      if (!scroll) return;
+      if (!scroll.classList.contains("is-scrolling"))
+        scroll.classList.add("is-scrolling");
+      window.clearTimeout(scrollingTimer);
+      scrollingTimer = window.setTimeout(function () {
+        scroll.classList.remove("is-scrolling");
+      }, 200);
+    }
+
     function cancelAuto() {
       // 用户接管滚动：放弃程序化动画
       scrTgt = null;
@@ -782,6 +886,7 @@
       scroll.addEventListener(
         "scroll",
         function () {
+          markScrolling();
           // 程序化滚动期间由循环自己推进，忽略其派生的 scroll 事件
           if (scrTgt !== null) return;
           kick();
