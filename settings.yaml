@@ -757,6 +757,9 @@ spec:
             subtitles: "生而为人，爱而无畏\n心之所向，素履以往\n保持热爱，奔赴山海"
             subtitleFontSize: "1.5rem"
             subtitleEffect: "typewriter"
+            fontPreset: "serif"
+            fontFamily: ""
+            letterSpacing: ""
           children:
             - $formkit: switch
               name: enable
@@ -798,6 +801,33 @@ spec:
                   label: 打字机效果
                 - value: drop
                   label: 文字下坠
+            - $formkit: select
+              name: fontPreset
+              if: "$get(bannerText_enable).value"
+              label: 标题/副标题字体
+              value: "serif"
+              options:
+                - value: serif
+                  label: 衬线体（默认）—— 英文标语推荐
+                - value: sans
+                  label: 细体无衬线 —— 现代
+                - value: mono
+                  label: 等宽 —— 技术感
+                - value: inherit
+                  label: 跟随主题 —— 不用预设
+              help: "只作用于 Banner 的标题与副标题，不影响正文。全部为系统字体栈，不额外加载任何网络字体。选「跟随主题」即回到本主题原有的字体观感。"
+            - $formkit: text
+              name: fontFamily
+              if: "$get(bannerText_enable).value"
+              label: 自定义字体族（可选）
+              value: ""
+              help: "留空则用上面的预设。填任意 CSS font-family 列表即覆盖预设，例如：'Playfair Display', Georgia, serif（前提是该字体已被加载）。"
+            - $formkit: text
+              name: letterSpacing
+              if: "$get(bannerText_enable).value"
+              label: 字间距（可选）
+              value: ""
+              help: "留空不改。英文标语建议 0.02em ~ 0.06em，衬线体配宽字距会更舒展。"
         - $formkit: group
           name: themeColor
           label: 主题颜色

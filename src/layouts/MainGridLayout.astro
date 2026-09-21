@@ -100,6 +100,48 @@ const {
     -webkit-touch-callout: none;
     touch-action: pan-y;
   }
+
+  /* ── Banner 文字层字体预设（后台：外观 → 标题与副标题 → 字体）────────────────
+     ⚠️ 这里全部是**系统字体栈**：不加载任何网络字体。Google Fonts 在国内常不可达，
+     挂在首屏 banner 上只会白等一个 render-blocking 请求。
+     想用 Playfair Display / Cinzel 这类，先把字体加载好，再到「自定义字体族」里填覆盖。
+     选择器用 id + 属性：(1,1,0) 足以压过 .font-bold 这类工具类；本块无 layer，
+     不会被 @layer 里的规则意外反超。
+
+     🔴 `:not([data-banner-font])` = **出厂缺省档**。
+     th:attr 遇到 null 会「删掉属性」——旧站点升级后主题配置里根本没有 fontPreset 这个键，
+     属性必然缺席。若缺省档不做成衬线，本主题最想要的英文标语效果就得等站长
+     手动进后台点一次才生效（等于半个功能）。因此这里把「缺属性」直接定为衬线体，
+     想退回旧观感请在后台显式选「跟随主题」。 */
+  #banner-overlay[data-banner-font="serif"] #banner-title,
+  #banner-overlay[data-banner-font="serif"] #banner-subtitle,
+  #banner-overlay:not([data-banner-font]) #banner-title,
+  #banner-overlay:not([data-banner-font]) #banner-subtitle {
+    font-family:
+      ui-serif, Georgia, Cambria, "Times New Roman", Times, "Songti SC", SimSun,
+      serif;
+    letter-spacing: 0.02em;
+  }
+  #banner-overlay[data-banner-font="serif"] #banner-title,
+  #banner-overlay:not([data-banner-font]) #banner-title {
+    font-weight: 600;
+  }
+  #banner-overlay[data-banner-font="sans"] #banner-title,
+  #banner-overlay[data-banner-font="sans"] #banner-subtitle {
+    font-family:
+      ui-sans-serif, system-ui, "Helvetica Neue", "Segoe UI", Arial,
+      "PingFang SC", "Microsoft YaHei", sans-serif;
+    letter-spacing: 0.06em;
+  }
+  #banner-overlay[data-banner-font="sans"] #banner-title {
+    font-weight: 300;
+  }
+  #banner-overlay[data-banner-font="mono"] #banner-title,
+  #banner-overlay[data-banner-font="mono"] #banner-subtitle {
+    font-family:
+      ui-monospace, "SFMono-Regular", Menlo, Consolas, "Courier New", monospace;
+    letter-spacing: 0.02em;
+  }
 </style>
 
 <Layout
@@ -302,6 +344,8 @@ const {
     <div
       id="banner-overlay"
       th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.enable == null or theme.config?.style?.bannerText?.enable}"
+      th:attr="data-banner-font=${theme.config?.style?.bannerText?.fontPreset}"
+      th:with="bannerFontCfg=${theme.config?.style?.bannerText?.fontFamily},bannerTrackCfg=${theme.config?.style?.bannerText?.letterSpacing},bannerExtraCss=${((bannerFontCfg == null or #strings.isEmpty(bannerFontCfg)) ? '' : '; font-family: ' + bannerFontCfg) + ((bannerTrackCfg == null or #strings.isEmpty(bannerTrackCfg)) ? '' : '; letter-spacing: ' + bannerTrackCfg)}"
       class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center"
       style={isHomePage ? "" : "display:none"}
     >
@@ -309,7 +353,7 @@ const {
         id="banner-title"
         th:if="${theme.config?.style?.bannerText?.title != null}"
         class="font-bold text-white"
-        th:style="'font-size: ' + (${theme.config?.style?.bannerText?.titleFontSize ?: '3.5rem'}) + '; text-shadow: 0 2px 15px rgba(0,0,0,0.5)'"
+        th:style="${'font-size: ' + (theme.config?.style?.bannerText?.titleFontSize ?: '3.5rem') + '; text-shadow: 0 2px 15px rgba(0,0,0,0.5)' + bannerExtraCss}"
         th:text="${theme.config?.style?.bannerText?.title}"
       >
       </h1>
@@ -321,7 +365,7 @@ const {
         <span
           id="banner-subtitle"
           class="text-white/90"
-          th:style="'font-size: ' + (${theme.config?.style?.bannerText?.subtitleFontSize ?: '1.5rem'}) + '; text-shadow: 0 1px 8px rgba(0,0,0,0.4)'"
+          th:style="${'font-size: ' + (theme.config?.style?.bannerText?.subtitleFontSize ?: '1.5rem') + '; text-shadow: 0 1px 8px rgba(0,0,0,0.4)' + bannerExtraCss}"
           >&nbsp;</span
         >
         <span

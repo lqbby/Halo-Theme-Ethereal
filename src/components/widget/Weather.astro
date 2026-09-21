@@ -37,8 +37,11 @@ const className = Astro.props.class;
   </div>
 
   <div id="weather-content" class="px-3 py-1">
+    <!-- min-h 对齐成功态两行内容（≈76px）的高度：加载态只有一行 spinner，
+         不留位的话天气数据到达时侧栏会整体下跳 ~50px（CLS）。
+         该占位随 innerHTML 清空自动消失，不影响成功/失败态的自然高度。 -->
     <div
-      class="flex items-center justify-center gap-2 text-neutral-400 text-sm"
+      class="flex min-h-[4.75rem] items-center justify-center gap-2 text-neutral-400 text-sm"
     >
       <span class="icon-[mdi--loading] animate-spin text-base"></span>
       <span th:text="#{widget.weather.loading}">加载中...</span>

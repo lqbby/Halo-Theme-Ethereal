@@ -106,6 +106,12 @@ export interface BannerText {
   subtitles?: string;
   subtitleFontSize?: string;
   subtitleEffect?: string;
+  /** 字体预设：inherit / serif / sans / mono（只作用于 Banner 文字层，均为系统字体栈） */
+  fontPreset?: string;
+  /** 自定义 CSS font-family 列表，非空时覆盖 fontPreset */
+  fontFamily?: string;
+  /** 字间距（CSS 值，留空不改） */
+  letterSpacing?: string;
 }
 
 export interface Credit {

@@ -75,8 +75,8 @@
 
     <!-- 左半：瞬间（向左滚）。SSR 渲染最近瞬间条目（momentFinder 由瞬间插件注入
          渲染上下文，?. 空安全——插件未装时短路为 null，仅显示空态，绝不崩页）。
-         前端 JS 仅负责富文本→纯文本回填、无缝滚动、标签胶囊提取，不承担数据拉取
-         （匿名前端 API 需登录，拿不到数据）。 -->
+         文案在**服务端**由 SpEL 剥成纯文本（momentText）；前端 JS 只负责无缝滚动与
+         标签胶囊提取，不承担数据拉取（匿名前端 API 需登录，拿不到数据）。 -->
     <div
       id="home-moments-marquee"
       class="home-moments-marquee relative min-w-0 flex-1 overflow-hidden rounded-lg bg-(--btn-regular-bg) py-1.5"
@@ -91,6 +91,8 @@
             th:each="moment : ${homeMoments.items}"
             th:if="${moment.spec.content != null and not #strings.isEmpty(moment.spec.content.raw)}"
             th:href="@{/moments/{name}(name=${moment.metadata.name})}"
+            th:with="momentRaw=${moment.spec.content.raw},
+                     momentText=${momentRaw == null ? '' : momentRaw.replaceAll('<[^>]*>', ' ').trim()}"
             class="home-moment-link group flex min-h-[24px] items-center whitespace-nowrap"
           >
             <span
@@ -103,10 +105,20 @@
               th:if="${moment.owner != null and not #strings.isEmpty(moment.owner.displayName)}"
               >：</span
             >
+            <!-- 带配图的瞬间：给一枚「图片」徽章（纯装饰，读屏由链接文字承担） -->
+            <span
+              class="home-moment-media icon-[material-symbols--image-outline-rounded] text-sm text-50"
+              aria-hidden="true"
+              th:if="${momentRaw != null and (#strings.contains(momentRaw, '<img') or #strings.contains(momentRaw, '<figure') or #strings.contains(momentRaw, '<video') or #strings.contains(momentRaw, '<iframe'))}"
+            ></span>
+            <!-- 🔴 绝不能写 th:text="${moment.spec.content.raw}"：th:text 是「以文本形式输出」，
+                 会把 <p style="">…</p> 与 &lt; 实体原样吐进 SSR 的 HTML —— 首屏 / 无 JS / 抓取端
+                 能直接看到标签原文（线上实测复现）。也不能留 data-raw 兜着，那只是把泄漏挪进属性。
+                 ⇒ 服务端用 SpEL 先剥标签（momentText），再交给 th:text 输出纯文本。
+                 行内多段会被 HTML 折叠成单空格，视觉截断交给 .home-moment-text 的 nowrap+ellipsis。 -->
             <span
               class="home-moment-text text-sm text-50"
-              th:text="${moment.spec.content.raw}">内容</span
-            >
+              th:text="${momentText}"></span>
             <span
               class="home-moment-dot mx-3 inline-block h-1 w-1 shrink-0 rounded-full bg-(--primary)/40"
               aria-hidden="true"></span>
@@ -526,6 +538,11 @@
     vertical-align: middle !important;
     transition: color 0.2s ease;
   }
+  /* 配图徽章：显示与否由脚本写 inline style（此处禁用 !important，否则盖不住 display:none） */
+  .home-moment-media {
+    flex: none;
+    margin-right: 0.35rem;
+  }
   .home-moment-link:hover .home-moment-text {
     color: var(--primary);
   }
@@ -577,26 +594,9 @@
 
 <script is:inline>
   (function () {
-    // 富文本 → 只保留「第一行」纯文本：
-    // 图片块在走马灯里无意义先移除；<br> 与块级元素边界视作换行，
-    // 取第一个逻辑行，其余（后续段落 / 换行后内容）全部丢弃。
-    function firstLineOf(html) {
-      var div = document.createElement("div");
-      div.innerHTML = html;
-      div.querySelectorAll("figure, img").forEach(function (n) {
-        n.remove();
-      });
-      div.querySelectorAll("br").forEach(function (b) {
-        b.parentNode.replaceChild(document.createTextNode("\n"), b);
-      });
-      var BLOCK = /^(P|DIV|LI|BLOCKQUOTE|H[1-6]|UL|OL|PRE|SECTION|ARTICLE)$/;
-      div.querySelectorAll("*").forEach(function (el) {
-        if (BLOCK.test(el.tagName))
-          el.appendChild(document.createTextNode("\n"));
-      });
-      var text = (div.textContent || "").trim();
-      return text.split("\n")[0].trim();
-    }
+    // ⚠️ 走马灯文案已改为**服务端**剥标签（见模板里的 momentText），
+    // 客户端不再负责「富文本 → 纯文本」。原 firstLineOf(html) 已随之删除，
+    // 别再引回 div.innerHTML —— 那既会执行解析、也会让外链配图当场发起请求。
 
     // 装饰性副本：对读屏隐藏，并把其中的链接移出 tab 序
     // （aria-hidden 容器内若有可聚焦元素会被 aria-hidden-focus 审计判为违规）
@@ -982,18 +982,9 @@
       var track = document.getElementById("home-moments-track");
       var tagsBox = document.getElementById("home-moments-tags");
 
-      // ===== 瞬间：富文本 → 纯文本回填，过滤空文本条目 =====
-      if (track) {
-        track.querySelectorAll(".home-moment-text").forEach(function (el) {
-          var raw = el.textContent || "";
-          var text = firstLineOf(raw);
-          el.textContent = text;
-          if (!text) {
-            var link = el.closest(".home-moment-link");
-            if (link) link.style.display = "none";
-          }
-        });
-      }
+      // 瞬间文案已在服务端剥成纯文本（模板里的 momentText），此处**不做**任何回填。
+      // 历史：这里曾有 firstLineOf() 回填 + 空条目隐藏，是「富文本直接 th:text 输出」
+      // 的客户端补丁。服务端剥标签后整套已删 —— 别再引回来。
 
       // ===== 先恢复拖动比例，再初始化跑道（补屏须按恢复后的宽度计算）=====
       setupSplitter();
