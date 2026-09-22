@@ -89,19 +89,33 @@
           stacking context 的第 6 步**原子地**绘制，而 z-index:-1 的后代会脱离出去、
           在第 2 步绘制 ⇒ 底纹层会被 body 背景整块盖住。
           CDP 实测（同一页面只改 body 背景）：不透明时线稿覆盖度 6.8%、透明时 19.6%，
-          13% 像素有差异。故这里必须先把 body 底色清掉；底色本就由
+          13% 像素有差异。故生效模式下必须先把 body 底色清掉；底色本就由
           <html class="bg-(--page-bg)"> 承担并传播为画布背景，观感完全一致。
           components 层晚于 base 层，所以这条能稳定盖住 base.css 的声明。
        4) `position: fixed` + `inset: 0`：钉在视口上不随滚动移动（这是唯一行为，后台没有
           「滚动方式」开关）。body 上没有 transform/filter ⇒ fixed 的包含块就是视口。
-       5) 只在 ≥768px 生成该层（连 `content` 一起放进媒体查询）⇒ 手机端既不下发也
+       5) 只在 ≥768px 参与（整块连同 `content` 一起放进媒体查询）⇒ 手机端既不下发也
           不解码这张 SVG，伪元素根本不存在，不会留下半透明色块。
-          `mask` 里的 URL 才是触发下载的地方，所以整块都必须在媒体查询内。 */
-  @media (min-width: 768px) {
-    :root.mods-page-pattern body {
-      background-color: transparent;
-    }
+       6) 🔴🔴 **层恒存在**（1.5.66 起）：`content` 与 mask 常驻在 ≥768px 里、基底
+          `opacity: 0`，两个生效模式再把 opacity 覆写成目标值。这是唯一能同时拿到
+          「双向淡入淡出」的写法 —— 若改成「选择器不匹配就不生成元素」，「离开」
+          那一刻元素已经不在了，opacity 过渡根本没机会跑，切模式会硬切。
+          ⚠️ 别指望靠隐藏省下载：实测 `display:none` **完全拦不住** `<img>` 请求
+          （独立无头 Chrome + 记账式静态服务：隐藏容器里的普通 img 与
+          `loading="lazy"` 的 img **都被请求**）。素材本身也很轻：gzip 后 54.9 KB，
+          且 CDN 给的是 `max-age=31536000, immutable`。
+       7) ⚠️ **`mix-blend-mode` 已弃用**（1.5.66 曾一度选「亮 multiply / 暗 screen」
+          让线条随壁纸明暗自适应）。因为透明模式已不再铺整屏壁纸（见下方
+          `html[data-banner-display="transparent"] #banner-wrapper`），两个生效模式
+          都是平面底 ⇒ 混合模式实测与固定色视觉等同（|ΔL| 均值：亮 22.4 vs 21.4、
+          暗 60.4 vs 58.2），只剩一层全屏混合合成开销，故退回固定色。
 
+      🔴🔴 生效范围（1.5.66）：只在「关闭/纯色」(disabled) 与「全屏透明」(transparent)
+      两种 Banner 布局下铺。横幅/全屏模式顶部有整幅壁纸横幅，底纹与之交界显脏 ⇒ 不显示。
+      模式一律读 <html data-banner-display>（服务端 th:data-banner-display 渲染，访客
+      切换模式时由 JS 改写），与主题其余模式分支同源，不用 body class。 */
+  @media (min-width: 768px) {
+    /* 层恒存在（要点 6）：基底 opacity:0，只有两个生效模式才把它拉起来 */
     :root.mods-page-pattern body::before {
       content: "";
       position: fixed;
@@ -118,13 +132,41 @@
         420px auto repeat;
       mask: url(/themes/Ethereal/assets/images/page-pattern.svg) 0 0 / 420px
         auto repeat;
-      opacity: calc(var(--page-pattern-strength, 0.42) * 0.38);
+      opacity: 0;
+      /* 时长与切模式时正文下推 / 波浪位移同一令牌（随动画速度档位），
+         这样底纹的淡入淡出与那次布局动画同长同帧 */
+      transition: opacity var(--dur-banner, 700ms) ease;
     }
 
     :root.dark.mods-page-pattern body::before {
       /* 暗色模式的线色：浅蓝灰（贴合 --hue=250 的蓝灰体系），浓度用后台原值 */
       background-color: #889aae;
+    }
+
+    /* 两个生效模式：清掉 body 自身底色（要点 3），并把浓度拉到目标值。
+       ⚠️ 两模式**浓度一致** —— 1.5.66 早期曾在透明模式下再乘 0.6「折减」，那是为
+       照片壁纸调淡用的；壁纸去掉后两模式同为平面底，再折减只会让切模式时深浅一跳。 */
+    :root.mods-page-pattern[data-banner-display="disabled"] body,
+    :root.mods-page-pattern[data-banner-display="transparent"] body {
+      background-color: transparent;
+    }
+
+    :root.mods-page-pattern[data-banner-display="disabled"] body::before,
+    :root.mods-page-pattern[data-banner-display="transparent"] body::before {
+      opacity: calc(var(--page-pattern-strength, 0.42) * 0.38);
+    }
+
+    :root.dark.mods-page-pattern[data-banner-display="disabled"] body::before,
+    :root.dark.mods-page-pattern[data-banner-display="transparent"]
+      body::before {
       opacity: var(--page-pattern-strength, 0.42);
+    }
+  }
+
+  /* 减少动态效果：伪元素不再淡入淡出，切模式时即时出现/消失（与主题其余 15 处同类约定一致） */
+  @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    :root.mods-page-pattern body::before {
+      transition: none;
     }
   }
 
@@ -773,17 +815,29 @@
   }
 
   /* ── 全屏透明模式（displayMode == 'transparent'）──
-     布局等同「关闭」（无 enable-banner：内容区贴顶、无波浪/横幅文字），
-     仅把 #banner-wrapper 的媒体层（单图/视频/轮播/移动端图）复用为整屏
-     壁纸：fixed 铺满、位于内容下方。结合「高级材质」（navbar-blur-enabled）
-     使内容/组件卡片磨砂透明，露出壁纸 */
+     布局等同「关闭」（无 enable-banner：内容区贴顶、无波浪/横幅文字）。
+
+     🔴🔴 1.5.66 起：本模式**不再铺整屏壁纸**（页面底纹成为这一模式的页面背景，
+     壁纸压在上面只会互相打架）。做法是几何全留着、只把不透明度压成 0：
+       · 保留 position/inset/height/z-index ⇒ 从「透明」切到「横幅/全屏」时媒体层仍
+         从正确的几何位置出发，配合 html.banner-mode-transitioning 的位移动画不跳；
+       · ⚠️ **不要改成 `display:none`** —— display 不可过渡，会让切模式时壁纸「啪」
+         地出现，破掉那套动画（而且实测 display:none 也拦不住 <img> 的请求，省不到下载）。
+       · 「高级材质」（navbar-blur-enabled）那套仍然有效：卡片改走
+         --transparent-card-alpha 的半透明底，只是底下从「模糊壁纸」换成了
+         「页面底色 + 页面底纹」⇒ 线条会透过卡片隐约可见（约卡片外的 4 成）。
+     🔴 想恢复整屏壁纸：把下面那行 `opacity: 0` 换回
+        `opacity: var(--transparent-wallpaper-opacity, 0.8)` 即可，其余一行都不用动。
+     ⚠️ 连带后果：后台「壁纸透明度」「背景模糊度」两项随之空转（help 已注明），
+        「卡片透明度」不受影响。 */
   html[data-banner-display="transparent"] #banner-wrapper {
     position: fixed !important;
     inset: 0 !important;
     height: 100vh !important;
     height: 100lvh !important;
     z-index: 0 !important;
-    opacity: var(--transparent-wallpaper-opacity, 0.8) !important;
+    /* 1.5.66：整屏壁纸停用；恢复方法见上方块注释 */
+    opacity: 0 !important;
   }
 
   html[data-banner-display="transparent"] #banner,

@@ -39,7 +39,7 @@ spec:
           key: mods_pagePattern
           label: 页面底纹
           value: true
-          help: "整页叠加一层发丝细线底纹（Telegram 风格线稿图案：420px 平铺、钉在视口上不随滚动移动）。关闭则页面回到纯色底。仅桌面端（≥768px）加载该图案文件，手机端不下发也不解码。需总开关「启用魔改」开启才生效"
+          help: "整页叠加一层发丝细线底纹（Telegram 风格线稿图案：420px 平铺、钉在视口上不随滚动移动）。关闭则页面回到纯色底。仅桌面端（≥768px）加载该图案文件，手机端不下发也不解码。「Banner 布局」为「横幅」「全屏」时顶部有整幅壁纸，底纹与之交界显脏故不显示，只在「关闭/纯色」与「全屏透明」两种布局下生效（切换时随动画淡入淡出）。需总开关「启用魔改」开启才生效"
         - $formkit: number
           name: pagePatternOpacity
           id: mods_pagePatternOpacity
@@ -133,7 +133,7 @@ spec:
               step: 0.05
               value: 0.8
               validation: "min:0.3|max:1"
-              help: "壁纸整体不透明度（0.3~1，默认 0.8），调低后露出页面底色"
+              help: "壁纸整体不透明度（0.3~1，默认 0.8），调低后露出页面底色。⚠️ 1.5.66 起「全屏透明」模式不再铺整屏壁纸，本项暂不生效（设置与值都保留，恢复壁纸时自动续用；恢复方法见主题包 components.css 里该模式的块注释）"
             - $formkit: number
               name: wallpaperBlur
               id: banner_transparent_wallpaperBlur
@@ -145,7 +145,7 @@ spec:
               step: 1
               value: 10
               validation: "min:0|max:24"
-              help: "壁纸背景模糊强度（0~24 px，默认 10），值越大越柔和；导航栏与悬浮按钮糊到的内容随之改变"
+              help: "壁纸背景模糊强度（0~24 px，默认 10），值越大越柔和；导航栏与悬浮按钮糊到的内容随之改变。⚠️ 1.5.66 起「全屏透明」模式不再铺整屏壁纸，本项暂不生效（设置与值都保留，恢复壁纸时自动续用）"
             - $formkit: number
               name: cardOpacity
               id: banner_transparent_cardOpacity
