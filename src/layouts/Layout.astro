@@ -240,7 +240,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
-  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''}"
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
   data-overlayscrollbars-initialize
 >
   <head>
@@ -731,7 +731,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   <body
     class:list={["relative min-h-screen transition", { "is-home": isHomePage }]}
     th:classappend="${(bannerHasMedia ? ' enable-banner' : '') + (theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
-    th:style="|--bannerOffset: ${theme.config?.style?.bannerStyle?.position == 'top' ? '30vh' : (theme.config?.style?.bannerStyle?.position == 'bottom' ? '0' : '15vh')}; --transparent-wallpaper-opacity: ${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}; --transparent-wallpaper-blur: ${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}px; --transparent-card-alpha: ${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}; --card-pattern-opacity: ${theme.config?.mods?.cardPatternOpacity ?: 0.03};|"
+    th:style="|--bannerOffset: ${theme.config?.style?.bannerStyle?.position == 'top' ? '30vh' : (theme.config?.style?.bannerStyle?.position == 'bottom' ? '0' : '15vh')}; --transparent-wallpaper-opacity: ${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}; --transparent-wallpaper-blur: ${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}px; --transparent-card-alpha: ${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}; --card-pattern-opacity: ${theme.config?.mods?.cardPatternOpacity ?: 0.03}; --page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};|"
     data-overlayscrollbars-initialize
   >
     <ConfigCarrier />

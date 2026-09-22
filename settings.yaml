@@ -34,6 +34,25 @@ spec:
           validation: "min:0.01|max:0.10"
           help: "卡片纹理的显示强度（0.01~0.10，默认 0.03）。数值越小越淡、越大越明显：0.01 几乎不可见，0.03 若隐若现，0.10 明显可见。需总开关「启用魔改」与「卡片纹理」均开启才生效"
         - $formkit: switch
+          name: pagePattern
+          id: mods_pagePattern
+          key: mods_pagePattern
+          label: 页面底纹
+          value: true
+          help: "整页叠加一层发丝细线底纹（Telegram 风格线稿图案：420px 平铺、钉在视口上不随滚动移动）。关闭则页面回到纯色底。仅桌面端（≥768px）加载该图案文件，手机端不下发也不解码。需总开关「启用魔改」开启才生效"
+        - $formkit: number
+          name: pagePatternOpacity
+          id: mods_pagePatternOpacity
+          key: mods_pagePatternOpacity
+          if: "$get(mods_pagePattern).value"
+          label: 底纹浓度
+          min: 0.02
+          max: 0.60
+          step: 0.01
+          value: 0.42
+          validation: "min:0.02|max:0.60"
+          help: "底纹线条的浓淡（0.02~0.60，默认 0.42 = 与 Telegram 参考同强度）。暗色模式用此值；亮色模式自动取它的 0.38 倍（≈0.16），因为深色线条在亮底上更抢眼，等值会显脏。0.10 以下几乎只是一层纸纹。需总开关「启用魔改」与「页面底纹」均开启才生效"
+        - $formkit: switch
           name: pageWidth
           id: mods_pageWidth
           key: mods_pageWidth

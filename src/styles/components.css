@@ -74,6 +74,60 @@
     }
   }
 
+  /* 魔改：页面底纹 —— 整页一层发丝线稿（Telegram 风格），由后台「魔改开关 → 页面底纹 /
+     底纹浓度」控制（settings.yaml 的 mods_pagePattern / mods_pagePatternOpacity，
+     类名与变量分别由两个外壳 th:classappend / th:style 注入）。
+     实现要点（每条都是踩过的坑，别随手改）：
+       1) 素材是**纯黑描边**的线稿 SVG（无 fill），直接当背景图在深底上不可见 ⇒ 走
+          CSS mask：元素只铺一层纯色，mask 用 SVG 的 alpha 抠出线条。SVG 是黑是白
+          都不影响，因为 match-source 对「图片」取的是 alpha 通道。
+       2) `background-color` 就是线色，`opacity` 就是浓度 ⇒ 一套规则做双模反相：
+          亮色 = 深蓝灰墨（夜里的细线），暗色 = 浅蓝灰墨（暗底的提亮线），
+          亮色浓度自动取暗色的 0.38 倍 —— 与参考站「亮色更含蓄」观感一致。
+       3) 🔴🔴 body 自身有一层不透明底色（base.css `body{background:var(--page-bg)}`）。
+          body 是「position:relative 但 z-index:auto」的定位元素：它的背景在根
+          stacking context 的第 6 步**原子地**绘制，而 z-index:-1 的后代会脱离出去、
+          在第 2 步绘制 ⇒ 底纹层会被 body 背景整块盖住。
+          CDP 实测（同一页面只改 body 背景）：不透明时线稿覆盖度 6.8%、透明时 19.6%，
+          13% 像素有差异。故这里必须先把 body 底色清掉；底色本就由
+          <html class="bg-(--page-bg)"> 承担并传播为画布背景，观感完全一致。
+          components 层晚于 base 层，所以这条能稳定盖住 base.css 的声明。
+       4) `position: fixed` + `inset: 0`：钉在视口上不随滚动移动（这是唯一行为，后台没有
+          「滚动方式」开关）。body 上没有 transform/filter ⇒ fixed 的包含块就是视口。
+       5) 只在 ≥768px 生成该层（连 `content` 一起放进媒体查询）⇒ 手机端既不下发也
+          不解码这张 SVG，伪元素根本不存在，不会留下半透明色块。
+          `mask` 里的 URL 才是触发下载的地方，所以整块都必须在媒体查询内。 */
+  @media (min-width: 768px) {
+    :root.mods-page-pattern body {
+      background-color: transparent;
+    }
+
+    :root.mods-page-pattern body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      /* 负 z：落在画布底（html 背景）之上、正文之下。不要改成正数 —— 那样会盖住正文；
+         也不要指望给 body 加 isolation 来「修」第 3 条，那会让本层退回 body 内部、
+         反而又跑到 body 背景后面去。 */
+      z-index: -1;
+      pointer-events: none;
+      /* 亮色模式的线色：深蓝灰 */
+      background-color: #5c6b7a;
+      /* 420px 与参考站同周期（tgme 图案官方口径 420px auto） */
+      -webkit-mask: url(/themes/Ethereal/assets/images/page-pattern.svg) 0 0 /
+        420px auto repeat;
+      mask: url(/themes/Ethereal/assets/images/page-pattern.svg) 0 0 / 420px
+        auto repeat;
+      opacity: calc(var(--page-pattern-strength, 0.42) * 0.38);
+    }
+
+    :root.dark.mods-page-pattern body::before {
+      /* 暗色模式的线色：浅蓝灰（贴合 --hue=250 的蓝灰体系），浓度用后台原值 */
+      background-color: #889aae;
+      opacity: var(--page-pattern-strength, 0.42);
+    }
+  }
+
   :root.dark .float-panel {
     @apply shadow-none;
   }

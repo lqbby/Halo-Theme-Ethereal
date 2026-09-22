@@ -255,7 +255,8 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
   </head>
   <body
     class="relative min-h-screen transition"
-    th:classappend="${(theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
+    th:classappend="${(theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
+    th:style="|--page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};|"
   >
     <!-- 配置载体（body 首元素）：访客样式面板与首帧访客样式覆盖脚本的默认值来源。
          必须与导航栏同为「插件页外壳」的一部分，否则面板门控失效 -->
