@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 ---
 
@@ -7,8 +8,15 @@ import PageHeader from "../components/control/PageHeader.astro";
   title="|#{page.tags.title} - ${site.title}|"
   description="#{page.tags.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/tags" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
-  <!-- 头部卡：新版页头（modern，含图标水印）+ 内容卡分离 -->
+
+  <!-- 段一：页头 —— 换用上游 2.0.0「仪表条」（含眉题与统计方片）。
+       原本地版是与另一页同款的「简洁风」纯标题卡；换掉后原先的 data-cat-total
+       钩子脚本自带 null 守卫，缺了只是不再补「· N 篇文章」后缀，不会报错。 -->
   <div class="card-base page-head-card onload-animation mb-4">
     <PageHeader
       containerClass=""
@@ -27,18 +35,168 @@ import PageHeader from "../components/control/PageHeader.astro";
     />
   </div>
 
-  <!-- 内容卡：标签云 -->
-  <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-    <div class="flex flex-wrap gap-3">
-      <a
-        th:each="tag, stat : ${tags}"
-        th:href="@{${tag.status.permalink}}"
-        th:style="|animation-delay: min(calc(var(--content-delay) + ${stat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-        class="btn-regular h-10 rounded-xl px-4 text-sm font-bold active:scale-95 onload-animation card-hover-lift"
-      >
-        <span th:text="${tag.spec.displayName}">Tag</span>
-        <span class="ml-2 opacity-70" th:text="${tag.postCount ?: 0}">0</span>
-      </a>
+  <!-- 段二：标签云卡片（标签按文章数 --tag-depth 渐深配色） -->
+  <div class="flex w-full rounded-(--radius-large) overflow-hidden relative min-h-32">
+    <div class="card-base z-10 px-9 py-6 relative w-full">
+      <div class="flex flex-wrap gap-2.5">
+        <a
+          th:each="tag : ${tags}"
+          th:href="@{${tag.status.permalink}}"
+          th:style="|--tag-depth: ${(tag.postCount ?: 0) >= 6 ? 1 : (tag.postCount ?: 0) * 0.2}|"
+          class="tag-item tag-chip group inline-flex items-center gap-1.5 rounded-lg h-8 text-sm px-3 transition-all duration-200"
+        >
+          <span class="font-medium">
+            <span class="opacity-50">#</span>
+            <span th:text="${tag.spec.displayName}">Tag</span>
+          </span>
+          <span
+            class="tag-count-badge text-xs font-bold px-1.5 rounded-md min-w-[1.5rem] text-center"
+            th:text="${tag.postCount ?: 0}"
+          >
+            0
+          </span>
+        </a>
+        <p
+          th:if="${#lists.isEmpty(tags)}"
+          class="w-full py-6 text-center text-30 text-sm"
+        >
+          暂无标签
+        </p>
+      </div>
     </div>
-  </section>
+  </div>
+
+  <!-- 隐藏的 tags 数据（供 Top 10 客户端排序渲染用）：用 th:each 渲染到
+       data-* 属性，避免在 <script> 内使用 Thymeleaf 文本内联语法
+       （prettier 无法解析 [# th:each ...] 块语法） -->
+  <div id="all-tags-data" hidden aria-hidden="true">
+    <span
+      th:each="tag : ${tags}"
+      th:data-name="${tag.spec.displayName}"
+      th:data-url="${tag.status.permalink}"
+      th:data-count="${tag.postCount ?: 0}"
+    ></span>
+  </div>
+
+  <!-- 段三：Top 10 卡片（按文章数倒序，客户端读 JSON 排序渲染） -->
+  <div class="card-base px-8 py-6 mt-4">
+    <h2 class="text-lg font-bold text-75 mb-4">Top 10</h2>
+    <div id="top-tags-list" class="flex flex-col gap-3">
+      <!-- 客户端填充；JS 不可用时降级提示 -->
+      <div class="text-30 text-sm py-4" data-no-js-fallback>
+        请启用 JavaScript 以查看 Top 10 标签。
+      </div>
+    </div>
+  </div>
+
+  <script is:inline>
+    // Top 10 渲染脚本必须内联（is:inline）并置于 #swup-container 之内：
+    // 若用带 import 的 <script>，Astro 会打包成 type="module" 并提升到 </html> 之后，
+    // Swup 换页（首次经链接进入本页）只替换容器、不会加载容器外的 module 脚本，
+    // 导致 fallback「请启用 JavaScript」常驻，刷新（全量加载）才正常。
+    (function () {
+      function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+          return (
+            {
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            }[c] || c
+          );
+        });
+      }
+
+      function renderTop10() {
+        const el = document.getElementById("top-tags-list");
+        const dataEl = document.getElementById("all-tags-data");
+        if (!el || !dataEl) return;
+        const data = Array.from(dataEl.querySelectorAll("span")).map(
+          function (s) {
+            return {
+              name: s.dataset.name || "",
+              url: s.dataset.url || "",
+              count: parseInt(s.dataset.count, 10) || 0,
+            };
+          },
+        );
+        const sorted = data
+          .filter(function (t) {
+            return t && t.count > 0;
+          })
+          .sort(function (a, b) {
+            return b.count - a.count;
+          })
+          .slice(0, 10);
+        if (!sorted.length) {
+          el.innerHTML = '<div class="text-30 text-sm py-4">暂无标签</div>';
+          return;
+        }
+        const max = sorted[0].count || 1;
+        el.innerHTML = sorted
+          .map(function (t, i) {
+            const w = (t.count / max) * 100;
+            return (
+              '<a href="' +
+              escapeHtml(t.url) +
+              '" class="flex items-center gap-3 group hover:bg-(--btn-card-bg-hover) rounded-lg px-3 py-2 -mx-3 transition-colors">' +
+              '<span class="text-sm font-bold text-(--primary) w-5 text-right shrink-0">' +
+              (i + 1) +
+              "</span>" +
+              '<div class="flex-1 min-w-0">' +
+              '<div class="flex items-center justify-between mb-1">' +
+              '<span class="text-sm font-medium text-50 truncate group-hover:text-(--primary) transition-colors">#' +
+              escapeHtml(t.name) +
+              "</span>" +
+              '<span class="text-xs text-(--primary) ml-2 shrink-0">' +
+              t.count +
+              " 篇文章</span>" +
+              "</div>" +
+              '<div class="h-2 rounded-full bg-(--primary)/10 overflow-hidden">' +
+              '<div class="h-full rounded-full bg-(--primary) transition-all duration-500" style="width: ' +
+              w +
+              '%"></div>' +
+              "</div>" +
+              "</div>" +
+              "</a>"
+            );
+          })
+          .join("");
+      }
+
+      // 内联脚本位于 #all-tags-data / #top-tags-list 之后，且每次 Swup 换页
+      // 由 SwupScriptsPlugin 重执行（容器已替换），故直接同步渲染即可。
+      renderTop10();
+    })();
+  </script>
 </MainGridLayout>
+
+<style is:global>
+  /* 标签云配色：按 --tag-depth (0~1) 渐深，对应文章数 0~6 档
+     （0, 0.2, 0.4, 0.6, 0.8, 1.0），与 rainzt.cn 同款 */
+  .tag-item {
+    background: color-mix(
+      in oklch,
+      var(--primary) calc(var(--tag-depth, 0) * 12% + 5%),
+      transparent
+    );
+    color: var(--primary);
+  }
+  .tag-item:hover {
+    background: color-mix(
+      in oklch,
+      var(--primary) calc(var(--tag-depth, 0) * 20% + 10%),
+      transparent
+    );
+  }
+  .tag-item .tag-count-badge {
+    background: color-mix(
+      in oklch,
+      var(--primary) calc(var(--tag-depth, 0) * 30% + 15%),
+      transparent
+    );
+    color: var(--on-primary);
+  }
+</style>

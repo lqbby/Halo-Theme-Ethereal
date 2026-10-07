@@ -1,11 +1,8 @@
 ---
 import PostMeta from "../components/PostMeta.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
-import {
-  imageSuffixThWith,
-  CDN_SUFFIX_PATTERNS,
-  SUFFIX_ELIGIBLE_EXTENSIONS,
-} from "../utils/image-suffix";
+import Canonical from "../components/misc/Canonical.astro";
+import { imageSuffixThWith, CDN_SUFFIX_PATTERNS } from "../utils/image-suffix";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 // ASSET_VERSION 由 astro.config.mjs 构建期从 theme.yaml 注入（vite.define），
@@ -21,17 +18,57 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 >
   <Fragment slot="head">
     <!-- og:title 由 Layout.astro 统一输出；此处仅保留文章特有 og 元数据 -->
+    <!-- SEO：canonical（Halo 核心不会自动注入，需主题输出） -->
+    <Canonical path="${post.status.permalink}" />
+    <meta
+      property="article:published_time"
+      th:content="${post.spec.publishTime}"
+    />
+    <meta
+      property="article:modified_time"
+      th:content="${post.spec.publishTime}"
+    />
+    <meta
+      property="article:author"
+      th:content="${theme.config?.sidebar?.profile?.name ?: site.title}"
+    />
     <meta property="og:description" th:content="${post.status.excerpt}" />
     <meta
       property="og:image"
       th:if="${not #strings.isEmpty(post.spec.cover)}"
       th:content="${post.spec.cover}"
     />
+    <!-- reading-time 服务端字数：extra-api 插件 getContentWordCount 统计正文纯文本字数
+         （CJK 逐字 + ASCII 按词，去标签/实体），前端回填阅读时间徽标；
+         插件不可用时前端数 DOM 兜底。 -->
+    <meta
+      name="post-word-count"
+      th:if="${pluginFinder.available('extra-api', '3.*')}"
+      th:content="${extraApiStatsFinder.getContentWordCount({htmlContent: post.content.content})}"
+    />
+    <!-- 结构化数据：BlogPosting（支持富媒体摘要） -->
+    <script type="application/ld+json" th:inline="javascript">
+      {
+        "@context": "https://schema.org",
+        "@type": "BlogPosting",
+        "headline": /*[[${post.spec.title}]]*/ "标题",
+        "description": /*[[${post.status.excerpt}]]*/ "",
+        "image": /*[[${post.spec.cover}]]*/ "",
+        "datePublished": /*[[${post.spec.publishTime}]]*/ "",
+        "dateModified": /*[[${post.spec.publishTime}]]*/ "",
+        "author": {
+          "@type": "Person",
+          "name": /*[[${theme.config?.sidebar?.profile?.name ?: site.title}]]*/ ""
+        },
+        "mainEntityOfPage": {
+          "@type": "WebPage",
+          "@id": /*[[${post.status.permalink}]]*/ ""
+        }
+      }
+    </script>
   </Fragment>
 
-  <article
-    class="relative mb-4 flex w-full overflow-hidden rounded-(--radius-large)"
-  >
+  <article class="relative mb-4 flex w-full overflow-hidden rounded-(--radius-large)">
     <div
       id="post-container"
       class="card-base relative z-10 w-full px-6 pb-4 pt-6 md:px-9"
@@ -40,40 +77,39 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       <span
         id="post-excerpt-data"
         class="hidden"
-        th:attr="data-text=${post.status.excerpt}"></span>
+        th:attr="data-text=${post.status.excerpt}"
+      ></span>
       <div
         class="onload-animation mb-3 flex flex-row gap-5 text-black/50 transition dark:text-white/50"
         th:if="${post.stats != null}"
       >
         <div class="flex flex-row items-center">
-          <div
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50"
-          >
-            <span class="icon-[material-symbols--visibility-outline-rounded]"
-            ></span>
+          <div class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50">
+            <span class="icon-[material-symbols--visibility-outline-rounded]"></span>
           </div>
-          <span class="text-sm" th:text="${post.stats.visit}">0</span>
+          <span class="text-sm" th:text="${post.stats.visit}">
+            0
+          </span>
         </div>
         <div class="flex flex-row items-center">
-          <div
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50"
-          >
+          <div class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50">
             <span class="icon-[mdi--comment-text-outline]"></span>
           </div>
-          <span class="text-sm" th:text="${post.stats.comment}">0</span>
+          <span class="text-sm" th:text="${post.stats.comment}">
+            0
+          </span>
         </div>
         <!-- 点赞：跟随后台文章操作栏"启用点赞"开关 -->
         <div
           class="flex flex-row items-center"
           th:if="${theme.config?.post?.actionBar?.like == true}"
         >
-          <div
-            class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50"
-          >
-            <span class="icon-[material-symbols--favorite-outline-rounded]"
-            ></span>
+          <div class="mr-2 flex h-6 w-6 items-center justify-center rounded-md bg-black/5 text-black/50 transition dark:bg-white/10 dark:text-white/50">
+            <span class="icon-[material-symbols--favorite-outline-rounded]"></span>
           </div>
-          <span class="text-sm" th:text="${post.stats.upvote}">0</span>
+          <span class="text-sm" th:text="${post.stats.upvote}">
+            0
+          </span>
         </div>
       </div>
 
@@ -85,6 +121,145 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           Post title
         </h1>
       </div>
+
+      <!-- 文章系列导航（series 注解非空时显示，数据来自 Ethereal 配套插件的 recentCommentsSeriesFinder） -->
+      <div
+        th:remove="tag"
+        th:with="seriesName=${#annotations.get(post, 'series')}"
+      >
+        <div
+          th:if="${not #strings.isEmpty(seriesName)}"
+          th:with="series=${recentCommentsSeriesFinder.get(seriesName)}"
+          class="onload-animation series-post-nav mb-5 overflow-hidden rounded-xl"
+        >
+          <div class="series-post-nav-header">
+            <span
+              class="series-post-nav-icon icon-[mdi--book-open-page-variant-outline]"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="series-post-nav-label"
+              th:text="|系列 · ${seriesName}|"
+            >
+              系列
+            </span>
+            <span
+              class="series-post-nav-count text-50"
+              th:if="${series != null}"
+              th:text="|共 ${#lists.size(series.posts)} 篇|"
+            >
+              共 N 篇
+            </span>
+          </div>
+          <ol th:if="${series != null}" class="series-post-nav-list">
+            <li
+              th:each="p : ${series.posts}"
+              class="series-post-nav-item"
+              th:classappend="${p.name == post.metadata.name} ? 'is-current' : ''"
+            >
+              <a class="series-post-nav-link" th:href="@{${p.permalink}}">
+                <span
+                  class="series-post-nav-order text-50"
+                  th:if="${p.order != null}"
+                  th:text="|${p.order}.|"
+                >
+                  1.
+                </span>
+                <span class="series-post-nav-title" th:text="${p.title}">
+                  文章标题
+                </span>
+                <span
+                  class="series-post-nav-current"
+                  th:if="${p.name == post.metadata.name}"
+                >
+                  本文
+                </span>
+              </a>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <style is:global>
+        /* ── 文章系列导航（post 页）── */
+        .series-post-nav {
+          background: var(--btn-regular-bg);
+          border: 1px solid var(--line-color);
+        }
+        .series-post-nav-header {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.7rem 1rem;
+          border-bottom: 1px solid var(--line-color);
+        }
+        .series-post-nav-icon {
+          font-size: 1.1rem;
+          color: var(--primary);
+          flex-shrink: 0;
+        }
+        .series-post-nav-label {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--btn-content);
+        }
+        .series-post-nav-count {
+          margin-left: auto;
+          font-size: 0.75rem;
+          white-space: nowrap;
+        }
+        .series-post-nav-list {
+          list-style: none;
+          margin: 0;
+          padding: 0.4rem 0.5rem;
+        }
+        .series-post-nav-item {
+          margin: 0;
+        }
+        .series-post-nav-link {
+          display: flex;
+          align-items: baseline;
+          gap: 0.5rem;
+          padding: 0.4rem 0.6rem;
+          border-radius: 0.5rem;
+          color: var(--btn-content);
+          text-decoration: none;
+          transition:
+            background 0.2s ease,
+            color 0.2s ease;
+        }
+        .series-post-nav-link:hover {
+          background: color-mix(in srgb, var(--primary) 8%, transparent);
+          color: var(--primary);
+        }
+        .series-post-nav-order {
+          flex-shrink: 0;
+          font-size: 0.8rem;
+          font-variant-numeric: tabular-nums;
+        }
+        .series-post-nav-title {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 0.9rem;
+        }
+        .series-post-nav-item.is-current .series-post-nav-link {
+          background: color-mix(in srgb, var(--primary) 10%, transparent);
+          color: var(--primary);
+          font-weight: 600;
+        }
+        .series-post-nav-current {
+          margin-left: auto;
+          flex-shrink: 0;
+          font-size: 0.7rem;
+          font-weight: 700;
+          line-height: 1;
+          padding: 0.18rem 0.5rem;
+          border-radius: 9999px;
+          background: var(--primary);
+          color: var(--on-primary);
+        }
+      </style>
 
       <div class="onload-animation">
         <PostMeta class="mb-5" />
@@ -117,17 +292,22 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             th:if="${theme.config?.post?.summary != null and theme.config?.post?.summary?.summary_title != null and !#strings.isEmpty(theme.config?.post?.summary?.summary_title)}"
           >
             <span class="icon-[mdi--text-box-outline] summary-icon"></span>
-            <span th:text="${theme.config?.post?.summary?.summary_title}"
-              >文章摘要</span
-            >
+            <span th:text="${theme.config?.post?.summary?.summary_title}">
+              文章摘要
+            </span>
           </div>
           <div class="summary-content">
-            <span id="summary-text" th:data-text="${post.status.excerpt}"
-            ></span><span
+            <span
+              id="summary-text"
+              th:data-text="${post.status.excerpt}"
+            ></span>
+            <span
               id="summary-caret"
               th:if="${theme.config?.post?.summary == null or theme.config?.post?.summary?.summaryEffect == null or theme.config?.post?.summary?.summaryEffect != 'drop'}"
-              class="summary-caret">|</span
+              class="summary-caret"
             >
+              |
+            </span>
           </div>
         </div>
       </div>
@@ -139,8 +319,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         class="custom-md markdown-content onload-animation prose prose-base mb-6 max-w-none! dark:prose-invert!"
         th:classappend="| ${theme.config?.post?.contentDisplay?.content_size} ${theme.config?.post?.contentDisplay?.content_theme}|"
         th:utext="${post.content.content}"
-      >
-      </div>
+      ></div>
 
       <!-- provider = CDN：用 <template> 包裹避免浏览器预加载扫描器触发双重加载 -->
       <template
@@ -152,8 +331,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           class="custom-md markdown-content onload-animation prose prose-base mb-6 max-w-none! dark:prose-invert!"
           th:classappend="| ${theme.config?.post?.contentDisplay?.content_size} ${theme.config?.post?.contentDisplay?.content_theme}|"
           th:utext="${post.content.content}"
-        >
-        </div>
+        ></div>
       </template>
       <div
         th:if="${theme.config?.performance?.imageProcessing?.provider != 'halo' and theme.config?.performance?.imageProcessing?.provider != 'none'}"
@@ -171,8 +349,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             class="custom-md markdown-content onload-animation prose prose-base mb-6 max-w-none! dark:prose-invert!"
             th:classappend="| ${theme.config?.post?.contentDisplay?.content_size} ${theme.config?.post?.contentDisplay?.content_theme}|"
             th:utext="${post.content.content}"
-          >
-          </div>
+          ></div>
         </noscript>
       </div>
 
@@ -181,18 +358,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         th:if="${theme.config?.post?.actionBar?.enable != false}"
         class="onload-animation mb-6"
       >
-        <div
-          class="action-share-card relative overflow-hidden rounded-xl bg-(--license-block-bg) px-6 py-5 transition"
-        >
+        <div class="action-share-card relative overflow-hidden rounded-xl bg-(--license-block-bg) px-6 py-5 transition">
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-5">
             <!-- 左侧：心形点赞按钮 + 文案 -->
             <div class="flex flex-1 items-center gap-3 min-w-0 md:gap-4">
               <button
                 id="post-like-btn"
-                class="btn-card no-card-border group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg active:scale-95"
+                class="btn-card group relative flex h-11 w-11 shrink-0 items-center justify-center rounded-lg active:scale-95"
                 th:classappend="${theme.config?.post?.actionBar?.like == false ? ' pointer-events-none' : ''}"
                 th:attr="data-post=${post.metadata.name}"
-                th:data-count="${post.stats.upvote}"
+                th:data-count="${post.stats?.upvote ?: 0}"
                 aria-label="点赞"
                 th:aria-label="#{post.like}"
               >
@@ -203,7 +378,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
                 <span
                   id="post-like-count"
                   class="absolute -top-1 -right-1 hidden min-w-[1.1rem] items-center justify-center rounded-full bg-red-500 px-1 text-[0.65rem] font-bold leading-4 text-white group-[.liked]:flex"
-                  th:text="${post.stats.upvote > 0 ? post.stats.upvote : ''}"
+                  th:text="${(post.stats?.upvote ?: 0) > 0 ? post.stats?.upvote : ''}"
                 ></span>
               </button>
               <div class="flex-1 min-w-0">
@@ -232,7 +407,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
                 aria-label="分享文章"
                 th:aria-label="#{post.shareTitle}"
               >
-                <span class="icon-[tabler--share] mr-1.5 text-base"></span>
+                <span class="icon-[tabler--share] mr-1.5 text-base transition-transform group-hover:scale-110"></span>
                 <span th:text="#{post.share}">分享</span>
               </button>
               <button
@@ -243,9 +418,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
                 aria-label="打赏"
                 th:aria-label="#{post.rewardTitle}"
               >
-                <span
-                  class="icon-[material-symbols--volunteer-activism-rounded] mr-1.5 text-base"
-                ></span>
+                <span class="icon-[material-symbols--volunteer-activism-rounded] mr-1.5 text-base transition-transform group-hover:scale-110"></span>
                 <span th:text="#{post.reward}">打赏</span>
               </button>
             </div>
@@ -267,8 +440,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           th:href="@{${post.status.permalink}}"
           th:text="${post.status.permalink}"
           href="#"
-          class="link break-all text-(--primary)">https://example.com/post</a
+          class="link break-all text-(--primary)"
         >
+          https://example.com/post
+        </a>
         <div class="mt-2 flex flex-wrap gap-6">
           <div>
             <div
@@ -280,8 +455,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             <div
               class="line-clamp-2 text-black/75 transition dark:text-white/75"
               th:text="${post.owner.displayName}"
-            >
-            </div>
+            ></div>
           </div>
           <div>
             <div
@@ -293,8 +467,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             <div
               class="line-clamp-2 text-black/75 transition dark:text-white/75"
               th:text="${#dates.format(post.spec.publishTime,'yyyy-MM-dd')}"
-            >
-            </div>
+            ></div>
           </div>
           <div>
             <div
@@ -308,13 +481,13 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
               target="_blank"
               rel="noopener noreferrer"
               class="link line-clamp-2 text-(--primary)"
-              th:text="${theme.config?.post?.license?.name}">CC BY-NC-SA 4.0</a
+              th:text="${theme.config?.post?.license?.name}"
             >
+              CC BY-NC-SA 4.0
+            </a>
           </div>
         </div>
-        <span
-          class="icon-[fa6-brands--creative-commons] pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-[15rem] text-black/5 transition dark:text-white/5"
-        ></span>
+        <span class="icon-[fa6-brands--creative-commons] pointer-events-none absolute right-6 top-1/2 -translate-y-1/2 text-[15rem] text-black/5 transition dark:text-white/5"></span>
       </div>
     </div>
   </article>
@@ -330,15 +503,12 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       th:href="@{${postCursor.previous.status.permalink}}"
       th:title="${postCursor.previous.spec.title}"
     >
-      <div
-        class="btn-card flex h-15 w-full max-w-full justify-start! gap-4 rounded-2xl px-4"
-      >
-        <span
-          class="icon-[material-symbols--chevron-left-rounded] text-2xl! font-black text-(--primary)"
-        ></span>
+      <div class="btn-card flex h-15 w-full max-w-full justify-start! gap-4 rounded-2xl px-4">
+        <span class="icon-[material-symbols--chevron-left-rounded] text-2xl! font-black text-(--primary)"></span>
         <span
           class="max-w-[calc(100%-3rem)] overflow-hidden overflow-ellipsis whitespace-nowrap text-black/75 transition dark:text-white/75"
-          th:text="${postCursor.previous.spec.title}"></span>
+          th:text="${postCursor.previous.spec.title}"
+        ></span>
       </div>
     </a>
     <div
@@ -353,15 +523,12 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       th:href="@{${postCursor.next.status.permalink}}"
       th:title="${postCursor.next.spec.title}"
     >
-      <div
-        class="btn-card flex h-15 w-full max-w-full justify-end! gap-4 rounded-2xl px-4"
-      >
+      <div class="btn-card flex h-15 w-full max-w-full justify-end! gap-4 rounded-2xl px-4">
         <span
           class="max-w-[calc(100%-3rem)] overflow-hidden overflow-ellipsis whitespace-nowrap text-black/75 transition dark:text-white/75"
-          th:text="${postCursor.next.spec.title}"></span>
-        <span
-          class="icon-[material-symbols--chevron-right-rounded] text-2xl! font-black text-(--primary)"
+          th:text="${postCursor.next.spec.title}"
         ></span>
+        <span class="icon-[material-symbols--chevron-right-rounded] text-2xl! font-black text-(--primary)"></span>
       </div>
     </a>
     <div
@@ -383,11 +550,28 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     >
       评论
     </h2>
-    <Fragment
-      set:html={'<halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}" />'}
-    />
+    <!-- P3（1.3.3）：评论区懒加载——halo:comment 注入的 comment-next.iife.js
+         随 HTML 解析立即执行（~120KB，评论区在首屏之下用不上）。包进 <template>
+         后内容惰性（脚本不下载、web component 不升级），由 app.ts 的
+         IntersectionObserver 在评论区接近视口时搬到占位节点再激活。 -->
+    <template id="comment-lazy-template">
+      <Fragment
+        set:html={
+          '<halo:comment group="content.halo.run" kind="Post" th:attr="name=${post.metadata.name}" />'
+        }
+      />
+    </template>
+    <div id="comment-lazy-placeholder"></div>
   </div>
 
+  <!-- 评论区锚点落位高亮：从通知/邮件(#comment)或侧栏「最近评论」跳转进入时，
+       滚动到评论区并脉冲高亮（配合 components.css 的 comment-locate-flash）。
+       2.5 删过原触发脚本导致失效，comment-locate.ts 已恢复。 -->
+  <script
+    th:if="${haloCommentEnabled}"
+    src={`${basePath}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    defer
+  ></script>
   <!-- 操作栏脚本（I27）：拆分自原 post.bundle.js（155K，含 140K qrcode 库）。
        三文件按子开关独立门控；qrcode.bundle.js 仅在首次生成分享海报时由
        post-share.js 按需注入（见 post-share.js 的 loadQRCode），文章页默认负载
@@ -396,17 +580,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.like != false}"
     src={`${basePath}/assets/post-like.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
+  ></script>
   <script
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.share != false}"
     src={`${basePath}/assets/post-share.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
+  ></script>
   <script
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.reward != false}"
     src={`${basePath}/assets/post-reward.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
+  ></script>
   <script
     is:inline
     th:if="${theme.config?.post?.summary == null or theme.config?.post?.summary?.summaryEffect == null or theme.config?.post?.summary?.summaryEffect == 'typewriter'}"
@@ -500,15 +684,55 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       });
     })();
   </script>
-
   <!-- CDN 图片处理：<template> 阻止预加载 → JS 加参数后插入 DOM，避免双加载 -->
-  <script
-    is:inline
-    define:vars={{ CDN_SUFFIX_PATTERNS, SUFFIX_ELIGIBLE_EXTENSIONS }}
-  >
+  <script is:inline define:vars={{ CDN_SUFFIX_PATTERNS }}>
     (function () {
       var TEMPLATE_ID = "content-template";
       var PLACEHOLDER_ID = "content-placeholder";
+
+      // reading-time 自动统计：插件组件只能统计「标签内文本」或「手动 words/minutes」，
+      // 数不了整篇正文。这里优先读取 extra-api 插件服务端算好的字数（meta[name=post-word-count]），
+      // 插件不可用时 fallback 到前端数 #content 纯文本字数（中文按字符、英文/数字按词）。
+      // 回填到 .xhhao-com-reading-time 的「分钟」「字」两格，让阅读时间真正跟随文章长度——
+      // 写作时写空标签 <xhhao-com-reading-time></xhhao-com-reading-time> 即可，无需手动 words="xxx"。
+      function readServerWordCount() {
+        var meta = document.querySelector('meta[name="post-word-count"]');
+        if (!meta) return null;
+        var v = meta.getAttribute("content");
+        if (!v || v === "") return null;
+        var n = parseInt(v, 10);
+        return isNaN(n) ? null : n;
+      }
+
+      function autoFillReadingTime(contentEl, readingTimeEl) {
+        // 优先服务端字数（extra-api 插件，口径统一、不含组件运行时 UI 文本）
+        var words = readServerWordCount();
+        if (words === null) {
+          // fallback：前端数 DOM（去除徽标自身文字，避免把「阅读时间 7 分钟 7 字」算进正文）
+          var text = contentEl.textContent || "";
+          var selfText = readingTimeEl.textContent || "";
+          if (selfText && text.indexOf(selfText) !== -1) {
+            text = text.replace(selfText, "");
+          }
+          var cn = (text.match(/[\u4e00-\u9fff]/g) || []).length;
+          var en = (text.match(/[A-Za-z0-9]+/g) || []).length;
+          words = cn + en;
+        }
+        // 口径与插件一致：÷400 向上取整、最小 1 分钟
+        var minutes = Math.max(1, Math.ceil(words / 400));
+        var minEl = readingTimeEl.querySelector("strong");
+        var wordEl = readingTimeEl.querySelector("em");
+        if (minEl) minEl.textContent = minutes + " 分钟";
+        if (wordEl) {
+          wordEl.textContent = words + " 字";
+        } else {
+          // 空标签时插件不渲染「字」格（words/content 均空 → 条件渲染跳过 <em>，
+          // 只留 <!----> 占位注释），这里动态补一个 <em> 对齐插件正常渲染结构。
+          wordEl = document.createElement("em");
+          wordEl.textContent = words + " 字";
+          readingTimeEl.appendChild(wordEl);
+        }
+      }
 
       function processAndInsert() {
         var template = document.getElementById(TEMPLATE_ID);
@@ -549,28 +773,11 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         var contentEl = fragment.getElementById("content");
         if (!contentEl) return;
 
-        // 扩展名白名单由构建期注入（与 src/utils/image-suffix.ts 的
-        // SUFFIX_ELIGIBLE_EXTENSIONS 同源，避免服务端/客户端两边漂移）。
-        // 先剥离查询串再比结尾，使函数自身语义完整，不依赖调用方已排除含 ? 的 URL。
-        function isSuffixEligible(src) {
-          var path = src.split("?")[0].toLowerCase();
-          for (var i = 0; i < SUFFIX_ELIGIBLE_EXTENSIONS.length; i++) {
-            var ext = SUFFIX_ELIGIBLE_EXTENSIONS[i];
-            if (path.slice(-ext.length) === ext) return true;
-          }
-          return false;
-        }
-
         // 在插入 DOM 前给内容图片加上 CDN 处理参数
         if (suffix) {
           contentEl.querySelectorAll("img").forEach(function (img) {
             var src = img.getAttribute("src");
-            if (
-              src &&
-              src.indexOf("?") === -1 &&
-              src.indexOf("!/") === -1 &&
-              isSuffixEligible(src)
-            ) {
+            if (src && src.indexOf("?") === -1 && src.indexOf("!/") === -1) {
               // 仅主图加 CDN 压缩后缀（默认 1920），不加 srcset：
               // srcset 会让浏览器按 sizes+DPR 选小档位图，img.naturalWidth 变小，
               // 而灯箱（content-photoswipe）按 naturalWidth 取宽高，导致灯箱
@@ -609,6 +816,30 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
         placeholder.replaceWith(contentEl);
         template.remove();
+
+        // content-widgets 插件（acanyo）时序适配：插件在 <head> 注册
+        // DOMContentLoaded 挂载（querySelectorAll 扫 xhhao-com-*），本脚本同
+        // 事件但注册更晚——插件挂载先跑、此刻正文还在 <template> 里未克隆入
+        // DOM，扫不到组件 → 刷新（直接访问）时组件不渲染、样式丢失（Swup 换页
+        // 因插件脚本重执行而正常）。正文克隆入 DOM 后补一次 mount 即可；插件
+        // mount 幂等（已挂载的带 data-xhhao-com-mounted 标记会跳过），安全。
+        if (
+          window.XhhaoComContentWidgets &&
+          typeof window.XhhaoComContentWidgets.mount === "function"
+        ) {
+          window.XhhaoComContentWidgets.mount();
+        }
+
+        // reading-time 自动统计：等组件挂载渲染完成（下一帧）再统计正文，
+        // 避免 .xhhao-com-reading-time 尚未渲染时 querySelector 落空。
+        requestAnimationFrame(function () {
+          var readingTimeEl = contentEl.querySelector(
+            ".xhhao-com-reading-time",
+          );
+          if (readingTimeEl) {
+            autoFillReadingTime(contentEl, readingTimeEl);
+          }
+        });
       }
 
       if (document.readyState === "loading") {
