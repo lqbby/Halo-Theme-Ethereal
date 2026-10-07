@@ -593,6 +593,19 @@
     .home-moments-track--animate {
       animation: none;
     }
+    /* 🔴 减少动态偏好下的可访问性缺口修复（2026-10-08）：
+       动画被关掉后，容器仍是 overflow:hidden 且**没有任何滚动入口** ⇒ 带内
+       除前几条之外的条目永远看不到（等于内容丢失）。改为可手动横向滚动。
+       ⚠️ 必须用 ID 选择器：Tailwind 的 .overflow-hidden 同为 (0,1,0)，靠顺序
+       决胜不可靠；#id 是 (1,0,0)，稳胜。
+       ⚠️ 配套 JS：该偏好下不再克隆补屏（见 setupMarquee 的 reduceMotion 分支）——
+       否则副本会让手动滚动时看到成对重复的条目。 */
+    #home-moments-marquee,
+    #home-projects-marquee {
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: thin;
+    }
     .home-moments-seam--hint .home-moments-seam__gem {
       animation: none;
     }
@@ -638,11 +651,24 @@
       var group = trackEl.querySelector(".home-moments-group");
       if (!group) return;
 
+      // 减少动态偏好：整条跑道不参与补屏与动画（容器改由 CSS 提供手动横滚）。
+      // 用 matchMedia 而非 CSS 类判断，是为了同时影响「补屏」这个 JS 行为。
+      var reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
       var apply = function () {
         var setWidth = group.scrollWidth;
         var boxWidth = marqueeEl.clientWidth;
         // 隐藏的跑道（移动端的项目栏）两者都是 0，自然跳过
         if (!setWidth || !boxWidth) return false;
+
+        // 🔴 减少动态偏好：不克隆、不加动画类。
+        // 动画由 CSS 在该偏好下置为 none，这里再补屏只会让容器变长 —— 而该偏好下
+        // 跑道改成了可手动横滚（见 <style> 的 prefers-reduced-motion 块），
+        // 克隆出来的副本会让用户手动滚动时看到成对重复的条目。
+        // 返回 true 表示「本跑道已处理完毕」，交由调度方停止重试。
+        if (reduceMotion) return true;
 
         // ① 补足「一屏」：半幅至少要和跑道一样宽，滚动过程中视窗才不会露空
         var k = Math.max(1, Math.ceil(boxWidth / setWidth));
