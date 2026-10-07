@@ -108,10 +108,7 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
   th:data-theme-anim-angle="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.angle}"
   th:data-speed="${theme.config?.style?.animationSpeed?.speedTier}"
   th:with={speedCustomStyleThWith()}
-  th:style={
-    speedCustomStyleThExpr() +
-    "--page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};"
-  }
+  th:style={speedCustomStyleThExpr()}
   th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
   th:fragment="html (head, content)"
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
@@ -228,6 +225,7 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
   <body
     class="relative min-h-screen transition"
     th:classappend="${(theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
+    th:style="|--page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};|"
   >
     <!-- 与主题页外壳同款「两个外壳」挂载：ConfigCarrier + 魔改轴覆盖启动脚本。
          顺序不可调换（VisitorStyleBoot 要读 ConfigCarrier 的 data-*）。 -->
