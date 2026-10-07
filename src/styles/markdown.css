@@ -450,3 +450,524 @@ html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
 .custom-md details[open] > summary::before {
   transform: rotate(90deg);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 本地 1.5.66 独有正文样式（上游 v2.0.0 的 markdown.css 无这些选择器）
+ * 含：正文链接/行内代码样式（带 xhhao-com 插件排除）、shiki 代码块骨架屏、
+ *     admonition（含 bdm-* 旧式）与 callout 配色。
+ * 由 tinycss2 按「选择器是否已存在」提取后追加；同选择器时本块在后、本块胜。
+ * ══════════════════════════════════════════════════════════════════════ */
+
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]) {
+  @apply relative z-0 -m-1 rounded-md bg-transparent p-1 font-medium text-(--primary) underline decoration-1 decoration-dashed underline-offset-4 transition;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  text-decoration-color: var(--link-underline);
+}
+
+.custom-md a:not(.no-styling):not([class*="xhhao-com"])::before {
+  @apply absolute inset-0 -z-10 scale-[0.85] rounded-[inherit] transition ease-out content-[""];
+}
+
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):hover::before {
+  @apply scale-100 bg-(--btn-plain-bg-hover);
+}
+
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):active::before {
+  @apply scale-100 bg-(--btn-plain-bg-active);
+}
+
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):hover,
+.custom-md a:not(.no-styling):not([class*="xhhao-com"]):active {
+  @apply decoration-transparent;
+  background: var(--btn-plain-bg-hover);
+  border-bottom: 1px dashed var(--link-hover);
+  text-decoration: none;
+}
+
+.custom-md code:not(pre code):not([class*="xhhao-com"]) {
+  @apply rounded-md bg-(--inline-code-bg) px-1/**/.5 py-0/**/.5 text-(--inline-code-color);
+}
+
+.custom-md code:not(pre code):not([class*="xhhao-com"])::before,
+.custom-md code:not(pre code):not([class*="xhhao-com"])::after {
+  content: none;
+}
+
+.custom-md shiki-code > pre {
+  animation: none;
+}
+
+.custom-md shiki-code > pre {
+  /* 覆盖 .custom-md pre 的深色 --codeblock-bg（消除黑闪），换成中性骨架底色：
+     亮色 ≈ 浅灰（贴近 github-light 终态），暗色 ≈ 深灰（贴近 github-dark 终态） */
+  background-color: color-mix(
+    in oklab,
+    var(--codeblock-bg) 16%,
+    var(--card-bg)
+  );
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in oklab, var(--primary) 20%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shiki-skeleton-shimmer 1.6s linear infinite;
+}
+
+.custom-md shiki-code > pre > code {
+  visibility: hidden;
+}
+
+0% {
+  background-position: 200% 0;
+}
+
+100% {
+  background-position: -200% 0;
+}
+
+.custom-md :is(blockquote, ethereal-admonition).admonition {
+  background: color-mix(
+    in oklab,
+    var(--adm-color, var(--btn-regular-bg)) 10%,
+    var(--card-bg)
+  );
+  border: 1px solid
+    color-mix(
+      in oklab,
+      var(--adm-color, var(--btn-regular-bg)) 24%,
+      transparent
+    );
+  border-left: 3px solid var(--adm-color, var(--btn-regular-bg));
+  border-radius: 0.625rem;
+  padding: 0.85em 1.1em;
+}
+
+.custom-md :is(blockquote, ethereal-admonition).admonition::before {
+  display: none;
+}
+
+.custom-md .admonition.bdm-tip {
+  --adm-color: var(--admonitions-color-tip);
+}
+
+.custom-md .admonition.bdm-note {
+  --adm-color: var(--admonitions-color-note);
+}
+
+.custom-md .admonition.bdm-important {
+  --adm-color: var(--admonitions-color-important);
+}
+
+.custom-md .admonition.bdm-warning {
+  --adm-color: var(--admonitions-color-warning);
+}
+
+.custom-md .admonition.bdm-caution {
+  --adm-color: var(--admonitions-color-caution);
+}
+
+.custom-md .callout {
+  background: color-mix(
+    in oklab,
+    var(--callout-color, var(--btn-regular-bg)) 10%,
+    var(--card-bg)
+  );
+  border: 1px solid
+    color-mix(
+      in oklab,
+      var(--callout-color, var(--btn-regular-bg)) 24%,
+      transparent
+    );
+  border-left: 3px solid var(--callout-color, var(--btn-regular-bg));
+  border-radius: 0.625rem;
+  padding: 0.85em 1.1em;
+  margin-block: 1.4em;
+}
+
+.custom-md .callout > .callout-info {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-bottom: 0.4em;
+}
+
+.custom-md .callout > .callout-info > .callout-title {
+  color: var(--callout-color, var(--btn-content));
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 0.9em;
+}
+
+.custom-md .callout[data-subtype="TIP"] {
+  --callout-color: var(--admonitions-color-tip);
+}
+
+.custom-md .callout[data-subtype="NOTE"] {
+  --callout-color: var(--admonitions-color-note);
+}
+
+.custom-md .callout[data-subtype="IMPORTANT"] {
+  --callout-color: var(--admonitions-color-important);
+}
+
+.custom-md .callout[data-subtype="WARNING"] {
+  --callout-color: var(--admonitions-color-warning);
+}
+
+.custom-md .callout[data-subtype="CAUTION"] {
+  --callout-color: var(--admonitions-color-caution);
+}
+
+.custom-md :where(ul, ol):not([class*="xhhao-com"]) {
+  margin-block: 0.8em;
+}
+
+.custom-md ul:not([class*="xhhao-com"]) {
+  list-style: none;
+  padding-inline-start: 1.5em;
+}
+
+.custom-md ul > li:not([class*="xhhao-com"]) {
+  position: relative;
+  margin-block: 0.4em;
+}
+
+.custom-md ul > li:not([class*="xhhao-com"])::before {
+  content: "";
+  position: absolute;
+  left: -1.08em;
+  top: 0.62em;
+  width: 0.42em;
+  height: 0.42em;
+  border-radius: 9999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+.custom-md ol:not([class*="xhhao-com"]) {
+  list-style: none;
+  counter-reset: md-list;
+  padding-inline-start: 0;
+}
+
+.custom-md ol > li:not([class*="xhhao-com"]) {
+  counter-increment: md-list;
+  position: relative;
+  padding-inline-start: 2.35em;
+  margin-block: 0.45em;
+}
+
+.custom-md ol > li:not([class*="xhhao-com"])::before {
+  content: counter(md-list);
+  position: absolute;
+  left: 0;
+  top: 0.08em;
+  width: 1.7em;
+  height: 1.7em;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--primary) 14%, var(--card-bg));
+  border: 1px solid color-mix(in oklab, var(--primary) 30%, transparent);
+  color: var(--primary);
+  font-size: 0.82em;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-md h2 {
+  font-size: 1.55em;
+  line-height: 1.35;
+  margin: 2em 0 0.7em;
+  background: linear-gradient(
+    92deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.custom-md h2::after {
+  content: "";
+  display: block;
+  width: 2.6em;
+  height: 3px;
+  margin-top: 0.4em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--admonitions-color-important),
+    transparent
+  );
+}
+
+.custom-md h3 {
+  font-size: 1.25em;
+  margin: 1.6em 0 0.6em;
+  padding-left: 0.85em;
+  position: relative;
+}
+
+.custom-md h3::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.2em;
+  bottom: 0.2em;
+  width: 0.28em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    180deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+}
+
+.custom-md h4 {
+  font-size: 1.1em;
+  margin: 1.4em 0 0.5em;
+}
+
+.custom-md h4::before {
+  content: "";
+  display: inline-block;
+  width: 0.52em;
+  height: 0.52em;
+  border-radius: 9999px;
+  background: linear-gradient(
+    135deg,
+    var(--primary),
+    var(--admonitions-color-important)
+  );
+  margin-right: 0.5em;
+  vertical-align: 0.06em;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 18%, transparent);
+}
+
+.custom-md strong {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.custom-md mark {
+  background: linear-gradient(
+    100deg,
+    color-mix(in oklab, var(--admonitions-color-warning) 45%, transparent),
+    color-mix(in oklab, var(--admonitions-color-tip) 45%, transparent)
+  );
+  color: inherit;
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  font-weight: 600;
+}
+
+.custom-md hr::after {
+  content: "✦";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.9em;
+  color: var(--primary);
+  background: var(--card-bg);
+  padding: 0 0.6em;
+}
+
+.custom-md blockquote:not(.admonition) {
+  margin: 1.2em 0;
+  padding: 0.7em 1.1em 0.7em 1.3em;
+  border-radius: 0.7em;
+  background: color-mix(in oklab, var(--primary) 6%, var(--card-bg));
+  border-left: 3px solid var(--primary);
+  color: color-mix(in oklab, var(--deep-text) 82%, var(--primary));
+}
+
+.custom-md blockquote:not(.admonition)::before {
+  display: none;
+}
+
+.custom-md code:not(pre code):not([class*="xhhao-com"]) {
+  background: color-mix(in oklab, var(--primary) 10%, var(--card-bg));
+  color: var(--primary);
+  font-size: 0.9em;
+}
+
+.custom-md pre[data-lang] {
+  position: relative;
+  padding-top: 2.5rem;
+}
+
+.custom-md pre[data-lang]::before {
+  content: attr(data-lang);
+  position: absolute;
+  top: 0.7rem;
+  left: 1.1rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  font-family: var(--font-mono, ui-monospace, "SFMono-Regular", monospace);
+  color: color-mix(in oklab, var(--btn-content) 55%, var(--primary));
+  pointer-events: none;
+  user-select: none;
+}
+
+.custom-md .code-copy-btn {
+  position: absolute;
+  top: 0.42rem;
+  right: 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.65rem;
+  border-radius: 0.5rem;
+  background: color-mix(in oklab, var(--btn-content) 9%, transparent);
+  color: color-mix(in oklab, var(--btn-content) 80%, transparent);
+  font-size: 0.75rem;
+  line-height: 1;
+  border: none;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.custom-md .code-copy-btn:hover {
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: var(--primary);
+}
+
+.custom-md .code-copy-btn.copied {
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+}
+
+.custom-md .md-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-block: var(--md-table-margin-y);
+}
+
+.custom-md .md-table-scroll table {
+  margin-block: 0;
+}
+
+.custom-md :is(h2, h3)[id] {
+  position: relative;
+}
+
+.custom-md :is(h2, h3)[id] .heading-anchor {
+  opacity: 0;
+  margin-left: 0.4em;
+  font-size: 0.8em;
+  color: var(--primary);
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+  /* 覆盖 h2/h3 的渐变文字（background-clip:text）裁剪 */
+  -webkit-text-fill-color: var(--primary);
+  background: none !important;
+}
+
+.custom-md :is(h2, h3)[id]:hover .heading-anchor {
+  opacity: 1;
+}
+
+.custom-md li.vditor-task {
+  list-style: none;
+}
+
+.custom-md li.vditor-task input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.5em;
+  border-radius: 0.32em;
+  border: 1.5px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  background: color-mix(in oklab, var(--primary) 7%, var(--card-bg));
+  vertical-align: -0.18em;
+  position: relative;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.custom-md li.vditor-task input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.custom-md li.vditor-task input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  width: 0.28em;
+  height: 0.5em;
+  border: solid var(--on-primary, #fff);
+  border-width: 0 0.14em 0.14em 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.custom-md li.vditor-task--done {
+  opacity: 0.62;
+}
+
+.custom-md sup.footnotes-ref {
+  font-size: 0.72em;
+  line-height: 1;
+  margin: 0 0.1em;
+}
+
+.custom-md sup.footnotes-ref a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.3em;
+  height: 1.3em;
+  padding: 0 0.3em;
+  border-radius: 0.4em;
+  background: color-mix(in oklab, var(--primary) 12%, var(--card-bg));
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.2s ease;
+}
+
+.custom-md sup.footnotes-ref a:hover {
+  background: color-mix(in oklab, var(--primary) 22%, var(--card-bg));
+}
+
+.custom-md .footnotes-defs-div {
+  margin-top: 2em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--line-color);
+  font-size: 0.88em;
+  color: var(--deep-text);
+}
+
+.custom-md .footnotes-defs-hr {
+  display: none;
+}
+
+.custom-md ol.footnotes-defs-ol {
+  padding-inline-start: 1.6em;
+}
+
+.custom-md ol.footnotes-defs-ol li {
+  margin-block: 0.35em;
+}
+
+.custom-md a.vditor-footnotes__goto-ref {
+  color: var(--primary);
+  text-decoration: none;
+  margin-inline-start: 0.4em;
+}

@@ -81,6 +81,44 @@ const {
       display: block;
     }
   }
+
+  /* ── Banner 字体预设（本地 1.5.56 独有）────────────────────────────────────
+     只定字体族 / 字距 / 字重，**不动字号** —— 字号由上游的 --banner-title-size /
+     --banner-subtitle-size 体系负责，这里加 font-size 会与响应式分档打架。
+     选择器用 id + 属性 (1,1,0)，足以压过 .font-bold 这类工具类；本块无 layer，
+     不会被 @layer 里的规则反超。
+     🔴 `:not([data-banner-font])` = **出厂缺省档**：th:attr 遇到 null 会「删掉属性」，
+     旧站点升级后配置里没有 fontPreset 这个键，属性必然缺席 —— 若缺省档不做成衬线，
+     本主题最想要的英文标语效果就得等站长手动进后台点一次才生效（等于半个功能）。 */
+  #banner-overlay[data-banner-font="serif"] #banner-title,
+  #banner-overlay[data-banner-font="serif"] #banner-subtitle,
+  #banner-overlay:not([data-banner-font]) #banner-title,
+  #banner-overlay:not([data-banner-font]) #banner-subtitle {
+    font-family:
+      ui-serif, Georgia, Cambria, "Times New Roman", Times, "Songti SC", SimSun,
+      serif;
+    letter-spacing: 0.02em;
+  }
+  #banner-overlay[data-banner-font="serif"] #banner-title,
+  #banner-overlay:not([data-banner-font]) #banner-title {
+    font-weight: 600;
+  }
+  #banner-overlay[data-banner-font="sans"] #banner-title,
+  #banner-overlay[data-banner-font="sans"] #banner-subtitle {
+    font-family:
+      ui-sans-serif, system-ui, "Helvetica Neue", "Segoe UI", Arial,
+      "PingFang SC", "Microsoft YaHei", sans-serif;
+    letter-spacing: 0.06em;
+  }
+  #banner-overlay[data-banner-font="sans"] #banner-title {
+    font-weight: 300;
+  }
+  #banner-overlay[data-banner-font="mono"] #banner-title,
+  #banner-overlay[data-banner-font="mono"] #banner-subtitle {
+    font-family:
+      ui-monospace, "SFMono-Regular", Menlo, Consolas, "Courier New", monospace;
+    letter-spacing: 0.02em;
+  }
 </style>
 
 <Layout
@@ -286,6 +324,8 @@ const {
     <div
       id="banner-overlay"
       th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.enable == null or theme.config?.style?.bannerText?.enable}"
+      th:attr="data-banner-font=${theme.config?.style?.bannerText?.fontPreset}"
+      th:with="bannerFontCfg=${theme.config?.style?.bannerText?.fontFamily},bannerTrackCfg=${theme.config?.style?.bannerText?.letterSpacing},bannerExtraCss=${((bannerFontCfg == null or #strings.isEmpty(bannerFontCfg)) ? '' : '; font-family: ' + bannerFontCfg) + ((bannerTrackCfg == null or #strings.isEmpty(bannerTrackCfg)) ? '' : '; letter-spacing: ' + bannerTrackCfg)}"
       class="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center"
       style={isHomePage ? "" : "display:none"}
     >
@@ -297,7 +337,7 @@ const {
         id="banner-title"
         th:if="${theme.config?.style?.bannerText?.title != null}"
         class="font-bold text-white"
-        th:style="'--banner-title-size: ' + (${theme.config?.style?.bannerText?.titleFontSize ?: '3.5rem'}) + '; text-shadow: 0 2px 15px rgba(0,0,0,0.5)'"
+        th:style="'--banner-title-size: ' + (${theme.config?.style?.bannerText?.titleFontSize ?: '3.5rem'}) + '; text-shadow: 0 2px 15px rgba(0,0,0,0.5)' + bannerExtraCss"
         th:text="${theme.config?.style?.bannerText?.title}"
       ></h1>
       <div
@@ -309,7 +349,7 @@ const {
         <span
           id="banner-subtitle"
           class="text-white/90"
-          style="text-shadow: 0 1px 8px rgba(0,0,0,0.4)"
+          th:style="'text-shadow: 0 1px 8px rgba(0,0,0,0.4)' + bannerExtraCss"
         >
           &nbsp;
         </span>
