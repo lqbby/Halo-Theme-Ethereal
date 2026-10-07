@@ -599,12 +599,20 @@
        ⚠️ 必须用 ID 选择器：Tailwind 的 .overflow-hidden 同为 (0,1,0)，靠顺序
        决胜不可靠；#id 是 (1,0,0)，稳胜。
        ⚠️ 配套 JS：该偏好下不再克隆补屏（见 setupMarquee 的 reduceMotion 分支）——
-       否则副本会让手动滚动时看到成对重复的条目。 */
+       否则副本会让手动滚动时看到成对重复的条目。
+       ⚠️ 滚动条**完全隐藏**（LQ 反馈「滑动条太难看」）：本偏好下跑道静止、没有
+       持续运动的暗示，露出轨道反而像页面破了个口；仍可用滚轮 / 触控 / 键盘
+       （跑道内是可聚焦链接）横向滚。 */
     #home-moments-marquee,
     #home-projects-marquee {
       overflow-x: auto;
       overflow-y: hidden;
-      scrollbar-width: thin;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* 旧 Edge/IE */
+    }
+    #home-moments-marquee::-webkit-scrollbar,
+    #home-projects-marquee::-webkit-scrollbar {
+      display: none; /* Chromium / WebKit */
     }
     .home-moments-seam--hint .home-moments-seam__gem {
       animation: none;
