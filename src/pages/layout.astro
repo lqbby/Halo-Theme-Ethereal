@@ -11,6 +11,8 @@ import Footer from "../components/Footer.astro";
 // 失步会让插件页与主题页行为不一致。
 import ConfigCarrier from "../components/ConfigCarrier.astro";
 import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
+// 半截页面自救：与 src/layouts/Layout.astro 同款（「两个外壳」纪律）
+import PageTruncationGuard from "../components/misc/PageTruncationGuard.astro";
 import {
   DEFAULT_THEME,
   LIGHT_MODE,
@@ -29,10 +31,13 @@ import {
 import "../styles/global.css";
 import "../styles/utilities.css";
 import "../styles/variables.css";
+import "../styles/content-widgets.css";
+import "../styles/statistics.css";
 import "../styles/base.css";
 import "../styles/theme-transition.css";
 import "../styles/components.css";
 import "../styles/markdown.css";
+import "../styles/portfolio-card.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
@@ -136,6 +141,9 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     </script>
     <!-- 插件页自身的 head 片段（title / meta / 样式等） -->
     <Fragment set:html={headSlot} />
+    <!-- 半截页面自救：与 src/layouts/Layout.astro 同款（「两个外壳」纪律）。
+         插件页同样走 Halo 的 chunked 流式输出、同样会被 EdgeOne 缓存成坏对象。 -->
+    <PageTruncationGuard />
   </head>
   <body
     class="relative min-h-screen transition"
@@ -176,5 +184,8 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     <!-- Halo 核心页脚注入（备案/统计等）；halo: 前缀元素无法直接写 JSX，按
          halo:comment 惯例用字符串注入，避免 Astro 把 <halo:footer /> 改写为 <halo :footer> -->
     <Fragment set:html={"<halo:footer />"} />
+    <!-- 页面完整性哨兵：文档最末元素，与 <head> 的 PageTruncationGuard 配对。
+         ⚠️ 必须与 src/layouts/Layout.astro 的同款哨兵保持同一个 id。 -->
+    <div id="ethereal-page-end" hidden></div>
   </body>
 </html>

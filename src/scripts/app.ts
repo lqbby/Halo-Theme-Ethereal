@@ -4,11 +4,15 @@
 import "../styles/global.css";
 import "../styles/utilities.css";
 import "../styles/variables.css";
+// 本地独有样式（上游版 app.ts 没有这几行，合并时随上游版丢失）
+import "../styles/content-widgets.css";
 import "../styles/comment-widget.css";
 import "../styles/base.css";
 import "../styles/theme-transition.css";
 import "../styles/components.css";
+import "../styles/statistics.css";
 import "../styles/markdown.css";
+import "../styles/portfolio-card.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
