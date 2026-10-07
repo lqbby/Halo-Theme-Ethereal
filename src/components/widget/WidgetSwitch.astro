@@ -14,6 +14,11 @@
  * 2. 片段根元素必须自带 class="contents"：th:replace 是整体替换，不保留引用点 div 的属性。
  */
 import Announcement from "./Announcement.astro";
+// 本地 1.5.66 的三个侧栏小组件（上游无对应物）。文件一直都在（此前是「孤儿」：
+// WidgetSwitch 没有分派分支，配了也不渲染，这就是「侧边栏异常」的根因）。
+import MoeCounter from "./MoeCounter.astro";
+import RecentComments from "./RecentComments.astro";
+import SteamCard from "./SteamCard.astro";
 import Categories from "./Categories.astro";
 import Hitokoto from "./Hitokoto.astro";
 import MusicPlayer from "./MusicPlayer.astro";
@@ -65,7 +70,16 @@ import Weather from "./Weather.astro";
       th:case="'html'"
       class="card-base onload-animation p-4"
       th:utext="${widget.html}"
-    >
+    ></div>
+    <!-- 本地 1.5.66 的三个小组件（case 名与本地侧栏/configMap 的 value 一致） -->
+    <div class="contents" th:case="'moe-counter'">
+      <MoeCounter class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'recent-comments'">
+      <RecentComments class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'steam'">
+      <SteamCard class="onload-animation" />
     </div>
   </div>
 </div>

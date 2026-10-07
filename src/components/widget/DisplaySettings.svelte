@@ -49,6 +49,23 @@
     type BannerDisplayMode,
     type FullscreenLayoutMode,
   } from "../../utils/setting-utils";
+  // 本地 1.5.66 的三个魔改轴开关（宽屏/卡片纹理/卡片外壳）。
+  // 直连 utils/settings/card-style、不走 setting-utils 桶：
+  // 上游 713 行的 setting-utils 也导出 resetCardStyle（语义不同），桶里混进会冲突。
+  import {
+    getStoredPageWide,
+    setPageWide,
+    getDefaultPageWide,
+    resetPageWide,
+    getStoredCardPattern,
+    setCardPattern,
+    getDefaultCardPattern,
+    resetCardPattern,
+    getStoredCardShell,
+    setCardShell,
+    getDefaultCardShell,
+    resetCardShell,
+  } from "../../utils/settings/card-style";
   import { t } from "../../utils/i18n";
 
   /* ── 主题色（原有） ── */
@@ -150,6 +167,10 @@
   let cardBorder = $state(getStoredCardBorder());
   let cardFollowTheme = $state(getStoredCardFollowTheme());
   let navbarBlur = $state(getStoredNavbarBlur());
+  // 本地魔改轴（见上方 import 注释）
+  let pageWide = $state(getStoredPageWide());
+  let cardPattern = $state(getStoredCardPattern());
+  let cardShell = $state(getStoredCardShell());
   let postListMasonry = $state(getStoredPostListMasonry());
   let sakura = $state(getStoredSakuraEnabled());
   // 面板里透明度类参数以百分比展示（存储为 0–1）
@@ -163,6 +184,9 @@
   const defaultCardBorder = getDefaultCardBorder();
   const defaultCardFollowTheme = getDefaultCardFollowTheme();
   const defaultNavbarBlur = getDefaultNavbarBlur();
+  const defaultPageWide = getDefaultPageWide();
+  const defaultCardPattern = getDefaultCardPattern();
+  const defaultCardShell = getDefaultCardShell();
   const defaultPostListMasonry = getDefaultPostListMasonry();
   const defaultWallpaper = getDefaultWallpaperParams();
   const defaultSakura = getDefaultSakuraEnabled();
@@ -171,7 +195,10 @@
     cardBorder !== defaultCardBorder ||
       cardFollowTheme !== defaultCardFollowTheme ||
       navbarBlur !== defaultNavbarBlur ||
-      postListMasonry !== defaultPostListMasonry,
+      postListMasonry !== defaultPostListMasonry ||
+      pageWide !== defaultPageWide ||
+      cardPattern !== defaultCardPattern ||
+      cardShell !== defaultCardShell,
   );
   const showMasonry = $derived(layout === "grid");
   const dirtyWallpaper = $derived(
@@ -296,6 +323,21 @@
     setNavbarBlur(navbarBlur);
   }
 
+  function togglePageWide() {
+    pageWide = !pageWide;
+    setPageWide(pageWide);
+  }
+
+  function toggleCardPattern() {
+    cardPattern = !cardPattern;
+    setCardPattern(cardPattern);
+  }
+
+  function toggleCardShell() {
+    cardShell = !cardShell;
+    setCardShell(cardShell);
+  }
+
   function toggleMasonry() {
     postListMasonry = !postListMasonry;
     setPostListMasonry(postListMasonry);
@@ -312,6 +354,12 @@
     cardFollowTheme = getDefaultCardFollowTheme();
     navbarBlur = getDefaultNavbarBlur();
     postListMasonry = getDefaultPostListMasonry();
+    resetPageWide();
+    pageWide = getDefaultPageWide();
+    resetCardPattern();
+    cardPattern = getDefaultCardPattern();
+    resetCardShell();
+    cardShell = getDefaultCardShell();
   }
 
   function resetSakuraBtn() {
@@ -432,6 +480,22 @@
           <span class="icon-[material-symbols--blur-on-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.navbarBlur", "高级材质")}</span>
           <span class="toggle" class:toggle-on={navbarBlur}><span class="toggle-knob"></span></span>
+        </button>
+        <!-- 本地 1.5.66 的三个魔改轴（i18n 键已在并集里） -->
+        <button type="button" class="toggle-row" class:toggle-on={pageWide} role="switch" aria-checked={pageWide} on:click={togglePageWide} title={t("display.pageWideDesc", "将页面主容器宽度放宽为 112rem")}>
+          <span class="icon-[material-symbols--width-wide-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.pageWide", "宽屏布局")}</span>
+          <span class="toggle" class:toggle-on={pageWide}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={cardPattern} role="switch" aria-checked={cardPattern} on:click={toggleCardPattern}>
+          <span class="icon-[material-symbols--texture-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.cardPattern", "卡片纹理")}</span>
+          <span class="toggle" class:toggle-on={cardPattern}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={cardShell} role="switch" aria-checked={cardShell} on:click={toggleCardShell}>
+          <span class="icon-[material-symbols--select-all-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.cardShell", "卡片外壳")}</span>
+          <span class="toggle" class:toggle-on={cardShell}><span class="toggle-knob"></span></span>
         </button>
         {#if showMasonry}
           <button type="button" class="toggle-row" class:toggle-on={postListMasonry} role="switch" aria-checked={postListMasonry} on:click={toggleMasonry}>
