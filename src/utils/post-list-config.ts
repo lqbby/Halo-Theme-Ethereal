@@ -33,7 +33,22 @@ export function postListContainerThWith(): string {
     "coverExtra=${defaultMode != 'grid' and coverPosition == 'left' ? ' cover-left' : ''}, " +
     "coverRatioExtra=${coverRatio == 'fixed16x9' ? ' cover-fixed' : ''}, " +
     "gridExtra=${defaultMode == 'grid' and coverFullWidth ? ' grid-cover-full' : ' grid-cover-inset'}, " +
-    "gridFill=${defaultMode == 'grid' and !masonry and coverAutoHeight ? ' grid-cover-fill' : ''}"
+    "gridFill=${defaultMode == 'grid' and !masonry and coverAutoHeight ? ' grid-cover-fill' : ''}, " +
+    // 系列角标用的「全部系列」快照（本地 1.5.57 迁入）。
+    //
+    // 🔴🔴 为什么放在**容器**上、而不是每张卡片自己去调 Finder：
+    //     插件 `SeriesFinderImpl.get(name)` 内部就是 `loadSeries()` = `client.listAll(Post.class)`
+    //     全表扫 + 分组排序，**没有缓存**。一页 9~10 张卡逐卡调 = 9~10 次全表扫。
+    //     改成容器上取一次 `listAll()`（同样一次全表扫，但**整页只一次**），卡片再从结果里
+    //     按名挑自己的系列 —— 开销从 O(卡片数 × 全表) 降到 O(1 × 全表 + 卡片数 × 系列数)。
+    //
+    // 🔴 版本门控必须**内联短路**（`pluginFinder != null and pluginFinder.available(...)`）：
+    //     `listAll` 只有 ethereal-companion 1.1.0+ 才有，插件没装/没升级时直接调
+    //     ⇒ SpEL 找不到方法 ⇒ **整页 500 / 正文截断**。
+    //
+    // ⚠️ 变量必须声明在本属性里（容器上），卡片组件用**祖先作用域**读取 ——
+    //    同 `SeriesStrip` 的 `seriesList` 由 `th:with` 声明、`<section>` 在子层读，是同一套语义。
+    "seriesAll=${pluginFinder != null and pluginFinder.available('ethereal-companion', '>=1.1.0') ? recentCommentsSeriesFinder.listAll() : null}"
   );
 }
 

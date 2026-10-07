@@ -2167,8 +2167,12 @@ body.card-border-enabled .pagination-pages {
 
 /* 分页页码组容器内部的页码按钮：反覆盖排除（边框只加在容器上、整组为一张
    卡片，避免每个数字各自描边）。特异性 (0,3,1) 压过上方 .btn-card 命中
-   (0,2,1)；页码按钮不带 card-hover-lift，不受悬浮阴影规则干扰 */
-body.card-border-enabled .pagination-pages .btn-card {
+   (0,2,1)；页码按钮不带 card-hover-lift，不受悬浮阴影规则干扰。
+   ⚠️ `.pager-btn` / `.pager-num-current` 为本地 1.5.66 分页控件（Pagination.astro
+   一体化分段控件）的类名，与上游 `.btn-card` 并列排除。 */
+body.card-border-enabled .pagination-pages .btn-card,
+body.card-border-enabled .pagination-pages .pager-btn,
+body.card-border-enabled .pagination-pages .pager-num-current {
   border: none;
   box-shadow: none;
 }

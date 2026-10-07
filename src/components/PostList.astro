@@ -1,5 +1,7 @@
 ---
 import Pagination from "./control/Pagination.astro";
+import FeaturedCards from "./FeaturedCards.astro";
+import SeriesStrip from "./SeriesStrip.astro";
 import PostCard from "./PostCard.astro";
 import {
   postListContainerClass,
@@ -10,10 +12,27 @@ import {
 
 interface Props {
   pagination?: string;
+  /** 是否在列表上方渲染「两卡行」（随机一篇文章 + 热门/最近文章）。仅首页传 true。 */
+  featured?: boolean;
 }
 
-const { pagination = "posts" } = Astro.props;
+const { pagination = "posts", featured = false } = Astro.props;
 ---
+
+<!-- 首页「系列」卡片条（1.5.32 新增，1.5.33 提到两卡行之上）：显示系列的全部文章，
+     一排四个、可点箭头右移，并带系列切换按钮。自带完整门控（插件版本 / 后台开关 /
+     首页第一页 / 空态），与下方精选卡互不影响：精选卡关掉时本组件仍按自己的
+     seriesEnable 决定显隐。 -->
+{featured && <SeriesStrip />}
+
+{featured && (
+  <div
+    class="contents"
+    th:if="${(theme.config?.layout?.postList?.featuredEnable == null or theme.config?.layout?.postList?.featuredEnable) and posts.page == 1}"
+  >
+    <FeaturedCards />
+  </div>
+)}
 
 <div
   id="post-list-container"
@@ -45,16 +64,300 @@ const { pagination = "posts" } = Astro.props;
 <script
   src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-list-layout.js?v=${ASSET_VERSION}`}
   defer
-  is:inline></script>
+></script>
+<!-- 卡片点赞：经典脚本，点击卡片点赞胶囊调 Halo upvote API；与详情页 post-like.js
+     共用 localStorage key 状态互通；Swup 换页由 SwupScriptsPlugin 按序重执行 -->
+<script
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-card-like.js?v=${ASSET_VERSION}`}
+  defer
+></script>
 
 <style is:global>
-  /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）===== */
-  #post-list-container .post-card.is-pinned {
-    outline: 1px solid color-mix(in oklab, var(--primary) 40%, transparent);
-    outline-offset: -1px;
-    box-shadow: 0 2px 18px color-mix(in oklab, var(--primary) 14%, transparent);
+  /* ===== 卡片底部标签：firefly 同款药丸 chip（# 前缀 + 主色 8% 底）===== */
+  #post-list-container .post-card-tag {
+    background: color-mix(in srgb, var(--btn-content) 8%, transparent);
+    color: var(--btn-content);
   }
-  /* 瀑布流下卡片由 JS 绝对定位，outline 随卡片一起移动，无需额外处理 */
+  /* 仅可点击的 <a> 标签响应 hover；+N 合并项是 <span>，保持静态（同 firefly tag-item-static） */
+  #post-list-container a.post-card-tag:hover {
+    background: color-mix(in srgb, var(--btn-content) 18%, transparent);
+    color: var(--primary);
+  }
+
+  /* ===== 卡片底部统计（浏览/评论/点赞）：纯「图标 + 数字」，无胶囊底 =====
+     原先统计与上方标签同为药丸，但底色更实（--btn-regular-bg 不透明 vs 标签 8% 半透明）
+     ⇒ 底栏读起来像「第二行标签」，且比标签更抢眼。去掉底色 + 前景改中性灰
+     （跟随 .post-card-stats 的 text-50，与日期同一档灰度）后：
+     标签＝分类（带色 chip）、统计＝数值（素色），权重拉开、不再打架。 */
+  #post-list-container .post-card-stat {
+    background: transparent;
+    color: inherit;
+    transition: color 0.15s ease;
+  }
+  /* 可点击项（评论链接 / 点赞按钮）：hover 前景变主色 */
+  #post-list-container a.post-card-stat:hover,
+  #post-list-container .post-card-stat-like:hover {
+    color: var(--primary);
+  }
+  /* 点赞为可点击按钮：显示手型指针（其余胶囊是展示/链接） */
+  #post-list-container .post-card-stat-like {
+    cursor: pointer;
+  }
+  /* 点赞 hover 实心：描边→实心图标切换（实心用主色点亮） */
+  #post-list-container .post-card-stat-like .stat-heart-outline,
+  #post-list-container .post-card-stat-like .stat-heart-filled {
+    transition: opacity 0.15s ease;
+  }
+  #post-list-container .post-card-stat-like .stat-heart-filled {
+    color: var(--primary);
+  }
+  /* 已点赞：数字一并转主色，与实心心形呼应 */
+  #post-list-container .post-card-stat-like.liked {
+    color: var(--primary);
+  }
+  #post-list-container .post-card-stat-like:hover .stat-heart-outline,
+  #post-list-container .post-card-stat-like.liked .stat-heart-outline {
+    opacity: 0;
+  }
+  #post-list-container .post-card-stat-like:hover .stat-heart-filled,
+  #post-list-container .post-card-stat-like.liked .stat-heart-filled {
+    opacity: 1;
+  }
+
+  /* ===== 合并底栏（1.5.58 定契约：**恒单行** + 一条容器查询分档）=====
+     标签行与统计行并成一条带 border-t 的底栏：左标签、右统计。
+     ⚠️ 描边走 --line-divider 而不是写死 black/10 + dark:white/10：
+        主题在浅底卡片外壳下需要更淡的分隔线，token 会跟着卡片外壳一起变。
+
+     🔴🔴 **为什么必须分档：底栏可用宽最窄只有 288px**
+         · 网格是 `repeat(auto-fill, minmax(320px, 1fr))` ⇒ 卡片内容宽下限 = 320 − 32(内距) = **288px**；
+           这也正是 320px 视口手机的值（移动端主壳 px-0、网格 padding 0，卡片满宽）。
+         · CDP 实测锚点：四项统计 `36+29+63+29 + 3×12 = 193px`、两个标签 `75+6+75 = 156px`；
+           「字数」一项就占 63px；1440 视口双列卡内容宽 311px。
+         · 旧版（1.5.57）靠 `flex-wrap: wrap` 兜底 ⇒ 357px > 311px 溢出 46px ⇒ 统计整组掉到
+           第二行（就是「标签和数据不在同一行」）。
+         ⇒ 1.5.58 改为**两套参数 + 恒单行**（下面同名块 + 文件后部的 @container）：
+             紧档（内容 <400px）：chip 11px·px-1.5、标签组 4px、统计组 8px、项内 4px、最多 **2** 个标签
+                                  ⇒ 常规 240px / 最宽标签对 ≈264px（288 预算下余 24px）
+             宽松档（内容 ≥400px）：chip 12px·px-2.5、标签组 6px、统计组 12px、项内 6px、最多 **3** 个标签
+                                  ⇒ 常规 363px / 最宽三标签 ≈378px（400 预算下余 22px）
+         ⇒ 效果：桌面列表（592–800px）宽松+3；桌面网格（288–455px）与移动端（288–398px）紧+2。
+
+     🔴 **判据挂 `.post-card-content` 而不是卡片**：列表模式内容区是 `calc(100% − 封面 − 12px)`，
+        与卡宽不成比例 ⇒ 只有内容区宽才等于底栏真正可用的宽度。
+        `container-type: inline-size` 会带来 layout containment（成为 abs 定位包含块 + 新层叠上下文）；
+        已确认 `.post-card-content` 内所有 abs 元素（标题装饰条 / hover 箭头 / 点赞实心心）
+        都以组件内部的 relative 元素为包含块 ⇒ 无副作用。
+
+     🔴 **标签数只能由 CSS 分档** ⇒ 标记里服务端渲染 3 个、窄档收起第 3 个（`--extra`）；`+N` 同理
+        渲染两份（按 2 算 / 按 3 算）由 CSS 切换。**不要改成 overflow 裁切**：
+        那会让 +N 计数与实际隐藏数不符。 */
+  #post-list-container .post-card-content {
+    container-type: inline-size;
+    container-name: post-card;
+  }
+
+  /* ===== 标题字号自适应（1.5.64）=====
+     标题字号随**卡片内容宽**（容器查询单位 cqi）在 16~20px 之间连续缩放：
+       内容区 218px → 16.1px ／ 333px → 17.1px ／ ≥700px → 20px（封顶）
+     🔴 判据用**容器单位**而不是 vw：卡片宽与视口不成比例 —— 1280 的列表卡内容区（217.7px）
+        比网格最窄卡（288px）还窄，用 vw 会把两者算成同一个字号。
+     🔴 用 @supports 而**不是**「两条 font-size 叠写」（后者可能被压缩器当重复声明删掉）。
+        不支持 cqi 时整条 clamp() 会失效 ⇒ 落回上面那条 1.125rem，而不是掉到基类字号。
+     ⚠️ 这里**不写 line-height**：列表 28px / 网格与移动端 24px 是布局常量
+        （列表侧还是「卡高 199 恒定」的前提），只让「字体」自适应。
+     ⚠️ 公式**只此一处** —— 三处模式规则（列表≥768 / 列表<768 / 网格）里的 font-size
+        均已删除；它们的选择器特异性更高（1 个 id + 2 个类），留一条就会盖掉这里。 */
+  #post-list-container .post-card-title {
+    font-size: 1.125rem !important;
+  }
+  @supports (font-size: 1cqi) {
+    #post-list-container .post-card-title {
+      font-size: clamp(1rem, 0.9rem + 0.8cqi, 1.25rem) !important;
+    }
+  }
+
+  /* ---- 紧档（默认：所有窄场景）---- */
+  #post-list-container .post-card-bottom {
+    /* 恒单行：分档已保证放得下，不再用 flex-wrap 兜底（那正是「标签和数据不同行」的成因） */
+    flex-wrap: nowrap !important;
+    border-top-color: var(--line-divider);
+    gap: 0.5rem; /* 标签组 ↔ 统计组 */
+  }
+  /* 无标签时只剩统计组：justify-between 对单个子项会把它留在最左，需显式推到右侧
+     （否则底栏右半边空着、视觉上像「统计掉到了左边」） */
+  #post-list-container .post-card-bottom.no-tags {
+    justify-content: flex-end !important;
+  }
+  /* 左侧标签组：单行。min-width:0 是 flex 子项能真正收缩的前提
+     （flex 项默认 min-width:auto，会被内容撑开、把右侧统计挤出卡片） */
+  #post-list-container .post-card-bottom-tags {
+    flex-wrap: nowrap !important;
+    gap: 0.25rem;
+  }
+  /* 第 3 个标签只在宽松档出现（由文件后部的 @container 放回来） */
+  #post-list-container .post-card-tag--extra {
+    display: none !important;
+  }
+  /* +N 两份：紧档用 --compact（按 2 算），--wide 只在宽松档出现 */
+  #post-list-container .post-card-tag-more--wide {
+    display: none !important;
+  }
+  /* chip 紧档收一档：px-2.5 → px-1.5、text-xs(12px) → 11px */
+  #post-list-container .post-card-tag {
+    padding-inline: 0.375rem !important;
+    font-size: 0.6875rem !important;
+  }
+  /* 🔴 极端长标签的兜底（不让它被标签组右缘硬切）：允许 chip 收缩 + 文本省略成 `…`。
+     ⚠️ `+N` 合并项**不参与收缩**（Tailwind 的 shrink-0 保留），否则数字会被挤没。
+     ⚠️ 全名仍可达：<a> 带 th:title + th:aria-label（见 PostCard.astro）。 */
+  #post-list-container
+    .post-card-bottom-tags
+    .post-card-tag:not(.post-card-tag-more) {
+    flex-shrink: 1;
+    min-width: 0;
+  }
+  #post-list-container .post-card-bottom-tags .post-card-tag > span {
+    /* min-width:0 缺一不可：flex 子项默认 min-width:auto ⇒ 不写它即使有 overflow:hidden
+       也只会停在 min-content 宽、省略号永远不出现（真机踩过） */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  /* 右侧统计组：永不折行，并**永远贴右**（有/无标签、宽/窄档都贴右）。
+     ⚠️ 用 `margin-left:auto` 而不是只靠容器的 justify-content: space-between：
+        no-tags 时只剩一个子项，space-between 会把它留在**最左**；auto 才能保证恒贴右。 */
+  #post-list-container .post-card-stats {
+    flex-wrap: nowrap !important;
+    white-space: nowrap;
+    margin-left: auto;
+    gap: 0.5rem;
+  }
+  #post-list-container .post-card-stat {
+    gap: 0.25rem;
+  }
+
+  /* ---- 宽松档：卡片内容 ≥400px（桌面列表模式是唯一常态命中者）----
+     ⚠️ 这个块只做「档位切换」，不许再写第三套数值 —— 两档就是全部。 */
+  @container post-card (min-width: 400px) {
+    #post-list-container .post-card-bottom-tags {
+      gap: 0.375rem;
+    }
+    #post-list-container .post-card-tag--extra {
+      display: inline-flex !important;
+    }
+    #post-list-container .post-card-tag-more--compact {
+      display: none !important;
+    }
+    #post-list-container .post-card-tag-more--wide {
+      display: inline-flex !important;
+    }
+    #post-list-container .post-card-tag {
+      padding-inline: 0.625rem !important;
+      font-size: 0.75rem !important;
+    }
+    #post-list-container .post-card-stats {
+      gap: 0.75rem;
+    }
+    #post-list-container .post-card-stat {
+      gap: 0.375rem;
+    }
+  }
+
+  /* ===== 系列角标 / 置顶角标（1.5.57）=====
+     两种变体（cover / inline）**同时只显示一个**，由 .has-cover 与布局模式切换：
+       · 有封面 + 网格 / 移动端 → cover（压在封面左上角的深色胶囊）＋ 置顶压封面右上
+       · 有封面 + 列表模式桌面端 → inline（那时封面是条窄竖条，整层封面角标都关掉，
+         系列改回 eyebrow 行、置顶改回 PostMeta 内联胶囊）
+       · 无封面 → 只渲染 inline（封面角标所在的那个 cover <a> 根本不存在） */
+  #post-list-container .post-card-series {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.0625rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+  }
+  /* 名与期号之间用中圆点分隔；__issue 只在「本文确实属于该系列」时才渲染，
+     所以不会出现悬空的圆点 */
+  #post-list-container .post-card-series__issue::before {
+    content: "·";
+    margin-right: 0.25rem;
+    opacity: 0.6;
+  }
+  /* cover 变体：半透明底 + 毛玻璃，压住再花的封面也读得清（与首页系列条的期号胶囊同款）。
+     ⚠️ 这个 backdrop-filter 只作用在一个小胶囊上（不是卡片本身）⇒ 不会踩
+        「`.card-base` 无 position、加合成层会挪走纹理包含块」那个坑，开销也可忽略。 */
+  #post-list-container .post-card-series--cover {
+    color: #fff;
+    background: color-mix(in srgb, #000 42%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+  /* inline 变体：混在 eyebrow 行里的浅色 chip，与标签 chip 同色系但用主色区分「这是系列」 */
+  #post-list-container .post-card-series--inline {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 12%, transparent);
+  }
+  /* 有封面时角标默认在封面上 ⇒ 隐藏 eyebrow 行里的 inline 副本（两处都渲染，靠这里二选一） */
+  #post-list-container .post-card.has-cover .post-card-series--inline {
+    display: none;
+  }
+  /* 列表模式桌面端：封面是一条窄竖条，角标挂不下 ⇒ 把**整层**封面角标关掉（系列 + 置顶一起，
+     这样两者不会一半在封面一半在 eyebrow 行），再分别改回 eyebrow 行 / PostMeta。
+     ⚠️ 只关 `.post-card-series--cover` 不够 —— 置顶那颗在同一个 `.post-card-badges` 层里、
+     是另一个元素，会只剩它孤零零挂在窄条上。 */
+  @media (min-width: 768px) {
+    #post-list-container.post-list-mode .post-card.has-cover .post-card-badges {
+      display: none;
+    }
+    #post-list-container.post-list-mode
+      .post-card.has-cover
+      .post-card-series--inline {
+      display: inline-flex;
+    }
+  }
+  /* 置顶角标（封面右上角）：主色实心 + 白字，与系列角标的半透明黑底拉开层级。
+     ⚠️ `margin-left: auto` 而不是靠容器的 justify-content: space-between ——
+        系列角标在「本文不属于任何系列」时不渲染，那时容器只剩置顶一个子项，
+        space-between 会把它留在**最左**。用 auto 外边距才能保证它永远贴右。 */
+  #post-list-container .post-card-pinned {
+    margin-left: auto;
+    background: var(--primary);
+  }
+  /* 有封面时置顶改由封面角标承担 ⇒ 隐藏 PostMeta 里的内联胶囊（同上，两处渲染二选一）。
+     ⚠️ 列表模式桌面端要把 Meta 里那颗还回来 —— 那时封面角标整层都被隐藏了，
+        两处一起藏会导致「列表模式下看不到任何置顶标识」。 */
+  #post-list-container .post-card.has-cover .post-meta-pinned {
+    display: none !important;
+  }
+  @media (min-width: 768px) {
+    #post-list-container.post-list-mode .post-card.has-cover .post-meta-pinned {
+      display: inline-flex !important;
+    }
+  }
+
+  /* ===== 置顶卡片高亮：主色描边 + 轻微光晕（列表/网格/瀑布流通用）=====
+     ⚠️ 置顶高亮必须独立于访客样式切换：访客切布局（列表/网格/瀑布流）只改容器类
+     与卡片定位，不得改变置顶卡片的描边/光晕。本规则写在 #post-list-container 的
+     ID 选择器下（特异性 1-2-0），高于任何访客可切换的类选择器（如
+     body.card-hover-lift-enabled .card-hover-lift:hover 的 0-3-1），因此在所有
+     布局模式下都稳定胜出；hover 时的 translateY 位移照常保留（那是交互，不是高亮）。
+     ⚠️ 用 outline 而非 border：瀑布流下卡片由 JS 绝对定位并显式写下 width/height
+     行内样式，若用 border 会改变盒模型尺寸、与 JS 计算的高度互相干扰；
+     outline 不占空间，随卡片一起移动，无需 JS 额外处理。
+     ⚠️ 此处是「卡片外壳开关关闭」时的基线（细描边 + 淡光晕）。开关开启后由
+     components.css 的 `:root.mods-card-shell #post-list-container .post-card.is-pinned`
+     升级成「2px 外浮粗环 + 主色投影」——两级强度刻意拉开，保证置顶一眼可辨。 */
+  #post-list-container .post-card.is-pinned {
+    outline: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+    outline-offset: -1px;
+    box-shadow: 0 2px 18px color-mix(in srgb, var(--primary) 14%, transparent);
+  }
 
   /* ===== 网格（grid）布局容器 ===== */
   #post-list-container.post-grid-mode {
@@ -149,28 +452,29 @@ const { pagination = "posts" } = Astro.props;
     flex-grow: 1 !important;
   }
 
-  /* ===== 列表模式桌面端（≥768px）：内容区宽度与右侧留白 =====
-     有封面：内容区占左侧，右侧留出封面位（等价原 md:w-[calc(...)] md:pr-2）
-     无封面：内容区占满，右侧留出主题色按钮位（等价原 md:pr-16） */
+  /* ===== 列表模式桌面端（≥768px）：无封面卡的内容区留位 =====
+     🔴 1.5.62：原「有封面」那条（width: calc(100% - var(--post-card-cover-width) - 12px)
+        + padding-right: 0.5rem）已删除 —— 它是 1.5.61 竖条封面时代的写法，
+        与文末列表模式新块的 `calc(100% - 320px)` / `width:100%` **同特异性**，
+        靠源序才压得住；留着会在 768-1279 抢先把右内距打成 8px（不对称）。
+        现在有封面卡的内距由文末两块接管：≥1280 侧封面行 / <1280 封面在上（左右各 1.5rem）。 */
   @media (min-width: 768px) {
-    #post-list-container.post-list-mode .has-cover .post-card-content {
-      width: calc(100% - var(--post-card-cover-width) - 12px) !important;
-      padding-right: 0.5rem !important;
-    }
     #post-list-container.post-list-mode .no-cover .post-card-content {
       width: 100% !important;
       padding-right: 4rem !important;
     }
   }
 
-  /* ===== 紧凑卡片样式（标题缩小、元信息缩小、摘要字号）=====
+  /* ===== 紧凑卡片样式（元信息缩小、摘要字号；标题只留「行高」）=====
      适用：网格模式（全断点）+ 列表模式移动端（两者观感统一）。
      注：网格为全断点、列表仅在移动端生效，断点不同无法共用选择器，
-     故分别声明、保持规则体一致，避免修改时遗漏 */
-  /* 网格：标题缩小、去掉装饰条 */
+     故分别声明、保持规则体一致，避免修改时遗漏。
+     1.5.14：标题 1.35rem/1.75rem → 1.15rem/1.5rem（LQ 反馈偏大），行高同比收窄。
+     🔴 1.5.64：**标题字号已全部上收到「标题字号自适应」那一条**（容器单位 cqi 的 clamp）。
+        这里与列表模式两处都**只保留 line-height** —— 留 font-size 会因特异性更高而盖掉它。 */
+  /* 网格：标题去装饰条（字号见「标题字号自适应」） */
   #post-list-container.post-grid-mode .post-card-title {
-    font-size: 1.35rem !important;
-    line-height: 1.75rem !important;
+    line-height: 1.5rem !important;
     margin-bottom: 0.5rem !important;
   }
   #post-list-container.post-grid-mode .post-card-title::before {
@@ -178,19 +482,35 @@ const { pagination = "posts" } = Astro.props;
   }
   /* hover 箭头垂直对齐标题末行：末行中心 = 100% - 行高/2，配合
      base 的 -translate-y-1/2（箭头中心 = top 值），多行标题也落在
-     最后一行而非居中于整块。列表标题行高为 text-3xl 的 2.25rem */
+     最后一行而非居中于整块。
+     ⚠️ 这条在两种模式下其实**都不可达**：列表模式箭头 display:none（≥768 那条），
+        网格模式被下面的同名规则覆盖。1.5.64 前写的是 2.25rem（绑死基类 text-3xl 的行高，
+        而该基类字号已删）⇒ 改为列表模式的实际行高 1.75rem，仅作「无模式类」时兜底。 */
   #post-list-container .post-card-arrow {
-    top: calc(100% - 2.25rem / 2) !important;
-  }
-  /* 网格：标题行高收窄为 1.35rem/1.75rem，末行中心相应下移 */
-  #post-list-container.post-grid-mode .post-card-arrow {
     top: calc(100% - 1.75rem / 2) !important;
   }
-  /* 网格：元信息与统计缩小 */
-  #post-list-container.post-grid-mode .post-meta,
-  #post-list-container.post-grid-mode .post-card-stats {
+  /* 网格：标题行高 1.5rem，末行中心相应上移；
+     箭头字号随标题等比收小（2rem→1.75rem），避免小标题旁挂大箭头 */
+  #post-list-container.post-grid-mode .post-card-arrow {
+    top: calc(100% - 1.5rem / 2) !important;
+    font-size: 1.75rem !important;
+  }
+  /* 网格：元信息与统计缩小（统计去胶囊底后需略大的间距才不成一坨）
+     ⚠️ 这里**不再写 gap** —— 间距已由「合并底栏」那条容器查询独占（两档制，避免第三套数值）。 */
+  #post-list-container.post-grid-mode .post-meta {
     font-size: 0.8rem !important;
     gap: 0.5rem !important;
+  }
+  #post-list-container.post-grid-mode .post-card-stats {
+    font-size: 0.8rem !important;
+  }
+  /* 合并底栏：整条跟随 meta 的 0.8rem 档；间距交给容器查询（窄档 8px / 宽松档 12px） */
+  #post-list-container.post-grid-mode .post-card-bottom {
+    font-size: 0.8rem !important;
+  }
+  /* 阅读时长（eyebrow 行右侧）与 meta 同档，否则一行里会出现两种字号 */
+  #post-list-container.post-grid-mode .post-card-reading-time {
+    font-size: 0.8rem !important;
   }
 
   /* 摘要行数：list/grid 均由配置 --post-desc-lines 控制（0 = 不截断） */
@@ -214,17 +534,307 @@ const { pagination = "posts" } = Astro.props;
     font-size: 0.875rem;
   }
 
-  /* ===== 列表模式封面居左（coverPosition: left）===== */
-  #post-list-container.post-list-mode.cover-left .post-card-cover {
-    right: auto !important;
-    left: 0.75rem !important;
+  /* ===== 列表模式封面居左（coverPosition: left）=====
+     🔴 1.5.62：几何已全部并入文末列表模式块（≥1280 写 left:0/right:auto +
+     内容区 margin-left:auto + padding-left:1.5rem；<1280 写 inset:auto 回到文档流）。
+     此处原写的 left:0.75rem / padding-left:2.25rem 与后置规则**同特异性**、
+     只靠源序分胜负，留着会让 768-1279 的内容区左内距变成 36px（不对称）⇒ 已删除。 */
+
+  /* ===== 移动端（<768px）统一为网格式布局：封面居上、独立卡片 =====
+     列表与网格在移动端呈现一致的卡片样式（封面在上、无封面用主题色按钮居右） */
+  @media (max-width: 767.98px) {
+    /* 列表模式容器：去掉连体背景与内边距，让每张卡片独立显示（同网格模式） */
+    #post-list-container.post-list-mode {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    /* 独立卡片模式下隐藏文章间的虚线分隔 */
+    #post-list-container .post-card-divider {
+      display: none !important;
+    }
+    /* 列表模式封面保持居上（PostCard 基础 flex-col-reverse），无需额外覆盖 */
+
+    /* 列表模式标题：行高与装饰条同网格（字号见「标题字号自适应」） */
+    #post-list-container.post-list-mode .post-card-title {
+      line-height: 1.5rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-title::before {
+      display: none !important;
+    }
+
+    /* 列表模式元信息/统计缩小（与网格一致） */
+    #post-list-container.post-list-mode .post-meta {
+      font-size: 0.8rem !important;
+      gap: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-stats {
+      font-size: 0.8rem !important;
+    }
+    /* 合并底栏与阅读时长（1.5.57）：移动端列表与网格观感统一，档位同步
+       ⚠️ gap 不再在这里写 —— 间距由容器查询按**实际内容宽**决定，与「模式」无关 */
+    #post-list-container.post-list-mode .post-card-bottom {
+      font-size: 0.8rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-reading-time {
+      font-size: 0.8rem !important;
+    }
+
+    /* 列表模式摘要字号与网格一致 */
+    #post-list-container.post-list-mode .post-card-excerpt {
+      font-size: 0.875rem !important;
+    }
+
+    /* 无封面用主题色按钮居右，内容区右侧留位（列表/网格统一） */
+    #post-list-container .no-cover .post-card-content {
+      padding-right: 4.5rem !important;
+    }
   }
-  #post-list-container.post-list-mode.cover-left .post-card-content {
+
+  /* ===== 列表模式（1.5.62 重构）：两种形态按宽度切换 ====================
+     🔴 为什么改：封面被裁的根因不是 object-fit，而是**封面框自己的宽高比**。
+        object-cover 只在「框比 ≈ 原图比例」时才不裁切，而站内封面原图是 500×286（1.75）。
+        1.5.61 的 28% 竖条框比只有 0.47（1280）/ 0.72（1440）⇒ 实测只显示原图 27% / 41% 宽。
+
+     · ≥1280px「侧封面行」= 参考稿形态
+         封面贴右缘、拉满卡高（top/bottom:0）；卡高锁 199px；封面宽 `min(320px, 52%)`。
+         卡高恒定 ⇒ 可见度**只由封面宽**决定：320px → 框比 1.61 → 原图 **92%** 可见；
+         1280 视口下 52% = 288px → 框比 1.45 → **83%** 可见。
+         ⇒ 实测主栏 554 / 701 / 1142（1280 / 1440 / 1920）、封面 288 / 320 / 320、
+            内容区 266 / 381 / 822。**右侧栏保留不动**（1.5.63 撤掉 1.5.62 的收起右栏）。
+     🔴🔴 **卡高 199 的另一半前提：eyebrow 必须恒单行**（1.5.63 补）。
+         内容区 266 / 381（1280 / 1440）时 `.post-meta` 会在内部折 2 行（PostMeta 根是 `flex-wrap:wrap`）
+         ⇒ 内容区涨到 229.7 > 199 ⇒ 底栏被卡片 overflow:hidden 裁掉（实测溢 31px）。
+         故 eyebrow / `.post-meta` / meta 各项**全部锁单行 + 裁切**；内容区 <320px 再收起阅读时长
+         （把宽度让给日期·分类）。详见文末列表模式块 + 其中嵌套的 @container 窄档。
+     · <1280px「上封面卡」
+         封面满宽贴卡片顶部、aspect-ratio 16/9 ⇒ 原图基本完整（可见 ~98%）。
+         ⚠️ 这段本来就没有右栏（栅格只有两列）⇒ 卡片能吃满 440~951px，
+            用「封面在上」比侧封面更完整，故不随 52% 规则走。
+
+     🔴 卡高 199 是**固定值**、不是 min-height：卡高一变封面框比就变、可见度立刻掉
+        （199→227 时 90% → 79%）⇒ 标题因此锁死 1 行（超出省略）。
+     ⚠️ 只作用于 .post-list-mode；网格 / 瀑布流 / 文章页完全不动。
+     ⚠️ border-radius 一律不给封面写：卡片自带 overflow-hidden + rounded-(--radius-large)，
+        贴边后的外侧圆角由**卡片裁剪**产出。
+     ⚠️ 本块必须排在文件后部（移动端块**之后**）：与 `.no-cover .post-card-content`
+        的 padding-right 属同特异性，靠源序取胜，放前面会被后者覆盖。 */
+  /* —— 通用（全宽度）：封面贴边 + 覆盖按钮贴边 —— */
+  #post-list-container.post-list-mode .post-card-cover {
+    margin-left: 0 !important;
     margin-right: 0 !important;
-    margin-left: auto !important;
-    padding-right: 1.5rem !important;
-    padding-left: 2.25rem !important;
+    margin-top: 0 !important;
+    width: 100% !important;
+    border-radius: 0 !important;
   }
+  #post-list-container.post-list-mode .post-card-enter-btn {
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  @media (max-width: 767.98px) {
+    /* 窄屏列表（<768px 被渲染成网格式）：文本内距 1.5rem → 1.25rem。
+       ⚠️ 别按「px」记：移动端根字号是 14px（桌面 16px）⇒ 1.25rem 实测 **17.5px**（基础 p-6 = 21px），
+          与桌面那条 1.5rem（= 24px）同源不同 px，属主题移动端整体缩放的正常结果。
+       ⚠️ 必须同时写 `.cover-left` 变体：文件前部那条 `.cover-left .post-card-content`
+          的 padding-left（2.25rem）与它同特异性，靠**源序靠后**才压得住。
+       无封面卡右侧留位 4.5rem → 4rem（覆盖按钮 3.25rem = 46px + 10px 间隙）。 */
+    #post-list-container.post-list-mode .post-card-content,
+    #post-list-container.post-list-mode.cover-left .post-card-content {
+      padding: 1.25rem !important;
+    }
+    #post-list-container.post-list-mode .no-cover .post-card-content {
+      padding-right: 4rem !important;
+    }
+  }
+
+  /* —— <1280px：封面在上、满宽、16:9（原图基本不裁） —— */
+  @media (max-width: 1279.98px) {
+    /* 容器去连体背景与内距，每张卡片独立显示 */
+    #post-list-container.post-list-mode {
+      background: transparent !important;
+      padding: 0 !important;
+    }
+    /* 独立卡片模式下隐藏文章间的虚线分隔 */
+    #post-list-container.post-list-mode .post-card-divider {
+      display: none !important;
+    }
+    /* 卡片方向回到「封面在上」：基础类是 flex-col-reverse，但 md 起改成了 flex-col
+       ⇒ 不覆盖的话封面会被排到内容**之后**（下方）。 */
+    #post-list-container.post-list-mode .post-card {
+      flex-direction: column-reverse !important;
+      height: auto !important;
+    }
+    /* 封面回到文档流（md:absolute 是给 ≥1280 的侧封面行用的） */
+    #post-list-container.post-list-mode .post-card-cover,
+    #post-list-container.post-list-mode.cover-left .post-card-cover {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      bottom: auto !important;
+      left: auto !important;
+      aspect-ratio: 16 / 9 !important;
+      /* 🔴 必须显式 none：PostCard 封面自带 `max-h-[20vh]`，它才是 640px 宽
+         只显示 54.6% 高度的另一半原因（16:9 被 20vh 掐成矮条） */
+      max-height: none !important;
+      flex-shrink: 0 !important;
+    }
+    /* 封面在上时内容区占满宽度（文件前部那条 has-cover 的 calc 是给侧封面用的） */
+    #post-list-container.post-list-mode .has-cover .post-card-content {
+      width: 100% !important;
+    }
+  }
+
+  /* —— ≥768px：列表模式统一「紧凑档」文案（与侧封面行同档） —— */
+  @media (min-width: 768px) {
+    /* 文本内距：左 36 / 上 28 / 下 24 → 统一 24px。
+       ⚠️ 刻意**不写** padding-right：它由上下两条接管 ——
+          .has-cover 1.5rem（图文间隙）/ .no-cover 4rem（按钮留位）。 */
+    #post-list-container.post-list-mode .post-card-content {
+      padding-left: 1.5rem !important;
+      padding-top: 1.5rem !important;
+      padding-bottom: 1.5rem !important;
+    }
+    /* 标题 18px/28 + 锁 1 行（卡高 199 恒定的前提）。
+       ⚠️ 用 nowrap + ellipsis 而不是 -webkit-line-clamp：clamp 需要 -webkit-box，
+          而绝对定位的箭头在 box + overflow 下会被裁掉。 */
+    #post-list-container.post-list-mode .post-card-title {
+      line-height: 1.75rem !important;
+      margin-bottom: 0.5rem !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
+    }
+    #post-list-container.post-list-mode .post-card-title::before {
+      display: none !important;
+    }
+    /* 标题旁的 hover 箭头在 1 行标题下没有落点（参考稿也没有），
+       且它的定位依赖标题末尾的静态位置、会被 nowrap + overflow 裁掉
+       ⇒ 列表模式不显示；hover 反馈交给封面上的箭头遮罩 + 卡片抬升。 */
+    #post-list-container.post-list-mode .post-card-arrow {
+      display: none !important;
+    }
+    /* eyebrow 锁定 1 行：卡高固定 199，让它换行会把内容顶出卡片被裁。
+       🔴🔴 只锁 eyebrow **自身不够**：PostMeta 根是 `flex flex-wrap`（gap-4 / gap-y-2，见 PostMeta.astro），
+          右栏保留后主栏收窄（1280 视口内容区仅 266px）⇒ 它在**内部**折成 2 行（72px），
+          把内容区顶到 229.7px > 卡高 199 ⇒ 底栏被卡片 overflow:hidden 裁掉（CDP 实测溢 31px）。
+          ⇒ 「恒单行」必须**下沉到 .post-meta 本身**。 */
+    #post-list-container.post-list-mode .post-card-eyebrow {
+      flex-wrap: nowrap !important;
+      overflow: hidden !important;
+    }
+    #post-list-container.post-list-mode .post-card-eyebrow .post-meta {
+      /* ⚠️ flex 用 `0 1 auto` 而不是 `1 1 auto`：只许**收缩**、不许**撑开** ——
+         撑开会把右侧的阅读时长推到内容区另一端（1920 视口实测差 ~490px）。
+         min-width:0 是 flex 子项能真正收缩的前提（默认 min-width:auto 会被内容撑住）。 */
+      flex: 0 1 auto !important;
+      min-width: 0 !important;
+      flex-wrap: nowrap !important;
+      overflow: hidden !important;
+    }
+    /* meta 内部各项（日期 / 修改日 / 分类 / 标签）一律单行，超出由上面的 overflow 裁切 */
+    #post-list-container.post-list-mode .post-card-eyebrow .post-meta > * {
+      white-space: nowrap !important;
+    }
+    #post-list-container.post-list-mode .post-card-reading-time {
+      white-space: nowrap !important;
+      /* 不参与收缩：否则它会被 .post-meta 的收缩带垮、「5 分钟」折成两行（实测 36px） */
+      flex: 0 0 auto !important;
+    }
+    #post-list-container.post-list-mode .post-meta {
+      font-size: 0.75rem !important;
+      gap: 0.5rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-stats,
+    #post-list-container.post-list-mode .post-card-bottom,
+    #post-list-container.post-list-mode .post-card-reading-time {
+      font-size: 0.75rem !important;
+    }
+    #post-list-container.post-list-mode .post-card-excerpt {
+      font-size: 0.75rem !important;
+      line-height: 1.125rem !important;
+      margin-bottom: 0.75rem !important;
+    }
+  }
+
+  /* —— ≥1280px：侧封面行（封面贴右缘拉满卡高，卡高锁 199） —— */
+  @media (min-width: 1280px) {
+    /* 卡高恒定 199 ⇒ 封面框比 = 封面宽 / 199。要看到原图 ~92% 需框比 ≥1.61 ⇒ 封面宽 ≥320。
+       🔴 但右栏保留后主栏只有 554（1280）/ 701（1440）/ 1142（1920），固定 320 会让 1280 的
+          内容区只剩 234px（**比封面还窄**）⇒ 封面改 `min(320px, 52%)` 随卡宽缩：
+            1280 → 封面 288px（框比 1.45 ⇒ 原图可见 83%）+ 内容区 266px
+            1347 起 → 封面吃满 320px（框比 1.61 ⇒ 可见 92%）
+        ⚠️ 别把 52% 调小到让封面宽 < 240：框比会掉到 1.2 以下，可见度跌破 70%。 */
+    #post-list-container.post-list-mode .post-card {
+      height: 199px !important;
+    }
+    #post-list-container.post-list-mode .post-card-cover {
+      top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: min(320px, 52%) !important;
+    }
+    /* 内容区 = 卡宽 − 封面宽；24px 内距同时充当图文间隙（同参考稿，不再另加 12px）。
+       🔴 两处的百分比解析基准都是 .post-card 宽度（卡自身无内距）⇒ 必须写**同一个表达式**，
+          一个写 320px 一个写 min(320px,52%) 会对不上、把内容区挤出卡片。 */
+    #post-list-container.post-list-mode .has-cover .post-card-content {
+      width: calc(100% - min(320px, 52%)) !important;
+      padding-right: 1.5rem !important;
+    }
+    /* 封面居左（coverPosition: left）随贴边同步 */
+    #post-list-container.post-list-mode.cover-left .post-card-cover {
+      left: 0 !important;
+      right: auto !important;
+    }
+    #post-list-container.post-list-mode.cover-left
+      .has-cover
+      .post-card-content {
+      margin-left: auto !important;
+      margin-right: 0 !important;
+      padding-left: 1.5rem !important;
+    }
+    /* —— 窄档（内容区 <320px ≈ 1280~1427 视口）——
+       「日期 · 分类 · 阅读时长」在 ~217px 里放不下 ⇒ 收起阅读时长，把宽度让给 date / category
+       （CDP 实测 .post-meta 可见度 152/239 = 64% → 217.7/239 = 91%，且 overflowY 恒 0）。
+       ⚠️ 判据挂 .post-card-content（`container-type:inline-size`，见文件前部同名块）而不是视口：
+          可用宽随 --page-width / 侧栏宽度变，只有**内容区宽**才是内容真正的宽度。
+       ⚠️ 外面套 min-width:1280 是为了**不动移动端**：<768 列表卡高自适应、不存在裁切，
+          而 320px 视口下内容区约 280px 会误命中本档 ⇒ 白白丢掉阅读时长。 */
+    @container post-card (max-width: 319.98px) {
+      #post-list-container.post-list-mode
+        .post-card-eyebrow
+        .post-card-reading-time {
+        display: none !important;
+      }
+    }
+  }
+
+  /* 瀑布流模式：post-card-item 参与绝对定位，关闭入场过渡 */
+  #post-list-container.post-grid-mode.masonry-active .post-card-item {
+    position: absolute;
+    top: auto;
+    left: auto;
+  }
+  /* 瀑布流下卡片高度由内容决定，覆盖 grid 模式的 height:100% */
+  #post-list-container.post-grid-mode.masonry-active .post-card {
+    height: auto !important;
+  }
+  #post-list-container.post-grid-mode.masonry-active
+    .post-card-item.onload-animation {
+    transition: none;
+  }
+
+  /* ===== 1.5.62 的「列表模式收起右侧栏」已于 1.5.63 移除（LQ 否决）==========
+     原方案：`#main-grid:has(#post-list-container.post-list-mode){grid-template-columns:17.5rem minmax(0,1fr)}`
+     + `> #right-sidebar{display:none}` —— 主栏能到 850 / 997 / 1438，封面固定 320 就够 92% 可见。
+     🔴 代价是**右栏整个消失**（LQ：「这样就没有右侧边栏了」）⇒ 改为「保留右栏 + 封面随卡宽缩」，
+        即本文件 ≥1280 那条 `width: min(320px, 52%)`；右栏与主栏栅格都不再动。
+     ⚠️ 若要回滚这个决定：右栏保留后主栏只有 554（1280）/ 701（1440）/ 1142（1920），
+        且 xl 断点仍存在 1279px 951 → 1280px 554 的 **397px 断崖**（主题既有三栏栅格 + `xl:w-[92vw]`
+        共同造成）—— 这次不再用「隐藏右栏」去绕它，断崖就留在那儿。 */
 
   /* ===== 列表模式封面固定 16:9（coverRatio: fixed16x9）=====
      混合策略（容器查询，阈值 63.75rem ≈ 内容列最大宽度 64rem 留 4px 余量）：
@@ -261,60 +871,7 @@ const { pagination = "posts" } = Astro.props;
     }
   }
 
-  /* ===== 移动端（<768px）统一为网格式布局：封面居上、独立卡片 =====
-     列表与网格在移动端呈现一致的卡片样式（封面在上、无封面用主题色按钮居右） */
-  @media (max-width: 767px) {
-    /* 列表模式容器：去掉连体背景与内边距，让每张卡片独立显示（同网格模式） */
-    #post-list-container.post-list-mode {
-      background: transparent !important;
-      padding: 0 !important;
-    }
-    /* 独立卡片模式下隐藏文章间的虚线分隔 */
-    #post-list-container .post-card-divider {
-      display: none !important;
-    }
-    /* 列表模式封面保持居上（PostCard 基础 flex-col-reverse），无需额外覆盖 */
-
-    /* 列表模式标题缩小、隐藏装饰条（与网格一致） */
-    #post-list-container.post-list-mode .post-card-title {
-      font-size: 1.35rem !important;
-      line-height: 1.75rem !important;
-      margin-bottom: 0.5rem !important;
-    }
-    #post-list-container.post-list-mode .post-card-title::before {
-      display: none !important;
-    }
-
-    /* 列表模式元信息/统计缩小（与网格一致） */
-    #post-list-container.post-list-mode .post-meta,
-    #post-list-container.post-list-mode .post-card-stats {
-      font-size: 0.8rem !important;
-      gap: 0.5rem !important;
-    }
-
-    /* 列表模式摘要字号与网格一致 */
-    #post-list-container.post-list-mode .post-card-excerpt {
-      font-size: 0.875rem !important;
-    }
-
-    /* 无封面用主题色按钮居右，内容区右侧留位（列表/网格统一） */
-    #post-list-container .no-cover .post-card-content {
-      padding-right: 4.5rem !important;
-    }
-  }
-
-  /* 瀑布流模式：post-card-item 参与绝对定位，关闭入场过渡 */
-  #post-list-container.post-grid-mode.masonry-active .post-card-item {
-    position: absolute;
-    top: auto;
-    left: auto;
-  }
-  /* 瀑布流下卡片高度由内容决定，覆盖 grid 模式的 height:100% */
-  #post-list-container.post-grid-mode.masonry-active .post-card {
-    height: auto !important;
-  }
-  #post-list-container.post-grid-mode.masonry-active
-    .post-card-item.onload-animation {
-    transition: none;
-  }
+  /* ⚠️ 上面这块来自上游 v2.0.0（commit 725f924「列表卡片新增封面比例设置」），
+     由本地 1.5.66 的列表模式重构（v1.5.62/63）之上叠加。默认 coverRatio=fill
+     ⇒ 不挂 .cover-fixed，本地列表模式行为不受影响；仅当后台选「固定16:9」时生效。*/
 </style>
