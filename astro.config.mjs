@@ -7,6 +7,7 @@ import tailwindcss from "@tailwindcss/vite";
 import swup from "@swup/astro";
 
 import { stripHtmlCommentsInDir } from "./scripts/strip-html-comments.mjs";
+import { minifyInlineScriptsInDir } from "./scripts/minify-inline-scripts.mjs";
 import { ensureIconMaskPrefixInDir } from "./scripts/ensure-icon-mask-prefix.mjs";
 import {
   compileAssets,
@@ -35,7 +36,13 @@ const stripHtmlComments = {
   name: "strip-html-comments",
   hooks: {
     "astro:build:done": async ({ dir }) => {
-      await stripHtmlCommentsInDir(fileURLToPath(dir));
+      const out = fileURLToPath(dir);
+      await stripHtmlCommentsInDir(out);
+      // 本地 1.5.66 追加步骤：压缩产物 HTML 里的内联 <script>（去注释 + 折叠空白）。
+      // 页面模板逐页重复的内联脚本是发布包体积的大头，且 Astro 的 is:inline 原样
+      // 输出、不做任何压缩。保护规则见 scripts/minify-inline-scripts.mjs。
+      // ⚠️ 上游 v2.0.0 无此步（合并时被丢掉，已补回）。
+      await minifyInlineScriptsInDir(out);
     },
   },
 };
