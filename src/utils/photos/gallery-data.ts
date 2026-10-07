@@ -1,4 +1,9 @@
-import type { I18nWindow } from "../i18n";
+import { t } from "../i18n";
+
+// t() 与 utils/i18n.ts 实现完全一致（读 window.i18nResources + 过滤未翻译的 `#{...}`），
+// 这里直接 re-export，避免两处维护同一份逻辑；调用方（gallery-info-panel /
+// photos-gallery-lightbox）的 import 路径不变。
+export { t };
 
 export interface PhotoGalleryMetaItem {
   label: string;
@@ -21,11 +26,6 @@ export interface PhotoGalleryItemData {
 
 export function textFrom(element: Element | null) {
   return element?.textContent?.trim() || "";
-}
-
-export function t(key: string, fallback: string) {
-  const value = (window as I18nWindow).i18nResources?.[key];
-  return value && !value.includes("#{") ? value : fallback;
 }
 
 export function cssImageUrl(url: string) {

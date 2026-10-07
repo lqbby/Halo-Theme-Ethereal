@@ -1,19 +1,29 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // Banner 多图轮播：切换动画（淡入淡出/滑动）、可点击指示点、停留定时器、
 // 预加载、屏幕外暂停。配置来自 #theme-config JSON（public/ 静态资产读不到
-// theme.config，同 wave.js）。切换动画时长 --dur-banner-transition 由动画档位
+// theme.config，同 banner-src-switch.js）。切换动画时长 --dur-banner-transition 由动画档位
 // /custom 档注入 <html>；停留时长独立配置 style.bannerStyle.carousel.dwellMs 直接读 JSON，
 // 不随档位变化。切换动画时长交给 CSS transition。
 // 移动端独立来源开启时存在双容器（#banner / #banner-mobile）：两个容器各自
 // 独立初始化（slides/指示点/定时器/IO 各自一份），行为设置共用 style.bannerStyle.carousel。
 // 隐藏容器（display:none）的 IntersectionObserver 报 isIntersecting=false 自然
 // 暂停定时器，无需跨容器事件联动；首图 lazy 在容器被 CSS 显示后立即加载。
+// 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
+// #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，与 Vite 侧共用）
+// #6：bannerStyle 下钻收敛到 getBannerConfig()
+import { getBannerConfig } from "./_theme-config";
+import { guardOnce } from "../../utils/once";
 (function () {
+  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
+  function onIdle(cb) {
+    if ("requestIdleCallback" in window)
+      requestIdleCallback(cb, { timeout: 2000 });
+    else setTimeout(cb, 1);
+  }
   // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
   // Layout（Swup 容器外）跨页面持久——不守卫则每次换页叠加一套定时器链 +
-  // IO 观察器 + 监听器（N 次换页 = N 倍开销），与 wave.js 同模式。
-  if (window.__etherealBannerCarouselBound) return;
-  window.__etherealBannerCarouselBound = true;
+  // IO 观察器 + 监听器（N 次换页 = N 倍开销），与各 banner-*.js 同模式。
+  if (guardOnce("banner-carousel")) return;
 
   var containers = [];
   var c1 = document.getElementById("banner");
@@ -21,23 +31,9 @@
   if (c1) containers.push(c1);
   if (c2) containers.push(c2);
 
-  // #theme-config JSON 解析（I27：写/读 window.__themeConfig 缓存，与
-  // scripts/assets/_theme-config.ts 共享契约，避免多脚本重复 JSON.parse）
-  var cfg = null;
-  var cachedCfg = window.__themeConfig;
-  if (cachedCfg !== undefined) {
-    cfg = cachedCfg;
-  } else {
-    var configEl = document.getElementById("theme-config");
-    if (configEl) {
-      try {
-        cfg = JSON.parse(configEl.textContent || configEl.innerText);
-      } catch (e) {}
-      window.__themeConfig = cfg;
-    }
-  }
-  var bannerCfg =
-    cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
+  // #theme-config JSON 解析（2.8 收敛到 _theme-config.ts；#6 起下钻经
+  // getBannerConfig()，配置结构变更单点）
+  var bannerCfg = getBannerConfig();
   var carouselCfg = bannerCfg && bannerCfg.carousel ? bannerCfg.carousel : {};
   var effect = carouselCfg.effect === "slide" ? "slide" : "fade";
   var showDots = carouselCfg.dots !== false;
@@ -290,7 +286,14 @@
     }
   }
 
+  // P1（1.2.86）：轮播为装饰性轮换，首图靠 CSS .active 默认显示，把初始化
+  // （建指示点/DOM + 预加载 + 启动定时器）推到 requestIdleCallback，削减首屏
+  // 同步主线程工作（TBT）；首图已 eager+preload（P0-1），idle 时 start() 立即就绪
   for (var ci = 0; ci < containers.length; ci++) {
-    initBannerCarousel(containers[ci]);
+    (function (c) {
+      onIdle(function () {
+        initBannerCarousel(c);
+      });
+    })(containers[ci]);
   }
 })();

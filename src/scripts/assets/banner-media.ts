@@ -1,5 +1,7 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
-// Banner 视频：右下角播放/暂停按钮 + 屏幕外暂停（wave 同构）。
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
+// Banner 视频：右下角播放/暂停按钮 + 屏幕外暂停（与 banner-carousel.js 同构）。
 // 视频始终 muted（浏览器自动播放限制），不显示浏览器原生控件，
 // 仅自定义按钮控制播放/继续。
 // 移动端独立来源开启时存在双视频（#banner-video / #banner-video-mobile）：
@@ -7,9 +9,8 @@
 // 由 banner-src-switch.js 驱动（隐藏端 preload=none 不拉流），本脚本通过
 // video.dataset.etherealUserPaused 暴露手动暂停态供其跳过自动播放。
 (function () {
-  // 跨页面持久 + Swup 克隆重执行：全局守卫防重复绑定（同 wave.js）
-  if (window.__etherealBannerMediaBound) return;
-  window.__etherealBannerMediaBound = true;
+  // 跨页面持久 + Swup 克隆重执行：全局守卫防重复绑定（与各 banner-*.js 同模式）
+  if (guardOnce("banner-media")) return;
 
   function initVideo(video, btn) {
     if (!video) return;
@@ -80,7 +81,10 @@
     // 独立来源开启时视频无 autoplay 属性、由切换引擎驱动 load/play，
     // loadeddata 触发后此处仍会兜底续播）
     video.addEventListener("loadeddata", function () {
-      if (video.paused && !userPaused) playVideo();
+      // 与 restore() 一致：仅「可见」时兜底续播。离屏/隐藏容器（offsetParent
+      // 为 null）下应保持 IO 的 suspend 暂停，否则 loadeddata 会绕过它重新播放。
+      if (video.paused && !userPaused && video.offsetParent !== null)
+        playVideo();
     });
 
     // 视频加载/解码失败：隐藏视频元素本身（而非整个容器），避免黑屏占位。

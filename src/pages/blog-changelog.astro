@@ -1,0 +1,739 @@
+---
+// 博客更新日志页面模板（Halo 自定义页面，自定义模板选 blog-changelog）。
+// 数据来自主题设置「扩展页面 → 博客更新日志页面」→ theme.config.extendPages.blogChangelog。
+// 参考 rainzt.cn/blog-changelog 的「统计条 + 成长轨迹 + 版本时间线」结构，
+// 按本主题的设计令牌重做：卡底走 card-base、竖线与节点走 --line-divider / --primary，
+// 展开区用原生 <details>（无需 JS），条目明细与标签由 extend-pages.js 按行渲染。
+//
+// 🔴 2026-09-13 重构（1.5.0）：记录会随发版一直涨（一天可能好几条），旧版「全量渲染 +
+// 无分组」撑不住 ⇒ 三件事：
+//   ① 服务端分页（?page=N，每页 days.pageSize 条，默认 20）⇒ DOM 不随总条数膨胀；
+//   ② 按「日期前 7 位」（YYYY.MM）变化时插一条分组行 ⇒ 零日期解析，格式不符就不出标题；
+//   ③ 详细说明 / 明细 / 标签全部收进 <details> ⇒ 折叠态每条约 2 行，一屏能扫十几条。
+// ⚠️ 分组行放在 entry **外面**（list 的直接子节点），否则它会占掉三列网格的一行、
+//    把 .cl-rail 的竖线起点与节点位置全部顶偏；首尾条目改用显式 .is-first/.is-last。
+//
+// 🎨 2026-09-14 视觉改版（1.5.11）：向全站时间线（timeline.astro）对齐设计语言 —
+//   ① 统计格：「当前版本」升主视觉（主色描边/浅底/大字号），各格加小图标；
+//      独立返回条卡删除，返回链接并入页头顶行；
+//   ② 成长轨迹：桌面端补横向轨道线 + 节点圆点，当前里程碑改用「当前节点绿」
+//      --timeline-current + 「当前」徽章（与 timeline.astro 语义一致）；
+//   ③ 版本时间线：节点改 timeline.astro 同款环形节点（悬停放大 + 主色环），
+//      最新一条绿色脉冲；条目卡接 card-hover-lift + 悬停渐变罩 + 标题变色；
+//      版本号胶囊由灰底改主色底（扫读优先）；日期列改「大号日 + 小号年月」；
+//      「详细记录」摘要改 btn-regular 同款小胶囊。
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
+import QueryPagination from "../components/control/QueryPagination.astro";
+---
+
+<MainGridLayout
+  title="${singlePage.spec.title + ' - ' + site.title}"
+  description="${singlePage.spec.excerpt.raw ?: site.subtitle}"
+>
+  <Fragment slot="head">
+    <Canonical path="${singlePage.status.permalink}" />
+    <style is:global>
+      /* ===== 博客更新日志（cl- 前缀，避免与主题既有类冲突）===== */
+      .cl-stats {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+      }
+      @media (min-width: 640px) {
+        .cl-stats {
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+      }
+      .cl-stat {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 0.3rem;
+        border: 1px solid var(--line-color);
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.875rem;
+        background: var(--card-bg);
+        transition: border-color 0.2s ease;
+      }
+      .cl-stat:hover {
+        border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      }
+      .cl-stat-label {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.68rem;
+        white-space: nowrap;
+      }
+      /* 「当前版本」主视觉格：主色描边 + 浅主色底，与成长轨迹的 is-current 呼应 */
+      .cl-stat--hero {
+        border-color: color-mix(in oklab, var(--primary) 32%, transparent);
+        background: color-mix(in oklab, var(--primary) 7%, transparent);
+      }
+      .cl-stat--hero .cl-stat-label {
+        color: var(--primary);
+      }
+
+      /* 成长轨迹：横向里程碑（窄屏换行），桌面端补横向轨道线 + 节点圆点 */
+      .cl-milestones {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        padding-top: 0.9rem;
+      }
+      .cl-milestone {
+        position: relative;
+        flex: 1 1 8.5rem;
+        min-width: 8.5rem;
+        border: 1px solid var(--line-color);
+        border-radius: 0.75rem;
+        padding: 0.7rem 0.8rem;
+        background: var(--card-bg);
+        transition: border-color 0.2s ease;
+      }
+      .cl-milestone:hover {
+        border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      }
+      @media (min-width: 768px) {
+        .cl-milestones::before {
+          content: "";
+          position: absolute;
+          top: 0.47rem;
+          left: 0.8rem;
+          right: 0.8rem;
+          height: 2px;
+          border-radius: 1px;
+          background: var(--line-divider);
+        }
+        .cl-milestone::before {
+          content: "";
+          position: absolute;
+          top: 0.22rem;
+          left: 0.8rem;
+          width: 0.5rem;
+          height: 0.5rem;
+          border-radius: 50%;
+          background: var(--primary);
+          border: 2px solid var(--card-bg);
+          box-shadow: 0 0 0 2px var(--line-divider);
+        }
+        .cl-milestone.is-current::before {
+          background: var(--timeline-current);
+          box-shadow: 0 0 0 2px
+            color-mix(in oklab, var(--timeline-current) 45%, transparent);
+        }
+      }
+      /* 当前里程碑：「当前节点绿」（--timeline-current，与 timeline.astro 同语义） */
+      .cl-milestone.is-current {
+        border-color: color-mix(
+          in oklab,
+          var(--timeline-current) 45%,
+          transparent
+        );
+        background: color-mix(
+          in oklab,
+          var(--timeline-current) 6%,
+          transparent
+        );
+      }
+      .cl-milestone.is-current:hover {
+        border-color: color-mix(
+          in oklab,
+          var(--timeline-current) 65%,
+          transparent
+        );
+      }
+      .cl-milestone.is-current .cl-ms-ver {
+        color: var(--timeline-current);
+      }
+
+      /* 年月分隔行（跨整行 —— .cl-entry 是三列网格，故必须 grid-column: 1/-1） */
+      .cl-grouphdr {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        grid-column: 1 / -1;
+        margin: 0.15rem 0 -0.35rem;
+        color: var(--primary);
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+      .cl-grouphdr i {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          color-mix(in oklab, var(--primary) 38%, transparent),
+          transparent
+        );
+      }
+
+      /* 版本时间线：日期列 + 竖线轨道 + 卡片 */
+      .cl-list {
+        position: relative;
+      }
+      .cl-entry {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.75rem;
+      }
+      @media (min-width: 768px) {
+        .cl-entry {
+          grid-template-columns: 6.5rem 1.75rem minmax(0, 1fr);
+        }
+      }
+      .cl-rail {
+        position: relative;
+      }
+      /* 竖线：首尾两段用渐变淡出，避免两端「断头」
+         ⚠️ 别用 :first-child/:last-child —— 分组行也在 .cl-list 里，会顶掉这个选择器 */
+      .cl-rail::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        transform: translateX(-50%);
+        background: var(--line-divider);
+      }
+      .cl-entry.is-first .cl-rail::before {
+        top: 1.6rem;
+      }
+      .cl-entry.is-last .cl-rail::before {
+        bottom: calc(100% - 1.6rem);
+      }
+      /* 环形节点：与 timeline.astro 的 .timeline-node 同款（描边 + 分隔线环），
+         悬停放大 + 主色环；最新一条改「当前节点绿」并脉冲（同 timeline-node-current） */
+      .cl-node {
+        position: absolute;
+        left: 50%;
+        top: 1.05rem;
+        width: 1.05rem;
+        height: 1.05rem;
+        border-radius: 50%;
+        transform: translateX(-50%);
+        background: var(--primary);
+        border: 2.5px solid var(--card-bg);
+        box-shadow: 0 0 0 2px var(--line-divider);
+        z-index: 1;
+        transition:
+          transform 0.2s ease,
+          box-shadow 0.2s ease;
+      }
+      .cl-entry:hover .cl-node {
+        transform: translateX(-50%) scale(1.15);
+        box-shadow:
+          0 0 0 2px var(--primary),
+          0 0 12px rgba(0, 0, 0, 0.1);
+      }
+      .cl-node--latest {
+        background: var(--timeline-current);
+        animation: cl-node-pulse 2s ease-in-out infinite;
+      }
+      @keyframes cl-node-pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 0 2px var(--line-divider);
+        }
+        50% {
+          box-shadow:
+            0 0 0 2px var(--timeline-current),
+            0 0 8px color-mix(in srgb, var(--timeline-current) 30%, transparent);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .cl-node--latest {
+          animation: none;
+        }
+        .cl-badge::before {
+          animation: none;
+        }
+      }
+
+      /* 条目卡：btn-card-outline 描边 + card-hover-lift（后台悬浮开关）+
+         悬停渐变罩（与 timeline.astro 的 timeline-card 一致） */
+      .cl-card {
+        position: relative;
+        overflow: hidden;
+        border: 1px solid color-mix(in oklab, var(--primary) 15%, transparent);
+        border-radius: 0.9rem;
+        transition:
+          border-color 0.2s ease,
+          box-shadow 0.2s ease,
+          transform 0.2s ease;
+      }
+      .cl-card:hover {
+        border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      }
+      .cl-card::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        pointer-events: none;
+        background: linear-gradient(
+          135deg,
+          color-mix(in oklab, var(--primary) 5%, transparent),
+          transparent 60%
+        );
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+      .cl-card:hover::after {
+        opacity: 1;
+      }
+
+      /* 展开/收起：原生 details；摘要做成 btn-regular 同款小胶囊，箭头随开合旋转 */
+      .cl-details > summary {
+        list-style: none;
+        cursor: pointer;
+        width: fit-content;
+        border-radius: 0.5rem;
+      }
+      .cl-details > summary::-webkit-details-marker {
+        display: none;
+      }
+      .cl-summary-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border-radius: 0.5rem;
+        padding: 0.22rem 0.6rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--btn-content);
+        background: var(--btn-regular-bg);
+        transition: background-color 0.2s ease;
+      }
+      .cl-details > summary:hover .cl-summary-chip {
+        background: var(--btn-regular-bg-hover);
+      }
+      .cl-details[open] > summary .cl-summary-chip {
+        background: var(--btn-regular-bg-active);
+      }
+      .cl-details > summary .cl-caret {
+        transition: transform 0.2s ease;
+      }
+      .cl-details[open] > summary .cl-caret {
+        transform: rotate(90deg);
+      }
+      .cl-details[open] > summary {
+        margin-bottom: 0.75rem;
+      }
+
+      /* 「累积中」角标：只给尚未收口的收尾批次（merge-changelog.mjs 自动打标） */
+      .cl-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        border: 1px solid color-mix(in oklab, var(--primary) 32%, transparent);
+        border-radius: 9999px;
+        padding: 0.06rem 0.5rem 0.06rem 0.42rem;
+        font-size: 0.66rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--primary);
+        background: color-mix(in oklab, var(--primary) 12%, transparent);
+      }
+      .cl-badge::before {
+        content: "";
+        width: 0.36rem;
+        height: 0.36rem;
+        border-radius: 9999px;
+        background: var(--primary);
+        animation: cl-pulse 1.7s ease-in-out infinite;
+      }
+      @keyframes cl-pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.3;
+          transform: scale(0.65);
+        }
+      }
+    </style>
+  </Fragment>
+
+  <div
+    th:with="cfg=${theme.config?.extendPages?.blogChangelog},
+      ms=${cfg?.milestones?.items},
+      dayList=${cfg?.days?.items},
+      msCount=${ms != null ? #lists.size(ms) : 0},
+      dayCount=${dayList != null ? #lists.size(dayList) : 0},
+      curVer=${msCount > 0 ? ms[msCount - 1].version : ''},
+      firstDate=${msCount > 0 ? ms[0].date : (dayCount > 0 ? dayList[dayCount - 1].date : '')},
+      lastDate=${dayCount > 0 ? dayList[0].date : ''},
+      pageSize=${cfg?.days?.pageSize != null ? #conversions.convert(cfg?.days?.pageSize, 'java.lang.Integer') : 20},
+      totalPages=${pageSize gt 0 and dayCount gt 0 ? (dayCount + pageSize - 1) / pageSize : 1},
+      rawPage=${param.page != null and param.page.length gt 0 and param.page[0] matches '\d+' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
+      curPage=${rawPage gt totalPages ? totalPages : (rawPage lt 1 ? 1 : rawPage)},
+      startIndex=${(curPage - 1) * pageSize},
+      endIndex=${startIndex + pageSize gt dayCount ? dayCount : startIndex + pageSize},
+      pagedList=${pageSize gt 0 and dayCount gt 0 ? dayList.subList(startIndex, endIndex) : dayList}"
+    th:remove="tag"
+  >
+    <!-- ===== ① 页头（返回链接并入顶行，统计格「当前版本」主视觉） ===== -->
+    <section class="card-base onload-animation mb-4 px-6 py-7 md:px-9">
+      <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <a
+          class="inline-flex items-center gap-1 text-xs font-bold text-50 transition-colors hover:text-(--primary)"
+          href="/about"
+        >
+          <span
+            class="icon-[material-symbols--arrow-back-rounded] text-base"
+            aria-hidden="true"
+          ></span>
+          <span>返回「关于我」</span>
+        </a>
+        <span class="text-[0.7rem] text-30">按日倒序 · 建站以来</span>
+      </div>
+
+      <p
+        class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase"
+        th:text="${cfg?.kicker != null and !#strings.isEmpty(cfg?.kicker) ? cfg?.kicker : 'BLOG CHANGELOG'}"
+      >
+        BLOG CHANGELOG
+      </p>
+      <h1
+        class="mt-2 mb-3 text-3xl font-bold text-90 md:text-4xl"
+        th:text="${singlePage.spec.title}"
+      >
+        博客更新日志
+      </h1>
+      <p
+        class="text-sm leading-relaxed text-75 md:text-base"
+        th:if="${cfg?.description != null and !#strings.isEmpty(cfg?.description)}"
+        th:text="${cfg?.description}"
+      >
+        页面说明
+      </p>
+      <p
+        class="mt-3 text-xs text-50"
+        th:if="${cfg?.versionRule != null and !#strings.isEmpty(cfg?.versionRule)}"
+        th:text="${cfg?.versionRule}"
+      >
+        版本规则
+      </p>
+
+      <!-- 统计条：图标 + 标签在上、数值在下；「当前版本」主色描边浅底 -->
+      <div class="cl-stats mt-6">
+        <div class="cl-stat cl-stat--hero">
+          <small class="cl-stat-label">
+            <span
+              class="icon-[material-symbols--sell-outline] text-sm"
+              aria-hidden="true"
+            ></span>
+            <span>当前版本</span>
+          </small>
+          <strong
+            class="block font-mono text-xl font-bold text-(--primary) md:text-2xl"
+            th:text="${curVer != '' ? curVer : '—'}"
+          >
+            —
+          </strong>
+        </div>
+        <div class="cl-stat">
+          <small class="cl-stat-label text-50">
+            <span
+              class="icon-[material-symbols--history-rounded] text-sm"
+              aria-hidden="true"
+            ></span>
+            <span>条版本记录</span>
+          </small>
+          <strong
+            class="block font-mono text-lg font-bold text-90"
+            th:text="${dayCount}"
+          >
+            0
+          </strong>
+        </div>
+        <div class="cl-stat">
+          <small class="cl-stat-label text-50">
+            <span
+              class="icon-[material-symbols--flag-outline] text-sm"
+              aria-hidden="true"
+            ></span>
+            <span>个里程碑</span>
+          </small>
+          <strong
+            class="block font-mono text-lg font-bold text-90"
+            th:text="${msCount}"
+          >
+            0
+          </strong>
+        </div>
+        <div class="cl-stat">
+          <small class="cl-stat-label text-50">
+            <span
+              class="icon-[material-symbols--rocket-launch-outline] text-sm"
+              aria-hidden="true"
+            ></span>
+            <span>始于</span>
+          </small>
+          <strong
+            class="block font-mono text-lg font-bold text-90"
+            th:text="${firstDate != '' ? firstDate : '—'}"
+          >
+            —
+          </strong>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ② 成长轨迹（横向轨道线 + 节点圆点，当前里程碑绿色高亮） ===== -->
+    <section
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      th:if="${msCount > 0}"
+    >
+      <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase">
+            GROWTH
+          </p>
+          <h2
+            class="mt-1 text-xl font-bold text-90"
+            th:text="${cfg?.growthTitle != null and !#strings.isEmpty(cfg?.growthTitle) ? cfg?.growthTitle : '博客成长轨迹'}"
+          >
+            博客成长轨迹
+          </h2>
+        </div>
+        <span
+          class="text-xs text-50"
+          th:if="${cfg?.growthSubtitle != null and !#strings.isEmpty(cfg?.growthSubtitle)}"
+          th:text="${cfg?.growthSubtitle}"
+        >
+          从第一次上线到现在
+        </span>
+      </div>
+
+      <ol class="cl-milestones">
+        <li
+          th:each="m, mStat : ${ms}"
+          class="cl-milestone"
+          th:classappend="${mStat.last ? ' is-current' : ''}"
+        >
+          <div class="flex items-center gap-1.5">
+            <strong
+              class="cl-ms-ver font-mono text-sm font-bold text-(--primary)"
+              th:text="${m?.version}"
+            >
+              V0.0.0
+            </strong>
+            <span
+              th:if="${mStat.last}"
+              class="rounded bg-green-500/10 px-1.5 py-px text-[0.62rem] font-bold text-green-600 dark:text-green-400"
+            >
+              当前
+            </span>
+          </div>
+          <span
+            class="mt-0.5 block font-mono text-[0.7rem] text-50"
+            th:text="${m?.date}"
+          >
+            2026.01.01
+          </span>
+          <span
+            class="mt-1.5 block text-xs leading-snug text-75"
+            th:text="${m?.label}"
+          >
+            说明
+          </span>
+        </li>
+      </ol>
+
+      <p
+        class="mt-5 flex items-center gap-1.5 text-xs text-50"
+        th:if="${cfg?.growthNote != null and !#strings.isEmpty(cfg?.growthNote)}"
+      >
+        <span th:text="${cfg?.growthNote}">一步一个脚印</span>
+        <span class="text-(--primary)">✦</span>
+      </p>
+    </section>
+
+    <!-- ===== ③ 版本更新记录（服务端分页 + 年月分组 + 折叠卡片） ===== -->
+    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+      <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p class="text-[0.7rem] font-bold tracking-[0.14em] text-(--primary) uppercase">
+            RELEASES
+          </p>
+          <h2 class="mt-1 text-xl font-bold text-90">版本更新记录</h2>
+        </div>
+        <span class="text-xs text-50">
+          最新在上 · 按日倒序 · 每页 <span th:text="${pageSize}">20</span> 条 ·
+          点「详细记录」展开
+        </span>
+      </div>
+
+      <p class="py-6 text-center text-sm text-50" th:if="${dayCount == 0}">
+        还没有记录，请到「主题设置 → 扩展页面 → 博客更新日志页面」里添加。
+      </p>
+
+      <div class="cl-list flex flex-col gap-4">
+        <div
+          th:each="d, dStat : ${pagedList}"
+          class="cl-entry"
+          th:classappend="${(dStat.index == 0 ? ' is-first' : '') + (dStat.last ? ' is-last' : '')}"
+        >
+          <!-- 年月分组行：与「上一条的日期前 7 位」不同才输出。
+               跨整行（grid-column: 1/-1）⇒ 不挤压日期列/轨道的网格行，竖线起点不受影响。
+               ⚠️ th:if(3) 先于 th:with(4) ⇒ 这里只能用内联表达式，抽变量读不到。
+               🔴🔴 `matches` 是**全长匹配**（= Java `String.matches`），不是「包含」！
+                  故守卫必须写成完整的 10 位 `\d{4}\D\d{2}\D\d{2}`；写成 7 位 `\d{4}\D\d{2}`
+                  永远匹配不上 `2026.09.13` ⇒ 分组行整块静默不渲染（1.5.0 踩过）。
+               ⚠️ `pagedList[index - 1]` 用三元兜住 index==0 —— 同 friends.astro 的
+                  `iterStat.index > 0 ? allItems.items[iterStat.index - 1] : null`
+                  日期格式不符（含空日期）时整行不渲染，后面的 substring 不会被求值。 -->
+          <div
+            class="cl-grouphdr"
+            th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
+              and (dStat.index == 0
+                ? true
+                : #strings.substring(d?.date ?: '', 0, 7) != #strings.substring(pagedList[dStat.index - 1].date ?: '', 0, 7))}"
+          >
+            <span th:text="${#strings.substring(d?.date ?: '', 0, 7)}">
+              2026.09
+            </span>
+            <i aria-hidden="true"></i>
+          </div>
+          <!-- 日期列（桌面端左列：大号「日」+ 小号「年月」；格式不符回退整串） -->
+          <div class="hidden pt-3 md:block">
+            <p
+              class="font-mono text-[1.3rem] leading-none font-bold text-90"
+              th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
+              th:text="${#strings.substring(d?.date ?: '', 8, 10)}"
+            >
+              14
+            </p>
+            <p
+              class="mt-1.5 font-mono text-[0.68rem] text-50"
+              th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
+              th:text="${#strings.substring(d?.date ?: '', 0, 7)}"
+            >
+              2026.09
+            </p>
+            <p
+              class="font-mono text-xs font-bold text-90"
+              th:unless="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
+              th:text="${d?.date}"
+            >
+              2026.09.13
+            </p>
+          </div>
+
+          <!-- 竖线轨道 + 环形节点（最新一条绿色脉冲） -->
+          <div class="cl-rail hidden md:block" aria-hidden="true">
+            <span
+              class="cl-node"
+              th:classappend="${(dStat.index == 0 and curPage == 1) ? ' cl-node--latest' : ''}"
+            ></span>
+          </div>
+
+          <!-- 当天卡片：版本胶囊（主色）+ 标题常显；详细说明 / 明细 / 标签收进折叠区 -->
+          <div class="cl-card card-hover-lift group mb-1 px-4 py-3.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span
+                class="rounded-md bg-(--primary)/10 px-1.5 py-0.5 font-mono text-[0.72rem] font-bold text-(--primary)"
+                th:if="${d?.version != null and !#strings.isEmpty(d?.version)}"
+                th:text="${d?.version}"
+              >
+                V0.0.0
+              </span>
+              <h3
+                class="text-[0.95rem] font-bold text-90 transition-colors duration-200 group-hover:text-(--primary)"
+                th:text="${d?.title}"
+              >
+                标题
+              </h3>
+              <!-- 角标：如「累积中」（由 merge-changelog.mjs 写进数据的 badge 字段） -->
+              <span
+                class="cl-badge"
+                th:if="${d?.badge != null and !#strings.isEmpty(d?.badge)}"
+                th:text="${d?.badge}"
+              >
+                累积中
+              </span>
+              <span
+                class="rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 font-mono text-[0.7rem] text-(--btn-content) md:hidden"
+                th:text="${d?.date}"
+              >
+                日期
+              </span>
+              <span
+                class="rounded bg-green-500/10 px-1.5 py-px text-[0.62rem] font-bold text-green-600 md:hidden dark:text-green-400"
+                th:if="${dStat.index == 0 and curPage == 1}"
+              >
+                最新
+              </span>
+            </div>
+
+            <p
+              class="mt-1.5 text-sm leading-relaxed text-75"
+              th:if="${d?.summary != null and !#strings.isEmpty(d?.summary)}"
+              th:text="${d?.summary}"
+            >
+              摘要
+            </p>
+
+            <details
+              class="cl-details mt-2"
+              th:if="${(d?.detail != null and !#strings.isEmpty(d?.detail))
+                or (d?.entries != null and !#strings.isEmpty(d?.entries))
+                or (d?.tags != null and !#strings.isEmpty(d?.tags))}"
+            >
+              <summary>
+                <span class="cl-summary-chip">
+                  <span
+                    class="cl-caret icon-[material-symbols--chevron-right-rounded] text-sm"
+                    aria-hidden="true"
+                  ></span>
+                  <span>详细记录</span>
+                </span>
+              </summary>
+
+              <p
+                class="mb-3 text-sm leading-relaxed text-50"
+                th:if="${d?.detail != null and !#strings.isEmpty(d?.detail)}"
+                th:text="${d?.detail}"
+              >
+                详细说明
+              </p>
+
+              <!-- 条目明细（extend-pages.js 按行渲染） -->
+              <ol
+                class="flex flex-col gap-2"
+                th:if="${d?.entries != null and !#strings.isEmpty(d?.entries)}"
+                th:data-lines="${d?.entries}"
+                data-lines-render="entries"
+              ></ol>
+
+              <div
+                class="mt-3 flex flex-wrap gap-1.5"
+                th:if="${d?.tags != null and !#strings.isEmpty(d?.tags)}"
+                th:data-lines="${d?.tags}"
+                data-lines-render="tags"
+              ></div>
+            </details>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分页：走查询参数式（?page=N），与技能页同一套组件 -->
+      <QueryPagination class="onload-animation mt-7 mb-0 flex flex-row justify-center gap-3" />
+    </section>
+  </div>
+
+  <script
+    is:inline
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/extend-pages.js?v=${ASSET_VERSION}`}
+    defer
+  ></script>
+</MainGridLayout>

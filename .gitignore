@@ -44,3 +44,7 @@ templates/
 
 # 文档
 docs/
+
+# ThRenderProbe / ThExpressionCheck 的 classpath（11 个 jar ≈ 5MB 二进制）
+# 用 `node scripts/tools/fetch-lib.mjs` 重建，不进仓库
+scripts/tools/lib/

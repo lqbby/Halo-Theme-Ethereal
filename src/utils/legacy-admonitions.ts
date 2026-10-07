@@ -40,7 +40,15 @@ export function initLegacyAdmonitions() {
 
         const remainingContent = firstText.replace(`[!${label}]`, "").trim();
         if (remainingContent) {
-          firstP.textContent = remainingContent;
+          // 只剥离首段**第一个文本节点**里的 [!LABEL] 前缀，保留其余子节点：
+          // 原 `firstP.textContent = remainingContent` 会把 <code>/<a>/<strong>
+          // 等内联元素整体抹平成纯文本，导致代码样式/链接丢失。
+          const firstNode = firstP.firstChild;
+          if (firstNode && firstNode.nodeType === Node.TEXT_NODE) {
+            firstNode.textContent = (firstNode.textContent || "")
+              .replace(`[!${label}]`, "")
+              .replace(/^\s+/, "");
+          }
           blockquote.insertBefore(titleSpan, firstP);
         } else {
           firstP.replaceWith(titleSpan);

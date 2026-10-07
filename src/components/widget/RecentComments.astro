@@ -1,0 +1,594 @@
+---
+import WidgetLayout from "./WidgetLayout.astro";
+
+interface Props {
+  class?: string;
+  style?: string;
+}
+
+const className = Astro.props.class;
+// 未传时保持 undefined（Astro 会把 undefined 渲染成字面量 style="undefined"）
+const style = Astro.props.style || undefined;
+const COLLAPSED_HEIGHT = "7.5rem";
+---
+
+<div class="contents">
+  <WidgetLayout
+    id="recent-comments"
+    nameKey="widget.recentComments.title"
+    class={className}
+    style={style}
+  >
+    <div id="recent-comments-list" class="flex flex-col gap-1">
+      <div
+        class="px-2 py-3 text-center text-xs text-neutral-400"
+        th:text="#{widget.recentComments.loading}"
+      >
+        加载中...
+      </div>
+    </div>
+  </WidgetLayout>
+</div>
+
+<script is:inline th:inline="none">
+  (function () {
+    var LIMIT = 5;
+    // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复请求。
+    // 30 秒：侧栏只需「准实时」，但 5 分钟太久——新评论/新审核的评论最多挂 5 分钟才现身，
+    // 且 sessionStorage 在同一标签页 F5 不清除，体感远大于标称时长。
+    // ⚠️ 服务端聚合端点自身还有一层缓存（插件设置 recentComments.cacheSeconds，默认 60s，
+    //    0 = 实时），两层是叠加的：这里调快了，那边不放开会白搭。
+    var CACHE_KEY = "ethereal-recent-comments";
+    var CACHE_TTL = 30 * 1000; // 30 秒
+    // 「文章名 → permalink」映射：load 阶段预解析一次，渲染阶段直接取链接，
+    // 不再对每条评论单独发一次文章详情请求
+    var permalinkMap = {};
+    // 新版 Halo(2.20+) 的 comments 列表接口已废弃「无差别列出全部评论」，
+    // 必须按 subject(kind+name) 查。这里改为：拉最近文章 → 只查有评论计数的
+    // → 并发取每篇评论 → 合并按时间排序取前 LIMIT。
+    // 全局最新评论聚合端点（由小插件 recent-comments 提供，1.0.0 起通用化）：
+    // 后端一次遍历 Comment 并按 spec.creationTime 倒序截取，同时解析好 permalink，
+    // 侧边栏从「1 次 posts + N 次 comments」的 N+1 瀑布压成 1 个请求。
+    // 插件未安装 / 未授权时自动回退下面的 posts 瀑布（见 load 的 catch）。
+    var LATEST_API =
+      "/apis/api.recent-comments.halo.run/v1alpha1/comments/latest?size=" +
+      LIMIT;
+    var POSTS_API =
+      "/apis/api.content.halo.run/v1alpha1/posts?size=20&sort=metadata.creationTimestamp,desc";
+    var listEl = document.getElementById("recent-comments-list");
+    if (!listEl) return;
+
+    function safeFetch(url, opts, timeout) {
+      // 自包含超时兜底：此前依赖 window.__themeSafeFetch.safeFetch，但该助手全仓库
+      // 从未定义，实际退化为无超时的裸 fetch —— 网络挂起时评论区永久「加载中」。
+      // 直接用 AbortController + setTimeout 实现超时（默认 8s），请求落定后清定时器。
+      var ms = timeout || 8000;
+      var controller = new AbortController();
+      var timer = setTimeout(function () {
+        controller.abort();
+      }, ms);
+      function clearTimer() {
+        clearTimeout(timer);
+      }
+      var merged = {};
+      for (var k in opts) {
+        if (Object.prototype.hasOwnProperty.call(opts, k)) merged[k] = opts[k];
+      }
+      merged.signal = controller.signal;
+      return fetch(url, merged).then(
+        function (res) {
+          clearTimer();
+          return res;
+        },
+        function (err) {
+          clearTimer();
+          throw err;
+        },
+      );
+    }
+
+    function fmtRelative(dateStr) {
+      if (!dateStr) return "";
+      var d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      var diff = Date.now() - d.getTime();
+      var mins = Math.floor(diff / 60000);
+      if (mins < 1) return "刚刚";
+      if (mins < 60) return mins + " 分钟前";
+      var hours = Math.floor(mins / 60);
+      if (hours < 24) return hours + " 小时前";
+      var days = Math.floor(hours / 24);
+      if (days < 30) return days + " 天前";
+      if (days < 365) return Math.floor(days / 30) + " 个月前";
+      return Math.floor(days / 365) + " 年前";
+    }
+
+    // 去掉 Markdown 语法符号，保留纯文本摘要
+    function toPlain(text) {
+      if (!text) return "";
+      return text
+        .replace(/```[\s\S]*?```/g, "")
+        .replace(/`[^`]*`/g, "")
+        .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+        .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+        .replace(/^#+\s*/gm, "")
+        .replace(/[*_~>`|]/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    // 表情包贴纸（OwO 等）在评论正文里是 <img>，toPlain 只剥 Markdown 不剥 HTML，
+    // 直接 textContent 会把整段 <img ...> 当代码文本显示。这里改白名单 DOM 渲染：
+    // DOMParser 只放行文本与 http(s) 贴纸图，其余标签/属性全部丢弃——既不显示代码，
+    // 也杜绝评论者原始 HTML 注入（全程无 innerHTML）。文本仍按 BODY_TEXT_LIMIT 截断，
+    // 贴纸是紧凑行内元素不占字数预算。
+    var BODY_TEXT_LIMIT = 48;
+    function renderBody(el, html) {
+      if (!html) {
+        el.textContent = "（无内容）";
+        return;
+      }
+      var doc = new DOMParser().parseFromString(html, "text/html");
+      var budget = BODY_TEXT_LIMIT;
+      var cut = false; // 文本预算耗尽（等价于原 48 字截断）
+
+      function lastIsSpace() {
+        var last = el.lastChild;
+        return (
+          !!last && last.nodeType === 3 && /\s$/.test(last.nodeValue || "")
+        );
+      }
+
+      function appendText(rawText) {
+        if (cut) return;
+        var t = toPlain(rawText);
+        if (!t) return;
+        if (budget <= 0) {
+          cut = true;
+          return;
+        }
+        // 跨块文本（如多个 <p>）自动补空格，避免「段1段2」粘连
+        if (el.lastChild && !lastIsSpace()) t = " " + t;
+        if (t.length > budget) {
+          t = t.slice(0, budget) + "…";
+          budget = 0;
+          cut = true;
+        } else {
+          budget -= t.length;
+        }
+        el.appendChild(document.createTextNode(t));
+      }
+
+      function appendSticker(src, alt) {
+        if (cut) return;
+        var img = document.createElement("img");
+        img.loading = "lazy";
+        img.alt = alt || "表情";
+        img.src = src;
+        // 行内小图：贴纸限高 1.5em 对齐文本，避免撑乱侧边栏两行布局。
+        // display:inline-block + max-width + object-fit 让贴纸成为原子行内盒：
+        // 宽贴纸（OwO 动图等）在窄屏不会撑破 line-clamp-2 容器 / 溢出被裁切，
+        // object-fit:contain 保证贴纸等比缩放、不变形、完整可见。
+        img.style.display = "inline-block";
+        img.style.height = "1.5em";
+        img.style.width = "auto";
+        img.style.maxWidth = "1.5em";
+        img.style.objectFit = "contain";
+        img.style.verticalAlign = "-0.35em";
+        img.style.margin = "0 1px";
+        // 贴纸后补一个空格与后续文字分隔；加载失败移除贴纸时只剩这个空格，
+        // 不会出现「文字  结尾」式双空格
+        img.onerror = function () {
+          if (img.parentNode) img.parentNode.removeChild(img);
+        };
+        el.appendChild(img);
+        el.appendChild(document.createTextNode(" "));
+      }
+
+      function walk(node) {
+        if (cut) return;
+        if (node.nodeType === 3) {
+          appendText(node.nodeValue);
+          return;
+        }
+        if (node.nodeType !== 1) return;
+        var tag = node.tagName.toLowerCase();
+        if (
+          tag === "script" ||
+          tag === "style" ||
+          tag === "iframe" ||
+          tag === "object" ||
+          tag === "embed" ||
+          tag === "link" ||
+          tag === "meta"
+        )
+          return;
+        if (tag === "img") {
+          var src = node.getAttribute("src") || "";
+          if (/^https?:\/\//i.test(src))
+            appendSticker(src, node.getAttribute("alt") || "");
+          return;
+        }
+        if (tag === "br") {
+          if (el.lastChild && !lastIsSpace())
+            el.appendChild(document.createTextNode(" "));
+          return;
+        }
+        var child = node.firstChild;
+        while (child) {
+          var next = child.nextSibling;
+          walk(child);
+          child = next;
+        }
+      }
+      walk(doc.body);
+      // 空评论兜底：正文既无文字也无图才算空（纯贴纸评论有图即有内容）
+      var bodyText = (el.textContent || "").replace(/\s/g, "");
+      if (!bodyText && !el.querySelector("img")) el.textContent = "（无内容）";
+    }
+
+    // 无头像/头像加载失败时，用首字母色块兜底（列表项总显示头像）
+    function makeInitialAvatar(initial, color) {
+      var d = document.createElement("div");
+      d.className =
+        "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-full border border-black/5 text-sm font-semibold text-white dark:border-white/10";
+      d.style.backgroundColor = color;
+      d.textContent = initial;
+      return d;
+    }
+
+    // 解析头像，与 CommentNext 评论区一致：
+    // 1) 登录用户直接用 owner.avatar；
+    // 2) 邮箱型访客(owner.kind==="Email")无 avatar 字段，CommentNext 用
+    //    spec.owner.annotations["email-hash"] 现算 weavatar 头像
+    //    （https://weavatar.com/avatar/{hash}?d=mp&f=webp&s=64），这里复刻同一算法；
+    // 3) 都没有返回 ""，交由下方首字母色块兜底（img.onerror 也会回退到色块）。
+    function resolveAvatar(owner, spec) {
+      if (owner && owner.avatar) return owner.avatar;
+      var anno =
+        (owner && owner.annotations) ||
+        (spec && spec.owner && spec.owner.annotations) ||
+        {};
+      var hash = anno["email-hash"];
+      if (hash) {
+        return (
+          "https://weavatar.com/avatar/" +
+          encodeURIComponent(hash) +
+          "?d=mp&f=webp&s=64"
+        );
+      }
+      return "";
+    }
+
+    function renderComments(comments) {
+      listEl.innerHTML = "";
+      comments.forEach(function (c) {
+        var owner = c.owner || {};
+        var spec = c.spec || {};
+        var avatar = resolveAvatar(owner, spec);
+        var name = owner.displayName || "匿名";
+        var time = fmtRelative(
+          spec.creationTime || (c.metadata && c.metadata.creationTimestamp),
+        );
+
+        var a = document.createElement("a");
+        a.className =
+          "group flex gap-2.5 rounded-lg px-2 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-3 active:bg-(--btn-plain-bg-active)";
+        a.href = "#";
+        a.title = name + " 的评论";
+        // 走 Swup 整站页面过渡（淡入淡出），让「跳转到评论区」本身带过渡动画；
+        // 文章页有 #comment hash 处理脚本，评论渲染后滚动到评论区并高亮。
+        // permalink 解析完成前（href 仍为 #）必须 preventDefault：
+        // <a href="#"> 的默认行为是跳到页面顶部（丢失阅读位置），
+        // 原注释「放行默认行为（不跳转）」的假设是错的。
+        a.addEventListener("click", function (e) {
+          var href = a.getAttribute("href");
+          if (!href || href === "#") {
+            e.preventDefault();
+            return;
+          }
+          e.preventDefault();
+          if (window.swup) window.swup.navigate(href);
+          else window.location.href = href;
+        });
+
+        // 头像：有图用 img，无图或加载失败回退首字母色块（总显示头像）
+        var avatarEl;
+        var initial = (name || "?").trim().charAt(0).toUpperCase();
+        var colorSeed = 0;
+        for (var ci = 0; ci < (name || "").length; ci++)
+          colorSeed += name.charCodeAt(ci);
+        var palette = [
+          "#ef4444",
+          "#f59e0b",
+          "#10b981",
+          "#3b82f6",
+          "#8b5cf6",
+          "#ec4899",
+          "#14b8a6",
+          "#f97316",
+        ];
+        var avatarColor = palette[colorSeed % palette.length];
+        if (avatar) {
+          var img = document.createElement("img");
+          img.className =
+            "h-8 w-8 shrink-0 rounded-full border border-black/5 object-cover dark:border-white/10";
+          img.loading = "lazy";
+          img.alt = name;
+          img.src = avatar;
+          img.onerror = function () {
+            if (img.parentNode)
+              img.parentNode.replaceChild(
+                makeInitialAvatar(initial, avatarColor),
+                img,
+              );
+          };
+          avatarEl = img;
+        } else {
+          avatarEl = makeInitialAvatar(initial, avatarColor);
+        }
+
+        var body = document.createElement("div");
+        body.className = "min-w-0 flex-1";
+
+        var meta = document.createElement("div");
+        meta.className = "flex items-center justify-between gap-1.5";
+        var nm = document.createElement("span");
+        nm.className =
+          "truncate text-sm font-medium text-neutral-800 dark:text-neutral-200";
+        nm.textContent = name;
+        var tm = document.createElement("span");
+        tm.className = "shrink-0 text-xs text-neutral-400";
+        tm.textContent = time;
+        meta.appendChild(nm);
+        meta.appendChild(tm);
+
+        var content = document.createElement("p");
+        content.className =
+          "mt-0.5 line-clamp-2 break-words text-xs leading-relaxed text-neutral-500 dark:text-neutral-400";
+        // 优先取渲染后的 content（贴纸 <img> 只存在于 HTML 里），raw 仅作兜底
+        renderBody(content, spec.content || spec.raw || "");
+
+        body.appendChild(meta);
+        body.appendChild(content);
+        a.appendChild(avatarEl);
+        a.appendChild(body);
+        listEl.appendChild(a);
+
+        // 评论所属文章链接：优先用 load 阶段预解析的 permalink（缓存命中时走 c.__permalink），
+        // 都拿不到则保持 #（点击放行默认行为，不跳转）。
+        var permalink = c.__permalink || permalinkOf(spec.subjectRef);
+        if (permalink) {
+          // 精准锚点：comment-next 1.0.6+ 支持 #comment-next-comment-<name>，
+          // 它会自己 scrollIntoView 到那条评论并处理偏移（--comment-next-anchor-offset）。
+          // 拿不到评论名时退回评论区锚点（只定位到评论区顶部）。
+          var cname = c.metadata && c.metadata.name;
+          a.href = cname
+            ? permalink + "#comment-next-comment-" + encodeURIComponent(cname)
+            : permalink + "#comment";
+        }
+      });
+    }
+
+    // 从 load 阶段预解析的「文章名 → permalink」映射取链接，避免每条评论再发一次请求
+    function permalinkOf(subjectRef) {
+      if (!subjectRef || !subjectRef.name) return null;
+      return permalinkMap[subjectRef.name] || null;
+    }
+
+    // 把聚合端点的脱敏 DTO 适配成 Halo 原生评论的形状，
+    // 这样 renderComments / resolveAvatar 一行都不用改（视觉零变化）。
+    function adaptItem(it) {
+      return {
+        metadata: { name: it.name },
+        owner: {
+          displayName: it.displayName,
+          avatar: it.avatar,
+          annotations: it.emailHash ? { "email-hash": it.emailHash } : {},
+        },
+        spec: {
+          raw: it.content,
+          content: it.content,
+          creationTime: it.creationTime,
+          subjectRef: it.subjectRef,
+        },
+        __permalink: it.permalink,
+      };
+    }
+
+    function showEmpty() {
+      listEl.innerHTML =
+        '<div class="px-2 py-3 text-center text-xs text-neutral-400">暂无评论</div>';
+    }
+
+    function showError() {
+      // 原依赖 window.__themeSafeFetch.renderWidgetError（全仓库未定义），直接落
+      // 内联兜底文案。
+      listEl.innerHTML =
+        '<div class="px-2 py-3 text-center text-xs text-neutral-400">评论加载失败</div>';
+    }
+
+    // 主路径：1 次请求拿全站最新评论（permalink 由后端解析好）
+    function load() {
+      // 请求序号：换页后旧响应可能后到，已有更新请求则丢弃，避免覆盖新页评论列表
+      window.__rcReqId = (window.__rcReqId || 0) + 1;
+      var reqId = window.__rcReqId;
+      // 先读会话缓存：命中且未过期直接渲染，一次请求都不发
+      try {
+        var cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (
+            parsed &&
+            parsed.ts &&
+            Date.now() - parsed.ts < CACHE_TTL &&
+            parsed.comments
+          ) {
+            renderComments(parsed.comments);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      safeFetch(LATEST_API, {}, 8000)
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          if (reqId !== window.__rcReqId) return;
+          var top = ((data && data.items) || []).map(adaptItem);
+          if (!top.length) {
+            showEmpty();
+            return;
+          }
+          try {
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), comments: top }),
+            );
+          } catch (e) {}
+          renderComments(top);
+        })
+        .catch(function (e) {
+          // 聚合端点不可用（插件未安装 / 未授权）→ 回退旧的 posts 瀑布
+          console.warn("[RecentComments] latest endpoint unavailable:", e);
+          loadLegacy();
+        });
+    }
+
+    // 兜底路径：聚合端点不可用时，退回「拉最近文章 → 逐篇查评论」的旧瀑布
+    function loadLegacy() {
+      // 先读会话缓存：命中且未过期直接渲染，避免重复瀑布请求
+      try {
+        var cached = sessionStorage.getItem(CACHE_KEY);
+        if (cached) {
+          var parsed = JSON.parse(cached);
+          if (
+            parsed &&
+            parsed.ts &&
+            Date.now() - parsed.ts < CACHE_TTL &&
+            parsed.comments
+          ) {
+            renderComments(parsed.comments);
+            return;
+          }
+        }
+      } catch (e) {}
+
+      safeFetch(POSTS_API, {}, 8000)
+        .then(function (r) {
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          var posts = (data && data.items) || [];
+          // 预解析「文章名 → permalink」映射，渲染阶段直接取链接
+          permalinkMap = {};
+          posts.forEach(function (p) {
+            var nm = p.metadata && p.metadata.name;
+            if (!nm) return;
+            var perm =
+              (p.status && p.status.permalink) ||
+              (p.spec && p.spec.slug ? "/" + p.spec.slug : null);
+            if (perm) permalinkMap[nm] = perm;
+          });
+          // 只查有评论计数的文章，避免无谓请求（stats.comment 在匿名 posts 列表里可见）
+          var withComments = posts.filter(function (p) {
+            return (p.stats && p.stats.comment) > 0;
+          });
+          if (!withComments.length) {
+            showEmpty();
+            return;
+          }
+          return Promise.all(
+            withComments.map(function (p) {
+              var nm = p.metadata && p.metadata.name;
+              // 注意：subjectRef 是 {group, kind, name} 三元组，必须带 group，
+              // 否则 Halo 评论接口匹配不到任何评论（返回 total:0）。文章页
+              // <halo:comment group="content.halo.run"> 也是这个 group。
+              var url =
+                "/apis/api.halo.run/v1alpha1/comments?group=content.halo.run&kind=Post&name=" +
+                encodeURIComponent(nm) +
+                "&size=10";
+              return safeFetch(url, {}, 6000)
+                .then(function (r) {
+                  return r.ok ? r.json() : { items: [] };
+                })
+                .then(function (d) {
+                  return (d.items || []).filter(function (c) {
+                    var s = c.spec || {};
+                    return s.approved !== false && s.hidden !== true;
+                  });
+                })
+                .catch(function () {
+                  return [];
+                });
+            }),
+          );
+        })
+        .then(function (lists) {
+          if (!lists) return;
+          var all = lists.reduce(function (a, b) {
+            return a.concat(b);
+          }, []);
+          if (!all.length) {
+            showEmpty();
+            return;
+          }
+          // 按评论创建时间倒序，取最新的 LIMIT 条
+          all.sort(function (a, b) {
+            var ta = new Date((a.spec && a.spec.creationTime) || 0).getTime();
+            var tb = new Date((b.spec && b.spec.creationTime) || 0).getTime();
+            return tb - ta;
+          });
+          var top = all.slice(0, LIMIT);
+          // 渲染前把 permalink 固化进评论对象，缓存命中时无需再拉文章列表
+          top.forEach(function (c) {
+            var sr = c.spec && c.spec.subjectRef;
+            c.__permalink = (sr && sr.name && permalinkMap[sr.name]) || null;
+          });
+          try {
+            sessionStorage.setItem(
+              CACHE_KEY,
+              JSON.stringify({ ts: Date.now(), comments: top }),
+            );
+          } catch (e) {}
+          renderComments(top);
+        })
+        .catch(function (e) {
+          console.warn("[RecentComments] load failed:", e);
+          showError();
+        });
+    }
+
+    // 评论提交成功 → 立刻作废会话缓存并重新拉取，不必干等 TTL 过期。
+    // comment-next 提交成功后会在 window 派发事件（见其 CommentNextBox.svelte）：
+    //   halo:comment:created（新评论）/ halo:comment-reply:created（回复）。
+    // ⚠️ Swup 换页会把整份脚本克隆重执行（reloadScripts），而挂在 window 上的监听器
+    //   换页不会消失 ⇒ 若每次执行都 addEventListener，换 N 页就叠 N 个 handler，
+    //   一次评论提交触发 N 次请求。故用一次性标记只注册一遍；同时每次执行都把 load
+    //   覆盖到 __rcReload，保证 handler 调用的永远是「当前页」的 load（旧闭包里的
+    //   listEl 已被 Swup 替换，直接复用会渲染到脱离文档的节点上）。
+    window.__rcReload = load;
+    if (!window.__rcOnCommentCreated) {
+      window.__rcOnCommentCreated = function () {
+        try {
+          sessionStorage.removeItem(CACHE_KEY);
+        } catch (e) {}
+        if (typeof window.__rcReload === "function") window.__rcReload();
+      };
+      window.addEventListener(
+        "halo:comment:created",
+        window.__rcOnCommentCreated,
+      );
+      window.addEventListener(
+        "halo:comment-reply:created",
+        window.__rcOnCommentCreated,
+      );
+    }
+
+    // 视口懒加载：评论列表进入可视区才拉数据（首屏不再无条件瀑布请求）
+    window.__themeLazyInit("recent-comments-list", load);
+  })();
+</script>

@@ -1,0 +1,89 @@
+@reference "./global.css";
+
+/* ==========================================================================
+   「就地筛选」列表项入场反馈（equipments / photos / bangumis / portfolio 共用）
+   --------------------------------------------------------------------------
+   交互参考 /links 的友链就地筛选：点筛选胶囊 → 列表就地重渲染并淡入上移。
+   要点：
+     - 用独立 keyframes（不复用 fade-in-up），否则 `animationend` 的全局委托会把
+       它当成 `.onload-animation` 剥离，下一次点击无法重播。
+     - fill: both —— 动画起点即 opacity:0，避免「先满帧后淡入」的闪一下。
+     - 只做 opacity + translate（合成器属性），不触发重排。
+     - `.list-item-enter` 由 list-filter.ts / portfolio-filter.ts 在**替换完成后**
+       挂到 `[data-list-item]` 上（服务端渲染的 HTML 里没有这个类）。
+   ========================================================================== */
+
+@keyframes list-item-in {
+  from {
+    opacity: 0;
+    translate: 0 0.75rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.list-item-enter {
+  animation: list-item-in var(--dur-entry, 300ms) ease both;
+}
+
+/* ==========================================================================
+   局部 PJAX 拉取中的「加载中」态（list-filter.ts 在 fetch 前后加/摘 .is-swapping）
+   --------------------------------------------------------------------------
+   追番页取全量时服务端要逐页打 B 站接口（可能 1~3s），无反馈的话点击像没生效。
+   ⚠️ 降透明加在**直接子元素**上而不是 region 自身：region 上的 ::after 转圈才不会被
+      父级 opacity 一起打到 0.5（父级 opacity 会建立层叠上下文，子元素无法逃逸）。
+   缓存命中的切换根本不进这个态（瞬时换 DOM）。
+   ========================================================================== */
+
+[data-list-region] {
+  position: relative;
+}
+
+[data-list-region].is-swapping {
+  pointer-events: none;
+}
+
+[data-list-region].is-swapping > * {
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+[data-list-region].is-swapping::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-left: -0.875rem;
+  border: 2.5px solid var(--primary);
+  border-top-color: transparent;
+  border-radius: 999px;
+  animation: list-swap-spin 0.7s linear infinite;
+  pointer-events: none;
+  z-index: 6;
+}
+
+@keyframes list-swap-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .list-item-enter {
+    animation: none;
+  }
+
+  [data-list-region].is-swapping > * {
+    transition: none;
+  }
+
+  /* 降级为「静态半环」：仍能看出在等待，但不旋转 */
+  [data-list-region].is-swapping::after {
+    border-top-color: var(--primary);
+    animation: none;
+  }
+}

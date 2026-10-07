@@ -1,0 +1,612 @@
+---
+/**
+ * 首页「系列」卡片条（1.5.32 新增；1.5.33 改为「按系列切换 + 展示该系列全部文章」）
+ *
+ * 参考站 https://daily.yybb.us/ 首页那条（他站标题「喜欢哪一期周刊呢~」）：一条横向
+ * scroll-snap 轨道，放的是**某一个系列的全部期数**，一行 5 张、点 ‹ › 往右翻。
+ * （1.5.46 起从 4 张加密度 5 张 —— LQ「排版优化」：系列条降级为紧凑形态，
+ * 与下面保持完整大卡形态的两卡行错开层级，文章列表更早进首屏。）
+ * 本站比参考站多一层：LQ 有多个系列 ⇒ 标题下方加一排**系列切换按钮**，切换后换个面板，
+ * 每个面板就是「那个系列的全部文章」。
+ *
+ * 数据来源（纯 SSR，前端零取数）：
+ *   `recentCommentsSeriesFinder.listLatest(n)` —— Ethereal 配套插件 1.1.0 提供。
+ *   返回按「系列内最新一篇文章的发布时间」倒序的若干 SeriesView，**每个 SeriesView 里
+ *   带着该系列的全部 posts**（`SeriesPostView`：name/title/permalink/order/publishTime/cover）。
+ *   所以一次调用就同时拿到「标签顺序」「每个系列的全部文章」和「封面」，不用第二次查库。
+ *
+ * 🔴 版本门控（必须保留）：`listLatest` 与 `SeriesPostView.cover` 都只有插件 1.1.0+ 才有。
+ *    若主题先发、插件还是 1.0.3，直接调它 → SpEL 找不到方法 → **整页 500/截断**。
+ *    因此最外层用 `pluginFinder.available('ethereal-companion', '>=1.1.0')` 兜住
+ *    （第二参是 Semantic Version Range，Halo 2.17+）。插件没升级时整块不渲染，首页照常。
+ *
+ * 结构刻意做成「守卫层 / 取数层 / 内容层」三层：
+ *   ① 最外层 div：只放**不依赖 finder 结果**的守卫（插件版本 / 后台开关 / 首页第一页）。
+ *      —— `th:if`(优先级 3) 早于 `th:with`(4)，同标签里 th:if 读不到 th:with 的变量（会短路），
+ *         所以 finder 调用必须放在 th:if **之后**的层，否则插件缺失时照样会去调它。
+ *   ② 第二层 div：`th:with` 里才真正调 finder。
+ *   ③ `<section>`：判空 + 渲染（标签 / 面板 / 卡片）。
+ *
+ * 交互（脚本在 src/scripts/assets/series-strip.ts）：
+ *   · 系列切换：点击标签或 ←/→/Home/End 键切换面板（WAI-ARIA tablist 模式，roving tabindex）；
+ *   · ‹ › 按「一张卡」为步长滚动**当前面板**的轨道；用 `scrollLeft` 边界判定「到头了没」并置灰
+ *     —— 不做「卡片数 ≤ 可见数就整块隐藏」（那样 LQ 系列只有 4 篇时按钮会凭空消失）。
+ *   · 卡片宽度用容器查询算（`100cqi`），与参考站同款公式，无需 JS 量宽度。
+ *
+ * ⚠️ 期号（`第 N 期`）取值优先级：`post.order`（文章注解 `seriesOrder`）→ 没填就按该系列内的
+ *    时间顺序倒推 `#lists.size(posts) - 下标`（插件对「未填序号」的排法是「按发布时间倒序」，
+ *    所以 下标 0 = 最新 = 总篇数）。LQ 目前 8 篇文章都没填 `seriesOrder`，走的就是后一条。
+ */
+import SeriesStripCard from "./SeriesStripCard.astro";
+
+/** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
+/** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
+const VISIBLE_DESKTOP = 5;
+const VISIBLE_TABLET = 3;
+const VISIBLE_MOBILE = 2;
+/**
+ * 单个系列最多渲染多少张卡。防御性上限：系列再长也不能把首页首屏撑爆。
+ * 30 对个人博客的系列而言等于「全部」（LQ 现在每个系列 4 篇）。
+ */
+const MAX_POSTS_PER_SERIES = 30;
+---
+
+<!-- ① 只放「不依赖 finder 结果」的静态守卫：插件版本 / 后台开关 / 首页第一页。
+     th:if(3) 早于 th:with(4)，同层读不到 th:with 的变量（会短路）⇒ finder 调用必须下一层。 -->
+<div
+  th:remove="tag"
+  th:if="${pluginFinder != null
+    and pluginFinder.available('ethereal-companion', '>=1.1.0')
+    and (theme.config?.layout?.postList?.seriesEnable == null or theme.config?.layout?.postList?.seriesEnable)
+    and posts != null and posts.page == 1}"
+>
+  <div
+    th:remove="tag"
+    th:with="seriesLimit=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesList=${recentCommentsSeriesFinder.listLatest(seriesLimit)}"
+  >
+    <!-- ② 空态：连 <section> 本体一起不输出。
+         若把判空写在 section 内层，一个系列都没有时会留下空的 <section>（带 margin-bottom 的
+         1rem 死空白 + 白跑一次入场动画），所以判空必须罩在 section 外面。 -->
+    <section
+      id="series-strip"
+      class="series-strip onload-animation"
+      style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
+      th:if="${not #lists.isEmpty(seriesList)}"
+    >
+      <!-- 段头：图标 + 标题（左）／系列切换（中）／‹ › 箭头（右）
+           ⚠️ tabs 从「独立一行」并入本行：原来段头 30px + 6px 间距 + tabs 28px + 6px 间距
+              + viewport 顶内距 6px = 卡片上方 75px 空白，比主题任何区块间距都宽一倍
+              （2026-09-18 LQ 圈出）。并成一行后只剩 6px + 6px。 -->
+      <div class="series-strip__head">
+        <!-- ⚠️ 这个 id 是「只有一个系列」时面板 aria-labelledby 的兜底目标（见下方 panel）。
+             那个分支下 tablist 不渲染 ⇒ 不能引用 series-tab-N，但引用必须解析得到。 -->
+        <h2 class="series-strip__title" id="series-strip-title">
+          <span
+            class="icon-[material-symbols--layers] text-[1.125rem] leading-none"
+            aria-hidden="true"
+          ></span>
+          <span class="leading-none" th:text="#{seriesStrip.title}">
+            系列
+          </span>
+        </h2>
+
+        <!-- 系列切换（只有一个系列时不渲染：没得切）。
+             位置在标题与箭头之间，由 CSS `flex: 1 1 auto` 吸收中间空间、`overflow-x: auto` 兜窄屏。 -->
+        <div
+          class="series-strip__tabs"
+          role="tablist"
+          data-series-tabs
+          th:if="${#lists.size(seriesList) > 1}"
+          th:aria-label="#{seriesStrip.tabsAria}"
+        >
+          <!-- 「全部」：恒为第 0 个 tab 且**默认选中** —— 首个面板就是它，
+               里面是所有系列的文章合在一起、按发布时间倒序（见下方面板注释）。
+               ⚠️ 脚本靠「索引」把 tab 与 panel 对应（同步遍历两个 NodeList）⇒
+                  「全部」必须是 tab 列表和 panel 列表的**第一个**，系列的索引全部 +1。
+                  只要保持这个对齐，series-strip.ts 的切换逻辑一行都不用改。 -->
+          <button
+            type="button"
+            role="tab"
+            class="series-strip__tab btn-card"
+            id="series-tab-all"
+            data-series-tab="0"
+            aria-controls="series-panel-all"
+            aria-selected="true"
+            tabindex="0"
+            th:text="#{seriesStrip.all}"
+          >
+            全部
+          </button>
+          <!-- 各系列：索引从 1 起（0 让给「全部」）。
+               默认**永远不选中**（首屏一定是「全部」），所以 aria-selected / tabindex
+               直接写死，不开表达式 —— 少一层运行期求值，也不给 roving 留歧义。 -->
+          <button
+            th:each="s, st : ${seriesList}"
+            type="button"
+            role="tab"
+            class="series-strip__tab btn-card"
+            th:id="|series-tab-${st.index + 1}|"
+            th:data-series-tab="${st.index + 1}"
+            th:aria-controls="|series-panel-${st.index + 1}|"
+            aria-selected="false"
+            tabindex="-1"
+            th:text="${s.name}"
+          >
+            系列名
+          </button>
+        </div>
+
+        <div class="series-strip__navs" data-series-navs>
+          <button
+            type="button"
+            class="series-strip__nav series-strip__nav--prev"
+            data-series-dir="prev"
+            th:aria-label="#{seriesStrip.navPrev}"
+          >
+            <span
+              class="icon-[material-symbols--chevron-left-rounded] text-xl leading-none"
+              aria-hidden="true"
+            ></span>
+          </button>
+          <button
+            type="button"
+            class="series-strip__nav series-strip__nav--next"
+            data-series-dir="next"
+            th:aria-label="#{seriesStrip.navNext}"
+          >
+            <span
+              class="icon-[material-symbols--chevron-right-rounded] text-xl leading-none"
+              aria-hidden="true"
+            ></span>
+          </button>
+        </div>
+      </div>
+
+      <!-- ⚠️ 用 class 而不是 hidden 属性做显隐：`th:attr` 求值为 null 时 Thymeleaf 会写空属性
+           （实测 3.1.5），语义不确定；class + CSS display:none 是死的、可断言。
+           ⚠️ aria-labelledby 必须**永远解析得到**：tablist 只在「系列数 > 1」时渲染
+           （见上方 th:if），所以单系列时页面里没有 `series-tab-*` —— 若无条件写
+           `|series-tab-…|`，就是一个指向不存在元素的 ARIA 引用（axe 硬性违规）。
+           故三元兜底到段头标题那个恒存在的 id。
+           🔴 别写成 `${cond ? |series-tab-${st.index}| : 'x'}` —— 那是 `${}` 套 `|…|` 再套
+              `${}` 的嵌套雷区；用字符串拼接（SpEL 的 `+` 遇 String 走拼接）才是单层。
+           🔴 `'series-tab-' + (st.index + 1)` 的括号不能省：SpEL 的 `+` 从左到右，
+              省了会先拼字符串再拼数字（"series-tab-0" + 1 = "series-tab-01"）。 -->
+
+      <!-- ① 「全部」面板：恒为第 0 个、首屏默认显示。
+           内容是**所有系列的文章合在一起**，SSR 按「系列分组」顺序输出，
+           由 series-strip.ts 在客户端按 `data-publish-time` 倒序重排成「最新发布优先」。
+           ⚠️ 为什么不在服务端排：Thymeleaf 的 `#lists` 只有自然序 `sort()`，没有 sortBy；
+              跨系列合并成一张扁平列表更是做不到（SpEL 没有 flatten）⇒ 只能客户端排。
+              SSR 侧保留「分组顺序」是刻意的：脚本没跑时这条轨道照样有内容（只是未按时间排）。
+           ⚠️ `data-series-all` 只是给脚本的**定位标记**（空属性即可），索引仍走
+              `data-series-panel="0"` —— 脚本靠索引对应 tab，别把它改成别的值。 -->
+      <div
+        class="series-strip__panel"
+        role="tabpanel"
+        id="series-panel-all"
+        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-all' : 'series-strip-title'}"
+        data-series-panel="0"
+        data-series-all
+      >
+        <div class="series-strip__viewport" data-series-viewport>
+          <div class="series-strip__track" data-series-track>
+            <!-- 外层遍历系列、内层遍历该系列文章 ⇒ 双层 each。
+                 外层用 `th:remove="tag"` 的 div 承载（项目惯用法，比 th:block 更可控）：
+                 这层 div 在 SSR 后会被剥掉，轨道里只剩一串 `<a>`。
+                 ⚠️ eager 只给「第一个系列的第一张」：`ap.index` 是**系列内**下标，
+                    直接拿它判会让每个系列的第一张都 eager（N 张抢首屏带宽）。 -->
+            <div th:each="al, als : ${seriesList}" th:remove="tag">
+              <SeriesStripCard
+                listVar="al.posts"
+                iter="ap"
+                eagerExpr="als.index == 0 and ap.index == 0"
+                limit={MAX_POSTS_PER_SERIES}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 各系列面板：索引从 1 起（0 让给「全部」），首屏全部 is-hidden。 -->
+      <div
+        th:each="s, st : ${seriesList}"
+        class="series-strip__panel is-hidden"
+        role="tabpanel"
+        th:id="|series-panel-${st.index + 1}|"
+        th:aria-labelledby="${#lists.size(seriesList) > 1 ? 'series-tab-' + (st.index + 1) : 'series-strip-title'}"
+        th:data-series-panel="${st.index + 1}"
+      >
+        <!-- 横向轨道：SSR 渲染该系列的全部卡片，脚本只负责接线 -->
+        <div class="series-strip__viewport" data-series-viewport>
+          <div class="series-strip__track" data-series-track>
+            <SeriesStripCard
+              listVar="s.posts"
+              iter="ps"
+              eagerExpr="st.index == 0 and ps.index == 0"
+              limit={MAX_POSTS_PER_SERIES}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- 行为脚本（经典脚本产物）：系列切换 + 横向滚动导航 -->
+<script
+  is:inline
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/series-strip.js?v=${ASSET_VERSION}`}
+  defer
+></script>
+
+<style is:global>
+  /* ===== 首页「系列」卡片条 =====
+     ⚠️ 一行可见数、卡片宽度公式（100cqi 容器查询）都与参考站 .home-list-featured 一致，
+        改一处要回看配平；`-1px` 是参考站原式里的取整余量，别当废项删掉。
+     ⚠️ `.series-strip__viewport` 的 container-type 是 `100cqi` 生效的前提，
+        去掉它卡片宽度会退化成 0。 */
+  #series-strip {
+    --series-gap: 0.75rem;
+    /* 轨道左右内距 = 卡片焦点环**唯一**的容身之处。
+       `.series-strip__track` 在 `.series-strip__viewport`（overflow-x: auto）内，而卡片
+       `:focus-visible` 的 outline 是「2px 描边 + outline-offset 2px」= 向边框盒外扩 4px；
+       padding-inline 小于 4px 时，滚动容器的裁剪边会把环切掉一半（2026-09-18 CDP 实测）。
+       5px = 4px 环 + 1px 取整余量。本值同时参与 `.series-strip-card` 的 100cqi 宽度算式
+       （2 * var(--series-edge)），改这一处即可，无需另动公式。 */
+    --series-edge: 5px;
+    --series-visible: var(--series-visible-desktop, 4);
+    width: 100%;
+    min-width: 0;
+    /* 1rem → 0.75rem：与 .series-strip__viewport 的 padding-bottom(0.625rem) 合计 ≈ 22px，
+       原来合计 30px —— 比主题任何相邻区块之间的距离都宽一倍（2026-09-18 LQ 圈出）。 */
+    margin-bottom: 0.75rem;
+  }
+  /* 平板 / 手机降档：只改可见数，卡片宽度公式自适应 */
+  @media (max-width: 1023.98px) {
+    #series-strip {
+      --series-visible: var(--series-visible-tablet, 3);
+    }
+  }
+  @media (max-width: 767.98px) {
+    #series-strip {
+      --series-visible: var(--series-visible-mobile, 2);
+    }
+  }
+
+  .series-strip__head {
+    display: flex;
+    align-items: center;
+    /* tabs 已并入本行 ⇒ 有 tabs 时由它的 flex:1 吃掉剩余空间，justify-content 只在
+       「只有一个系列（不渲染 tabs）」时才起作用（标题左、箭头右）。 */
+    justify-content: space-between;
+    gap: 0.75rem;
+    /* 只留与卡片之间的一次呼吸：本值 + viewport 的 padding-top(0.375rem) = 12px */
+    margin-bottom: 0.375rem;
+  }
+  .series-strip__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--primary);
+  }
+
+  /* ===== 系列切换标签 ===== */
+  /* ⚠️ 已并入段头行（.series-strip__head）：不再单独占一行 ⇒ margin-bottom 归零，
+     改由 `flex: 1 1 auto` 吸收标题与 ‹ › 之间的空间。`min-width: 0` 是 overflow 生效的前提
+     （flex 项默认 min-width:auto，会被内容撑开、挤掉右侧箭头）。 */
+  .series-strip__tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    /* 🔴 padding + 等量负 margin 是一组，缺一不可：
+       本容器是 overflow-x: auto 的滚动容器 ⇒ 它就是裁剪容器，会切掉 tab 的 :focus-visible
+       焦点环（outline 2px + offset 2px = 向外 4px），键盘操作时环看不见一半。
+       灌一圈 5px 内边距给环腾地方，再用等量负外边距把这 5px 从**布局占位**里扣回来
+       ⇒ 内容盒的位置与没加 padding 时完全一致，视觉零变化（只多 1px 取整余量）。
+       少写 padding 会切环；少写 margin 会把段头撑高 10px、并把视觉间距吃掉 5px。 */
+    padding: 5px;
+    margin: -5px;
+    overflow-x: auto;
+    /* 显式写死纵向：CSS 规范规定 overflow-x/y 只要有一轴是 auto/scroll，另一轴的 visible
+       会被提升成 auto ⇒ 不写也照样裁剪，写出来是为了让「这里会裁」肉眼可见。 */
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .series-strip__tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .series-strip__tab {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1875rem 0.625rem;
+    /* 描边与底色都改走「主题按钮」那一套：原来 border 用 --line-divider(8%)、
+       background 用 --card-bg —— 暗色下卡片底与页面底几乎同色 ⇒ 胶囊看起来「没有描边、
+       也不受卡片外壳影响」（2026-09-18 LQ 反馈）。--btn-regular-bg 在两套模式下都与页面底
+       拉开层次，且与 --btn-content 是主题既有的按钮对比度组合。 */
+    border: 1px solid
+      color-mix(in oklab, var(--primary) 20%, var(--line-divider));
+    border-radius: 9999px;
+    background: var(--btn-regular-bg);
+    color: var(--btn-content);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.5;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .series-strip__tab:hover {
+    color: var(--primary);
+    background: var(--btn-regular-bg-hover);
+    border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+  }
+  .series-strip__tab:active {
+    background: var(--btn-regular-bg-active);
+  }
+  .series-strip__tab[aria-selected="true"] {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+    background: color-mix(in oklab, var(--primary) 14%, var(--btn-regular-bg));
+  }
+  .series-strip__tab:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* ===== 面板 ===== */
+  .series-strip__panel {
+    display: block;
+    min-width: 0;
+  }
+  /* 非当前系列的面板（脚本切 class） */
+  .series-strip__panel.is-hidden {
+    display: none;
+  }
+
+  .series-strip__navs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+  .series-strip__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.875rem;
+    height: 1.875rem;
+    padding: 0;
+    border: none;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--btn-content);
+    cursor: pointer;
+    transition:
+      color 0.2s ease,
+      background-color 0.2s ease,
+      opacity 0.2s ease;
+  }
+  .series-strip__nav:not(:disabled):hover {
+    color: var(--primary);
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+  }
+  /* 到头 / 没得滚：置灰而不是整块隐藏 —— 控件一直在，用户知道「还有这个东西」 */
+  .series-strip__nav:disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+  .series-strip__nav:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .series-strip__viewport {
+    container-type: inline-size;
+    width: 100%;
+    min-width: 0;
+    /* 上下只留「悬浮上移 2px + 焦点环 2px + 投影」所需的最小余量：
+       原 padding-bottom 0.875rem + 区块 margin-bottom 1rem = 卡片下方 30px 空白。 */
+    padding-top: 0.375rem;
+    padding-bottom: 0.625rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    /* 🔴 这里**绝不要**声明 `scroll-behavior: smooth` ——
+       `scrollBy({ behavior: 'auto' })` 的语义是「沿用元素**计算后的** scroll-behavior」，
+       不是「瞬时滚动」（CSSOM View 规范）。一旦在 CSS 里写死 smooth，脚本在
+       prefers-reduced-motion 分支传的 'auto' 依旧会平滑滚动，减动效偏好直接失效
+       （2026-09-18 CDP 实测：传 'auto' 仍平滑，scrollLeft 从 0 走到 120）。
+       所以让 JS 的 behavior 参数当**唯一真相源**：常规 'smooth'、减动效 'auto'。
+       本文件与 src/scripts/assets/series-strip.ts 的 go() 是一对，改一处要回看另一处。 */
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    touch-action: pan-x pan-y;
+  }
+  .series-strip__viewport::-webkit-scrollbar {
+    display: none;
+  }
+
+  .series-strip__track {
+    display: flex;
+    gap: var(--series-gap);
+    box-sizing: border-box;
+    width: max-content;
+    min-width: 100%;
+    padding-inline: var(--series-edge);
+  }
+
+  .series-strip-card {
+    --series-card-w: calc(
+      (
+          100cqi - (var(--series-visible) - 1) * var(--series-gap) - 2 *
+            var(--series-edge) - 1px
+        ) /
+        var(--series-visible)
+    );
+    flex: 0 0 var(--series-card-w);
+    width: var(--series-card-w);
+    min-width: 0;
+    box-sizing: border-box;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    color: inherit;
+    text-decoration: none;
+    /* 基线描边（= 卡片外壳关闭时）；外壳开启由下方规则置透明，让位给外壳的 outline */
+    border: 1px solid var(--line-divider);
+    border-radius: var(--radius-large);
+    background: var(--card-bg);
+    /* 🔴🔴 `.card-base` 自己**没有** position：上游靠 `will-change: transform` 让卡片成为
+       绝对定位后代的包含块。下方把 will-change 打回 auto 后这个包含块就塌了 ⇒ 纹理 ::before
+       （position:absolute / inset:0）会往上找最近的定位祖先，实测落到整页那个 1766×2396px 的
+       `relative` 容器上 ⇒ **整页背景铺满纹理**（2026-09-18 LQ 反馈）。
+       `position: relative` 用最低代价补回包含块，且不提升合成层（比 will-change 更省）。
+       同时 isolation 建 stacking context，把 z-index:-1 的纹理锁在卡片背景之上、内容之下。 */
+    position: relative;
+    isolation: isolate;
+    will-change: auto;
+    transition:
+      transform 0.2s ease,
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
+  }
+  /* 基线投影：**只在卡片外壳关闭时声明**。
+     ⚠️ 本组样式是未分层(unlayered)的全局样式，优先级天然高于 components.css 的
+        @layer components ⇒ 若无条件声明 box-shadow，会把
+        `:root.mods-card-shell .card-base` 的外侧暗晕顶掉（外壳开关就白开了）。 */
+  :root:not(.mods-card-shell) .series-strip-card {
+    box-shadow:
+      0 3px 8px color-mix(in srgb, #000 8%, transparent),
+      0 1px 3px color-mix(in srgb, #000 5%, transparent);
+  }
+  :root:not(.mods-card-shell) .series-strip-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+    box-shadow:
+      0 5px 12px color-mix(in srgb, #000 10%, transparent),
+      0 1px 4px color-mix(in srgb, #000 6%, transparent);
+  }
+  /* 卡片外壳开启：外描边 / 暗晕 / 底部 hover 阴影全部交给外壳规则，
+     只保留「上移 + 描边转主色」这两个属于交互的反馈。 */
+  :root.mods-card-shell .series-strip-card {
+    border-color: transparent;
+  }
+  :root.mods-card-shell .series-strip-card:hover {
+    transform: translateY(-2px);
+    outline-color: color-mix(in oklab, var(--primary) 45%, var(--line-divider));
+  }
+  .series-strip-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  .series-strip-card__cover {
+    position: relative;
+    flex: none;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+    overflow: hidden;
+    background: color-mix(in oklab, var(--primary) 8%, var(--card-bg));
+  }
+  .series-strip-card__img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+  }
+  /* 无封面：模板已不输出 <img>，这里只管露出渐变 + 图标 */
+  .series-strip-card__placeholder {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      135deg,
+      var(--btn-regular-bg-hover),
+      var(--btn-regular-bg)
+    );
+  }
+  .series-strip-card__cover.is-empty .series-strip-card__placeholder {
+    display: flex;
+  }
+
+  /* 期号胶囊：左上角，半透明底 + 毛玻璃，压住再花的封面也读得清 */
+  .series-strip-card__issue {
+    position: absolute;
+    top: 0.375rem;
+    left: 0.375rem;
+    z-index: 1;
+    padding: 0.0625rem 0.375rem;
+    border-radius: 9999px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    color: #fff;
+    background: color-mix(in srgb, #000 42%, transparent);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .series-strip-card__body {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    padding: 0.5rem 0.625rem 0.625rem;
+    min-width: 0;
+  }
+  /* 标题最多两行（系列文章的标题普遍偏长，一行会被截得太狠） */
+  .series-strip-card__title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    margin: 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--deep-text);
+    transition: color 0.2s ease;
+  }
+  .series-strip-card:hover .series-strip-card__title {
+    color: var(--primary);
+  }
+
+  /* ---------- 减少动态效果 ----------
+     与 FeaturedCards.astro / bangumi.css 同款收口：本组样式是**未分层(unlayered)**的全局样式，
+     优先级天然高于上游 `@layer components` ⇒ 这里加 `!important` 不是为压内部规则（选择器
+     已经够具体），而是防将来有人从外层把它盖掉。hover 上移必须一起关掉——只关 transition
+     会变成「瞬移 2px」，前庭敏感用户照样不适。 */
+  @media (prefers-reduced-motion: reduce) {
+    .series-strip-card,
+    .series-strip__tab,
+    .series-strip__nav,
+    .series-strip-card__title {
+      transition: none !important;
+    }
+    .series-strip-card:hover,
+    .series-strip-card:focus-visible {
+      transform: none !important;
+    }
+  }
+</style>

@@ -1,0 +1,173 @@
+/* ============================================================
+ * content-widgets 插件（acanyo/plugin-content-widgets）深度主题适配层
+ * ------------------------------------------------------------
+ * 目标：让插件的 27 种前台组件视觉上完整融入 Ethereal 主题
+ *       （紫罗兰二次元配色 + 亮暗玻璃拟态），而非「插件自带 tailwind
+ *        亮色 + 主题只粗糙 alias 几个 base 变量」。
+ *
+ * 分三层：
+ *   1. 基础变量 alias —— 插件 21/27 组件走 --xhhao-com-* 变量，
+ *      此处把 --xhhao-com-base-* 映射到主题 token，一处全局生效。
+ *   2. 语义色（亮/暗各一套）—— 保留「提醒/信息/问题/警告/错误/成功」
+ *      的语义色相，但改用主题同源的 oklch 低饱和表达，随亮暗切换。
+ *   3. 组件级硬编码覆盖 —— 插件把 alert 的 type 色写死在 inline style、
+ *      note 便签 5 色 / result 状态 4 色写死在 scss，主题用更高优先级
+ *      （!important）压成上面的语义色 / 玻璃拟态。
+ *
+ * 加载顺序：本文件在 variables.css 之后 import（见 layout.astro /
+ *   app.ts），保证能引用主题 token；:root:root 特异性（0,2,0）高于
+ *   插件 :root（0,1,0）与其 :where(.dark)（0,0,0），无论插件 CSS 与
+ *   主题 CSS 谁先加载，alias 都生效。
+ * ============================================================ */
+
+/* ── 1. 基础变量 alias（迁移自 variables.css，现集中于此管理） ── */
+:root:root {
+  --xhhao-com-base-primary: var(--primary);
+  --xhhao-com-base-primary-soft: color-mix(
+    in oklab,
+    var(--primary) 14%,
+    transparent
+  );
+  --xhhao-com-base-text: var(--btn-content);
+  --xhhao-com-base-text-strong: var(--deep-text);
+  --xhhao-com-base-text-muted: color-mix(
+    in oklab,
+    var(--btn-content) 72%,
+    transparent
+  );
+  --xhhao-com-base-text-subtle: color-mix(
+    in oklab,
+    var(--btn-content) 48%,
+    transparent
+  );
+  --xhhao-com-base-bg: var(--card-bg);
+  --xhhao-com-base-bg-soft: var(--btn-regular-bg);
+  --xhhao-com-base-bg-card: var(--card-bg);
+  --xhhao-com-base-bg-panel: var(--btn-regular-bg);
+  --xhhao-com-base-border: var(--line-color);
+  --xhhao-com-base-shadow: var(--line-divider);
+  /* 代码字体对齐主题（插件自带 ui-monospace 栈，主题统一走 --font-mono） */
+  --xhhao-com-base-font-monospace: var(
+    --font-mono,
+    ui-monospace,
+    "SFMono-Regular",
+    Menlo,
+    Consolas,
+    monospace
+  );
+}
+
+/* ── 2. 语义色（保留色相，贴合主题低饱和 oklch，亮暗各一套） ──
+   色相映射（与主题 --admonitions-color-* 一致）：
+     tip 提醒 / success 成功 · 青绿
+     info 信息            · 蓝
+     question 问题        · 蓝紫
+     warning 警告         · 琥珀
+     error 错误           · 红                                     */
+:root:root {
+  --xhhao-cw-tip: oklch(0.62 0.15 160);
+  --xhhao-cw-info: oklch(0.6 0.12 250);
+  --xhhao-cw-question: oklch(0.62 0.15 285);
+  --xhhao-cw-warning: oklch(0.68 0.16 70);
+  --xhhao-cw-error: oklch(0.6 0.2 25);
+  --xhhao-cw-success: oklch(0.62 0.15 160);
+}
+
+:root.dark {
+  --xhhao-cw-tip: oklch(0.78 0.14 160);
+  --xhhao-cw-info: oklch(0.76 0.11 250);
+  --xhhao-cw-question: oklch(0.78 0.13 285);
+  --xhhao-cw-warning: oklch(0.8 0.14 70);
+  --xhhao-cw-error: oklch(0.72 0.18 25);
+  --xhhao-cw-success: oklch(0.78 0.14 160);
+}
+
+/* ── 3a. alert 提示框：type 色是组件 inline style 写死（tailwind 亮色，
+   暗色下刺眼），用 !important 覆盖成主题语义色。
+   alert 内部所有颜色（渐变/标题/边框/图标）都从 --xhhao-com-primary 派生，
+   只覆盖这一个变量即可整体换色。 ── */
+.xhhao-com-alert.xhhao-com-alert-type-tip {
+  --xhhao-com-primary: var(--xhhao-cw-tip) !important;
+}
+.xhhao-com-alert.xhhao-com-alert-type-info {
+  --xhhao-com-primary: var(--xhhao-cw-info) !important;
+}
+.xhhao-com-alert.xhhao-com-alert-type-question {
+  --xhhao-com-primary: var(--xhhao-cw-question) !important;
+}
+.xhhao-com-alert.xhhao-com-alert-type-warning {
+  --xhhao-com-primary: var(--xhhao-cw-warning) !important;
+}
+.xhhao-com-alert.xhhao-com-alert-type-error {
+  --xhhao-com-primary: var(--xhhao-cw-error) !important;
+}
+
+/* ── 3b. result 结果块：4 状态色写死在 scss，覆盖成主题语义色 ── */
+.xhhao-com-result {
+  --xhhao-com-result-color: var(--xhhao-cw-success) !important;
+}
+.xhhao-com-result.xhhao-com-result-type-info {
+  --xhhao-com-result-color: var(--xhhao-cw-info) !important;
+}
+.xhhao-com-result.xhhao-com-result-type-warning {
+  --xhhao-com-result-color: var(--xhhao-cw-warning) !important;
+}
+.xhhao-com-result.xhhao-com-result-type-error {
+  --xhhao-com-result-color: var(--xhhao-cw-error) !important;
+}
+
+/* ── 3c. note 便签：亮色保留彩色纸片质感（Material 粉彩其实不难看）；
+   暗色下浅色纸片在深底上突兀刺眼，改成「半透明玻璃便签」——
+   每个变体用自身 --xhhao-com-note-bg 的色相混入深色玻璃底，保留
+   黄/绿/蓝/粉/紫区分，同时 backdrop-filter 融入暗色玻璃拟态。 ── */
+:root.dark .xhhao-com-note {
+  /* 关掉插件自带的 brightness/saturate 滤镜，改走下方玻璃方案 */
+  filter: none;
+  color: var(--deep-text);
+  --xhhao-com-note-shadow: rgba(0, 0, 0, 0.35);
+  background: color-mix(
+    in oklab,
+    var(--xhhao-com-note-bg) 22%,
+    var(--float-panel-bg)
+  );
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px
+      color-mix(in oklab, var(--xhhao-com-note-bg) 30%, transparent);
+  backdrop-filter: blur(14px);
+}
+
+/* 暗色下便签顶部折角：插件用 --xhhao-com-bg-1（已 alias 到 card-bg），
+   与玻璃底色接近，换成半透明主色相更协调 */
+:root.dark .xhhao-com-note::before {
+  border-color: transparent
+    color-mix(in oklab, var(--xhhao-com-note-bg) 30%, transparent) transparent
+    transparent;
+}
+
+/* ── 4. prose 基础层免疫（显式重置，不依赖插件 CSS 加载顺序） ──
+   正文容器 .custom-md 同时挂 .prose（@tailwindcss/typography），prose 会给
+   ol/ul/li 加 list-style/padding/margin、给 img 加 margin-block:2em。插件组件
+   骨架在 light DOM 里会吃到这些；插件 scss 只重置了 ol/ul 的 list-style:none，
+   icon/avatar 的 img 没设 margin，prose 的 2em 外边距会直接挤坏头像/图标布局。
+   这里用更高特异性显式兜底，把 prose 对骨架标签的泄漏彻底封死。 */
+
+/* ol/ul 骨架（timeline/stepper/task-list 等）：清零 prose 的 list-style/padding。
+   只命中带 xhhao-com class 的骨架列表，用户写在组件内容里的普通列表不受影响。 */
+.custom-md .xhhao-com-widget :where(ol, ul)[class*="xhhao-com"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+/* 图标/头像 img（alert/chat/quote/button）：prose 的 margin-block:2em 挤坏布局，
+   markdown.css 的 .custom-md img 圆角+边框+阴影让图标变形。只在用户传图片 URL
+   作 icon / 传头像 URL 时命中，SVG 图标不受影响。Pic 内容图不在此列（保留主题装饰）。 */
+.custom-md .xhhao-com-alert-title-icon img,
+.custom-md .xhhao-com-chat-avatar img,
+.custom-md .xhhao-com-quote-icon img,
+.custom-md .xhhao-com-button-icon img {
+  margin-block: 0;
+  border-radius: 0;
+  border: none;
+  box-shadow: none;
+}

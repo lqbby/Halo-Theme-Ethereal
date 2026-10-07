@@ -1,5 +1,6 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
@@ -8,6 +9,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   setOGTypeArticle={true}
   showToc={true}
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="${singlePage.status.permalink}" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <article class="card-base relative z-10 mb-4 w-full px-6 pb-8 pt-7 md:px-9">
     <h1
@@ -21,8 +26,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       class="custom-md markdown-content onload-animation prose prose-base max-w-none! dark:prose-invert!"
       th:classappend="| ${theme.config?.post?.contentDisplay?.content_size} ${theme.config?.post?.contentDisplay?.content_theme}|"
       th:utext="${singlePage.content.content}"
-    >
-    </div>
+    ></div>
   </article>
   <div
     class="card-base relative z-10 w-full px-6 pb-4 pt-6 md:px-9"
@@ -35,8 +39,20 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
     >
       评论
     </h2>
-    <Fragment
-      set:html={'<halo:comment group="content.halo.run" kind="SinglePage" th:attr="name=${singlePage.metadata.name}" />'}
-    />
+    <!-- P3（1.3.3）：评论区懒加载，机制见 post.astro 同名注释 -->
+    <template id="comment-lazy-template">
+      <Fragment
+        set:html={
+          '<halo:comment group="content.halo.run" kind="SinglePage" th:attr="name=${singlePage.metadata.name}" />'
+        }
+      />
+    </template>
+    <div id="comment-lazy-placeholder"></div>
   </div>
+  <!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro 同源） -->
+  <script
+    th:if="${haloCommentEnabled && (singlePage.spec.allowComment != false)}"
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    defer
+  ></script>
 </MainGridLayout>

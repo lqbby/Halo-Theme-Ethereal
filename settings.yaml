@@ -4,6 +4,75 @@ metadata:
   name: Ethereal-setting
 spec:
   forms:
+    - group: mods
+      label: 魔改开关
+      formSchema:
+        - $formkit: switch
+          name: enable
+          id: mods_enable
+          key: mods_enable
+          label: 启用魔改
+          value: true
+          help: "总开关。开启 → 启用下方全部魔改（卡片纹理、宽屏、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 1.2.0 行为"
+        - $formkit: switch
+          name: cardPattern
+          id: mods_cardPattern
+          key: mods_cardPattern
+          label: 卡片纹理
+          value: true
+          help: "卡片 / 浮窗叠加细纹理背景（魔改）。关闭则回到上游纯色卡片"
+        - $formkit: number
+          name: cardPatternOpacity
+          id: mods_cardPatternOpacity
+          key: mods_cardPatternOpacity
+          if: "$get(mods_cardPattern).value"
+          label: 纹理淡化程度
+          min: 0.01
+          max: 0.10
+          step: 0.01
+          value: 0.03
+          validation: "min:0.01|max:0.10"
+          help: "卡片纹理的显示强度（0.01~0.10，默认 0.03）。数值越小越淡、越大越明显：0.01 几乎不可见，0.03 若隐若现，0.10 明显可见。需总开关「启用魔改」与「卡片纹理」均开启才生效"
+        - $formkit: switch
+          name: pagePattern
+          id: mods_pagePattern
+          key: mods_pagePattern
+          label: 页面底纹
+          value: true
+          help: "整页叠加一层发丝细线底纹（Telegram 风格线稿图案：420px 平铺、钉在视口上不随滚动移动）。关闭则页面回到纯色底。仅桌面端（≥768px）加载该图案文件，手机端不下发也不解码。「Banner 布局」为「横幅」「全屏」时顶部有整幅壁纸，底纹与之交界显脏故不显示，只在「关闭/纯色」与「全屏透明」两种布局下生效（切换时随动画淡入淡出）。需总开关「启用魔改」开启才生效"
+        - $formkit: number
+          name: pagePatternOpacity
+          id: mods_pagePatternOpacity
+          key: mods_pagePatternOpacity
+          if: "$get(mods_pagePattern).value"
+          label: 底纹浓度
+          min: 0.02
+          max: 0.60
+          step: 0.01
+          value: 0.42
+          validation: "min:0.02|max:0.60"
+          help: "底纹线条的浓淡（0.02~0.60，默认 0.42 = 与 Telegram 参考同强度）。暗色模式用此值；亮色模式自动取它的 0.38 倍（≈0.16），因为深色线条在亮底上更抢眼，等值会显脏。0.10 以下几乎只是一层纸纹。需总开关「启用魔改」与「页面底纹」均开启才生效"
+        - $formkit: switch
+          name: pageWidth
+          id: mods_pageWidth
+          key: mods_pageWidth
+          label: 宽屏布局（112rem）
+          value: true
+          help: "将页面主容器宽度从上游 75rem 放宽为 112rem（魔改）。关闭则回到上游窄屏"
+        - $formkit: switch
+          name: cardShell
+          id: mods_cardShell
+          key: mods_cardShell
+          label: 卡片外壳（描边 + 暗晕）
+          value: false
+          help: "给全站卡片套一层外壳：1px 淡蓝主色描边 + 卡片外侧一圈柔和暗晕，让卡片从页面背景中浮起来（即早前「关于我」页的那种卡片效果）。关闭则维持无壳的纯净外观。需总开关「启用魔改」开启才生效；访客也可在样式切换面板里自行开关"
+        - $formkit: switch
+          name: menuFullRowExpand
+          id: mods_menuFullRowExpand
+          key: mods_menuFullRowExpand
+          label: 移动端菜单整行展开
+          value: false
+          help: "移动端菜单（手风琴样式）中有子菜单的项：开启后点击整行任意位置即展开/收起子菜单，符合手风琴直觉、不易误触；关闭则维持原版行为——仅右侧箭头可展开，点击文字区域跳转到父项链接。注意：开启后父项自身的链接将无法直接访问，如有需要请在子菜单里补一条对应条目。无论本开关如何，箭头按钮与菜单行都已放大到 44px 触控标准"
     - group: layout
       label: 布局设置
       formSchema:
@@ -73,6 +142,13 @@ spec:
                   max: 50
                   step: 1
                   help: "瞬间预览条最多展示的瞬间条数（1~50，默认 10）"
+            - $formkit: switch
+              name: categoryBar
+              id: categoryBar_enable
+              key: categoryBar_enable
+              label: 启用分类导航栏
+              value: false
+              help: "开启后将在内容区上方显示分类导航栏，包含首页、归档、文章分类及全部分类入口"
         - $formkit: group
           name: bannerLayout
           label: Banner 布局
@@ -244,6 +320,81 @@ spec:
                   label: 封面高度自适应
                   value: true
                   help: "开启后封面自动拉伸填满卡片剩余高度，等高网格下同排卡片封面等高、摘要下方不留白；关闭后封面固定 2:1 高度，摘要下方留白（仅等高网格生效，瀑布流下自动隐藏）"
+            - $formkit: switch
+              name: featuredEnable
+              id: postList_featuredEnable
+              label: 显示顶部精选卡片
+              value: true
+              help: "在首页列表最上方显示两张卡片（左「随机一篇文章」+ 右「热门/最近文章」）。仅在首页第一页显示"
+            - $formkit: select
+              name: featuredSource
+              id: postList_featuredSource
+              key: postList_featuredSource
+              if: "$get(postList_featuredEnable).value === true"
+              label: 右侧卡片来源
+              value: recent
+              help: "「最近文章」按发布时间取最新一篇；「热门文章」按站点统计的访问量取最高的一篇（与侧栏「热门文章」小组件同一口径）"
+              options:
+                - label: 最近文章
+                  value: recent
+                - label: 热门文章
+                  value: popular
+            - $formkit: switch
+              name: featuredRandom
+              id: postList_featuredRandom
+              key: postList_featuredRandom
+              if: "$get(postList_featuredEnable).value === true"
+              label: 显示「随机一篇文章」卡片
+              value: true
+              help: "关闭后只显示右侧那张文章卡（占满整行）"
+            - $formkit: switch
+              name: seriesEnable
+              id: postList_seriesEnable
+              label: 显示「系列」卡片条
+              value: true
+              help: "在首页精选卡片上方显示系列卡：每个系列展示其全部文章（一排 4 张，可点 ‹ › 右移），顶部按钮切换系列。仅首页第一页显示。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
+            - $formkit: number
+              name: seriesCount
+              id: postList_seriesCount
+              key: postList_seriesCount
+              if: "$get(postList_seriesEnable).value === true"
+              label: 系列数量（切换按钮）
+              min: 1
+              max: 24
+              step: 1
+              value: 4
+              validation: "min:1|max:24"
+              help: "最多显示几个系列（按各系列最近更新时间倒序取），每个系列对应顶部一个切换按钮；每个系列的文章在同一排内横向滚动查看。上限 24"
+            - $formkit: select
+              name: coverPosition
+              id: postList_coverPosition
+              key: postList_coverPosition
+              if: "$get(postList_defaultMode).value === 'list'"
+              label: 列表模式封面位置
+              value: right
+              help: "仅列表布局生效：封面显示在卡片右侧或左侧"
+              options:
+                - label: 右侧
+                  value: right
+                - label: 左侧
+                  value: left
+            - $formkit: switch
+              name: showHomeMoments
+              id: postList_showHomeMoments
+              key: postList_showHomeMoments
+              label: 首页显示瞬间预览条
+              value: true
+              help: "开启后首页文章列表顶部显示「瞬间」横向滚动预览（魔改功能）。关闭则隐藏。需总开关「启用魔改」开启才生效"
+            - $formkit: number
+              name: homeMomentsCount
+              id: postList_homeMomentsCount
+              key: postList_homeMomentsCount
+              label: 瞬间预览条数量
+              value: 10
+              min: 1
+              max: 50
+              step: 1
+              help: "首页瞬间预览条最多展示的瞬间条数"
         - $formkit: group
           name: mobileMenu
           label: 菜单栏设置
@@ -338,6 +489,54 @@ spec:
                   label: 特效切换
                   value: true
                   help: "访客可在「特效」标签页开关樱花特效"
+                - $formkit: switch
+                  name: hue
+                  id: visitorStyle_hue
+                  key: visitorStyle_hue
+                  if: "$get(visitorStyle_enable).value"
+                  label: 主题色相切换
+                  value: true
+                  help: "访客可在面板中调节主题色相；关闭则隐藏色相选择器，固定为主题颜色中设置的色调"
+                - $formkit: switch
+                  name: postListLayout
+                  id: visitorStyle_postListLayout
+                  key: visitorStyle_postListLayout
+                  if: "$get(visitorStyle_enable).value"
+                  label: 文章布局切换
+                  value: true
+                  help: "访客可在列表 / 网格布局间切换，后台「文章卡片布局」的默认模式仍作为初始值"
+                - $formkit: switch
+                  name: cardStyle
+                  id: visitorStyle_cardStyle
+                  key: visitorStyle_cardStyle
+                  if: "$get(visitorStyle_enable).value"
+                  label: 卡片样式切换
+                  value: true
+                  help: "访客可开关卡片悬浮效果、高级材质（磨砂）与瀑布流，后台「样式开关」的值仍作为默认"
+                - $formkit: switch
+                  name: wallpaperMode
+                  id: visitorStyle_wallpaperMode
+                  key: visitorStyle_wallpaperMode
+                  if: "$get(visitorStyle_enable).value"
+                  label: 壁纸模式切换
+                  value: true
+                  help: "访客可在纯色背景 / 横幅 / 全屏 / 全屏透明四种模式间切换，后台「横幅布局」的显示模式仍作为默认"
+                - $formkit: switch
+                  name: wallpaperSettings
+                  id: visitorStyle_wallpaperSettings
+                  key: visitorStyle_wallpaperSettings
+                  if: "$get(visitorStyle_enable).value"
+                  label: 壁纸设置切换
+                  value: true
+                  help: "横幅 / 全屏模式下，访客可开关横幅底部波浪动效；后台「样式开关」的波浪设置仍作为默认，后台关闭时前台不显示该开关"
+                - $formkit: switch
+                  name: transparent
+                  id: visitorStyle_transparent
+                  key: visitorStyle_transparent
+                  if: "$get(visitorStyle_enable).value"
+                  label: 透明设置调节
+                  value: true
+                  help: "仅横幅「全屏透明」模式下显示，访客可调节壁纸透明度 / 模糊度 / 卡片透明度"
         - $formkit: group
           name: floatingButtons
           label: 浮动导航按钮
@@ -541,6 +740,16 @@ spec:
                   step: 500
                   value: 5000
                   help: "每张图片停留时长（毫秒），独立配置，不随动画速度档位变化；切换动画时长仍跟随动画速度档位"
+                - $formkit: attachment
+                  name: darkImages
+                  id: carousel_darkImages
+                  key: carousel_darkImages
+                  label: 暗色壁纸（电脑端轮播）
+                  multiple: true
+                  accepts:
+                    - "image/*"
+                  value: []
+                  help: "主题为暗色时使用的电脑端轮播图，与亮色轮播图按同一顺序/数量对应；留空则暗色模式沿用亮色轮播图"
             - $formkit: switch
               name: useMobileSrc
               id: banner_useMobileSrc
@@ -592,6 +801,27 @@ spec:
                     - "image/*"
                   value: []
                   help: "移动端轮播图片，按顺序循环切换；留空则移动端使用电脑端来源。外部随机图接口建议使用无状态服务，uapis.cn 等接口存在同会话返回同一张图的问题"
+                - $formkit: attachment
+                  name: darkSrc
+                  id: banner_mobile_darkSrc
+                  key: banner_mobile_darkSrc
+                  if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'single'"
+                  label: 暗色壁纸（移动端）
+                  value: ""
+                  accepts:
+                    - "image/*"
+                  help: "主题为暗色时使用的移动端单图壁纸；留空则暗色模式沿用移动端亮色壁纸。仅支持图片（视频源不做暗色变体）"
+                - $formkit: attachment
+                  name: darkImages
+                  id: banner_mobile_darkImages
+                  key: banner_mobile_darkImages
+                  if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'carousel'"
+                  label: 暗色壁纸（移动端轮播）
+                  multiple: true
+                  accepts:
+                    - "image/*"
+                  value: []
+                  help: "主题为暗色时使用的移动端轮播图，与亮色移动端轮播图按同一顺序/数量对应；留空则暗色模式沿用亮色轮播图"
             - $formkit: select
               name: position
               label: 位置
@@ -621,6 +851,30 @@ spec:
                   name: url
                   label: 链接
                   value:
+            - $formkit: attachment
+              name: darkSrc
+              id: banner_darkSrc
+              key: banner_darkSrc
+              if: "$get(banner_mode).value === 'single'"
+              label: 暗色壁纸（电脑端）
+              value: ""
+              accepts:
+                - "image/*"
+              help: "主题为暗色时使用的电脑端单图壁纸；留空则暗色模式沿用亮色壁纸。仅支持图片（视频源不做暗色变体）"
+            - $formkit: select
+              name: darkPosition
+              id: banner_darkPosition
+              key: banner_darkPosition
+              label: 位置（暗色壁纸）
+              value: "center"
+              help: "暗色壁纸的图片位置（居中/顶部/底部），可与亮色壁纸不同；仅配置了暗色壁纸时生效"
+              options:
+                - value: center
+                  label: 居中
+                - value: top
+                  label: 顶部
+                - value: bottom
+                  label: 底部
         - $formkit: group
           name: bannerText
           label: 标题与副标题
@@ -703,6 +957,33 @@ spec:
                       label: 链接
                       validation: "required"
                       help: "支持完整网址（https://example.com）、邮箱（mailto:you@example.com）或站内路径（/about）"
+            - $formkit: select
+              name: fontPreset
+              if: "$get(bannerText_enable).value"
+              label: 标题/副标题字体
+              value: "serif"
+              options:
+                - value: serif
+                  label: 衬线体（默认）—— 英文标语推荐
+                - value: sans
+                  label: 细体无衬线 —— 现代
+                - value: mono
+                  label: 等宽 —— 技术感
+                - value: inherit
+                  label: 跟随主题 —— 不用预设
+              help: "只作用于 Banner 的标题与副标题，不影响正文。全部为系统字体栈，不额外加载任何网络字体。选「跟随主题」即回到本主题原有的字体观感。"
+            - $formkit: text
+              name: fontFamily
+              if: "$get(bannerText_enable).value"
+              label: 自定义字体族（可选）
+              value: ""
+              help: "留空则用上面的预设。填任意 CSS font-family 列表即覆盖预设，例如：'Playfair Display', Georgia, serif（前提是该字体已被加载）。"
+            - $formkit: text
+              name: letterSpacing
+              if: "$get(bannerText_enable).value"
+              label: 字间距（可选）
+              value: ""
+              help: "留空不改。英文标语建议 0.02em ~ 0.06em，衬线体配宽字距会更舒展。"
         - $formkit: group
           name: themeColor
           label: 主题颜色
@@ -968,6 +1249,14 @@ spec:
                   step: 10
                   value: 700
                   help: "轮播图切换动画时长（原 700ms），随动画速度档位变化"
+                - $formkit: number
+                  name: marqueeSpeed
+                  label: 瞬间走马灯速度（px/s）
+                  min: 20
+                  max: 200
+                  step: 4
+                  value: 48
+                  help: "首页「瞬间」走马灯滚动速度（像素/秒），数值越大滚动越快，默认 48；随动画速度档位变化"
         - $formkit: group
           name: externalFont
           label: 外部字体
@@ -1067,6 +1356,290 @@ spec:
                   preserve: true
                   label: HTML
                   value: "<p>自定义HTML</p>"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_posts
+                  key: widget_site_stats_show_posts
+                  preserve: true
+                  label: 显示文章数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_categories
+                  key: widget_site_stats_show_categories
+                  preserve: true
+                  label: 显示分类数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_tags
+                  key: widget_site_stats_show_tags
+                  preserve: true
+                  label: 显示标签数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_total_words
+                  key: widget_site_stats_show_total_words
+                  preserve: true
+                  label: 显示总字数
+                  value: true
+                  help: "未安装「API 拓展包」插件时由客户端逐篇统计，文章较多会有额外请求"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_last_activity
+                  key: widget_site_stats_show_last_activity
+                  preserve: true
+                  label: 显示最后活动
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_running_days
+                  key: widget_site_stats_show_running_days
+                  preserve: true
+                  label: 显示运行天数
+                  value: true
+                  help: "需同时在下方选择网站上线日期，未选择则不显示该项"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_visits
+                  key: widget_site_stats_show_visits
+                  preserve: true
+                  label: 显示访问量
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_upvotes
+                  key: widget_site_stats_show_upvotes
+                  preserve: true
+                  label: 显示点赞数
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_comments
+                  key: widget_site_stats_show_comments
+                  preserve: true
+                  label: 显示评论数
+                  value: false
+                - $formkit: date
+                  if: "$value.value === 'site-stats'"
+                  name: site_start_date
+                  key: widget_site_stats_site_start_date
+                  preserve: true
+                  label: 网站上线日期
+                  help: "用于计算运行天数，留空则不显示运行天数"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: tencent_key
+                  key: widget_weather_tencent_key
+                  preserve: true
+                  label: 腾讯位置服务 Key
+                  value: ""
+                  help: "WebService API 类型，免费注册：https://lbs.qq.com/dev/console/application/mine；Key 会在前端页面源码中明文出现，建议在腾讯位置服务控制台配置域名白名单。对【账户额度】下的“天气:天气”和“IP定位”分别进行配额分配，确保“调用量分配”和“并发量分配”满足网站需求。"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: default_city
+                  key: widget_weather_default_city
+                  preserve: true
+                  label: 默认城市编码
+                  value: "110000"
+                  help: "IP定位失败时的回退城市，填写行政区划编码如 110000（北京）或 310000（上海）"
+                - $formkit: url
+                  if: "$value.value === 'hitokoto'"
+                  name: hitokoto_api
+                  key: widget_hitokoto_api
+                  preserve: true
+                  label: 一言 API 地址
+                  value: ""
+                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_text
+                  key: widget_hitokoto_fallback_text
+                  preserve: true
+                  label: 获取失败文案
+                  value: "世界很大，开心第一。"
+                  help: "一言获取失败时显示的句子"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_source
+                  key: widget_hitokoto_fallback_source
+                  preserve: true
+                  label: 获取失败来源
+                  value: "楠南NanNan"
+                  help: "一言获取失败时显示的作者或来源"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_source
+                  key: widget_counter_source
+                  preserve: true
+                  label: 计数来源
+                  value: "moe"
+                  options:
+                    - label: Moe-Counter 自身计数
+                      value: "moe"
+                    - label: 站点统计（Halo 访问量）
+                      value: "site"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）。1.5.24 起该模式的字形改用 Moe-Counter 的 @demo 精灵图本地拼：首访取一次即被浏览器缓存一年，之后每次导航零外部请求；若 @demo 取不到则自动回落到直接请求主题图"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_name
+                  key: widget_counter_name
+                  preserve: true
+                  label: 计数器 ID
+                  value: "lqbby"
+                  help: "Moe-Counter 的唯一 id，对应服务端 /@:name；全站建议只用一个 id"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_api
+                  key: widget_counter_api
+                  preserve: true
+                  label: 计数器服务地址
+                  value: "https://moe.lqbby.com:1443"
+                  help: "Moe-Counter 服务地址，只填地址、结尾不要加斜杠（如 https://moe.lqbby.com:1443）；若旧值带了 /get/@:id?theme=… 后缀，组件会自动裁掉"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_theme
+                  key: widget_counter_theme
+                  preserve: true
+                  label: 计数器主题
+                  value: "moebooru"
+                  help: "Moe-Counter 主题名，默认 moebooru（看板娘数字）；可换 3d-num / miku / capoo-1 / minecraft 等。填 native 则改用主题配色自绘数字方块（不带看板娘）"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_padding
+                  key: widget_counter_padding
+                  preserve: true
+                  label: 补零位数
+                  value: "7"
+                  options:
+                    - label: 不补零
+                      value: "0"
+                    - label: 5 位
+                      value: "5"
+                    - label: 6 位
+                      value: "6"
+                    - label: 7 位（Moe-Counter 默认，推荐）
+                      value: "7"
+                    - label: 8 位
+                      value: "8"
+                  help: "不足位数时在前面补 0：7 位时 3743 会显示成 0003743 —— 这与 Moe-Counter 服务端的默认观感一致（服务端 padding 默认就是 7），也是原版主题图的样式。只影响 native 自绘与 @demo 精灵图这两种本地渲染；原版主题图由服务端补零，此处不生效"
+                - $formkit: text
+                  if: "$value.value === 'music'"
+                  name: title
+                  key: widget_music_title
+                  preserve: true
+                  label: 标题
+                  value: 音乐
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: server
+                  key: widget_music_server
+                  preserve: true
+                  label: 平台
+                  value: netease
+                  options:
+                    - label: 网易云音乐
+                      value: netease
+                    - label: QQ 音乐
+                      value: tencent
+                    - label: 酷狗音乐
+                      value: kugou
+                    - label: 虾米音乐
+                      value: xiami
+                    - label: 百度音乐
+                      value: baidu
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: type
+                  key: widget_music_type
+                  preserve: true
+                  label: 类型
+                  value: playlist
+                  options:
+                    - label: 歌曲
+                      value: song
+                    - label: 歌单
+                      value: playlist
+                    - label: 专辑
+                      value: album
+                    - label: 歌手
+                      value: artist
+                    - label: 搜索
+                      value: search
+                - $formkit: text
+                  if: "$value.value === 'music'"
+                  name: id
+                  key: widget_music_id
+                  preserve: true
+                  label: ID
+                  validation: required
+                  help: 歌曲 / 歌单 / 专辑 / 歌手 ID，搜索类型时填写关键词
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: play_mode
+                  key: widget_music_play_mode
+                  preserve: true
+                  label: 播放模式
+                  value: list
+                  options:
+                    - label: 列表循环
+                      value: list
+                    - label: 单曲循环
+                      value: one
+                    - label: 随机
+                      value: random
+                - $formkit: number
+                  if: "$value.value === 'music'"
+                  name: volume
+                  key: widget_music_volume
+                  preserve: true
+                  label: 默认音量
+                  min: 0
+                  max: 1
+                  step: 0.1
+                  value: 0.7
+                - $formkit: url
+                  if: "$value.value === 'music'"
+                  name: music_api
+                  key: widget_music_api
+                  preserve: true
+                  label: 自定义 Meting API
+                  help: 留空时使用 MetingJS 默认 API，地址可包含 :server、:type、:id、:r 占位符
+                - $formkit: number
+                  if: "$value.value === 'schedule'"
+                  name: limit
+                  key: widget_schedule_limit
+                  preserve: true
+                  label: 显示条数
+                  min: 1
+                  max: 10
+                  value: 3
+                  help: "显示最近日程的条数，最多10条，显示过多会导致小组件过高，建议保持默认"
+                - $formkit: number
+                  if: "$value.value === 'steam'"
+                  name: steam_recent_count
+                  key: widget_steam_recent_count
+                  preserve: true
+                  label: 最近游玩条数
+                  min: 1
+                  max: 6
+                  value: 3
+                  help: "侧边栏列宽固定 17.5rem（内容宽 260px），条数过多会把吸顶区顶出视口，建议 3 条"
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_show_stats
+                  key: widget_steam_show_stats
+                  preserve: true
+                  label: 显示统计（游戏数 / 总时长 / 近两周）
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_enable_link
+                  key: widget_steam_enable_link
+                  preserve: true
+                  label: 游戏条目可点击跳转 Steam 商店
+                  value: true
             - $formkit: array
               name: rightWidgets
               label: 右侧边栏小组件
@@ -1128,6 +1701,208 @@ spec:
                   preserve: true
                   label: HTML
                   value: "<p>自定义HTML</p>"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_posts
+                  key: right_widget_site_stats_show_posts
+                  preserve: true
+                  label: 显示文章数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_categories
+                  key: right_widget_site_stats_show_categories
+                  preserve: true
+                  label: 显示分类数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_tags
+                  key: right_widget_site_stats_show_tags
+                  preserve: true
+                  label: 显示标签数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_total_words
+                  key: right_widget_site_stats_show_total_words
+                  preserve: true
+                  label: 显示总字数
+                  value: true
+                  help: "未安装「API 拓展包」插件时由客户端逐篇统计，文章较多会有额外请求"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_last_activity
+                  key: right_widget_site_stats_show_last_activity
+                  preserve: true
+                  label: 显示最后活动
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_running_days
+                  key: right_widget_site_stats_show_running_days
+                  preserve: true
+                  label: 显示运行天数
+                  value: true
+                  help: "需同时在下方选择网站上线日期，未选择则不显示该项"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_visits
+                  key: right_widget_site_stats_show_visits
+                  preserve: true
+                  label: 显示访问量
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_upvotes
+                  key: right_widget_site_stats_show_upvotes
+                  preserve: true
+                  label: 显示点赞数
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_comments
+                  key: right_widget_site_stats_show_comments
+                  preserve: true
+                  label: 显示评论数
+                  value: false
+                - $formkit: date
+                  if: "$value.value === 'site-stats'"
+                  name: site_start_date
+                  key: right_widget_site_stats_site_start_date
+                  preserve: true
+                  label: 网站上线日期
+                  help: "用于计算运行天数，留空则不显示运行天数"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: tencent_key
+                  key: right_widget_weather_tencent_key
+                  preserve: true
+                  label: 腾讯位置服务 Key
+                  value: ""
+                  help: "WebService API 类型，免费注册：https://lbs.qq.com/dev/console/application/mine；Key 会在前端页面源码中明文出现，建议在腾讯位置服务控制台配置域名白名单。对【账户额度】下的“天气:天气”和“IP定位”分别进行配额分配，确保“调用量分配”和“并发量分配”满足网站需求。"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: default_city
+                  key: right_widget_weather_default_city
+                  preserve: true
+                  label: 默认城市编码
+                  value: "110000"
+                  help: "IP定位失败时的回退城市，填写行政区划编码如 110000（北京）或 310000（上海）"
+                - $formkit: url
+                  if: "$value.value === 'hitokoto'"
+                  name: hitokoto_api
+                  key: right_widget_hitokoto_api
+                  preserve: true
+                  label: 一言 API 地址
+                  value: ""
+                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_text
+                  key: right_widget_hitokoto_fallback_text
+                  preserve: true
+                  label: 获取失败文案
+                  value: "世界很大，开心第一。"
+                  help: "一言获取失败时显示的句子"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_source
+                  key: right_widget_hitokoto_fallback_source
+                  preserve: true
+                  label: 获取失败来源
+                  value: "楠南NanNan"
+                  help: "一言获取失败时显示的作者或来源"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_source
+                  key: right_widget_counter_source
+                  preserve: true
+                  label: 计数来源
+                  value: "moe"
+                  options:
+                    - label: Moe-Counter 自身计数
+                      value: "moe"
+                    - label: 站点统计（Halo 访问量）
+                      value: "site"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）。1.5.24 起该模式的字形改用 Moe-Counter 的 @demo 精灵图本地拼：首访取一次即被浏览器缓存一年，之后每次导航零外部请求；若 @demo 取不到则自动回落到直接请求主题图"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_name
+                  key: right_widget_counter_name
+                  preserve: true
+                  label: 计数器 ID
+                  value: "lqbby"
+                  help: "Moe-Counter 的唯一 id，对应服务端 /@:name；全站建议只用一个 id"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_api
+                  key: right_widget_counter_api
+                  preserve: true
+                  label: 计数器服务地址
+                  value: "https://moe.lqbby.com:1443"
+                  help: "Moe-Counter 服务地址，只填地址、结尾不要加斜杠（如 https://moe.lqbby.com:1443）；若旧值带了 /get/@:id?theme=… 后缀，组件会自动裁掉"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_theme
+                  key: right_widget_counter_theme
+                  preserve: true
+                  label: 计数器主题
+                  value: "moebooru"
+                  help: "Moe-Counter 主题名，默认 moebooru（看板娘数字）；可换 3d-num / miku / capoo-1 / minecraft 等。填 native 则改用主题配色自绘数字方块（不带看板娘）"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_padding
+                  key: right_widget_counter_padding
+                  preserve: true
+                  label: 补零位数
+                  value: "7"
+                  options:
+                    - label: 不补零
+                      value: "0"
+                    - label: 5 位
+                      value: "5"
+                    - label: 6 位
+                      value: "6"
+                    - label: 7 位（Moe-Counter 默认，推荐）
+                      value: "7"
+                    - label: 8 位
+                      value: "8"
+                  help: "不足位数时在前面补 0：7 位时 3743 会显示成 0003743 —— 这与 Moe-Counter 服务端的默认观感一致（服务端 padding 默认就是 7），也是原版主题图的样式。只影响 native 自绘与 @demo 精灵图这两种本地渲染；原版主题图由服务端补零，此处不生效"
+                - $formkit: number
+                  if: "$value.value === 'schedule'"
+                  name: limit
+                  key: right_widget_schedule_limit
+                  preserve: true
+                  label: 显示条数
+                  min: 1
+                  max: 10
+                  value: 3
+                  help: "显示最近日程的条数，最多10条，显示过多会导致小组件过高，建议保持默认"
+                - $formkit: number
+                  if: "$value.value === 'steam'"
+                  name: steam_recent_count
+                  key: right_widget_steam_recent_count
+                  preserve: true
+                  label: 最近游玩条数
+                  min: 1
+                  max: 6
+                  value: 3
+                  help: "右侧栏宽 17.5rem；文章页只显示前 2 个右侧小组件，排太靠后会看不到"
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_show_stats
+                  key: right_widget_steam_show_stats
+                  preserve: true
+                  label: 显示统计（游戏数 / 总时长 / 近两周）
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_enable_link
+                  key: right_widget_steam_enable_link
+                  preserve: true
+                  label: 游戏条目可点击跳转 Steam 商店
+                  value: true
             - $formkit: array
               name: mobileWidgets
               label: 移动端小组件
@@ -1330,6 +2105,23 @@ spec:
                   value: ""
                   maxlength: 10
                   help: "「暂时离开」状态的文案，留空使用默认，最多 10 字"
+            - $formkit: switch
+              name: enable_profile
+              id: enable_profile_switch
+              value: true
+              label: 启用个人简介小组件
+              help: "开启后显示个人简介小组件（位于侧边栏首位，不参与吸顶，随页面滚动）"
+            - $formkit: select
+              name: display_position
+              if: "$get(enable_profile_switch).value"
+              label: 个人简介小组件显示位置
+              value: left
+              help: "选择个人简介小组件显示在左侧还是右侧侧边栏，两栏布局时仅显示在左侧"
+              options:
+                - label: 左侧边栏
+                  value: left
+                - label: 右侧边栏
+                  value: right
         - $formkit: group
           name: announcement
           label: 公告小组件
@@ -1394,6 +2186,23 @@ spec:
                   label: 外部链接
                   value: false
                   help: "开启后在新标签页打开"
+            - $formkit: switch
+              name: enable
+              id: announcement_enable
+              label: 启用公告
+              value: false
+              help: "开启后显示公告小组件（侧边栏首位为个人简介小组件时显示在第二位），不参与吸顶，随页面滚动"
+            - $formkit: select
+              name: position
+              if: "$get(announcement_enable).value"
+              label: 显示位置
+              value: left
+              help: "公告仅可显示在左侧边栏或右侧边栏，两栏布局时仅显示在左侧。选择右侧栏时，主题为手机端保留一份左侧兜底实例（桌面端隐藏，仅移动端显示），自定义 HTML 需按类选择器逐实例初始化，避免重复 ID 导致的脚本失效（详见「呈现为HTML」说明）"
+              options:
+                - label: 左侧边栏
+                  value: left
+                - label: 右侧边栏
+                  value: right
         - $formkit: group
           name: siteStats
           label: 站点统计小组件
@@ -1823,6 +2632,11 @@ spec:
               label: 显示随机钓鱼按钮
               value: true
               help: "在朋友圈页面标题右侧显示随机钓鱼按钮，点击随机跳转到一个朋友圈文章"
+            - $formkit: textarea
+              name: blacklist
+              label: 屏蔽列表
+              value: ""
+              help: "要屏蔽的博主名称，每行一个。匹配到的动态将不会在朋友圈显示"
         - $formkit: group
           name: timeline
           label: 时间轴页面
@@ -1909,6 +2723,11 @@ spec:
                       label: 精选
                       value: false
                       help: "开启后在标题旁显示星标"
+            - $formkit: text
+              name: subtitle
+              label: 副标题
+              value: "我的成长历程和重要里程碑"
+              help: "显示在时间轴页面标题下方，留空则使用默认文案"
         - $formkit: group
           name: skills
           label: 技能页面
@@ -1990,6 +2809,11 @@ spec:
                       label: 主题色
                       value: ""
                       help: "图标底色与进度条颜色，留空使用主题色"
+            - $formkit: text
+              name: subtitle
+              label: 副标题
+              value: "我的技术技能和专业知识"
+              help: "显示在技能页面标题下方，留空则使用默认文案"
         - $formkit: group
           name: about
           label: 关于页面
@@ -2104,7 +2928,44 @@ spec:
                       name: url
                       label: 按钮链接
                       validation: required
-            # ─────────── ② 顶部导航卡片 ───────────
+                # ─────────── ② 顶部导航卡片 ───────────
+                - $formkit: text
+                  name: actionPrimaryLabel
+                  label: 主按钮文字
+                  value: "查看 GitHub"
+                  help: "留空则不显示主按钮"
+                - $formkit: text
+                  name: actionPrimaryUrl
+                  label: 主按钮链接
+                  help: "支持站内路径（如 /links）或完整网址；与「主按钮文字」同时填写才显示"
+                  value: ""
+                - $formkit: text
+                  name: actionSecondaryLabel
+                  label: 次按钮文字
+                  value: "查看心愿墙"
+                  help: "留空则不显示次按钮"
+                - $formkit: text
+                  name: actionSecondaryUrl
+                  label: 次按钮链接
+                  value: ""
+                  help: "支持站内路径（如 /wishes）或完整网址；与「次按钮文字」同时填写才显示"
+                - $formkit: textarea
+                  name: quote
+                  label: 引语
+                  value: ""
+                  help: "「关于我」卡片开头的引用，留空则不显示"
+                - $formkit: textarea
+                  name: intro
+                  label: 关于我正文
+                  value: "这里记录我在自托管、主题定制与插件开发上的折腾。\n博客跑在群晖 NAS 上，前台是基于 Fuwari 二次开发的 Ethereal 主题 —— 从配色、布局到小组件都自己改，版本号一直在往前滚。\n平时写点工具类网站的推荐和使用记录，顺手把踩过的坑整理成主题补丁或插件。"
+                  help: "每行一段"
+                - $formkit: text
+                  name: introSubtitle
+                  label: 关于我右上小字
+                  value: "公开 · 持续更新"
+                  help: "显示在「关于我」卡片右上角的小字，留空则不显示"
+
+            # ─────────── ② 顶部导航 ───────────
             - $formkit: group
               name: nav
               label: 顶部导航卡片
@@ -2142,7 +3003,49 @@ spec:
                       label: 导航链接
                       help: "支持站内路径（如 /links）或完整网址；留空表示指向当前页面"
 
-            # ─────────── ③ 个人简介卡片 ───────────
+                # ─────────── ③ 个人简介卡片 ───────────
+                - $formkit: text
+                  name: profileLabel
+                  label: 导航①文字
+                  value: "个人资料"
+                  help: "指向当前页面，不可改链接"
+                - $formkit: text
+                  name: changelogLabel
+                  label: 导航②文字
+                  value: "博客日志"
+                  help: "导航②的文字；「导航②链接」留空则整项隐藏"
+                - $formkit: text
+                  name: changelogUrl
+                  label: 导航②链接
+                  value: "/blog-changelog"
+                  help: "留空则不显示该项"
+                - $formkit: text
+                  name: linksLabel
+                  label: 导航③文字
+                  value: "友情链接"
+                  help: "导航③的文字；「导航③链接」留空则整项隐藏"
+                - $formkit: text
+                  name: linksUrl
+                  label: 导航③链接
+                  value: "/links"
+                  help: "留空则不显示该项"
+                - $formkit: switch
+                  name: linksCount
+                  label: 导航③显示友链数量
+                  value: true
+                  help: "读取本站友情链接总数，显示为小圆标"
+                - $formkit: text
+                  name: friendsLabel
+                  label: 导航④文字
+                  value: "朋友圈"
+                  help: "导航④的文字；「导航④链接」留空则整项隐藏"
+                - $formkit: text
+                  name: friendsUrl
+                  label: 导航④链接
+                  value: "/friends"
+                  help: "留空则不显示该项"
+
+            # ─────────── ③ 本人项目 ───────────
             - $formkit: group
               name: intro
               label: 个人简介卡片
@@ -2197,7 +3100,60 @@ spec:
                   value: true
                   help: "本人项目卡片右上角显示全部项目按钮"
 
-            # ─────────── ⑤ 最近提交卡片 ───────────
+                # ─────────── ⑤ 最近提交卡片 ───────────
+                - $formkit: text
+                  name: moreLabel
+                  key: about_projects_moreLabel
+                  if: "$get(about_projects_enable).value"
+                  label: 右上角链接文字
+                  value: "全部项目 →"
+                  help: "留空则不显示"
+                - $formkit: text
+                  name: moreUrl
+                  key: about_projects_moreUrl
+                  if: "$get(about_projects_enable).value"
+                  label: 右上角链接地址
+                  value: ""
+                - $formkit: array
+                  name: items
+                  key: about_projects_items
+                  if: "$get(about_projects_enable).value"
+                  label: 项目列表
+                  help: "按顺序展示，建议 3~6 个；全部删除则卡片自动隐藏"
+                  children:
+                    - $formkit: text
+                      name: title
+                      label: 名称
+                    - $formkit: text
+                      name: icon
+                      label: 图标（可留空）
+                      help: "留空即可 —— 卡片会按顺序自动分配互不相同的图标，不会重复。想固定某一个时再填，可选：icon-[material-symbols--terminal-rounded] icon-[material-symbols--database] icon-[material-symbols--menu-book-rounded] icon-[material-symbols--widgets-outline-rounded] icon-[material-symbols--bolt-rounded]"
+                    - $formkit: select
+                      name: tone
+                      label: 图标配色
+                      value: ""
+                      options:
+                        - label: 跟随主题色
+                          value: ""
+                        - label: 金色
+                          value: gold
+                        - label: 薄荷
+                          value: mint
+                        - label: 紫色
+                          value: violet
+                    - $formkit: textarea
+                      name: description
+                      label: 说明
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个"
+                    - $formkit: text
+                      name: link
+                      label: 链接
+                      help: "留空则卡片不可点击"
+
+            # ─────────── ④ 更新摘要 ───────────
             - $formkit: group
               name: activity
               label: 最近提交卡片
@@ -2220,7 +3176,14 @@ spec:
                   validation: "min:2|max:20"
                   help: "文章与瞬间合并排序后，卡片上总共显示的条目数；最多 20 条"
 
-            # ─────────── ⑥ 我的技能卡片 ───────────
+                # ─────────── ⑥ 我的技能卡片 ───────────
+                - $formkit: text
+                  name: subtitle
+                  key: about_activity_subtitle
+                  if: "$get(about_activity_enable).value"
+                  label: 标题下小字
+                  value: "写下来的，才会留下"
+                  help: "留空则不显示"
             - $formkit: group
               name: skills
               label: 我的技能卡片
@@ -2270,7 +3233,23 @@ spec:
                   validation: "min:3|max:12"
                   help: "每次进入关于页面我的朋友卡片随机显示几条"
 
-            # ─────────── ⑧ 保持联系卡片 ───────────
+                # ─────────── ⑧ 保持联系卡片 ───────────
+                - $formkit: text
+                  name: note
+                  key: about_friends_note
+                  if: "$get(about_friends_enable).value"
+                  label: 卡片底部小字
+                  value: "各自折腾，互相串门。"
+                  help: "留空则不显示"
+                - $formkit: switch
+                  name: contactEnable
+                  id: about_contact_enable
+                  key: about_contact_enable
+                  label: 显示「保持联系」
+                  value: true
+                  help: "数据源同上；社交媒体为空时卡片自动隐藏"
+
+            # ─────────── ⑦ 服务器状态 ───────────
             - $formkit: group
               name: contact
               label: 保持联系卡片
@@ -2340,6 +3319,119 @@ spec:
                       name: url
                       label: 链接
                       validation: required
+            - $formkit: group
+              name: highlights
+              label: ④ 更新摘要
+              help: "卡片自动同步「博客更新日志」页的最新批次记录（同一个数据源），通常不需要在这里维护条目"
+              children:
+                - $formkit: switch
+                  name: enable
+                  id: about_highlights_enable
+                  key: about_highlights_enable
+                  label: 显示「更新摘要」
+                  value: true
+                  help: "关闭后整张卡片隐藏；列表内容会保留，重新打开即恢复"
+                - $formkit: text
+                  name: moreLabel
+                  key: about_highlights_moreLabel
+                  if: "$get(about_highlights_enable).value"
+                  label: 右上角链接文字
+                  value: "按日查看 →"
+                  help: "留空则不显示"
+                - $formkit: text
+                  name: moreUrl
+                  key: about_highlights_moreUrl
+                  if: "$get(about_highlights_enable).value"
+                  label: 右上角链接地址
+                  value: "/blog-changelog"
+                - $formkit: number
+                  name: count
+                  key: about_highlights_count
+                  if: "$get(about_highlights_enable).value"
+                  label: 显示条数
+                  value: 3
+                  min: 1
+                  max: 10
+                  help: "自动同步「博客更新日志」页的最新记录，这里控制最多显示几条（默认 3）"
+                - $formkit: array
+                  name: items
+                  key: about_highlights_items
+                  if: "$get(about_highlights_enable).value"
+                  label: 兜底条目
+                  help: "正常情况下卡片会自动同步更新日志，用不到这里；仅当更新日志没有任何记录时才回退显示这些手填条目，全部留空则卡片隐藏"
+                  children:
+                    - $formkit: text
+                      name: title
+                      label: 标题
+                    - $formkit: text
+                      name: icon
+                      label: 图标（可留空）
+                      help: "留空即可 —— 卡片会按顺序自动分配互不相同的图标，不会重复。想固定某一个时再填，可选：icon-[material-symbols--history-rounded] icon-[material-symbols--update-rounded] icon-[material-symbols--edit-note-rounded] icon-[material-symbols--auto-awesome-rounded]"
+                    - $formkit: select
+                      name: tone
+                      label: 图标配色
+                      value: ""
+                      options:
+                        - label: 跟随主题色
+                          value: ""
+                        - label: 金色
+                          value: gold
+                        - label: 薄荷
+                          value: mint
+                        - label: 紫色
+                          value: violet
+                    - $formkit: textarea
+                      name: description
+                      label: 说明
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                      help: "如 Aemeath V3.3.0，可留空"
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个"
+                    - $formkit: text
+                      name: link
+                      label: 链接
+                      help: "一般指向更新日志页面"
+
+            # ─────────── ⑤ 最近的提交 ───────────
+            - $formkit: group
+              name: server
+              label: ⑦ 服务器状态
+              help: "数据源是一份只读 JSON；未配置时卡片保持占位（— / 0%）"
+              children:
+                - $formkit: switch
+                  name: enable
+                  id: about_server_enable
+                  key: about_server_enable
+                  label: 显示「服务器状态」
+                  help: "关闭后整张卡片隐藏；数据源地址留空时卡片保持占位"
+                  value: true
+                - $formkit: text
+                  name: badge
+                  key: about_server_badge
+                  if: "$get(about_server_enable).value"
+                  label: 状态小标签
+                  value: "待接入"
+                  help: "标题右侧小圆标；取到数据后会被数据源里的状态文案替换，留空则自动生成"
+                - $formkit: textarea
+                  name: rows
+                  key: about_server_rows
+                  if: "$get(about_server_enable).value"
+                  label: 监控指标
+                  value: "处理器\n内存\n存储"
+                  help: "每行一个指标名；也可写「名称|key」把这一行绑到数据源的某个字段。可用 key：cpu（处理器）/ mem（内存）/ disk（存储）/ system（系统）/ net（网络）/ load（负载）/ temp（温度）/ swap（交换分区）/ uptime（运行时长）——图标按 key 自动匹配，未列出的 key 用默认图标。system 行不显示进度条。不写 key 时按行序对应 cpu / mem / disk。指标占用 ≥85% 转琥珀、≥95% 转红"
+                - $formkit: text
+                  name: dataUrl
+                  key: about_server_dataUrl
+                  if: "$get(about_server_enable).value"
+                  label: 数据源地址
+                  value: "https://sun.lqbby.com/custom/server-status.json"
+                  help: "只读 JSON 的地址，留空则保持占位（— / 0%）。形状：{status: 状态文案, online: true/false, updated: unix 时间戳（秒或毫秒，用于算「更新于 N 分钟前」，超过 10 分钟没更新脚注转琥珀）, updatedText: 绝对时间文案（鼠标悬停显示）, uptimeDays: 运行天数, items: [{key, label, percent, text, detail}]}。items 里 key 对应上面的指标 key，percent 驱动进度条，text 是右侧数值，detail 是指标名下的小字"
+
+            # ─────────── ⑧ 页脚 ───────────
         - $formkit: group
           name: reward
           label: 打赏页面
@@ -2376,6 +3468,124 @@ spec:
                   name: date
                   label: 日期
                   validation: required
+        - $formkit: group
+          name: statistics
+          label: 数据看板页面
+          help: "请先在「页面 → 自定义页面」中创建「数据看板」页面，然后在此开关各统计模块（需安装 data-statistics 插件）"
+          children:
+            - $formkit: switch
+              name: siteCharts
+              label: 站内统计图表
+              value: true
+              help: "标签/分类分布、文章发布热力图、评论排行、热门文章（无需外部配置）"
+            - $formkit: switch
+              name: umami
+              label: Umami 流量统计
+              value: true
+              help: "访问量/访客数 + 近30分钟实时活动（需在插件后台配置 Umami）"
+            - $formkit: switch
+              name: uptimeKuma
+              label: Uptime Kuma 服务状态
+              value: true
+              help: "服务在线状态（需在插件后台配置状态页）"
+            - $formkit: switch
+              name: github
+              label: GitHub 活跃度
+              value: true
+              help: "贡献图/统计卡/语言分布（需在插件后台配置 GitHub 用户名）"
+        - $formkit: group
+          name: blogChangelog
+          label: 博客更新日志页面
+          help: "请先在「页面 → 自定义页面」新建一个页面（自定义模板选「博客日志」），然后在这里配置页面内容。若「自定义模板」下拉里没有这一项，说明主题版本过旧（低于 1.4.92），升级主题即可"
+          children:
+            - $formkit: text
+              name: kicker
+              label: 顶部标识
+              value: "BLOG CHANGELOG / PUBLIC RECORD"
+            - $formkit: textarea
+              name: description
+              label: 页面说明
+              value: ""
+            - $formkit: textarea
+              name: versionRule
+              label: 版本规则说明
+              value: "Major 代表结构级升级 · Minor 代表新功能 · Patch 代表修复、内容与维护"
+            - $formkit: text
+              name: growthTitle
+              label: 成长轨迹标题
+              value: "博客成长轨迹"
+            - $formkit: text
+              name: growthSubtitle
+              label: 成长轨迹副标题
+              value: "从第一次上线到现在"
+            - $formkit: text
+              name: growthNote
+              label: 成长轨迹收尾句
+              value: "一步一个脚印，让热爱继续发光"
+            - $formkit: group
+              name: milestones
+              label: 成长轨迹节点
+              children:
+                - $formkit: array
+                  name: items
+                  label: 节点列表
+                  help: "按时间正序添加，最后一个会标记为当前版本"
+                  children:
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                    - $formkit: text
+                      name: date
+                      label: 日期
+                      help: "如 2026.07.08"
+                    - $formkit: text
+                      name: label
+                      label: 说明
+            - $formkit: group
+              name: days
+              label: 按日更新记录
+              children:
+                - $formkit: number
+                  name: pageSize
+                  label: 每页条数
+                  value: 20
+                  min: 1
+                  max: 200
+                  help: "版本记录会一直增长，页面按此分页（只渲染当前页，不受总条数影响）。建议 10~30"
+                - $formkit: array
+                  name: items
+                  label: 记录列表
+                  help: "按日期倒序添加（最新在上）"
+                  children:
+                    - $formkit: text
+                      name: date
+                      label: 日期
+                      validation: required
+                      help: "务必用 2026.09.13 这种格式（页面按前 7 位 2026.09 分月分组）"
+                    - $formkit: text
+                      name: version
+                      label: 版本号
+                    - $formkit: text
+                      name: badge
+                      label: 角标
+                      help: "显示在版本号右侧的小胶囊，如「累积中」；留空则不显示。由 merge-changelog.mjs 自动给「尚未收口的最后一批」写上"
+                    - $formkit: text
+                      name: title
+                      label: 标题
+                    - $formkit: textarea
+                      name: summary
+                      label: 一句话摘要
+                    - $formkit: textarea
+                      name: detail
+                      label: 详细说明
+                    - $formkit: textarea
+                      name: tags
+                      label: 标签
+                      help: "每行一个，显示在卡片底部"
+                    - $formkit: textarea
+                      name: entries
+                      label: 条目明细
+                      help: "每行一条，格式：分类|说明。留空则不显示展开区"
     - group: footer
       label: 页脚
       formSchema:
@@ -2536,6 +3746,18 @@ spec:
               min: 0
               label: 最多显示条数
               help: "超出条数时在卡片下方显示下拉箭头，点击跳转到完整友链页；填 0 表示全部显示"
+        - $formkit: select
+          name: style
+          id: footer_style
+          key: footer_style
+          label: 页脚样式
+          value: classic
+          help: "经典：上游原版细线页脚；卡片：魔改卡片式页脚（站点身份 + 社交图标 + 备案）。需总开关「启用魔改」开启才显示为卡片款"
+          options:
+            - label: 经典（原版）
+              value: classic
+            - label: 卡片（魔改）
+              value: card
     - group: links
       label: 友情链接
       formSchema:

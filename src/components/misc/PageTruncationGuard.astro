@@ -1,0 +1,84 @@
+---
+/**
+ * 「半截页面」自救守卫（防截断响应被当成正常页面渲染）
+ *
+ * 背景（2026-09-15 实锤）：Halo 用 `Transfer-Encoding: chunked` 流式输出页面，
+ * **没有 Content-Length**。一旦模板渲染中途被打断（主题包替换中读到的还是不完整的
+ * 模板文件、连接/边缘挂断、客户端中断……），写出的响应体就是一个「HTTP 上完全合法、
+ * 只是提前结束」的 200 —— 下游（EdgeOne）分不出它和完整页面的区别，会照 `max-age=60`
+ * 把它当完整对象缓存下来，于是**所有访客在接下来一分钟里都拿到半截页**。
+ *
+ * 症状极好认：只剩**导航栏 + 全站瞬间条**，正文/侧栏/页脚整块消失。原因是页面末尾的
+ * JS（`app.ts` 与 `revealBanner` 兜底都在 `</body>` 之前）随截断一起丢了 ——
+ * 导航栏与瞬间条靠纯 CSS 入场动画（`.onload-animation`）自己就能显形，
+ * 而 banner 要靠脚本摘掉 `.banner-reveal` 的 `opacity-0`，脚本没了就永远不显形。
+ * 实测：把线上 HTML 从 `<div id="main-grid"` 处截断后本地渲染，与用户截图逐像素同构。
+ *
+ * 为什么只能「自救」而不能「根治」：源站中断与边缘的缓存策略都不在主题可控范围内。
+ * 主题能做的、也最有价值的一件事，就是把「一分钟的坏页面」压成「一次瞬时自动重载」：
+ *   1. 页面正文最末埋一枚哨兵 `#ethereal-page-end`（见 Layout.astro / pages/layout.astro）；
+ *   2. 本脚本解析完 DOM 后检查哨兵 —— 缺失即判定文档被截断；
+ *   3. 带随机参数 `?_ethereal_reload=<ts>` 重载一次（**换缓存键** ⇒ 回源重新渲染，
+ *      这是唯一能绕开边缘已缓存坏对象的办法，普通 reload 会命中同一份坏缓存）；
+ *   4. 加载成功后立刻用 `replaceState` 把参数洗掉，避免污染 URL / 历史记录 / 分享链接。
+ *
+ * 防误伤（重要）：
+ *  - 同一地址在同一会话里**只自救一次**（sessionStorage 记名）⇒ 绝不会重载循环；
+ *  - `sessionStorage` 不可用（隐私模式等）时**直接放弃自救**，宁可显示半截页；
+ *  - 只在**整文档加载**时检查，Swup 换页（不重新解析文档）不触发，零误报；
+ *  - 必须是 `is:inline`：需要它原样出现在 `<head>` 里（早于任何截断点），
+ *    不能被 Astro 打包成 module 挪到文档末尾。
+ *
+ * ⚠️ 两个外壳都要挂（与 ConfigCarrier / VisitorStyleBoot 同款「两个外壳」纪律）：
+ *    - `src/layouts/Layout.astro`（主题页外壳，所有 *Layout 页面）
+ *    - `src/pages/layout.astro`（插件页外壳，插件通过 `layout :: html(...)` 复用）
+ *    并且**两处都要有同款哨兵元素**，只加一处等于没加。
+ */
+---
+
+<script is:inline>
+  (function () {
+    var SENTINEL_ID = "ethereal-page-end";
+    var PARAM = "_ethereal_reload";
+
+    // ① 先洗掉上一次自救留下的随机参数 —— 必须早于 Swup 初始化（它会读 URL 建 history）
+    try {
+      var here = new URL(window.location.href);
+      if (here.searchParams.has(PARAM)) {
+        here.searchParams.delete(PARAM);
+        history.replaceState(
+          history.state,
+          "",
+          here.pathname + here.search + here.hash,
+        );
+      }
+    } catch (e) {}
+
+    // ② 完整性检查：正文末尾哨兵缺失 ⇒ 响应体被截断
+    function check() {
+      if (document.getElementById(SENTINEL_ID)) return;
+
+      var key =
+        "ethereal-trunc:" + window.location.pathname + window.location.search;
+      try {
+        if (sessionStorage.getItem(key)) return; // 同一地址本轮已自救过 ⇒ 停手，防循环
+        sessionStorage.setItem(key, "1");
+      } catch (e) {
+        return; // 没有 sessionStorage 就没有「只救一次」的保证，宁可不救
+      }
+
+      try {
+        var u = new URL(window.location.href);
+        u.searchParams.set(PARAM, String(Date.now()));
+        window.location.replace(u.toString());
+      } catch (e) {}
+    }
+
+    if (document.readyState === "loading") {
+      // 截断文档在 EOF 处照常触发 DOMContentLoaded，故这条路径一定跑得到
+      document.addEventListener("DOMContentLoaded", check);
+    } else {
+      check();
+    }
+  })();
+</script>

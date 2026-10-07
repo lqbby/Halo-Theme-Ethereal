@@ -1,4 +1,6 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // 文章卡片瀑布流（Masonry）布局
 // 仅在容器为 grid 模式且启用瀑布流（data-masonry="true"）时生效；
 // 否则恢复 CSS grid 布局。换页后由 SwupScriptsPlugin 重执行覆盖（同 collapse.js）。
@@ -46,13 +48,27 @@
     var itemWidth = (containerWidth - (colCount - 1) * gap) / colCount;
     var colHeights = new Array(colCount).fill(0);
 
-    items.forEach(function (item) {
+    // 余数行左对齐：卡片数不被列数整除时（末页尤其常见），把最后
+    // (items.length % colCount) 张**强制落在最左边那几列**，让空缺永远出现在
+    // 右下角。纯贪心取「第一个最矮列」会把余数行整体推到右侧，
+    // 底部左边空一大块 —— 观感是「错位」，而不是「没排满」。
+    // 例：5 张 3 列，贪心得 1/2/2（左下角空洞），左对齐得 2/2/1（右下角空缺）。
+    var tailCount = items.length % colCount;
+    var tailStart = items.length - tailCount;
+
+    items.forEach(function (item, idx) {
       // 清掉可能残留的入场 transform，避免影响 offsetHeight
       item.style.transform = "";
       // 高度回归内容自定，覆盖 grid 模式的 height:100%（Firefly 同款处理）
       item.style.setProperty("height", "auto", "important");
-      // 放到当前最短列
-      var colIndex = colHeights.indexOf(Math.min.apply(null, colHeights));
+      var colIndex;
+      if (tailCount > 0 && idx >= tailStart) {
+        // 余数行：从左到右依次落位
+        colIndex = idx - tailStart;
+      } else {
+        // 其余：放到当前最短列
+        colIndex = colHeights.indexOf(Math.min.apply(null, colHeights));
+      }
       item.style.position = "absolute";
       item.style.width = itemWidth + "px";
       item.style.top = colHeights[colIndex] + "px";
@@ -61,7 +77,10 @@
       colHeights[colIndex] += item.offsetHeight + gap;
     });
 
-    container.style.height = Math.max.apply(null, colHeights) + "px";
+    // colHeights 每列都多算了一个尾随 gap（含该列最后一张卡），
+    // 容器高度取「最高列的真实底边」= max(colHeights) - gap，否则底部恒多 16px 空白。
+    var tallest = Math.max.apply(null, colHeights);
+    container.style.height = Math.max(0, tallest - gap) + "px";
   }
 
   function resetLayout(container) {
@@ -123,8 +142,7 @@
   window.__postListRelayout = init;
 
   // 窗口尺寸变化时重排（防抖），只绑定一次避免 Swup 换页后重复监听
-  if (!window.__postListLayoutResizeBound) {
-    window.__postListLayoutResizeBound = true;
+  if (!guardOnce("post-list-layout")) {
     var resizeTimer = null;
     window.addEventListener("resize", function () {
       clearTimeout(resizeTimer);

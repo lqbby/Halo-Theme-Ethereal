@@ -4,6 +4,7 @@ import {
   t,
   type PhotoGalleryItemData,
 } from "./gallery-data";
+import { copyText } from "../clipboard";
 
 function createActionLink({
   className = "",
@@ -68,7 +69,9 @@ function createShareAction({
         void navigator.share({ title, url: shareUrl });
         return;
       }
-      void navigator.clipboard?.writeText(shareUrl);
+      // #5：统一到 copyText（Clipboard API + execCommand 兜底）——
+      // 原写法在无 clipboard 时静默失败，用户点了没反应
+      void copyText(shareUrl);
     },
   });
 }

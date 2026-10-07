@@ -1,30 +1,22 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
+// 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
+import { guardOnce } from "../../utils/once";
 // Banner 移动端独立来源切换引擎
 // 双容器（#banner / #banner-mobile）显隐由 CSS 媒体查询驱动（首帧即定），
 // 本脚本只负责媒体生命周期：激活容器首图升级 eager、视频 preload/播放切换。
 // 配置来自 #theme-config JSON（同 banner-carousel.js）；未启用移动端独立
 // 来源或移动端无有效来源（空值回退）时早退，保持现状行为。
 // 本脚本会被 SwupScriptsPlugin 在每次换页时克隆重执行，而 #banner 位于
-// Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（同 wave.js）。
+// Swup 容器外跨页面持久——全局守卫只绑一次 matchMedia 监听（与各 banner-*.js 同模式）。
+// 2.8：#theme-config 解析收敛到 _theme-config.ts 的 getThemeConfig()
+// #4：缓存统一到 src/utils/theme-config.ts（window.__themeConfig，Vite 侧共用）
+// #6：bannerStyle 下钻收敛到 getBannerConfig()
+import { getBannerConfig } from "./_theme-config";
 (function () {
-  // #theme-config JSON 解析（I27：写/读 window.__themeConfig 缓存，与
-  // scripts/assets/_theme-config.ts 共享契约，避免多脚本重复 JSON.parse）
-  var cfg = null;
-  var cachedCfg = window.__themeConfig;
-  if (cachedCfg !== undefined) {
-    cfg = cachedCfg;
-  } else {
-    var configEl = document.getElementById("theme-config");
-    if (!configEl) return;
-    try {
-      cfg = JSON.parse(configEl.textContent || configEl.innerText);
-    } catch (e) {
-      return;
-    }
-    window.__themeConfig = cfg;
-  }
-  var bannerCfg =
-    cfg && cfg.style && cfg.style.bannerStyle ? cfg.style.bannerStyle : null;
+  // #theme-config JSON 解析（2.8 收敛到 _theme-config.ts；#6 起下钻经
+  // getBannerConfig()）。原内联版在元素缺失/解析失败时直接 return；
+  // 现缺失返回 null，由下方 if (!bannerCfg || ...) return 等价拦截。
+  var bannerCfg = getBannerConfig();
   if (!bannerCfg || bannerCfg.useMobileSrc !== true) return;
   // 移动端是否有有效来源由 SSR 统一判定（src/utils/image-suffix.ts
   // bannerMobileVars() 的 mobileActive），移动容器 #banner-mobile 仅在
@@ -107,8 +99,7 @@
 
   apply();
 
-  if (!window.__etherealBannerSrcSwitchBound) {
-    window.__etherealBannerSrcSwitchBound = true;
+  if (!guardOnce("banner-src-switch")) {
     mq.addEventListener("change", apply);
   }
 })();

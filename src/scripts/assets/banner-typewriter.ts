@@ -1,6 +1,16 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 打字机效果
+// 2.7：初始化骨架与 banner-drop 逐字重复，提取到 _banner-title-shared.ts 共享
+import { initBannerSubtitle } from "./_banner-title-shared";
+import { guardOnce } from "../../utils/once";
+
 (function () {
+  // P1（1.2.86）：requestIdleCallback 错峰工具（无 ric 时降级 setTimeout，timeout 兜底保证执行）
+  function onIdle(cb) {
+    if ("requestIdleCallback" in window)
+      requestIdleCallback(cb, { timeout: 2000 });
+    else setTimeout(cb, 1);
+  }
   var TypewriterEffect = function (el, lines) {
     this.el = el;
     this.lines = lines;
@@ -77,40 +87,25 @@
   }
 
   function initTypewriter() {
-    var el = document.getElementById("banner-subtitle");
-    if (!el) return;
-
-    var overlay = el.closest("#banner-overlay");
-    if (overlay && overlay.classList.contains("banner-text-hidden")) return;
-
-    if (el.__twInstance) {
-      el.__twInstance.destroy();
-      delete el.__twInstance;
-    }
-    el.textContent = "";
-
-    var cursor = document.getElementById("banner-cursor");
-    if (cursor) {
-      if (cursor.__blinkInterval) {
-        clearInterval(cursor.__blinkInterval);
-        delete cursor.__blinkInterval;
-      }
-      createCursorBlink(cursor);
-    }
-
-    var dc = document.getElementById("banner-subtitles-data");
-    if (!dc) return;
-    var raw = dc.textContent.trim();
-    if (!raw) return;
-    var lines = raw
-      .split("\n")
-      .map(function (l) {
-        return l.trim();
-      })
-      .filter(Boolean);
-    if (lines.length === 0) return;
-
-    el.__twInstance = new TypewriterEffect(el, lines);
+    // 骨架（取元素/隐藏判定/销毁旧实例/读文案）见 _banner-title-shared.ts；
+    // 本脚本专属的清空文本与光标重挂通过回调插在销毁之后、读文案之前（顺序与原版一致）
+    initBannerSubtitle(
+      "__twInstance",
+      function (el, lines) {
+        return new TypewriterEffect(el, lines);
+      },
+      function (el) {
+        el.textContent = "";
+        var cursor = document.getElementById("banner-cursor");
+        if (cursor) {
+          if (cursor.__blinkInterval) {
+            clearInterval(cursor.__blinkInterval);
+            delete cursor.__blinkInterval;
+          }
+          createCursorBlink(cursor);
+        }
+      },
+    );
   }
 
   function runInitTW() {
@@ -123,11 +118,9 @@
   // __twInstance/__blinkInterval 字段，监听器操作的是同一持久元素）。
   // 不守卫则监听器逐次累积；换页后的重初始化由下方 runInitTW() 承担。
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
-  if (!window.__bannerTwBound) {
-    window.__bannerTwBound = true;
-
+  if (!guardOnce("banner-tw")) {
     // I24：后台标签页暂停（打字链 + 光标闪烁；状态保留在实例字段，回前台继续。
-    // 对照 wave.js visibilitychange 守卫，动画本体不变）
+    // 对照 banner-drop.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {
       var subtitle = document.getElementById("banner-subtitle");
       var cursor = document.getElementById("banner-cursor");
@@ -161,5 +154,9 @@
     document.addEventListener("banner:visible", runInitTW);
   }
 
-  runInitTW();
+  // P1（1.2.86）：打字机为 banner 副标题装饰，首屏 home 初始加载不依赖
+  // banner:visible（仅 Swup 从非首页回首页才分发），把初始同步初始化推到
+  // 主线程空闲（requestIdleCallback），削减首屏 load 期同步主线程工作（TBT）；
+  // banner:visible 监听器保留，Swup 导航回首页时照常触发
+  onIdle(runInitTW);
 })();

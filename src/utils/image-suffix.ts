@@ -406,3 +406,22 @@ export function cdnSuffixEligible(urlExpr: string): string {
     ")"
   );
 }
+
+/**
+ * 按 provider/width 生成图片处理后缀（浏览器端运行时使用）。
+ *
+ * 来源：本地 1.5.66 分支（上游 v2.0.0 无此函数），被
+ * `src/scripts/assets/featured-cards.ts` 引用。
+ */
+export function makeImageSuffix(
+  provider: string,
+  width: number,
+  customFormat = "",
+): string {
+  if (!width || provider === "none") return "";
+  if (provider === "custom") {
+    return customFormat ? customFormat.replace("{width}", String(width)) : "";
+  }
+  const pattern = CDN_SUFFIX_PATTERNS[provider];
+  return pattern ? pattern.replace("{width}", String(width)) : "";
+}

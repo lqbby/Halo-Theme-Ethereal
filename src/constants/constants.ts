@@ -117,3 +117,24 @@ export const SWUP_SCROLL_END_FALLBACK_MS = 2000;
 // hero 标题落位淡入的过渡窗口时长（ms）：--dur-entry 最长档（舒缓 400ms）之上
 // 留余量，app.ts 用它到时摘掉 html.hero-title-revealing
 export const HERO_TITLE_REVEAL_WINDOW_MS = 500;
+
+/**
+ * 移动端稳定视口高度（px）——规避移动浏览器动态地址栏导致的 100vh 抖动。
+ * 桌面端直接返回 innerHeight；窄屏用 100svh 探针实测，探针失败回落 innerHeight。
+ * ⚠️ 仅允许浏览器端调用（load / resize / 切换壁纸模式），不在滚动帧内调用。
+ *
+ * 来源：本地 1.5.66 分支（上游 v2.0.0 无此函数），被
+ * `src/utils/settings/wallpaper.ts` 引用。
+ */
+export function stableViewportHeight(): number {
+  if (window.innerWidth >= BANNER_TABLET_BREAKPOINT) {
+    return window.innerHeight;
+  }
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;top:0;left:0;width:0;height:100svh;visibility:hidden;pointer-events:none;";
+  document.documentElement.appendChild(probe);
+  const height = probe.getBoundingClientRect().height;
+  probe.remove();
+  return height > 0 ? height : window.innerHeight;
+}

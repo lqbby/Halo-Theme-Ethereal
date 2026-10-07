@@ -19,10 +19,25 @@ runs:
         fi
         [ -n "$ZIP" ] || { echo "::error::dist 下未找到 zip 产物"; exit 1; }
         echo "产物: $ZIP"
-        if unzip -p "$ZIP" templates/index.html | grep -q '<!--'; then
-          echo "::error::产物仍含 HTML 注释"
+        mapfile -t TEMPLATES < <(unzip -Z1 "$ZIP" | grep -E '^templates/.*\.html$' || true)
+        [ "${#TEMPLATES[@]}" -gt 0 ] || {
+          echo "::error::产物中未找到 templates/**/*.html 模板"
           exit 1
-        fi
-        COUNT=$(unzip -p "$ZIP" templates/index.html | grep -o '/\*\[\[' | wc -l)
-        [ "$COUNT" -ge 1 ] || { echo "::error::产物中未找到 Thymeleaf 内联表达式（可能被误剥离）"; exit 1; }
-        echo "质量门通过：注释已剥离、Thymeleaf 内联表达式 $COUNT 处完好"
+        }
+
+        COUNT=0
+        for TEMPLATE in "${TEMPLATES[@]}"; do
+          CONTENT=$(unzip -p "$ZIP" "$TEMPLATE")
+          if printf '%s' "$CONTENT" | grep -q '<!--'; then
+            echo "::error::$TEMPLATE 仍含 HTML 注释"
+            exit 1
+          fi
+          TEMPLATE_COUNT=$(printf '%s' "$CONTENT" | grep -o '/\*\[\[' | wc -l || true)
+          COUNT=$((COUNT + TEMPLATE_COUNT))
+        done
+
+        [ "$COUNT" -ge 1 ] || {
+          echo "::error::全部模板中未找到 Thymeleaf 内联表达式（可能被误剥离）"
+          exit 1
+        }
+        echo "质量门通过：已检查 ${#TEMPLATES[@]} 个 HTML 模板，注释已剥离、Thymeleaf 内联表达式 $COUNT 处完好"

@@ -21,7 +21,14 @@ for (const name of DEV_YAML) {
   }
 }
 try {
-  const result = spawnSync("theme-package", { stdio: "inherit", shell: true });
+  // theme-package 二进制不保证在 PATH（沙箱 / CI 环境差异会导致
+  // "'theme-package' 不是内部或外部命令"）。直接调本地 CLI 的入口文件，
+  // 与 theme-package 命令等价，且不依赖 .bin 是否在 PATH。
+  const result = spawnSync(
+    process.execPath,
+    ["node_modules/@halo-dev/theme-package-cli/index.js"],
+    { stdio: "inherit" },
+  );
   process.exitCode = result.status ?? 1;
 } finally {
   for (const name of moved) {

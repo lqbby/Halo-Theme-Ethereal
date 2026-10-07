@@ -1,0 +1,1337 @@
+---
+/**
+ * 列表页顶部「两张精选卡片」（1.5.29 首版 → 1.5.31 按参考站 https://daily.yybb.us/ 逐条对齐）
+ *
+ *   左「随机一篇」= 参考站的 home-desktop-spotlight__random：
+ *     · 图标群装在 rotate(-30deg) 的容器里、整行 translate3d(0→-33.33%) 以 50s linear infinite
+ *       循环 ⇒ 视觉上就是 LQ 要的「斜着往下（左下）一直缓慢流动」；
+ *     · 点击**不再**是「方块整组转一圈」，而是拉开**全屏 3D 转盘**把一篇文章「转」出来
+ *       （参考站的 random-post-carousel，见 src/scripts/assets/_random-post-carousel.ts）；
+ *     · 悬停：整卡翻成主色渐变面板，文案由「摇一篇」切成副文案「随便逛逛」（参考站
+ *       __random-hover 的观感，参数逐条比对自其 main.min.css 的 (min-width:769px) 段，
+ *       见 <style> 里「悬停态」那一节的注释）。
+ *
+ *   右「热门 / 最近」= 参考站的 home-desktop-spotlight__pins：
+ *     · 多张卡绝对定位叠在一起，靠 is-front / is-mid / is-back 三档 transform 区分
+ *       （translate3d(5px,4px,-12px) rotate(1.4deg) scale(.985) 等，全抄参考站），
+ *       `.featured-stack` 给 perspective:900px 才有立体错位感；
+ *     · 左右两枚圆形箭头（‹ ›）在 hover / focus-within 时浮现 ⇒ 就是 LQ 说的「下一页的切换」。
+ *
+ * 复刻依据：直接抓参考站 HTML + main.min.css + main.min.js 逐条比对（不靠印象）。
+ *   · 左右列宽 3.5fr / 6.5fr；卡片总高**故意比参考站高**（参考站 --desktop-spotlight-height:148px，
+ *     本站 200px）—— 148px 压在本站 915px 的主栏上显得又扁又弱，而且比上方「系列」卡片条（≈178px）
+ *     还矮，视觉层级反了。理由与三处连带改动都写在 <style> 块首。
+ *   · 图标格 2.9rem / 圆角 .7rem、列宽 3.15rem、列内间隔 .35rem、偶数列左移 .85rem；
+ *   · 转盘：面数 10、spin 1600ms + ease 800ms + hold 700ms、tilt -2.5deg、perspective 3000px。
+ *
+ * 实现取舍：
+ *  ① 数据不进 Thymeleaf-JSON：转盘面池与右卡文章都由脚本**运行时**从 REST 取（沿用 1.5.29 的路子），
+ *     省掉「服务端拼 JSON + 双引号转义」这条易错链路；无 JS 时左卡不可点（与 1.5.29 一致）。
+ *  ② 右卡服务端**先渲染 3~4 张真卡**（posts.items 前 4 篇）⇒ 脚本挂了/取数失败仍有内容（渐进增强），
+ *     脚本只做「填字段 + 换档位」，不在 JS 里拼卡片结构，也就不在 JS 里出现中文。
+ *  ③ 取数一律走 `fetchWithTimeout`（1.5.27 的共享工具）：挂住的请求不能让卡片永久 loading。
+ *  ④ 文案由 Thymeleaf 经**隐藏文本节点**（th:text）透传给脚本，脚本里不写中文。
+ */
+import { imageSuffixThWith } from "../utils/image-suffix";
+
+/**
+ * 左卡流动的图标格：12 个 = 参考站那 12 个格子（品牌色逐格对齐），
+ * 图标本体换成主题已装图标集里最接近的品牌图标（fa6-brands / mdi）。
+ * ⚠️ 类名必须写成完整字面量，Tailwind 才扫得到；`collection--name` 是双横线写法。
+ */
+const TILES: { icon: string; color: string }[] = [
+  { icon: "icon-[fa6-brands--github]", color: "#358bff" },
+  { icon: "icon-[fa6-brands--markdown]", color: "#15c6ff" },
+  { icon: "icon-[mdi--language-typescript]", color: "#3178c6" },
+  { icon: "icon-[fa6-brands--css3-alt]", color: "#2965f1" },
+  { icon: "icon-[fa6-brands--python]", color: "#3776ab" },
+  { icon: "icon-[fa6-brands--vuejs]", color: "#42b883" },
+  { icon: "icon-[fa6-brands--sass]", color: "#cd6799" },
+  { icon: "icon-[fa6-brands--node-js]", color: "#339933" },
+  { icon: "icon-[fa6-brands--docker]", color: "#2496ed" },
+  { icon: "icon-[fa6-brands--cloudflare]", color: "#f38020" },
+  { icon: "icon-[fa6-brands--figma]", color: "#a259ff" },
+  { icon: "icon-[fa6-brands--js]", color: "#f7df1e" },
+];
+
+/** 每列 2 格（对齐参考站的 __random-tags-pair） */
+const TILE_PAIRS: { icon: string; color: string }[][] = [];
+for (let i = 0; i < TILES.length; i += 2)
+  TILE_PAIRS.push(TILES.slice(i, i + 2));
+
+/**
+ * 复制份数：动画位移必须是**整数份**才能无缝接回（-1/3 对应 3 份）。
+ * 3 份还能保证整行宽度稳超「容器 175%」⇒ 右上角不会露出空白。
+ */
+const TILE_COPIES = 3;
+const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
+---
+
+<div
+  id="featured-cards"
+  class="featured-row onload-animation"
+  th:with="
+    fcItems=${posts.items},
+    fcSource=${theme.config?.layout?.postList?.featuredSource ?: 'recent'},
+    fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom}"
+  th:classappend="${fcRandom ? '' : ' no-random'}"
+  th:attr="
+    data-source=${fcSource},
+    data-img-provider=${theme.config?.performance?.imageProcessing?.provider ?: 'none'},
+    data-img-format=${theme.config?.performance?.imageProcessing?.custom_format ?: ''}"
+  th:style="|animation-delay: var(--content-delay)|"
+>
+  <!-- 脚本要用的文案（中文只在模板里，见文件头「实现取舍 ④」） -->
+  <span class="hidden" data-label-popular th:text="#{featured.badge.popular}">
+    热门文章
+  </span>
+  <span class="hidden" data-label-recent th:text="#{featured.badge.recent}">
+    最近文章
+  </span>
+  <span class="hidden" data-label-random th:text="#{featured.random.title}">
+    随机一篇文章
+  </span>
+  <span class="hidden" data-label-hint th:text="#{featured.ring.hint}">
+    按 Esc 取消
+  </span>
+
+  <!-- ============ 左：随机一篇（点击 → 全屏转盘把一篇文章「转」出来） ============ -->
+  <button
+    type="button"
+    id="featured-random"
+    class="featured-card featured-card--random"
+    th:if="${fcRandom}"
+    th:aria-label="#{featured.random.title}"
+    th:title="#{featured.random.title}"
+  >
+    <span class="featured-random-face" aria-hidden="true">
+      <span class="featured-random-face-title" th:text="${site.title}">
+        Ethereal
+      </span>
+      <span class="featured-random-face-desc" th:text="#{featured.random.desc}">
+        看点什么好呢
+      </span>
+
+      <!-- 斜向流动的图标群：容器 -30° + 整行循环位移 = 「斜着往下动」 -->
+      <span class="featured-random-tags">
+        <span class="featured-random-tags-group">
+          <span class="featured-random-tags-scroll">
+            {TILE_COPY_LIST.map(() =>
+              TILE_PAIRS.map((pair) => (
+                <span class="featured-random-tags-pair">
+                  {pair.map((tile) => (
+                    <span
+                      class="featured-random-tags-icon"
+                      style={`--tile-bg:${tile.color}`}
+                    >
+                      <span class={`${tile.icon} text-2xl leading-none`} />
+                    </span>
+                  ))}
+                </span>
+              )),
+            )}
+          </span>
+        </span>
+      </span>
+    </span>
+
+    <span class="featured-random-action">
+      <span class="leading-none" th:text="#{featured.random.action}">
+        摇一篇
+      </span>
+      <span class="icon-[material-symbols--arrow-right-alt-rounded] text-base leading-none"></span>
+    </span>
+
+    <!-- 悬停态：整卡翻成主色渐变面板，文案换成副文案
+         ⚠️ 文案占位符：默认态是上面的 `featured.random.action`（摇一篇），
+            这里是 `featured.random.hover`（随便逛逛）—— 想换字只改 i18n，别动结构。
+         aria-hidden：读屏仍念 button 自己的 aria-label（随机一篇文章），不重复。 -->
+    <span class="featured-random-hover" aria-hidden="true">
+      <span class="featured-random-plane icon-[material-symbols--send-rounded] leading-none"></span>
+      <span class="featured-random-banner">
+        <span class="leading-none" th:text="#{featured.random.hover}">
+          随便逛逛
+        </span>
+        <span class="featured-random-banner-arrow icon-[material-symbols--arrow-right-alt-rounded] leading-none"></span>
+      </span>
+    </span>
+  </button>
+
+  <!-- ============ 右：热门 / 最近 文章（3~4 张叠层 + ‹ › 换档） ============ -->
+  <div
+    class="featured-pins"
+    data-featured-pins
+    th:if="${fcItems != null and #lists.size(fcItems) > 0}"
+  >
+    <div class="featured-stack">
+      <a
+        th:each="fcPost, fcStat : ${fcItems}"
+        th:if="${not (fcStat.index >= 4)}"
+        class="featured-card featured-card--post"
+        href="/"
+        th:href="@{${fcPost.status.permalink}}"
+        th:aria-label="${fcPost.spec.title}"
+        th:classappend="${fcStat.index == 0
+          ? ' is-front'
+          : (fcStat.index == 1 ? ' is-mid' : (fcStat.index == 2 ? ' is-back' : ' is-hidden'))}"
+        th:attr="data-state=${fcSource == 'popular' ? 'pending' : 'ready'}"
+      >
+        <!-- 右上角星标（对齐参考图右上角那枚星） -->
+        <span class="featured-star" aria-hidden="true">
+          <span class="icon-[material-symbols--star-rounded] text-[1.15rem] leading-none"></span>
+        </span>
+
+        <!-- 封面：单元素 + is-cover-empty 类（脚本要双向切换有无封面） -->
+        <span
+          class="featured-cover"
+          data-featured-cover
+          th:classappend="${#strings.isEmpty(fcPost.spec.cover) ? ' is-cover-empty' : ''}"
+        >
+          <span class="featured-veil"></span>
+          <span class="featured-arrow">
+            <span class="featured-arrow-chip">
+              <span class="icon-[material-symbols--chevron-right-rounded] text-4xl leading-none"></span>
+            </span>
+          </span>
+          <!-- ⚠️🔴 必须用 th:attr 而不是 th:src —— 真机实测（scripts/tools/ThRenderProbe.java 的语义电池）：
+               Thymeleaf 3.1.5 对求值为 null 的 th:src **不是删属性，而是写出 `src=""`**，
+               浏览器会把空 src 当成「当前页 URL」再请求一次（Chrome 行为）；
+               th:attr 在求值为 null 时才真的删掉属性（同一次电池里验证过）。
+               无封面的文章走的就是这个 null 分支 ⇒ 用 th:src 会白发一次当前页请求。
+               th:with(4) 早于 th:attr(5) ⇒ 这里读得到 suffix。 -->
+          <img
+            class="featured-img"
+            th:attr="src=${#strings.isEmpty(fcPost.spec.cover) ? null : fcPost.spec.cover + suffix}"
+            th:alt="${fcPost.spec.title}"
+            th:with={imageSuffixThWith("800")}
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          />
+          <span class="featured-cover-fallback" aria-hidden="true">
+            <span class="icon-[material-symbols--article-outline-rounded] text-5xl leading-none text-(--primary)"></span>
+          </span>
+        </span>
+
+        <span class="featured-body">
+          <span
+            class="featured-title"
+            data-featured-title
+            th:text="${fcPost.spec.title}"
+          >
+            Post title
+          </span>
+          <span
+            class="featured-excerpt"
+            data-featured-excerpt
+            th:text="${fcPost.status.excerpt}"
+          >
+            Excerpt
+          </span>
+
+          <!-- 底行：左「来源徽章 + 分类色块」，右「日期」（对齐参考图） -->
+          <span class="featured-card-foot">
+            <span class="featured-badge featured-badge--source">
+              <span class="icon-[material-symbols--local-fire-department-rounded] text-[.9rem] leading-none"></span>
+              <span
+                class="leading-none"
+                data-featured-badge
+                th:text="#{featured.badge.recent}"
+              >
+                最近文章
+              </span>
+            </span>
+            <span
+              class="featured-cat"
+              th:classappend="${#lists.isEmpty(fcPost.categories) ? ' is-hidden' : ''}"
+            >
+              <span
+                class="featured-cat-square"
+                data-featured-cat-square
+                th:attr="data-cat=${not #lists.isEmpty(fcPost.categories) ? fcPost.categories[0].spec.displayName : ''}"
+              ></span>
+              <span
+                class="leading-none"
+                data-featured-cat
+                th:text="${not #lists.isEmpty(fcPost.categories) ? fcPost.categories[0].spec.displayName : ''}"
+              >
+                分类
+              </span>
+            </span>
+            <span class="featured-meta">
+              <span class="icon-[material-symbols--calendar-today-outline-rounded] text-[.9rem] leading-none"></span>
+              <span
+                class="leading-none"
+                data-featured-date
+                th:text="${#dates.format(fcPost.spec.publishTime, 'yyyy-MM-dd')}"
+              >
+                2026-01-01
+              </span>
+            </span>
+          </span>
+        </span>
+      </a>
+    </div>
+
+    <!-- ‹ › 换档（参考站 data-spotlight-prev/next）：hover / focus-within 才浮现 -->
+    <div class="featured-navs" data-featured-navs>
+      <button
+        type="button"
+        class="featured-nav featured-nav--prev"
+        data-dir="prev"
+        th:aria-label="#{featured.nav.prev}"
+      >
+        <span class="icon-[material-symbols--chevron-left-rounded] text-xl leading-none"></span>
+      </button>
+      <button
+        type="button"
+        class="featured-nav featured-nav--next"
+        data-dir="next"
+        th:aria-label="#{featured.nav.next}"
+      >
+        <span class="icon-[material-symbols--chevron-right-rounded] text-xl leading-none"></span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- 行为脚本（经典脚本产物）：左卡随机跳转（全屏转盘）+ 右卡按来源填充与换档 -->
+<script
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/featured-cards.js?v=${ASSET_VERSION}`}
+  defer
+></script>
+
+<style is:global>
+  /* ===== 顶部两卡行 =====
+     ⚠️ 列宽（3.5fr:6.5fr）与各内距是参考站逐个量出来的，改一处要回看配平。
+     ★ 高度**故意偏离参考站**：参考站 148px，本站 200px —— 148px 压在本站 915px 的主栏上
+       又扁又弱，且比上方「系列」卡片条（≈178px）还矮，层级反了。
+       改 `--featured-h` 时必须同步看下面三处，否则卡内会失衡：
+         ① 左卡图标带 —— `.featured-random-tags-scroll` 的 margin-top 要做高度补偿（该规则里有推导）；
+         ② 右卡卡体 —— `.featured-body` 的内距放大；
+         ③ 右卡摘要 —— 桌面由 2 行放到 3 行（手机上仍是 2 行）。高度加了，文字量要跟上，不然卡内发空。 */
+  .featured-row {
+    --featured-h: 12.5rem; /* 200px（参考站是 9.25rem = 148px，本站故意加高，见块首注释）*/
+    display: grid;
+    grid-template-columns: minmax(0, 3.5fr) minmax(0, 6.5fr);
+    gap: 0.625rem;
+    margin-bottom: 1rem;
+  }
+  .featured-row.no-random {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .featured-card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    border-radius: var(--radius-large);
+    text-decoration: none;
+    color: inherit;
+    border: 1px solid
+      color-mix(
+        in oklab,
+        var(--primary) 18%,
+        color-mix(in oklab, var(--deep-text) 12%, transparent)
+      );
+    background: var(--card-bg);
+    box-shadow: 0 3px 8px color-mix(in srgb, #000 8%, transparent);
+    transition:
+      box-shadow 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.35s ease;
+  }
+  .featured-card:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  /* ---------- ① 左卡：斜向流动的图标群 ---------- */
+  .featured-card--random {
+    height: var(--featured-h);
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    /* ===== 悬停面板里「飞机 + 副文案」这一组的两个旋钮（想微调只动这两行）=====
+       · --plane-scale：整组**等比**放大倍数（飞机与文案的 font-size、两者间距都乘它，
+         ⇒ 相对大小 / 间距 / 左对齐关系全部不变，不会出现「只放大其中一个」）；
+       · --plane-tilt：飞机倾斜角度。参考站的飞机字形本身就是约 45° 斜向的纸飞机，
+         本站 material-symbols 的 send 是**水平朝向**的 ⇒ 靠这个角度把它摆成同样的斜势；
+       · --banner-tilt：文案倾斜，**默认 0deg**（与参考站一致，文案是正的）。
+         想让文案跟着一起斜，把它改成 `var(--plane-tilt)` 即可。
+       ⚠️ 放大上限受卡高约束：--featured-h = 200px，目前这组（1.5 倍 + 45° 倾斜）
+         总高 ≈ 88(飞机外接框) + 8.4(间距) + 34(文案) ≈ 130px，上下各余 ≈35px。
+         再往上调 --plane-scale 请同步看这个数，别顶到卡边。 */
+    --plane-scale: 1.5;
+    --plane-tilt: -45deg;
+    --banner-tilt: 0deg;
+    /* 图标群故意画到卡外再被这里裁掉（= 参考图那种「窗开到图标场里」的出血感） */
+    contain: layout paint style;
+    isolation: isolate;
+  }
+  /* 🔴 悬停态整块关在 `@media (hover: hover)` 里 ⇒ 触屏（无 hover）永远停在默认面，
+     不会出现「点一下就卡在 hover 态」。参考站反过来（(hover:none) 时**常显**悬停面），
+     本站按「移动端保持默认」处理。
+     位移：参考站只动描边/阴影；本站另加 -2px 上浮，与右卡 hover（-3px）同一套语言。 */
+  @media (hover: hover) {
+    .featured-card--random:hover,
+    .featured-card--random:focus-visible {
+      border-color: color-mix(in oklab, var(--primary) 40%, transparent);
+      box-shadow:
+        0 5px 12px color-mix(in srgb, #000 10%, transparent),
+        0 1px 4px color-mix(in srgb, #000 6%, transparent);
+      transform: translateY(-2px);
+    }
+  }
+  .featured-card--random:active {
+    transform: translateY(0) scale(0.995);
+    transition-duration: 0.08s;
+  }
+
+  .featured-random-face {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  .featured-random-face-title {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    z-index: 2;
+    max-width: calc(100% - 2rem);
+    font-size: 1.05rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--deep-text);
+    pointer-events: none;
+    /* 悬停时淡出、回来时**延迟**入场（.3s）⇒ 让覆盖层先走完，两层不会打架 */
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.3s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
+  }
+  .featured-random-face-desc {
+    position: absolute;
+    top: calc(1rem + 1.35em);
+    left: 1rem;
+    z-index: 2;
+    max-width: calc(100% - 2rem);
+    font-size: 0.75rem;
+    line-height: 1.35;
+    color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+    pointer-events: none;
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.34s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.3s;
+  }
+
+  /* 图标群：外层 -30°，内层整行循环位移 ⇒ 运动方向 = 旋转坐标系的 -X = 左下（「斜着往下」） */
+  .featured-random-tags {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    overflow: hidden;
+    pointer-events: none;
+    contain: strict;
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.28s,
+      visibility 0s linear 0.28s;
+  }
+  .featured-random-tags-group {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 175%;
+    height: 175%;
+    transform: translate3d(calc(-50% + 2.25rem), calc(-50% + 2.65rem), 0)
+      rotate(-30deg);
+    transform-origin: center center;
+    backface-visibility: hidden;
+  }
+  .featured-random-tags-scroll {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 0.5rem;
+    width: max-content;
+    min-width: 100%;
+    /* ⚠️ 高度补偿（改 --featured-h 必看）：图标带挂在 `.featured-random-tags-group` 里，而那个组
+       尺寸写死为 `175% × 卡片高`、还靠 `top:50%` + `translateY(-50% + 2.65rem)` 定位
+       ⇒ 卡片一变高，它的**旋转中心就跟着下移**，带子并不会自己按比例跟着走
+       （盘算过：完全不补时 148 → 200px 会把带子的相对位置从 22% 漂到 9.5%，直接贴到标题上）。
+       带子是 -30° 斜的，数学上没法让「绝对位置」与「相对比例」同时不变，所以补一半：
+       `0.5 × (卡高 - 原始高)` ⇒ 带顶稳定落在卡高 ≈21% 处（148px 版是 22%）。
+       9.25rem = 原始设计高度（148px）；改 group 的尺寸 / `top:50%` / 本式 必须一起改。 */
+    margin-top: calc(2.85rem + 0.5 * (var(--featured-h) - 9.25rem));
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    /* 位移必须正好一份（3 份 ⇒ -33.3333%），否则循环接不齐会有跳帧 */
+    animation: featured-tile-flow 50s linear infinite;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: transform;
+  }
+  @keyframes featured-tile-flow {
+    from {
+      transform: translate3d(0, 0, 0);
+    }
+    to {
+      transform: translate3d(-33.3333%, 0, 0);
+    }
+  }
+  .featured-random-tags-pair {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 0.35rem;
+    width: 3.15rem;
+  }
+  .featured-random-tags-icon {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    width: 2.9rem;
+    height: 2.9rem;
+    border-radius: 0.7rem;
+    color: #fff;
+    /* ⚠️ 每格的底色由行内 --tile-bg 给（写死在这里就全同色了）；缺值时回落到主色 */
+    background: var(--tile-bg, var(--primary));
+    box-shadow: 0 2px 6px color-mix(in srgb, #000 12%, transparent);
+    overflow: hidden;
+    contain: layout paint;
+  }
+  /* 偶数列整列左移 ⇒ 两列错开半个身位，才像参考图那种「斜向铺开」而不是方正网格 */
+  .featured-random-tags-pair .featured-random-tags-icon:nth-child(even) {
+    transform: translateX(-0.85rem);
+  }
+
+  /* 左下角动作提示：图标群是彩色的，纯文字压上去读不清 ⇒ 垫一层卡底色的胶囊 */
+  .featured-random-action {
+    position: absolute;
+    left: 1rem;
+    bottom: 0.8rem;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, var(--card-bg) 78%, transparent);
+    backdrop-filter: blur(3px);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--primary);
+    pointer-events: none;
+    /* 悬停时随默认面一起淡出（见下面「悬停态」那一节的 @media 块）；
+       回来时**延迟**入场（.3s），让覆盖层先退干净 */
+    transition:
+      opacity 0.24s cubic-bezier(0.22, 1, 0.36, 1) 0.3s,
+      transform 0.28s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
+  }
+
+  /* ---------- 悬停态：整卡翻成主色面板 + 副文案滑入（参考站 __random-hover） ----------
+     观感逐条比对自参考站 main.min.css 的 `@media (min-width:769px)` 段（不靠印象）：
+       · 覆盖层：145° 主色渐变、absolute inset:0、默认 opacity:0 + visibility:hidden；
+         hover 时 opacity→1、padding-left .75rem→1.5rem（整块内容往右让一点）；
+       · 默认面（站点名 / 副标题 / 图标带）opacity→0 + translateX(-10px)，图标流动画**暂停**
+         （animation-play-state:paused ⇒ 松手后从原处接着走，不会跳回起点）；
+       · 面板内两条内容（大图标 / 副文案）从 translateX(-14px) 归位，延迟 .05s / .1s 依次入场；
+       · 时长口径全抄参考站：面板 opacity .28s、padding-left .32s、内容位移 .32s，
+         统一 cubic-bezier(.22,1,.36,1)（本站 .featured-card 的过渡也是这条曲线）；
+       · 卡片本身只加 -2px 上浮 + 描边/阴影（见上面那条 @media）。
+
+     🔴 覆盖层 `pointer-events: none` ⇒ 点击仍落在 button 上，不会吃掉「摇一篇」的点击。
+     🔴 渐变**混黑不混白**：`--primary` 是 oklch L .70（暗色 .75）且 hue 用户可配，
+        按参考站那样**混白**，在青色区（hue≈190）会掉到 2.5:1 以下，白字直接读不清；
+        混黑后按 oklab 线性插值（L=.70×p、C=.14×p），脚本实测**全色相最差**的那一档
+        （73%）对 #fff 仍有 4.6:1、70% 档 5.1:1 ⇒ 任意 hue 都过 WCAG AA 普通文本 4.5:1。
+        （算法：oklch→sRGB→相对亮度→对比度，hue 每 10° 扫一圈取最小值。）
+     🔴 下面所有 `:hover` 规则都在 `@media (hover: hover)` 内 ⇒ 触屏保持默认面。 */
+  .featured-random-hover {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* 🔴 flex-start 而不是默认 stretch：飞机要 rotate，若盒子被拉成整行宽，
+       旋转支点会落到**整行的中心**，一转就把图标甩到几十像素开外；
+       收缩到内容宽后，支点就是它自己的中心 ⇒ 只转不位移。 */
+    align-items: flex-start;
+    /* 间距一起乘 --plane-scale ⇒ 等比放大后「飞机 : 间距 : 文案」的比例不变 */
+    gap: calc(0.35rem * var(--plane-scale, 1));
+    padding-left: 0.75rem;
+    background: linear-gradient(
+      145deg,
+      color-mix(in oklab, var(--primary) 68%, #000),
+      color-mix(in oklab, var(--primary) 73%, #000) 58%,
+      color-mix(in oklab, var(--primary) 70%, #000)
+    );
+    color: #fff;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    pointer-events: none;
+    font-size: clamp(1.15rem, 2vw, 1.35rem);
+    font-weight: 700;
+    line-height: 1.15;
+    transition:
+      opacity 0.28s cubic-bezier(0.4, 0, 0.2, 1),
+      visibility 0s linear 0.28s,
+      padding-left 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-plane {
+    display: block;
+    margin-left: 0.5rem;
+    font-size: calc(clamp(2.1rem, 5vw, 2.6rem) * var(--plane-scale, 1));
+    line-height: 1;
+    /* 先平移再旋转：平移保持水平入场，旋转只改朝向（顺序反了会变成斜着飞进来） */
+    transform: translateX(-14px) rotate(var(--plane-tilt, 0deg));
+    transform-origin: center center;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: 0.5rem;
+    font-size: calc(clamp(1.15rem, 2vw, 1.35rem) * var(--plane-scale, 1));
+    transform: translateX(-14px) rotate(var(--banner-tilt, 0deg));
+    transform-origin: center center;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .featured-random-banner-arrow {
+    font-size: 1.35em;
+    line-height: 1;
+  }
+
+  @media (hover: hover) {
+    .featured-card--random:hover .featured-random-hover,
+    .featured-card--random:focus-visible .featured-random-hover {
+      opacity: 1;
+      visibility: visible;
+      padding-left: 1.5rem;
+      transition:
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        visibility 0s linear 0s,
+        padding-left 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    /* 默认面淡出并左移（.16s 快出，不给延迟 —— 退场必须比入场快） */
+    .featured-card--random:hover .featured-random-face-title,
+    .featured-card--random:focus-visible .featured-random-face-title,
+    .featured-card--random:hover .featured-random-face-desc,
+    .featured-card--random:focus-visible .featured-random-face-desc,
+    .featured-card--random:hover .featured-random-action,
+    .featured-card--random:focus-visible .featured-random-action {
+      opacity: 0;
+      transform: translateX(-10px);
+      transition:
+        opacity 0.16s ease,
+        transform 0.2s ease;
+    }
+    .featured-card--random:hover .featured-random-tags,
+    .featured-card--random:focus-visible .featured-random-tags {
+      opacity: 0;
+      visibility: hidden;
+      transition:
+        opacity 0.16s ease,
+        visibility 0s linear 0.16s;
+    }
+    .featured-card--random:hover .featured-random-tags-scroll,
+    .featured-card--random:focus-visible .featured-random-tags-scroll {
+      animation-play-state: paused;
+    }
+    .featured-card--random:hover .featured-random-plane,
+    .featured-card--random:focus-visible .featured-random-plane {
+      transform: translateX(0) rotate(var(--plane-tilt, 0deg));
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.05s;
+    }
+    .featured-card--random:hover .featured-random-banner,
+    .featured-card--random:focus-visible .featured-random-banner {
+      transform: translateX(0) rotate(var(--banner-tilt, 0deg));
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1) 0.1s;
+    }
+  }
+
+  /* ---------- ② 右卡：三档叠层 + ‹ › 换档 ---------- */
+  .featured-pins {
+    position: relative;
+    min-width: 0;
+    height: var(--featured-h);
+  }
+  /* perspective 是「叠起来」的关键：没有它，下面那几张只是平面平移，看不出前后 */
+  .featured-stack {
+    position: absolute;
+    inset: 0;
+    perspective: 900px;
+  }
+  .featured-card--post {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: grid;
+    grid-template-columns: 42fr 58fr;
+    grid-template-rows: minmax(0, 1fr);
+    border-radius: var(--radius-large);
+    box-shadow: 0 10px 22px color-mix(in srgb, #000 10%, transparent);
+    transform-origin: center bottom;
+    /* z-index 也参与过渡：换档时先让新前牌拿到高的 z，再落下位置 */
+    transition:
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.35s ease,
+      box-shadow 0.35s ease,
+      z-index 0s linear 0.2s;
+  }
+  /* 四档位（数值全抄参考站）*/
+  .featured-card--post.is-front {
+    z-index: 3;
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(0) scale(1);
+    box-shadow: 0 14px 28px color-mix(in srgb, #000 14%, transparent);
+    pointer-events: auto;
+  }
+  .featured-card--post.is-mid {
+    z-index: 2;
+    opacity: 0.94;
+    transform: translate3d(5px, 4px, -12px) rotate(1.4deg) scale(0.985);
+    pointer-events: none;
+  }
+  .featured-card--post.is-back {
+    z-index: 1;
+    opacity: 0.84;
+    transform: translate3d(-5px, 7px, -24px) rotate(-1.8deg) scale(0.97);
+    pointer-events: none;
+  }
+  .featured-card--post.is-hidden {
+    z-index: 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: translate3d(0, 10px, -36px) scale(0.95);
+    pointer-events: none;
+  }
+  /* ===== 磨砂模式下「三档叠层」的重设计（门控：全屏透明 + 高级材质）=====
+     ⚠️ 为什么写在这里、而不是 styles/components.css：
+        本组是**未分层(unlayered)**的全局样式，而 components.css 整包在
+        `@layer components` 里。级联上「无 layer 的普通声明」**恒胜**「有 layer 的
+        普通声明」——与选择器特异性无关 ⇒ 在 components.css 里写
+        background / border-color / box-shadow 都会被静默吃掉。放在这里则同为
+        未分层，靠特异性(0,4,2) 压过下面的 .featured-card / .featured-card--post。
+        （行容器自身的 `--card-bg` 重定义仍留在 components.css：改的是自定义属性，
+        自定义属性按 layer 比、没有无 layer 竞争者，那边能正常生效。）
+
+     —— 磨砂下原来为什么难看（可算，不是感觉）：
+        三张牌都是 position:absolute + inset:0 的**全尺寸重叠矩形**，各自吃
+        0.6 alpha 再乘各自的 opacity(.94/.84)，于是
+        ① 中区三层**复合** ⇒ 1-(1-.504)(1-.564)(1-.6) = **0.91 白**，比周围的
+           单层磨砂卡(.60)实得多，鼓成一块实心疙瘩；
+        ② 并外露三条硬边带：仅后牌 .50 / 后+中 .78 / 三层 .91 ⇒ 脏兮兮三段色阶；
+        ③ 前牌只有 .6 ⇒ 后两牌的**封面图与标题透出来**，磨砂前脸上叠着三份正文；
+        ④ 三份 box-shadow 再叠出一圈黑边。
+
+     —— 设计：**整叠只留前牌一层透光面**，后两牌降级为「描边幽灵薄片」。
+        ① 面几乎透明（亮 .10/.05，暗 .14/.07）⇒ 中区复合回到 ≈0.66，与周围单层
+           磨砂卡(.60)基本齐平：不鼓包、不再分色阶；
+        ② 后牌**不给内容**（`> *` 全隐）⇒ 断掉透过前牌的重影与杂色（注意：不透明
+           模式下中/后牌的正文本来就藏在前牌背后看不见，这一步只是把磨砂下**多出来**
+           的那份可见性收回去，不改变原设计语义）；
+        ③ 后牌的「存在感」改由**描边**承担（比默认 18% 更实，且前 > 后分层），只在前牌
+           盖不到的 ≈5~20px 外露条带里可见 ⇒ 「一叠牌」的语义保住；
+        ④ 阴影 10px/22px 10% → 2px/8px 5%，不再叠出黑边。
+     🔴 位移 / 旋转 / z-index **一概不动** —— 那是叠层的几何语言，也是换挡动画的骨架。
+     🔴 别用「把后牌 opacity 压到接近 0」代替本方案：那只压暗了面，**内容还在**
+        （重影照旧），且三层 alpha 相乘仍会分出色阶。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(255 255 255 / 0.1);
+    /* 只改颜色不改宽度：border-width 一变会触发卡内 reflow，也会打断下面的过渡 */
+    border-color: color-mix(
+      in oklab,
+      var(--primary) 30%,
+      color-mix(in oklab, var(--deep-text) 20%, transparent)
+    );
+    box-shadow: 0 2px 8px color-mix(in srgb, #000 5%, transparent);
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(255 255 255 / 0.05);
+    border-color: color-mix(
+      in oklab,
+      var(--primary) 22%,
+      color-mix(in oklab, var(--deep-text) 14%, transparent)
+    );
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid {
+    background-color: rgb(0 0 0 / 0.14);
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back {
+    background-color: rgb(0 0 0 / 0.07);
+  }
+  /* 面/边要在换档时跟着走，否则升到前牌会「啪」地跳成 0.6。
+     background-color / border-color 一起列进来 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post {
+    transition:
+      transform 0.45s cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 0.35s ease,
+      background-color 0.35s ease,
+      border-color 0.35s ease,
+      box-shadow 0.35s ease,
+      z-index 0s linear 0.2s;
+  }
+  /* 后牌内容整体隐去。直接子级只有三个：.featured-star / .featured-cover / .featured-body。
+     🔴 `.featured-star` 自带 `transition: transform .3s, color .2s`（前牌 hover 要转星），
+        所以下面那条通用 `transition` 会**把它冲掉** ⇒ 必须单独把星标的过渡合并回来。 */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post
+    > * {
+    transition: opacity 0.35s ease;
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post
+    > .featured-star {
+    transition:
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.2s ease,
+      opacity 0.35s ease;
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid
+    > *,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back
+    > * {
+    opacity: 0;
+  }
+  /* 🔴 `.featured-card--post[data-state="pending"] .featured-body` 挂着 opacity 脉冲
+     （keyframes 在 1↔.72 之间走），而**动画声明的位置高于普通声明** ⇒ 光写
+     opacity:0 压不住它，后牌正文照样一闪一闪地透出来。必须把动画关掉。
+     （`visibility:hidden` 也挡不住动画，只有 animation:none / !important 才行） */
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-mid
+    > .featured-body,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-card--post.is-back
+    > .featured-body {
+    animation: none;
+  }
+  .featured-card--post.is-front:hover {
+    transform: translate3d(0, -3px, 0) rotate(0) scale(1.004);
+    box-shadow: 0 18px 34px color-mix(in srgb, #000 18%, transparent);
+  }
+
+  /* ‹ › 换档箭头（参考站 __nav）：默认透明+不接收事件，hover/focus-within 才浮现 */
+  .featured-navs {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    pointer-events: none;
+  }
+  .featured-navs[hidden] {
+    display: none;
+  }
+  .featured-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 1px solid color-mix(in oklab, var(--deep-text) 12%, transparent);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--card-bg) 92%, transparent);
+    color: var(--deep-text);
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    box-shadow: 0 4px 14px color-mix(in srgb, #000 12%, transparent);
+    transition:
+      opacity 0.2s ease,
+      color 0.2s ease,
+      background-color 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .featured-nav--prev {
+    left: 0.625rem;
+  }
+  .featured-nav--next {
+    right: 0.625rem;
+  }
+  .featured-nav:hover {
+    color: var(--primary);
+    border-color: color-mix(in oklab, var(--primary) 35%, transparent);
+    background: color-mix(in oklab, var(--card-bg) 96%, transparent);
+  }
+  .featured-nav:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+    outline: 2px solid color-mix(in oklab, var(--primary) 55%, transparent);
+    outline-offset: 2px;
+  }
+  .featured-pins:hover .featured-nav,
+  .featured-pins:focus-within .featured-nav {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ---------- 封面 / 卡体（左图右文，口径对齐参考站：42:58、1 行标题） ---------- */
+  .featured-cover {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    min-height: 0;
+    min-width: 0;
+  }
+  .featured-img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.001);
+    transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .featured-card--post.is-front:hover .featured-img {
+    transform: scale(1.05);
+  }
+  .featured-veil {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    background: transparent;
+    transition: background 0.3s ease;
+    pointer-events: none;
+  }
+  .featured-card--post.is-front:hover .featured-veil {
+    background: rgb(0 0 0 / 0.28);
+  }
+  .featured-arrow {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    opacity: 0;
+    transform: scale(0.6);
+    transition:
+      opacity 0.25s ease,
+      transform 0.25s ease;
+    pointer-events: none;
+  }
+  .featured-card--post.is-front:hover .featured-arrow {
+    opacity: 1;
+    transform: scale(1);
+  }
+  /* ⚠️ 必须带圆底：纯白箭头在浅色封面上完全看不见 */
+  .featured-arrow-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 0.42);
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.28);
+    backdrop-filter: blur(2px);
+  }
+  .featured-cover-fallback {
+    position: absolute;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(
+      135deg,
+      color-mix(in oklab, var(--primary) 22%, var(--card-bg)),
+      color-mix(in oklab, var(--primary) 6%, var(--card-bg))
+    );
+  }
+  .featured-cover.is-cover-empty .featured-img {
+    display: none;
+  }
+  .featured-cover.is-cover-empty .featured-cover-fallback {
+    display: flex;
+  }
+
+  .featured-body {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* 卡高 148px → 200px 后同步放大的内距（见块首注释） */
+    padding: 1rem 1.1rem 0.9rem;
+  }
+  .featured-card--post[data-state="pending"] .featured-body {
+    animation: featured-pulse 1.6s ease-in-out infinite;
+  }
+
+  /* 右上角星标（对齐参考图） */
+  .featured-star {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.7rem;
+    height: 1.7rem;
+    border-radius: 999px;
+    color: color-mix(in oklab, var(--primary) 85%, var(--deep-text));
+    background: color-mix(in oklab, var(--card-bg) 76%, transparent);
+    backdrop-filter: blur(3px);
+    transition:
+      transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+      color 0.2s ease;
+  }
+  .featured-card--post.is-front:hover .featured-star {
+    transform: rotate(72deg) scale(1.08);
+    color: var(--primary);
+  }
+
+  .featured-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    overflow: hidden;
+    padding-right: 1.6rem; /* 给右上角星标让位 */
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--deep-text);
+    transition: color 0.2s ease;
+  }
+  .featured-card--post.is-front:hover .featured-title {
+    color: var(--primary);
+  }
+  /* `margin: auto 0` 把摘要顶到中间，底行自然落到卡底（抄参考站的排版手法）。
+     桌面放 3 行：卡高加到 200px 后，只放 2 行摘要会让上下各空 ≈30px（发空）；
+     3 行是上限 —— 再多就顶掉底栏了。手机在下面的媒体查询里覆盖回 2 行。 */
+  .featured-excerpt {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    overflow: hidden;
+    margin: auto 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: color-mix(in oklab, var(--deep-text) 68%, transparent);
+  }
+
+  /* ---------- 底行：来源徽章 / 分类 / 日期 ---------- */
+  .featured-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.2rem;
+    align-self: flex-start;
+    border-radius: 0.375rem;
+    background: color-mix(in oklab, var(--primary) 12%, transparent);
+    padding: 0.15rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--primary);
+  }
+  .featured-card-foot {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.55rem;
+    font-size: 0.75rem;
+    color: color-mix(in oklab, var(--deep-text) 58%, transparent);
+  }
+  .featured-cat {
+    display: inline-flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .featured-cat > .leading-none:last-child {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .featured-cat.is-hidden {
+    display: none;
+  }
+  .featured-cat-square {
+    flex-shrink: 0;
+    width: 0.65rem;
+    height: 0.65rem;
+    border-radius: 0.18rem;
+    background: var(--primary);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.25);
+  }
+  .featured-meta {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0.25rem;
+    margin-left: auto; /* 日期靠右（对齐参考图） */
+    font-variant-numeric: tabular-nums;
+  }
+
+  @keyframes featured-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.72;
+    }
+  }
+
+  /* ---------- 移动端：左右两卡上下堆叠，右卡改成上图下文 ---------- */
+  @media (max-width: 767.98px) {
+    .featured-row,
+    .featured-row.no-random {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .featured-pins {
+      height: 17rem;
+    }
+    .featured-card--post {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: 46% minmax(0, 1fr);
+    }
+    .featured-body {
+      padding: 0.75rem 1rem 0.8rem;
+    }
+    .featured-title {
+      font-size: 1.05rem;
+    }
+    /* 手机上仍是 2 行：卡是「上图下文」的竖版，body 只有 ≈147px，第 3 行会顶到底栏 */
+    .featured-excerpt {
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      font-size: 0.8rem;
+    }
+    /* 触屏没有 hover：箭头常显（参考站在 (hover:none) 下也是这套） */
+    .featured-nav {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* ---------- 减少动态效果 ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .featured-card,
+    /* 磨砂模式给后牌子级加的 opacity 过渡（见上）也一并关掉 */
+    .featured-card--post > *,
+    .featured-img,
+    .featured-veil,
+    .featured-arrow,
+    .featured-title,
+    .featured-star,
+    .featured-nav,
+    .featured-random-action,
+    .featured-random-hover,
+    .featured-random-plane,
+    .featured-random-banner,
+    .featured-random-face-title,
+    .featured-random-face-desc,
+    .featured-random-tags {
+      transition: none !important;
+    }
+    .featured-card--random:active,
+    /* 悬停态的四类位移（卡片上浮、默认面左移、面板内容归位）全部取消 */
+    .featured-card--random:hover,
+    .featured-card--random:focus-visible,
+    .featured-card--random:hover .featured-random-face-title,
+    .featured-card--random:focus-visible .featured-random-face-title,
+    .featured-card--random:hover .featured-random-face-desc,
+    .featured-card--random:focus-visible .featured-random-face-desc,
+    .featured-card--random:hover .featured-random-action,
+    .featured-card--random:focus-visible .featured-random-action,
+    .featured-card--random:hover .featured-random-plane,
+    .featured-card--random:focus-visible .featured-random-plane,
+    .featured-card--random:hover .featured-random-banner,
+    .featured-card--random:focus-visible .featured-random-banner,
+    .featured-card--post.is-front:hover,
+    .featured-card--post.is-front:hover .featured-img,
+    .featured-card--post.is-front:hover .featured-arrow,
+    .featured-card--post.is-front:hover .featured-star {
+      transform: none;
+    }
+    /* ⚠️ 减少动态效果下**停掉流动**：常驻循环最容易被前庭敏感用户投诉 */
+    .featured-random-tags-scroll {
+      animation: none;
+    }
+    .featured-card--post[data-state="pending"] .featured-body {
+      animation: none;
+    }
+  }
+
+  /* ===== 全屏 3D 转盘（随机抽取）=====
+     ⚠️ 浮层挂在 body 上，所以这套样式必须是 global（组件级 scoped 到不了）。 */
+  body.random-post-open {
+    overflow: hidden;
+  }
+  .random-post-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.75rem;
+    background: rgb(8 8 10 / 0.9);
+    color: #f4f4f5;
+    opacity: 1;
+    touch-action: none;
+    user-select: none;
+  }
+  .random-post-overlay.is-leaving {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 0.22s ease,
+      visibility 0.22s ease;
+  }
+  .random-post-overlay__stage {
+    width: 100vw;
+    height: min(58dvh, 32.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .random-post-overlay__tilt {
+    transform-style: preserve-3d;
+    transform: rotateX(var(--rp-tilt, -2.5deg));
+  }
+  .random-post-overlay__ring {
+    position: relative;
+    transform-style: preserve-3d;
+    will-change: transform;
+  }
+  .random-post-overlay__slot {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+  /* 正反两张脸：背面那张朝圆心（= 圆环另一侧），backface-visibility 保证只看得见正对自己的 */
+  .random-post-overlay__face {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    backface-visibility: hidden;
+    background-color: #1c1c1f;
+    background-size: cover;
+    background-position: 50%;
+    box-shadow: 0 12px 36px rgb(0 0 0 / 0.45);
+    transition:
+      box-shadow 0.35s ease,
+      transform 0.35s ease;
+  }
+  .random-post-overlay__face--back {
+    transform: rotateY(180deg);
+    background-color: #141416;
+  }
+  /* 中签那面：白环 + 主题色光环 + 脉冲 */
+  .random-post-overlay__slot.is-selected .random-post-overlay__face--front {
+    box-shadow:
+      0 0 0 3px rgb(255 255 255 / 0.92),
+      0 0 0 7px color-mix(in oklab, var(--primary) 88%, #fff),
+      0 18px 48px rgb(0 0 0 / 0.5),
+      0 0 36px color-mix(in oklab, var(--primary) 55%, transparent);
+    transform: scale(1.06);
+    animation: random-post-pulse 1.1s ease-in-out infinite;
+  }
+  .random-post-overlay.is-locked .random-post-overlay__slot:not(.is-selected) {
+    opacity: 0.42;
+    transition: opacity 0.35s ease;
+  }
+  @keyframes random-post-pulse {
+    0%,
+    100% {
+      box-shadow:
+        0 0 0 3px rgb(255 255 255 / 0.92),
+        0 0 0 7px color-mix(in oklab, var(--primary) 88%, #fff),
+        0 18px 48px rgb(0 0 0 / 0.5),
+        0 0 28px color-mix(in oklab, var(--primary) 45%, transparent);
+    }
+    50% {
+      box-shadow:
+        0 0 0 3px #fff,
+        0 0 0 8px color-mix(in oklab, var(--primary) 95%, #fff),
+        0 20px 52px rgb(0 0 0 / 0.55),
+        0 0 44px color-mix(in oklab, var(--primary) 70%, transparent);
+    }
+  }
+  .random-post-overlay__caption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: min(92vw, 32.5rem);
+    text-align: center;
+    pointer-events: none;
+  }
+  .random-post-overlay__title {
+    margin: 0;
+    width: 100%;
+    font-size: clamp(1.15rem, 3.2vw, 1.55rem);
+    font-weight: 600;
+    line-height: 1.35;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .random-post-overlay__hint {
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgb(244 244 245 / 0.55);
+  }
+  @media (max-width: 640px) {
+    .random-post-overlay {
+      gap: 1.25rem;
+    }
+    .random-post-overlay__stage {
+      height: min(48dvh, 22.5rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .random-post-overlay,
+    .random-post-overlay__title,
+    .random-post-overlay__face {
+      transition: none;
+    }
+    .random-post-overlay__slot.is-selected .random-post-overlay__face--front {
+      animation: none;
+    }
+  }
+</style>
