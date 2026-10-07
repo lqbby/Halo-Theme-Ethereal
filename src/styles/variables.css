@@ -212,3 +212,20 @@ html[data-banner-display="fullscreen"] {
 body {
   --wallpaper-blur-max: var(--transparent-wallpaper-blur, 10px);
 }
+
+/* ── 本地魔改轴（mods）变量 ── 由本地 1.5.66 迁入 ── */
+
+/* 魔改宽屏布局：总开关 + layout.pageWidth 开启时，<html> 挂 mods-page-wide 类，
+   把内容容器放宽到 112rem（旧 fork 同款宽屏）；关闭则回到上游 75rem 原版
+   注意：用 !important 覆盖 @layer properties 内的默认 --page-width 声明优先级 */
+
+:root.mods-page-wide {
+  --page-width: 112rem !important;
+}
+
+/* 三栏布局双保险：components.css 已不再写死 93.5rem，此处复合选择器
+   确保开启宽屏时三栏也跟随 112rem（即使将来有人重新加回三栏默认值也能赢） */
+
+:root.mods-page-wide .layout-three-column {
+  --page-width: 112rem !important;
+}

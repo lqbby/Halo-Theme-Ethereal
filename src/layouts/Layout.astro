@@ -1,5 +1,8 @@
 ---
 import ConfigCarrier from "../components/ConfigCarrier.astro";
+// 本地魔改轴（mods）前台覆盖启动脚本：与上游标签页级访客样式脚本互不干涉，
+// 必须紧跟 <ConfigCarrier /> 之后（见组件头注释）。
+import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import FullscreenHeroEffect from "../components/FullscreenHeroEffect.astro";
 import WelcomePopup from "../components/control/WelcomePopup.astro";
 import WaveEffect from "../components/WaveEffect.astro";
@@ -172,6 +175,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
   th:data-fullscreen-layout="${theme.config?.layout?.bannerLayout?.fullscreenLayout ?: 'classic'}"
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
   data-overlayscrollbars-initialize
 >
@@ -187,7 +191,6 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
         };
       })();
     </script>
-
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <!-- 必须含 initial-scale=1：缺失时 iOS Safari 会按视口宽度自动缩放页面 -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -458,6 +461,11 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
     data-overlayscrollbars-initialize
   >
     <ConfigCarrier />
+    <!-- 本地魔改轴（mods）前台覆盖：读 ConfigCarrier 的 data-*-default + localStorage，
+         在 <html> 上挂/摘 mods-page-wide / mods-card-pattern / mods-card-shell /
+         mods-page-pattern。首帧由上方 <html th:classappend> 兜底，本脚本只做访客覆盖。
+         ⚠️ 与下方上游「访客样式」脚本是两条独立链路，勿合并。 -->
+    <VisitorStyleBoot />
     <!-- 访客样式覆盖启动脚本：紧跟 ConfigCarrier（body 首元素），在可见内容
          解析前应用 body class 与壁纸变量，无 FOUC。body 不被 Swup 替换，
          仅需首载执行一次；文章布局覆盖见 visitor-post-layout.js。
@@ -831,6 +839,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" th
       th:if="${theme.config?.style?.styleSwitches?.sakura == true or (theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false)}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${ASSET_VERSION}`}
       defer
-      is:inline></script>
+      is:inline
+    ></script>
   </body>
 </html>

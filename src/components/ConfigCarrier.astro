@@ -1,3 +1,17 @@
+<!--
+  配置载体：把后台主题设置（含访客样式默认值）以 data-* 形式交给客户端脚本。
+  ⚠️ 两处消费方：Layout.astro（主题页外壳）/ pages/layout.astro（插件页外壳），
+     以及 VisitorStyleBoot.astro —— 改属性名须同步。
+
+  ── 本地魔改轴（mods）────────────────────────────────────────────────
+  以下 4 个 data-* 由本地 1.5.66 分支迁入，读 theme.config.mods.*（本地独有的
+  设置分组，见 settings.yaml 的 `mods` 组）。上游 v2.0.0 无对应概念，与本文件
+  其余「访客样式」属性互不干涉：上游那套走 visitorAppearance/Wallpaper/Effects
+  标签页级开关，mods 走独立的前台 localStorage 覆盖。
+  消费方：VisitorStyleBoot.astro → 在 <html> 挂 mods-page-wide / mods-card-pattern
+  / mods-card-shell / mods-page-pattern 类；CSS 见 styles/variables.css 与
+  styles/components.css 的 `:root.mods-*` 作用域规则。
+-->
 <div
   id="config-carrier"
   th:data-hue="${theme.config?.style?.themeColor?.hue}"
@@ -20,5 +34,8 @@
   th:data-wallpaper-opacity="${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}"
   th:data-wallpaper-blur="${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}"
   th:data-wallpaper-card-alpha="${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}"
->
-</div>
+  th:data-page-wide-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth)}"
+  th:data-card-pattern-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern)}"
+  th:data-card-shell-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true}"
+  th:data-page-pattern-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern)}"
+></div>

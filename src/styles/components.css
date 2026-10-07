@@ -1615,6 +1615,200 @@
       animation: none;
     }
   }
+
+  /* ── 本地魔改轴（mods）样式 ── 由本地 1.5.66 迁入，作用域见 settings.yaml 的 `mods` 组 ── */
+
+  @media (min-width: 768px) {
+    :root.mods-card-pattern .card-base::before,
+    :root.mods-card-pattern .float-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      /* 负 z 落在卡片背景之上、内容（文字/标签）之下，不遮内容不被背景盖住；
+             依赖 .card-base/.float-panel 的 isolation:isolate 建立的 stacking context */
+      z-index: -1;
+      background-color: var(--card-bg);
+      background-image: url(/themes/Ethereal/assets/images/pattern.svg);
+      /* 锚定左上角而非 50%：background-position 百分比是相对元素自身 box 的定位，
+             卡片高度随内容变化（手风琴 collapse / tab 展开）时 50% 锚点会移动，
+             导致平铺纹理整体漂移、视觉「跳一下」。固定 0 0 后平铺相位不再随尺寸变化。 */
+      background-position: 0 0;
+      background-repeat: repeat;
+      background-size: 200px;
+      background-blend-mode: difference;
+      opacity: var(--card-pattern-opacity, 0.03);
+      pointer-events: none;
+      border-radius: inherit;
+    }
+
+    :root.dark.mods-card-pattern .card-base::before,
+    :root.dark.mods-card-pattern .float-panel::before {
+      background-blend-mode: screen;
+    }
+
+    /* 层恒存在（要点 6）：基底 opacity:0，只有两个生效模式才把它拉起来 */
+
+    :root.mods-page-pattern body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      /* 负 z：落在画布底（html 背景）之上、正文之下。不要改成正数 —— 那样会盖住正文；
+             也不要指望给 body 加 isolation 来「修」第 3 条，那会让本层退回 body 内部、
+             反而又跑到 body 背景后面去。 */
+      z-index: -1;
+      pointer-events: none;
+      /* 亮色模式的线色：深蓝灰 */
+      background-color: #5c6b7a;
+      /* 420px 与参考站同周期（tgme 图案官方口径 420px auto） */
+      -webkit-mask: url(/themes/Ethereal/assets/images/page-pattern.svg) 0 0 /
+        420px auto repeat;
+      mask: url(/themes/Ethereal/assets/images/page-pattern.svg) 0 0 / 420px
+        auto repeat;
+      opacity: 0;
+      /* 时长与切模式时正文下推 / 波浪位移同一令牌（随动画速度档位），
+             这样底纹的淡入淡出与那次布局动画同长同帧 */
+      transition: opacity var(--dur-banner, 700ms) ease;
+    }
+
+    :root.dark.mods-page-pattern body::before {
+      /* 暗色模式的线色：浅蓝灰（贴合 --hue=250 的蓝灰体系），浓度用后台原值 */
+      background-color: #889aae;
+    }
+
+    /* 两个生效模式：清掉 body 自身底色（要点 3），并把浓度拉到目标值。
+         ⚠️ 两模式**浓度一致** —— 1.5.66 早期曾在透明模式下再乘 0.6「折减」，那是为
+         照片壁纸调淡用的；壁纸去掉后两模式同为平面底，再折减只会让切模式时深浅一跳。 */
+
+    :root.mods-page-pattern[data-banner-display="disabled"] body,
+    :root.mods-page-pattern[data-banner-display="transparent"] body {
+      background-color: transparent;
+    }
+
+    :root.mods-page-pattern[data-banner-display="disabled"] body::before,
+    :root.mods-page-pattern[data-banner-display="transparent"] body::before {
+      opacity: calc(var(--page-pattern-strength, 0.42) * 0.38);
+    }
+
+    :root.dark.mods-page-pattern[data-banner-display="disabled"] body::before,
+    :root.dark.mods-page-pattern[data-banner-display="transparent"]
+      body::before {
+      opacity: var(--page-pattern-strength, 0.42);
+    }
+  }
+
+  @media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+    :root.mods-page-pattern body::before {
+      transition: none;
+    }
+  }
+
+  /* 魔改：卡片外壳 —— 1px 淡蓝主色描边 + 卡片外侧一圈柔和暗晕
+     （即 1.4.73「关于我」页那套卡片效果的全站版；1.4.76 曾从关于我页移除，
+     现改为由后台/访客开关按需全站启用，默认关）。
+     仅 <html class="mods-card-shell"> 时生效 → 关闭时完全回到无壳外观（零副作用）。
+
+     ⚠️ 为何用 outline 而不是 border：
+       1) 瀑布流（masonry）下 post-list-layout.js 会把 .post-card-item 绝对定位并
+          写死行内 width/height，border 会改变盒模型尺寸、与 JS 算出的高度互相干扰；
+       2) 上游 .btn-card-outline 已用 border，此处若也用 border 会互相覆盖；
+       3) outline 不参与布局，且可用 outline-offset 制造「描边浮在卡片外沿」的观感。
+     ⚠️ 为何描边 + 暗晕都挂在卡片自身而不是外层 wrapper：全站 77 处 .card-base
+       散落在各页面，无统一 wrapper；只在卡片自身加 shadow 即可获得「浮起」观感。
+
+     配色：描边 = 主色 14% 混入分隔线色（与关于我页原值一致，随主题色相联动）；
+           暗晕 = #3a5b89（冷蓝）8% 透明度、向下偏移 0.7rem、模糊 1.8rem，
+           是「暗晕」而非纯黑阴影，避免在浅色卡片下显脏。 */
+
+  :root.mods-card-shell .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+  :root.mods-card-shell
+    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
+      .bg-\(--primary\)
+    ),
+  :root.mods-card-shell .float-panel,
+  :root.mods-card-shell .pager-strip {
+    outline: 1px solid
+      color-mix(in srgb, var(--primary) 14%, var(--line-divider));
+    outline-offset: -1px;
+    box-shadow: 0 0.7rem 1.8rem #3a5b890f;
+  }
+
+  /* 暗色下：描边提亮一点才看得见（暗底上 14% 主色几乎不可辨），
+     暗晕改用纯黑低透明度——冷蓝阴影在深底上会显灰。 */
+
+  :root.dark.mods-card-shell
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)),
+  :root.dark.mods-card-shell
+    .btn-card:not(.btn-regular):not(.floating-btn .btn-card):not(
+      .bg-\(--primary\)
+    ),
+  :root.dark.mods-card-shell .float-panel,
+  :root.dark.mods-card-shell .pager-strip {
+    outline-color: color-mix(in srgb, var(--primary) 26%, var(--line-divider));
+    box-shadow: 0 0.7rem 1.8rem rgb(0 0 0 / 0.22);
+  }
+
+  /* ===== 卡片视觉分层：主列重、侧栏轻（2026-09-18 LQ 选定「排版优化」方向）=====
+     全站 12+ 个卡片外壳同一重量 ⇒ 视线没有主次。两侧栏（#sidebar / #right-sidebar）
+     是「容器」，退到最轻：去外壳描边与暗晕、卡片纹理只留一丝；
+     主列文章卡保持完整外壳，成为页面上唯一的「重」元素。
+     ⚠️ 只动装饰层（outline / box-shadow / 纹理 opacity），--card-bg、圆角、内部布局
+        一律不碰 ⇒ 结构、透明模式、可读性零影响。
+     ⚠️ 特异性：外壳规则是纯 class 组合（0-5-1 级），这里带 ID（1-1-0 级）稳胜，无需
+        !important；暗色变体只改 outline-color/box-shadow 颜色，一并被 outline:none/
+        box-shadow:none 覆盖。 */
+
+  :root.mods-card-shell #sidebar .card-base,
+  :root.mods-card-shell #right-sidebar .card-base {
+    outline: none;
+    box-shadow: none;
+  }
+
+  @media (min-width: 768px) {
+    :root.mods-card-pattern #sidebar .card-base::before,
+    :root.mods-card-pattern #right-sidebar .card-base::before {
+      opacity: calc(var(--card-pattern-opacity, 0.03) * 0.4);
+    }
+  }
+
+  /* ===== 置顶卡片 vs 卡片外壳：必须一眼可辨（2026-09-13 LQ 要求）=====
+     开关模式下普通卡 = 1px / 14% 淡描边 + 8% 极淡暗晕（几乎只是「有边」）。
+     置顶卡必须**明显强于**这个基线，否则「置顶」在视觉上消失。做法：
+       · 描边加粗到 2px + 主色饱和度提到 60%（普通卡 14% → 4 倍差距）
+       · 用 outline-offset: 2px 把环**推到卡片外侧**（普通卡是 -1px 贴内沿）
+         ⇒ 一个「内贴细线」 vs 一个「外浮粗环」，形态本身就不一样
+       · 暗晕换成主色实色投影（28%）+ 轻微外发光，与普通卡的冷蓝#3a5b89 区分
+     ⚠️ 特异性：本选择器含 ID（1-4），胜过卡片外壳的纯 class（0-7）⇒ 无需 !important。
+     ⚠️ 仍用 outline（不用 border）：瀑布流下 JS 写死行内 width/height，border 会改盒模型。 */
+
+  :root.mods-card-shell #post-list-container .post-card.is-pinned {
+    outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
+    outline-offset: 2px;
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--primary) 10%, transparent),
+      0 6px 22px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+
+  /* 暗色：描边再提亮一档，保证深底上「置顶环」依然醒目 */
+
+  :root.dark.mods-card-shell #post-list-container .post-card.is-pinned {
+    outline-color: color-mix(in srgb, var(--primary) 75%, transparent);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--primary) 16%, transparent),
+      0 6px 22px rgb(0 0 0 / 0.35);
+  }
+
+  /* 三栏布局页面宽度：条件式恢复上游 93.5rem。
+     原因：原 .layout-three-column{--page-width:93.5rem!important} 与
+     :root.mods-page-wide 同特异性(0,1,0)且打包后同文件后声明，会压制宽屏 112rem，
+     导致“宽屏开关开了但三栏宽度不变”。直接删掉又会让关闭宽屏时三栏回落到 75rem
+     （比上游 93.5rem 窄，三栏内容列过挤、显示错误）。
+     现用 :not(.mods-page-wide) 限定：仅【未开启宽屏】时三栏回到上游 93.5rem；
+     开启宽屏时此规则不命中，由 variables.css 的 :root.mods-page-wide .layout-three-column
+     (0,3,0) 接管为 112rem。两态均正确。 */
+
+  :root:not(.mods-page-wide) .layout-three-column {
+    --page-width: 93.5rem !important;
+  }
 }
 
 /* TOC 目录项样式 - 仅三栏布局生效 */

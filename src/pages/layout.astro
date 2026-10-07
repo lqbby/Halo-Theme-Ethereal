@@ -6,6 +6,11 @@
 // banner、Swup 过渡、访客样式覆盖等不在契约范围内（契约只传 head / content 两个槽位）。
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
+// ⚠️「两个外壳」纪律（本地 1.5.66 起沿用）：导航栏内的访客样式面板与首帧访客样式
+// 都依赖这两个组件，主题页外壳（src/layouts/Layout.astro）挂什么这里就挂什么，
+// 失步会让插件页与主题页行为不一致。
+import ConfigCarrier from "../components/ConfigCarrier.astro";
+import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import {
   DEFAULT_THEME,
   LIGHT_MODE,
@@ -54,6 +59,7 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
   th:data-speed="${theme.config?.style?.animationSpeed?.speedTier}"
   th:with={speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
   th:fragment="html (head, content)"
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
 >
@@ -128,7 +134,6 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
         );
       })();
     </script>
-
     <!-- 插件页自身的 head 片段（title / meta / 样式等） -->
     <Fragment set:html={headSlot} />
   </head>
@@ -136,6 +141,10 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     class="relative min-h-screen transition"
     th:classappend="${(theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '')}"
   >
+    <!-- 与主题页外壳同款「两个外壳」挂载：ConfigCarrier + 魔改轴覆盖启动脚本。
+         顺序不可调换（VisitorStyleBoot 要读 ConfigCarrier 的 data-*）。 -->
+    <ConfigCarrier />
+    <VisitorStyleBoot />
     <!-- 与 MainGridLayout 同款导航栏外壳：顶部行 + 导航栏 -->
     <div
       id="top-row"
@@ -151,9 +160,7 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
 
     <!-- 插件页正文 -->
     <div id="main-panel-wrapper" class="relative z-30">
-      <div
-        class="relative mx-auto w-full max-w-(--page-width) px-4 py-6 md:px-4"
-      >
+      <div class="relative mx-auto w-full max-w-(--page-width) px-4 py-6 md:px-4">
         <main id="main-grid" class="min-w-0">
           <div id="content-wrapper" class="onload-animation">
             <Fragment set:html={contentSlot} />
