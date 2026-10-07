@@ -115,6 +115,14 @@
 
   window.__etherealFilterSeg = { init: init, refresh: refresh };
 
+  // 与「就地筛选」（list-filter.js，本地 1.5.66）衔接：PJAX 只替换 [data-list-region]
+  // 的 innerHTML，替换完成后 list-filter 在 document 上派发 ethereal:list-swapped。
+  // 此时池内条目已是新的一份（激活项可能变了），浮块必须按新 DOM 重新定位，
+  // 否则会停在旧位置上。监听只绑一次（本脚本单例化，Swup 换页重跑只调 init）。
+  document.addEventListener("ethereal:list-swapped", function () {
+    refresh();
+  });
+
   window.addEventListener("resize", refresh);
   if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
     document.fonts.ready.then(refresh);
