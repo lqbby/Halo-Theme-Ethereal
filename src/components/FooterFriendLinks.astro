@@ -1,37 +1,46 @@
 ---
-// 页脚友情链接卡片墙：数据来自 Links 插件（PluginLinks），服务端渲染。
-// 由 Footer.astro 渲染在页脚分隔线之下、版权信息之上。
-// 整块是 <nav> 地标（aria-label 复用标题词条），样式见文件末尾的 is:global 块。
+// 页脚友情链接卡片墙（**随机版**，2026-09-14 改造）。由 Footer.astro 渲染在页脚
+// 分隔线之下、版权信息之上；整块是 <nav> 地标（aria-label 复用标题词条），
+// 样式见文件末尾的 is:global 块。
 //
-// 改动前必读的三点（放在 frontmatter 而非 HTML 注释里：后者会被构建剥离，
-// 且 prettier 会把相邻 HTML 注释合并到同一行）：
+// 数据链路（改动前必读）：
+//   · **链接列表不再由 Thymeleaf 直出**。改为客户端调「Ethereal 配套」插件的随机
+//     端点 GET /apis/api.recent-comments.halo.run/v1alpha1/friends/random?size=N，
+//     由插件在服务端随机挑 N 条返回（见插件 EtherealFriendsRandomEndpoint）。
+//     好处：① 每次进页/换页都是不同的一批；② 页脚体积与友链总数无关。
+//   · 脚本 public/assets/footer-friends.js（源码 src/scripts/assets/footer-friends.ts），
+//     由 MainGridLayout.astro 按同一开关条件下发（脚本本身幂等，见其头部注释）。
 //
-// 1) 插件未安装 / 未开启时整块跳过。th:if（优先级 300）先于同元素 th:with（400）执行，
-//    所以开关关闭时 hbfGroupedLinks 不会求值，也就不会触发一次链接查询。
+// 所以本模板只负责三件事：
+//   1) 门控：插件在 + 总开关开，否则整块不输出；
+//   2) 头部：标题 / 申请按钮 / **总数**（总数仍走 linkFinder 直出，无 JS 也准确）；
+//   3) 输出**空**列表容器（带 data-hbf-endpoint / data-hbf-size）+ 「更多」箭头。
 //
-// 2) 两个已经踩过的 SpEL 坑：
-//    - SpEL 不支持范围下标（方括号里写起止索引那种切片写法），下标只接受单个 Integer，
-//      写错在「解析期」就抛 SpelParseException，与三元分支实际是否走到无关；
-//      列表切片一律用 List.subList(from, to)（含头不含尾）。
-//    - #aggregates.sum(...) 返回 BigDecimal，且集合为空时返回 null（不是 0），
-//      所以 hbfTotal 必须自己做空集合兜底；它对 null 容器 / 含 null 元素的集合
-//      还会直接抛 IllegalArgumentException。本处不必额外判空——插件保证每个分组的
-//      links 恒为非 null（LinkFinderImpl 以 getOrDefault(..., List.of()) 兜底）。
+// ⚠️ 四条必须遵守的约束：
+//   ① 门控顺序：th:if（优先级 300）先于同元素 th:with（400）执行 ⇒ 开关关闭时
+//      hbfGroupedLinks 不会求值、也就不会触发一次链接查询。顺序不能调换。
+//   ② hbfGroupedLinks 只用于**算总数**（url 过滤口径与旧版一致：网址为空 /
+//      非 http、//、/ 开头的整条剔除）。旧版的「截断偏移 / 卡片渲染」逻辑已随
+//      随机化一并删除，故不再需要 subList 切片。
+//   ③ #aggregates.sum(...) 返回 BigDecimal，集合为空时返回 null（不是 0），
+//      故 hbfTotal 必须自己空集合兜底。
+//   ④ 一页里有**两份**页脚（桌面版在 #swup-container 内、移动版在外），本组件
+//      两份都会渲染 ⇒ 脚本按 data-hbf-endpoint 去重、只发一次请求。
 //
-// 3) 变量口径：
-//    - hbfGroupedLinks：url 过滤条件只在这里写一遍（网址为空 / 非 http、//、/ 开头的
-//      整条剔除），后面的总数、截断偏移、卡片渲染全部基于它，口径天然一致。
-//      它是投影后的「按分组切好的链接列表」List<List<LinkVo>>，已不含分组对象。
-//    - hbfMaxItems：#strings.isEmpty 对 null / 空串都成立，避免清空输入框后拿 "" 去转数字。
-//
-// 4) 两种形态（compact）：默认 standalone 是分隔线下的独立块；compact=true 供
-//    调用方嵌进窄容器（当前用于「卡片页脚」顶行中间），整体收一档，
-//    样式见文件末尾的 .hbf-compact 块。
+// 两种形态（2026-09-13 新增 compact）：
+//   - 默认（standalone）：页脚分隔线之下的独立块，居中、纵向三行（标题/列表/更多）。
+//   - compact=true：嵌进「卡片页脚」的顶行中间空白处。由 Footer.astro 传 prop 控制。
+//     紧凑形态保留「小标题 + 申请按钮 + 内联胶囊列表」，CSS 变量收窄尺寸贴合卡片行高。
 const { compact = false } = Astro.props as { compact?: boolean };
+
+// 「Ethereal 配套」插件的随机友链端点（CustomEndpoint，GroupVersion 见插件源码）。
+// 页面内静态路由，不随主题 base 变化（Halo 在站点根挂 /apis）。
+const FRIENDS_ENDPOINT =
+  "/apis/api.recent-comments.halo.run/v1alpha1/friends/random";
 ---
 
 <nav
-  th:if="${pluginFinder.available('PluginLinks') && (theme.config?.footer?.friendLinks?.enable_friend_links == true)}"
+  th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
   class:list={["hbf-root w-full", compact && "hbf-compact"]}
   th:aria-label="#{footer.friendLinks.title}"
   aria-label="友情链接"
@@ -61,8 +70,9 @@ const { compact = false } = Astro.props as { compact?: boolean };
         ></path>
       </svg>
     </span>
-    <span class="hbf-title" th:text="#{footer.friendLinks.title}">友情链接</span
-    >
+    <span class="hbf-title" th:text="#{footer.friendLinks.title}">
+      友情链接
+    </span>
     <!-- 申请按钮：固定跳转官方 Links 插件的 /links 路由，文案复用友链页的 i18n 词条。
          show_apply_btn 缺省视为开启（与主题其它可选开关的 != false 口径一致）；
          总开关 enable_friend_links 则用 == true 严格比较——它必须显式开启，
@@ -89,52 +99,36 @@ const { compact = false } = Astro.props as { compact?: boolean };
     <!-- 数量徽标：视觉上仍是原来的纯数字，数字对屏幕阅读器隐藏，
          改由 sr-only 文本念出完整口径（总数，而非本页显示条数）。 -->
     <span class="hbf-count">
-      <span aria-hidden="true" th:text="${hbfTotal}">0</span>
+      <span aria-hidden="true" th:text="${hbfTotal}">
+        0
+      </span>
       <span
         class="sr-only"
         th:text="#{footer.friendLinks.countLabel(${hbfTotal})}"
-        >共 0 个友情链接</span
       >
+        共 0 个友情链接
+      </span>
     </span>
   </div>
-  <div class="hbf-list" th:if="${hbfTotal > 0}">
-    <!-- hbfOffset：前面所有分组的有效链接数之和，把 max_items 当成跨分组的全局上限；
-         切片只能用 subList(from, to)，原因见文件顶部注释第 2 条。 -->
-    <span
-      th:each="hbfValidLinks, hbfGroupStat : ${hbfGroupedLinks}"
-      th:remove="tag"
-      th:with="hbfOffset = ${hbfGroupStat.index == 0 ? 0 : #aggregates.sum(hbfGroupedLinks.subList(0, hbfGroupStat.index).![size()])}"
-    >
-      <!-- hbfLogoOk 只算一次，供下面 img / 占位块共用，避免同一段 4 条件判据写成镜像两份。
-           th:with（400）晚于同元素的 th:each（200）与 th:if（300）执行，且对子元素可见。 -->
-      <a
-        th:each="hbfLink, hbfStat : ${hbfValidLinks}"
-        th:if="${hbfMaxItems == 0 or (hbfOffset + hbfStat.index) < hbfMaxItems}"
-        th:with="hbfLogoOk = ${hbfLink.spec.logo != null and (hbfLink.spec.logo.startsWith('http') or hbfLink.spec.logo.startsWith('//') or hbfLink.spec.logo.startsWith('/'))}"
-        th:href="${hbfLink.spec.url}"
-        target="_blank"
-        rel="noopener noreferrer"
-        th:title="${not #strings.isEmpty(hbfLink.spec.description) ? hbfLink.spec.description : hbfLink.spec.displayName}"
-        class="hbf-item"
-      >
-        <img
-          th:if="${hbfLogoOk}"
-          th:src="${hbfLink.spec.logo}"
-          alt=""
-          loading="lazy"
-          decoding="async"
-          class="hbf-logo"
-        />
-        <span th:unless="${hbfLogoOk}" class="hbf-logo-ph">
-          <span class="icon-[material-symbols--link-rounded] text-xs"></span>
-        </span>
-        <span class="hbf-name" th:text="${hbfLink.spec.displayName}">Link</span>
-      </a>
-    </span>
-  </div>
-  <div class="hbf-more" th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}">
+  <!-- 列表容器：**刻意留空**，条目由 footer-friends.js 调配套插件的随机端点填入
+       （见文件顶部说明）。三个属性是脚本的契约：
+         · data-hbf-endpoint：端点地址（脚本靠它去重 + 发起请求）
+         · data-hbf-size：随机条数；0 ⇒ 不带 size 参数，用插件侧配置的默认条数
+         · th:if hbfTotal > 0：一条友链都没有时不输出空列表（头部仍显示，与旧版一致） -->
+  <div
+    class="hbf-list"
+    th:if="${hbfTotal > 0}"
+    data-hbf-endpoint={FRIENDS_ENDPOINT}
+    th:data-hbf-size="${hbfMaxItems}"
+  >
+    <!-- 「更多」箭头：2026-09-13 起**并入胶囊行**（原来是独立一行）。
+         作为 flex 行的最后一个子项，它会自动跟在最后一个胶囊后面，换行时也自然跟随。
+         ⚠️ 它由**服务端**直出（条件 = 总数 > 随机条数），脚本只负责把随机条目
+             insertBefore 到它前面 —— 所以 data-hbf-more 是必须的锚点，别删。 -->
     <a
       class="hbf-more-btn"
+      data-hbf-more
+      th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}"
       th:href="@{/links}"
       th:title="#{footer.friendLinks.moreTitle(${hbfTotal})}"
       th:aria-label="#{footer.friendLinks.moreAria}"
@@ -153,6 +147,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
       </span>
     </a>
   </div>
+  <!-- 无 JS（或端点取不到）时的兜底入口：列表为空，但「全部友链」仍可达 -->
+  <noscript>
+    <p class="mt-2 text-xs text-50">
+      <!-- 复用「更多」的无障碍词条（= 查看全部友链），不新增 i18n key -->
+      <a th:href="@{/links}" th:text="#{footer.friendLinks.moreAria}">
+        查看全部友链
+      </a>
+    </p>
+  </noscript>
 </nav>
 
 <style is:global>
@@ -178,12 +181,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
     display: none;
   }
 
-  /* ---- 标题行 ---- */
+  /* ---- 标题行 ----
+     三行共用同一条竖直中轴（head / list / more 全部居中），
+     视觉上成为一个整体而非三块拼贴。 */
   .hbf-head {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.4rem;
+    margin-bottom: 0.875rem;
   }
   .hbf-title {
     font-size: 0.95rem;
@@ -243,6 +249,8 @@ const { compact = false } = Astro.props as { compact?: boolean };
     font-weight: 700;
     background: var(--btn-regular-bg);
     color: var(--btn-content);
+    /* 与标题间距略大一点，避免「申请友链 14」被读成一个词组 */
+    margin-left: 0.125rem;
   }
 
   /* ---- 卡片列表 ---- */
@@ -252,7 +260,8 @@ const { compact = false } = Astro.props as { compact?: boolean };
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    margin-top: 0.875rem;
+    /* 与标题行的间距由 .hbf-head 的 margin-bottom 统一给出，
+       这里不再写 margin-top（否则两处叠加、间距翻倍）。 */
     width: 100%;
   }
   .hbf-item {
@@ -291,12 +300,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
         color-mix(in oklab, var(--primary) 18%, transparent);
     }
   }
+  /* logo 统一为正圆：源图长宽比五花八门（方形 / 长条 / 椭圆），
+     统一裁成圆形才不会出现「有的圆有的扁」的杂乱感。
+     圆形比圆角方块更弱化自身轮廓，让一排胶囊的「文字」成为视觉主角。 */
   .hbf-logo,
   .hbf-logo-ph {
     flex: 0 0 auto;
     width: 1.125rem;
     height: 1.125rem;
-    border-radius: 0.375rem;
+    border-radius: 9999px;
     background: var(--btn-regular-bg);
   }
   .hbf-logo {
@@ -316,18 +328,18 @@ const { compact = false } = Astro.props as { compact?: boolean };
     white-space: nowrap;
   }
 
-  /* ---- 「更多」：被 max_items 截断时显示在卡片下方，跳转完整友链页 ---- */
-  .hbf-more {
-    margin-top: 0.75rem;
-    text-align: center;
-  }
+  /* ---- 「更多」：被 max_items 截断时显示的箭头，**并入胶囊行**（2026-09-13）
+     它现在是 .hbf-list 的最后一个 flex 子项，不再是独立块 ⇒ 无外间距、
+     尺寸与 .hbf-item 对齐（同高 2rem / compact 下 1.75rem），
+     这样换行时它看起来就是「最后一个胶囊」。 */
   .hbf-more-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 3.5rem;
-    height: 1.75rem;
-    padding: 0;
+    gap: 0.1875rem;
+    min-width: 2rem;
+    height: 2rem;
+    padding: 0 0.5rem;
     border: 1px dashed color-mix(in oklab, var(--primary) 32%, transparent);
     border-radius: 9999px;
     background: transparent;
@@ -346,16 +358,21 @@ const { compact = false } = Astro.props as { compact?: boolean };
     border-color: color-mix(in oklab, var(--primary) 55%, transparent);
     color: var(--primary);
   }
+  /* 箭头图标：悬停时轻微下移，暗示「向下/进入更多」 */
   .hbf-more-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 1rem;
     height: 1rem;
+    transition: transform 0.2s ease;
   }
   .hbf-more-icon svg {
     width: 100%;
     height: 100%;
+  }
+  .hbf-more-btn:hover .hbf-more-icon {
+    transform: translateY(1px);
   }
 
   /* ---- 键盘焦点可见性：与主题其它交互元素一致（photos 页同款 outline） ---- */
@@ -366,17 +383,24 @@ const { compact = false } = Astro.props as { compact?: boolean };
     outline-offset: 2px;
   }
 
-  /* ===== compact 形态：供调用方嵌进窄容器（当前用于「卡片页脚」顶行中间） =====
-     各行尺寸收一档、纵向间距收窄并居中，宽度交给父级 flex-1 + min-w-0 自适应。
-     间距覆写：standalone 的列间距写在 .hbf-list 的 margin-top 上，
-     .hbf-root 的 margin-bottom 与之同优先级、靠源码顺序被下方规则覆写。 */
+  /* ===== compact 形态：嵌进「卡片页脚」顶行中间空白（2026-09-13） =====
+     设计目标：像「本来就在卡片里」，而不是「塞进来的一块」。
+     手法：① 尺寸整体收一档（贴合卡片内 0.875rem 的行节奏）
+           ② **三排统一居中**（标题行 / 胶囊行 / 箭头）—— 2026-09-13 LQ 明确要求，
+              修改说明见下方注释（原先判断「卡片顶行是 flex 行、居中会漂浮」是错的：
+              友链块自带 flex-1 撑满中间列，在它**自己的列宽内**居中反而更稳，
+              真正造成漂浮感的是「上两排左对齐 + 箭头单独居中」那种轴不统一）
+           ③ 去掉与卡片重复的纵向大留白，间距交给父级的 flex gap
+           ④ 标题字号降到 0.8125rem、去掉强字重，退居「小标签」层级
+     响应式：宽度靠 flex-1 + min-w-0 自适应；窄屏时由父级 flex-col 自然折到下一行。 */
   .hbf-compact {
-    /* 居中与 text-align 基线同 .hbf-root，不重复声明 */
     margin-bottom: 0;
+    text-align: center;
     font-size: 0.8125rem;
     line-height: 1.5;
   }
   .hbf-compact .hbf-head {
+    justify-content: center;
     gap: 0.35rem;
   }
   .hbf-compact .hbf-head-icon {
@@ -408,8 +432,8 @@ const { compact = false } = Astro.props as { compact?: boolean };
     padding: 0.02rem 0.35rem;
   }
   .hbf-compact .hbf-list {
+    justify-content: center;
     gap: 0.375rem;
-    margin-top: 0.5rem;
   }
   .hbf-compact .hbf-item {
     height: 1.75rem;
@@ -423,12 +447,15 @@ const { compact = false } = Astro.props as { compact?: boolean };
   .hbf-compact .hbf-logo-ph {
     width: 1rem;
     height: 1rem;
+    border-radius: 9999px;
   }
-  .hbf-compact .hbf-more {
-    margin-top: 0.5rem;
-  }
+  /* 箭头与胶囊同高（它已并入 .hbf-list，高度需跟 .hbf-item 对齐） */
   .hbf-compact .hbf-more-btn {
     min-width: 1.75rem;
     height: 1.75rem;
+  }
+  /* 卡片内不再保留纵向大留白（standalone 版的 margin-bottom 是为独立块与列表拉开距离） */
+  .hbf-compact .hbf-head {
+    margin-bottom: 0.5rem;
   }
 </style>
