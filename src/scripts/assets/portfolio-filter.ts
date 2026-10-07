@@ -78,8 +78,12 @@ import { guardOnce, onPageView } from "../../utils/once";
       var val = chips[i].getAttribute("data-pf-value");
       var on = (state[dim] || ALL) === val;
       chips[i].classList.toggle("is-active", on);
+      // 同步上游胶囊池的激活类（filter-seg 按 .seg-item.seg-active 定位浮块）
+      chips[i].classList.toggle("seg-active", on);
       chips[i].setAttribute("aria-pressed", on ? "true" : "false");
     }
+    // 客户端切显隐后浮块要跟着新激活项走（filter-seg 暴露的 refresh 是幂等的）
+    if (window.__etherealFilterSeg) window.__etherealFilterSeg.refresh();
   }
 
   function setTagChip() {
