@@ -54,7 +54,21 @@ function isHomeSwitching(): boolean {
 // 天然同步开始，无需此前"先 getComputedStyle 再切类"的顺序处理（Safari 首帧
 // getComputedStyle 读不到 head 脚本刚写入的延伸量，波浪曾错位）
 function syncHomeClass(pathname = window.location.pathname) {
-  document.body.classList.toggle("is-home", isHomePath(pathname));
+  const root = document.documentElement;
+  const target = isHomePath(pathname);
+  const changing = document.body.classList.contains("is-home") !== target;
+  // 🔴 is-home 切换 ⇒ banner 高度从 35vh ⇄ 65vh 突变 ⇒ 换页时的「整体位移感」。
+  //    复用 components.css 已有的过渡规则（html.banner-mode-transitioning
+  //    #banner-wrapper{transition:height var(--dur-banner)}）让高度平滑过渡，
+  //    而不是突变。仅在「不是壁纸模式切换进行中」时补挂（避免与 setting-utils
+  //    的 applyBannerDisplay 的过渡互相打断），900ms 后摘掉（略长于 --dur-banner 700ms）。
+  if (changing && !root.classList.contains("banner-mode-transitioning")) {
+    root.classList.add("banner-mode-transitioning");
+    setTimeout(() => {
+      root.classList.remove("banner-mode-transitioning");
+    }, 900);
+  }
+  document.body.classList.toggle("is-home", target);
 }
 
 // 重算延伸像素写入 CSS 变量。head 内联脚本负责首帧计算，此处负责运行期
