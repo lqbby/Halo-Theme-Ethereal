@@ -541,6 +541,55 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
          必须内联在 <head>：要早于任何可能的截断点，且不能被 Astro 挪到文档末尾。
          配套哨兵 #ethereal-page-end 见 <body> 末尾。 -->
     <PageTruncationGuard />
+    <!-- 侧栏小组件「视口懒加载」助手（本地 1.5.66 独有）。
+         ⚠️🔴 上游 v2.0.0 的 Layout 没有它，而下列组件会 `window.__themeLazyInit(...)`
+         调用它：MoeCounter（访客计数）、RecentComments（最近评论）。缺定义 ⇒ 调用即抛
+         TypeError ⇒ **整段初始化不执行且完全静默**：计数图片永远拿不到 src（显示空白）、
+         最近评论永远停在占位。
+         语义：容器进入视口（提前 300px）才执行 init，避免首屏一次性跑掉所有侧栏 widget
+         的请求；不支持 IntersectionObserver / 容器不存在 / initFn 非函数时退化为立即执行。
+         换页后（Swup 替换容器）若元素已在可视区则同步立即初始化，避免「加载中」闪现。
+         必须早于侧栏组件内的调用脚本 ⇒ 放在 <head> 内联。 -->
+    <script is:inline>
+      (function () {
+        if (window.__themeLazyInit) return;
+        window.__themeLazyInit = function (elId, initFn) {
+          var el =
+            typeof elId === "string" ? document.getElementById(elId) : elId;
+          if (!el) {
+            initFn();
+            return;
+          }
+          if (typeof initFn !== "function") return;
+          if (!("IntersectionObserver" in window)) {
+            initFn();
+            return;
+          }
+          var cs = window.getComputedStyle(el);
+          if (cs.display !== "none" && cs.visibility !== "hidden") {
+            var rect = el.getBoundingClientRect();
+            var vh =
+              window.innerHeight || document.documentElement.clientHeight;
+            if (rect.top < vh + 300 && rect.bottom > -300) {
+              initFn();
+              return;
+            }
+          }
+          var io = new IntersectionObserver(
+            function (entries) {
+              entries.forEach(function (e) {
+                if (e.isIntersecting) {
+                  io.disconnect();
+                  initFn();
+                }
+              });
+            },
+            { rootMargin: "300px" },
+          );
+          io.observe(el);
+        };
+      })();
+    </script>
   </head>
   <!-- is-home 服务端初值仅作首帧兜底（避免 JS 运行前无 FOUC 感知）；运行期以
        客户端 isHomePath（utils/banner-sync.ts）为权威，换页时由 syncHomeClass 纠正 -->
