@@ -793,6 +793,7 @@ function setupSwup() {
     updateTocBtnVisibility();
   });
   window.swup.hooks.on("page:view", () => {
+    initCommentLazyLoad();
     syncHomeClass();
     syncBannerOverlay();
     void initContentLightbox();
@@ -966,6 +967,96 @@ function updateTocBtnVisibility() {
   window.__etherealFloatingControlsReposition?.();
 }
 
+// ── 评论区懒加载（P3，1.3.3；2026-10-08 从本地 1.5.66 移植回来）──
+// <halo:comment> 由 Halo 服务端注入，comment-next.iife.js（~120KB）随 HTML 解析
+// 立即执行，而评论区在文章页首屏之下。页面模板把产物包进
+// <template id="comment-lazy-template">（内容惰性：脚本不下载、web component 不
+// 升级），这里在评论区接近视口（提前 400px）时把内容搬到占位节点激活。
+// Swup 换页后新 DOM 的占位为空，page:view 重新绑定即可覆盖 SPA 场景。
+// ⚠️ 合并上游 2.0.0 时这段逻辑随 app.ts 一起被上游版覆盖掉了，导致模板里的
+//    <template> 永远没人搬运 ⇒ 评论区只剩「评论」标题壳子（实测高 74px）。
+const COMMENT_MIN_READY_HEIGHT = 160;
+const COMMENT_STABLE_FRAMES = 2;
+const COMMENT_READY_TIMEOUT = 4000;
+/**
+ * 标记评论区内容已渲染：高度超过空壳阈值且连续 N 帧不变后，打上
+ * data-comment-ready 并派发 comment:ready，供 comment-locate.ts 把落位高亮
+ * 延后到内容出现之后再播（否则 0.9s 脉冲在空壳上播完，用户看不到任何提示）。
+ */
+function trackCommentReady(box: HTMLElement) {
+  if (box.dataset.commentReady) return;
+  let settled = false;
+  let ro: ResizeObserver | null = null;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    if (ro) ro.disconnect();
+    box.dataset.commentReady = "1";
+    document.dispatchEvent(new CustomEvent("comment:ready"));
+  };
+  let lastH = -1;
+  let stable = 0;
+  if ("ResizeObserver" in window) {
+    ro = new ResizeObserver(() => {
+      const h = box.offsetHeight;
+      if (h === lastH) stable += 1;
+      else {
+        stable = 0;
+        lastH = h;
+      }
+      if (stable >= COMMENT_STABLE_FRAMES && h >= COMMENT_MIN_READY_HEIGHT)
+        finish();
+    });
+    ro.observe(box);
+  } else {
+    setTimeout(finish, 1200);
+  }
+  setTimeout(finish, COMMENT_READY_TIMEOUT);
+}
+
+// 评论懒加载 IO 跨页共享引用：未滚到评论区就离开时，旧页 IO 仍观察着已被
+// Swup 替换掉的旧 #comment 节点，每篇滞留一个 IO + 旧 DOM 引用。故提升到
+// 模块级，每次 initCommentLazyLoad 开头先断开上一次的 IO 再创建新的。
+let commentLazyIo: IntersectionObserver | null = null;
+
+function initCommentLazyLoad() {
+  if (commentLazyIo) {
+    commentLazyIo.disconnect();
+    commentLazyIo = null;
+  }
+  const box = document.getElementById("comment");
+  const tpl = document.getElementById(
+    "comment-lazy-template",
+  ) as HTMLTemplateElement | null;
+  const slot = document.getElementById("comment-lazy-placeholder");
+  if (!box || !tpl || !slot) return;
+  if (slot.childNodes.length > 0) return; // 本次导航已激活（幂等）
+  const adopt = () => {
+    if (slot.childNodes.length > 0) return;
+    while (tpl.content.firstChild) {
+      slot.appendChild(tpl.content.firstChild);
+    }
+    trackCommentReady(box);
+  };
+  // 带 #comment 锚点进入（侧栏「最近评论」跳转 / 通知邮件链接）时立即激活
+  const wantsComment = (location.hash || "").indexOf("#comment") === 0;
+  if (wantsComment || !("IntersectionObserver" in window)) {
+    adopt();
+    return;
+  }
+  commentLazyIo = new IntersectionObserver(
+    (entries) => {
+      if (entries.some((e) => e.isIntersecting)) {
+        commentLazyIo?.disconnect();
+        commentLazyIo = null;
+        adopt();
+      }
+    },
+    { rootMargin: "400px" },
+  );
+  commentLazyIo.observe(box);
+}
+
 // ── 初始化 ──
 function init() {
   syncHomeClass();
@@ -1004,6 +1095,7 @@ if (!(window as any).__etherealScrollDown) {
 }
 
 init();
+initCommentLazyLoad();
 void initContentLightbox();
 void initPhotosGallery();
 
