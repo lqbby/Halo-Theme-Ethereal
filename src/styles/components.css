@@ -195,10 +195,11 @@
   }
 
   /* 两栏悬浮目录宽度限制：视口不足以容纳最小目录宽度时隐藏，避免目录在窄屏下挤成一条线。
-     断点与 --toc-width 公式联动（两栏 --page-width = 84.5rem）：
-     --toc-width = (100vw - 84.5rem)/2 - 1rem >= 6rem  →  视口 >= 98.5rem。
-     ⚠️ 改动 --toc-width 公式或两栏 page-width 时必须同步此断点，否则会出现负宽度目录 */
-  @media (max-width: 98.49rem) {
+     断点与 --toc-width 公式联动（两栏 --page-width = 75rem，本地 1.5.66 基准）：
+     --toc-width = (100vw - 75rem)/2 - 1rem >= 6rem  →  视口 >= 89rem。
+     ⚠️ 改动 --toc-width 公式或两栏 page-width 时必须同步此断点，否则会出现负宽度目录
+     （2026-10-08：page-width 由上游 84.5rem 恢复为本地 75rem 时，断点同步 98.49 → 88.99） */
+  @media (max-width: 88.99rem) {
     #toc-wrapper {
       display: none !important;
     }
@@ -228,7 +229,7 @@
     @apply w-12;
   }
 
-  /* 双栏布局页面宽度：用默认 --page-width（84.5rem，见 variables.css 与 constants.ts） */
+  /* 双栏布局页面宽度：用默认 --page-width（75rem，见 variables.css 与 constants.ts） */
   .layout-two-column {
     /* 使用默认 --page-width，无需覆盖 */
   }

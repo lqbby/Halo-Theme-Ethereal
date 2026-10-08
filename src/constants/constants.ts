@@ -89,10 +89,10 @@ export function invalidateCssVhViewportHeight(): void {
 // The height the main panel overlaps the banner, unit: rem
 export const MAIN_PANEL_OVERLAPS_BANNER_HEIGHT = 3.5;
 
-// Page width: rem（两栏总宽 = 内容列 64 + px-4 2 + 侧栏 17.5 + gap 1 = 84.5）
+// Page width: rem（本地 1.5.66 基准 = 75；上游为 84.5，2026-10-08 按 LQ 要求恢复 75）
 // ⚠️ Layout.astro 内联覆盖到 <html>，改宽度必须同步 variables.css；
 // 三栏总宽（103rem）与 TOC 隐藏断点见 components.css
-export const PAGE_WIDTH = 84.5;
+export const PAGE_WIDTH = 75;
 
 // Banner 响应式常量
 export const BANNER_MIN_HEIGHT_PX = 180;
