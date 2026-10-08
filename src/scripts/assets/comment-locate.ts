@@ -281,4 +281,13 @@ import { onPageView, onceBound } from "../../utils/once";
 
   // Swup 换页后重新判定 hash；once 去重注册（重执行脚本不加守卫会重复注册 page:view）。
   onPageView("comment-locate", bind);
+
+  // 同页锚点支持：侧栏「最近评论」指向当前文章时不走 Swup 换页，由小组件直接改
+  // location.hash（hash 已相同则派发自定义事件）。监听后复用同一套落位 + 高亮逻辑。
+  // Swup 自身的 pushState/replaceState 不触发 hashchange，不会与换页路径重复。
+  // 本脚本在 Swup 容器内会被克隆重执行，注册必须 once 去重。
+  onceBound("comment-locate:hashwatch", function () {
+    window.addEventListener("hashchange", bind);
+    window.addEventListener("ethereal:locate-comment", bind);
+  });
 })();

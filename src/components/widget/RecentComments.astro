@@ -276,8 +276,13 @@ const COLLAPSED_HEIGHT = "7.5rem";
           "group flex gap-2.5 rounded-lg px-2 py-2 transition-all hover:bg-(--btn-plain-bg-hover) hover:pl-3 active:bg-(--btn-plain-bg-active)";
         a.href = "#";
         a.title = name + " 的评论";
-        // 走 Swup 整站页面过渡（淡入淡出），让「跳转到评论区」本身带过渡动画；
-        // 文章页有 #comment hash 处理脚本，评论渲染后滚动到评论区并高亮。
+        // 跳转三分支（按流畅度优先）：
+        // 1) 评论属于「当前这篇文章」→ 不走 Swup 整页过渡（淡出淡入 + 全量重渲染
+        //    对「只是挪到页面下方」是浪费），直接改 location.hash 走同页锚点：
+        //    comment-locate.ts 监听 hashchange 做平滑滚动 + 高亮，app.ts 同事件
+        //    激活评论懒加载；hash 已相同（重复点同一条）时派发自定义事件补触发。
+        // 2) 跨页 → Swup 整站过渡；文章页 #comment hash 处理脚本负责落位高亮。
+        // 3) 修饰键 / 非左键（Ctrl/Shift/中键开新标签）→ 放行原生行为不接管。
         // permalink 解析完成前（href 仍为 #）必须 preventDefault：
         // <a href="#"> 的默认行为是跳到页面顶部（丢失阅读位置），
         // 原注释「放行默认行为（不跳转）」的假设是错的。
@@ -287,7 +292,42 @@ const COLLAPSED_HEIGHT = "7.5rem";
             e.preventDefault();
             return;
           }
+          // 修饰键 / 非左键：放行（新标签页 / 新窗口 / 下载等原生语义）
+          if (
+            e.button !== 0 ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey
+          )
+            return;
           e.preventDefault();
+          // Swup 换页动画进行中：忽略连点，避免叠加第二次整页过渡
+          var de = document.documentElement;
+          if (
+            de.classList.contains("is-animating") ||
+            de.classList.contains("is-changing")
+          )
+            return;
+          var target = null;
+          try {
+            target = new URL(href, window.location.href);
+          } catch (err) {}
+          if (
+            target &&
+            target.origin === window.location.origin &&
+            target.pathname === window.location.pathname &&
+            target.search === window.location.search
+          ) {
+            var h = target.hash || "#comment";
+            if (window.location.hash === h) {
+              // hash 相同不会触发 hashchange → 手动派事件让 comment-locate 重新落位
+              window.dispatchEvent(new CustomEvent("ethereal:locate-comment"));
+            } else {
+              window.location.hash = h;
+            }
+            return;
+          }
           if (window.swup) window.swup.navigate(href);
           else window.location.href = href;
         });

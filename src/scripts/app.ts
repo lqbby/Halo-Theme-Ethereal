@@ -668,6 +668,15 @@ function initCommentLazyLoad() {
   commentLazyIo.observe(box);
 }
 
+// 同页锚点激活：侧栏「最近评论」指向当前文章时（RecentComments 的同页分支），
+// hash 变为 #comment* 不触发 page:view，这里补挂 hashchange，让评论懒加载立即
+// 激活（等同带锚点进入页面的 wantsComment 路径），滚动与高亮由 comment-locate.ts
+// 接管。initCommentLazyLoad 幂等（已激活/无 #comment 时直接返回）。模块级注册
+// 一次即可（本模块在 Swup 容器外，整页生命周期只执行一次）。
+window.addEventListener("hashchange", () => {
+  if ((location.hash || "").indexOf("#comment") === 0) initCommentLazyLoad();
+});
+
 // ── 初始化 ──
 function init() {
   syncHomeClass();
