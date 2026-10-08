@@ -198,7 +198,7 @@ const modalStats = [
                     allActiveExpr="curType == 1"
                     allLabelExpr="#{page.bangumi.typeAnime}"
                     allLabel="追番"
-                    linkAttrs={noSwup}
+                    attrs={noSwup}
                     items={[
                       {
                         hrefExpr:
@@ -222,7 +222,7 @@ const modalStats = [
                     allActiveExpr="curStatus == 0"
                     allLabelExpr="#{common.all}"
                     allLabel="全部"
-                    linkAttrs={noSwup}
+                    attrs={noSwup}
                     items={[
                       {
                         hrefExpr: "@{/bangumis(typeNum=${curType}, status=1)}",

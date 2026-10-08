@@ -59,6 +59,7 @@ import {
   initContentLightbox,
   initPhotosGallery,
   destroyAll,
+  refreshPhotosGallery,
 } from "../utils/content-media";
 
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
@@ -1017,3 +1018,8 @@ initExternalLinkRedirect();
 initProfileStatus();
 // 窗口尺寸变化（横竖屏切换/拉宽拉窄）后重算目录按钮显隐与弹窗锚定
 window.addEventListener("resize", updateTocBtnVisibility);
+
+// 相册页「就地筛选」（templates/assets/list-filter.js）会替换 #photos-gallery 所在的列表区，
+// 而灯箱绑的是被换掉的旧元素 ⇒ 该脚本替换后需要重建灯箱。它是独立的经典脚本产物，
+// 拿不到本模块作用域，故把重建函数挂到 window 供其调用（元素不存在时函数内即空转）。
+(window as any).__etherealRefreshPhotosGallery = refreshPhotosGallery;

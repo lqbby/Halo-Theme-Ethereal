@@ -30,6 +30,8 @@ interface Props {
   class?: string;
   size?: "sm" | "lg";
   countClass?: string;
+  /** 透传到每个 <a> 的原生属性（如 { "data-no-swup": "1" }）；见 FilterTab.astro */
+  attrs?: Record<string, string>;
   segmented?: boolean;
   allHrefExpr: string;
   allActiveExpr: string;
@@ -57,11 +59,13 @@ const {
   tabTemplate,
   items = [],
   class: className = "mb-6 flex flex-wrap gap-2",
+  attrs = {},
 } = Astro.props;
 ---
 
 <div th:if={showIfExpr} class={segmented ? "contents" : className}>
   <FilterTab
+    attrs={attrs}
     segmented={segmented}
     hrefExpr={allHrefExpr}
     activeExpr={allActiveExpr}
@@ -72,25 +76,25 @@ const {
     size={size}
     countClass={countClass}
   />
-  {
-    eachExpr && tabTemplate ? (
-      <div class="contents" th:each={eachExpr}>
-        <FilterTab
-          {...tabTemplate}
-          segmented={segmented}
-          size={size}
-          countClass={countClass}
-        />
-      </div>
-    ) : (
-      items.map((item) => (
-        <FilterTab
-          {...item}
-          segmented={segmented}
-          size={size}
-          countClass={countClass}
-        />
-      ))
-    )
-  }
+  {eachExpr && tabTemplate ? (
+    <div class="contents" th:each={eachExpr}>
+      <FilterTab
+        attrs={attrs}
+        {...tabTemplate}
+        segmented={segmented}
+        size={size}
+        countClass={countClass}
+      />
+    </div>
+  ) : (
+    items.map((item) => (
+      <FilterTab
+        attrs={attrs}
+        {...item}
+        segmented={segmented}
+        size={size}
+        countClass={countClass}
+      />
+    ))
+  )}
 </div>
