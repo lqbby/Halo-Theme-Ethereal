@@ -162,16 +162,6 @@ export default defineConfig({
       },
     }),
     svelte(),
-    critters({
-      Critters: {
-        // 默认渲染模式（critters 用 puppeteer 渲染页面提取视口内 critical CSS；
-        // reduce 模式不渲染 ⇒ 不知道视口内元素 ⇒ critical 提取失败，已弃用）
-        inlineFonts: true,
-        compress: true,
-        preload: "media",
-        pruneSource: false,
-      },
-    }),
   ],
   vite: {
     define: {
