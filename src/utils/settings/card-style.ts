@@ -61,31 +61,8 @@ export function resetPageWide(): void {
   setPageWide(getDefaultPageWide());
 }
 
-/* ── 卡片纹理（魔改：访客可覆盖后台 mods.cardPattern 的细纹理背景） ── */
-
-// 后台默认值受总开关与 cardPattern 门控（与 Layout.astro 服务端类挂载同源）。
-export function getDefaultCardPattern(): boolean {
-  return carrierBool("cardPatternDefault", true);
-}
-
-// 独立存储：访客可覆盖后台 mods.cardPattern；存储生命周期与卡片样式区联动
-// （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
-export function getStoredCardPattern(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultCardPattern();
-  const stored = localStorage.getItem("cardPattern");
-  return stored == null ? getDefaultCardPattern() : stored === "true";
-}
-
-export function setCardPattern(enabled: boolean): void {
-  localStorage.setItem("cardPattern", String(enabled));
-  // 与服务端 th:classappend 同类名 mods-card-pattern（挂在 <html>）
-  document.documentElement.classList.toggle("mods-card-pattern", enabled);
-}
-
-export function resetCardPattern(): void {
-  localStorage.removeItem("cardPattern");
-  setCardPattern(getDefaultCardPattern());
-}
+/* 卡片纹理（mods.cardPattern）已于 2026-10-08 按 LQ 要求整体移除，
+   本文件对应的 getStored/set/getDefault/reset 四件套一并删除。 */
 
 /* ── 卡片外壳（魔改：1px 主色描边 + 外侧暗晕的全站开关） ── */
 
@@ -126,7 +103,7 @@ export function resetCardStyle(): void {
     getDefaultCardHoverLift(),
   );
   document.body.classList.toggle("navbar-blur-enabled", getDefaultNavbarBlur());
-  // 卡片外壳是挂在 <html> 的作用域类（同 cardPattern），恢复默认即回后台值
+  // 卡片外壳是挂在 <html> 的作用域类，恢复默认即回后台值
   document.documentElement.classList.toggle(
     "mods-card-shell",
     getDefaultCardShell(),

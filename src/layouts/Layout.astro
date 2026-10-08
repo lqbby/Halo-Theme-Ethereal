@@ -222,7 +222,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   th:data-fullscreen-layout="${theme.config?.layout?.bannerLayout?.fullscreenLayout ?: 'classic'}"
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
-  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern) ? ' mods-card-pattern' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
+  th:classappend="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth) ? ' mods-page-wide' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true ? ' mods-card-shell' : ''} + ${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern) ? ' mods-page-pattern' : ''}"
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
   data-overlayscrollbars-initialize
 >
@@ -596,7 +596,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   <body
     class:list={["relative min-h-screen transition", { "is-home": isHomePage }]}
     th:classappend="${(bannerHasMedia ? ' enable-banner' : '') + (theme.config?.style?.styleSwitches?.navbar_blur ? ' navbar-blur-enabled' : '') + (theme.config?.style?.styleSwitches?.card_hover_lift != false ? ' card-hover-lift-enabled' : '') + (theme.config?.style?.styleSwitches?.card_border ? ' card-border-enabled' : '') + (theme.config?.style?.styleSwitches?.card_follow_theme ? ' card-follow-theme-enabled' : '') + (theme.config?.layout?.pageLayout?.layoutMode == 'two-column' and theme.config?.layout?.pageLayout?.rightSidebarMode ? ' layout-two-column-right' : '')}"
-    th:style="|--bannerOffset: ${theme.config?.style?.bannerStyle?.position == 'top' ? '30vh' : (theme.config?.style?.bannerStyle?.position == 'bottom' ? '0' : '15vh')}; --transparent-wallpaper-opacity: ${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}; --transparent-wallpaper-blur: ${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}px; --transparent-card-alpha: ${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}; /* ↓ 本地魔改轴的浓度：缺了这两行后台的「纹理淡化程度 / 底纹浓度」完全不起作用，纹理会永远只用 CSS 里的兜底值 */ --card-pattern-opacity: ${theme.config?.mods?.cardPatternOpacity ?: 0.03}; --page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};|"
+    th:style="|--bannerOffset: ${theme.config?.style?.bannerStyle?.position == 'top' ? '30vh' : (theme.config?.style?.bannerStyle?.position == 'bottom' ? '0' : '15vh')}; --transparent-wallpaper-opacity: ${theme.config?.layout?.bannerLayout?.wallpaperOpacity ?: 0.8}; --transparent-wallpaper-blur: ${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}px; --transparent-card-alpha: ${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}; /* ↓ 本地魔改轴的浓度：缺了这行后台的「底纹浓度」完全不起作用，底纹会永远只用 CSS 里的兜底值 */ --page-pattern-strength: ${theme.config?.mods?.pagePatternOpacity ?: 0.42};|"
     data-overlayscrollbars-initialize
   >
     <ConfigCarrier />
@@ -612,8 +612,8 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
       aria-atomic="true"
     ></p>
     <!-- 本地魔改轴（mods）前台覆盖：读 ConfigCarrier 的 data-*-default + localStorage，
-         在 <html> 上挂/摘 mods-page-wide / mods-card-pattern / mods-card-shell /
-         mods-page-pattern。首帧由上方 <html th:classappend> 兜底，本脚本只做访客覆盖。
+         在 <html> 上挂/摘 mods-page-wide / mods-card-shell /
+         mods-page-pattern（卡片纹理已于 2026-10-08 整体移除）。首帧由上方 <html th:classappend> 兜底，本脚本只做访客覆盖。
          ⚠️ 与下方上游「访客样式」脚本是两条独立链路，勿合并。 -->
     <VisitorStyleBoot />
     <!-- 访客样式覆盖启动脚本：紧跟 ConfigCarrier（body 首元素），在可见内容

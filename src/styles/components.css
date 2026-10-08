@@ -1619,34 +1619,9 @@
   /* ── 本地魔改轴（mods）样式 ── 由本地 1.5.66 迁入，作用域见 settings.yaml 的 `mods` 组 ── */
 
   @media (min-width: 768px) {
-    :root.mods-card-pattern .card-base::before,
-    :root.mods-card-pattern .float-panel::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      /* 负 z 落在卡片背景之上、内容（文字/标签）之下，不遮内容不被背景盖住；
-             依赖 .card-base/.float-panel 的 isolation:isolate 建立的 stacking context */
-      z-index: -1;
-      background-color: var(--card-bg);
-      background-image: url(/themes/Ethereal/assets/images/pattern.svg);
-      /* 锚定左上角而非 50%：background-position 百分比是相对元素自身 box 的定位，
-             卡片高度随内容变化（手风琴 collapse / tab 展开）时 50% 锚点会移动，
-             导致平铺纹理整体漂移、视觉「跳一下」。固定 0 0 后平铺相位不再随尺寸变化。 */
-      background-position: 0 0;
-      background-repeat: repeat;
-      background-size: 200px;
-      background-blend-mode: difference;
-      opacity: var(--card-pattern-opacity, 0.03);
-      pointer-events: none;
-      border-radius: inherit;
-    }
-
-    :root.dark.mods-card-pattern .card-base::before,
-    :root.dark.mods-card-pattern .float-panel::before {
-      background-blend-mode: screen;
-    }
-
-    /* 层恒存在（要点 6）：基底 opacity:0，只有两个生效模式才把它拉起来 */
+    /* 卡片纹理（mods-card-pattern）已于 2026-10-08 按 LQ 要求整体移除：
+       CSS / 开关 / ConfigCarrier 属性 / 后台字段 / utils/settings/card-style.ts
+       对应函数一并删除。pattern.svg 保留在 public（整页底纹仍用 page-pattern.svg）。 */
 
     :root.mods-page-pattern body::before {
       content: "";
@@ -1761,13 +1736,6 @@
   :root.mods-card-shell #right-sidebar .card-base {
     outline: none;
     box-shadow: none;
-  }
-
-  @media (min-width: 768px) {
-    :root.mods-card-pattern #sidebar .card-base::before,
-    :root.mods-card-pattern #right-sidebar .card-base::before {
-      opacity: calc(var(--card-pattern-opacity, 0.03) * 0.4);
-    }
   }
 
   /* ===== 置顶卡片 vs 卡片外壳：必须一眼可辨（2026-09-13 LQ 要求）=====

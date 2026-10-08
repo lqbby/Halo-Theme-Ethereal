@@ -8,8 +8,8 @@
   设置分组，见 settings.yaml 的 `mods` 组）。上游 v2.0.0 无对应概念，与本文件
   其余「访客样式」属性互不干涉：上游那套走 visitorAppearance/Wallpaper/Effects
   标签页级开关，mods 走独立的前台 localStorage 覆盖。
-  消费方：VisitorStyleBoot.astro → 在 <html> 挂 mods-page-wide / mods-card-pattern
-  / mods-card-shell / mods-page-pattern 类；CSS 见 styles/variables.css 与
+  消费方：VisitorStyleBoot.astro → 在 <html> 挂 mods-page-wide
+  / mods-card-shell / mods-page-pattern 类（卡片纹理已于 2026-10-08 整体移除）；CSS 见 styles/variables.css 与
   styles/components.css 的 `:root.mods-*` 作用域规则。
 -->
 <!-- 本地 1.5.66：data-visitor-card-style = 访客面板「卡片样式」标签页级开关
@@ -40,7 +40,6 @@
   th:data-wallpaper-blur="${theme.config?.layout?.bannerLayout?.wallpaperBlur ?: 10}"
   th:data-wallpaper-card-alpha="${theme.config?.layout?.bannerLayout?.cardOpacity ?: 0.6}"
   th:data-page-wide-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth)}"
-  th:data-card-pattern-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern)}"
   th:data-card-shell-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and theme.config?.mods?.cardShell == true}"
   th:data-page-pattern-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pagePattern == null ? true : theme.config?.mods?.pagePattern)}"
 ></div>

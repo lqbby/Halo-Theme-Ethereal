@@ -13,26 +13,7 @@ spec:
           key: mods_enable
           label: 启用魔改
           value: true
-          help: "总开关。开启 → 启用下方全部魔改（卡片纹理、宽屏、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 1.2.0 行为"
-        - $formkit: switch
-          name: cardPattern
-          id: mods_cardPattern
-          key: mods_cardPattern
-          label: 卡片纹理
-          value: true
-          help: "卡片 / 浮窗叠加细纹理背景（魔改）。关闭则回到上游纯色卡片"
-        - $formkit: number
-          name: cardPatternOpacity
-          id: mods_cardPatternOpacity
-          key: mods_cardPatternOpacity
-          if: "$get(mods_cardPattern).value"
-          label: 纹理淡化程度
-          min: 0.01
-          max: 0.10
-          step: 0.01
-          value: 0.03
-          validation: "min:0.01|max:0.10"
-          help: "卡片纹理的显示强度（0.01~0.10，默认 0.03）。数值越小越淡、越大越明显：0.01 几乎不可见，0.03 若隐若现，0.10 明显可见。需总开关「启用魔改」与「卡片纹理」均开启才生效"
+          help: "总开关。开启 → 启用下方全部魔改（宽屏、卡片外壳、整页底纹、首页瞬间条、卡片底栏）；关闭 → 整体回到上游原版 Ethereal 行为"
         - $formkit: switch
           name: pagePattern
           id: mods_pagePattern
@@ -1631,8 +1612,8 @@ spec:
                   name: music_api
                   key: widget_music_api
                   preserve: true
-                  label: 自定义 Meting API
-                  help: 留空时使用 MetingJS 默认 API，地址可包含 :server、:type、:id、:r 占位符
+                  label: 自定义 Meting API（已弃用，请到上方「音乐播放器小组件」组里填）
+                  help: ⚠️ 此字段为 1.5.66 老结构的遗留项：当前组件的 th:if 与 data-api 只读 theme.config.sidebar.music.*（即上方「音乐播放器小组件」组），填在这里不会生效。留空即可。
                 - $formkit: number
                   if: "$value.value === 'schedule'"
                   name: limit
