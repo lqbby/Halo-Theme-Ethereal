@@ -248,6 +248,15 @@ const PAGE_SWITCH_EASE = createBezierEasing(0.4, 0, 0.2, 1);
 export function lockstepScrollToTop(): void {
   const startY = window.scrollY;
   if (startY <= 0) return;
+  // 🔴 长距离滚动（>1.5 屏，如从首页底部点文章）时瞬时到顶：
+  //    平滑滚动大距离是明显的「上下拉扯感」（CDP 实测从 1836px 平滑拉到 0 用了 ~2.2s）。
+  //    「锁步」的目的是配合 is-home 位移动画（banner 滑入/滑出）——那只在小位移时才有
+  //    观感意义；大位移时用户预期是「直接到新页顶部」，而不是「慢慢拉回去」。
+  const LOCKSTEP_MAX_SMOOTH = (window.innerHeight || 800) * 1.5;
+  if (startY > LOCKSTEP_MAX_SMOOTH) {
+    window.scrollTo(0, 0);
+    return;
+  }
   const duration = readDurBannerMs(document.documentElement);
   const token = ++lockstepToken;
   const startTime = performance.now();
