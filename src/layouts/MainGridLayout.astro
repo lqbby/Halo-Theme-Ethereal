@@ -710,99 +710,15 @@ const {
       });
     })();
   </script>
+  {/* 随机钓鱼：原为内联脚本（约 170 行，每页重复下发），已外置为经典脚本
+      public/assets/random-fish.js（源码 src/scripts/assets/random-fish.ts）。
+      同时服务两个按钮：#random-fish-btn（朋友圈页页头）与 #random-post-btn（导航栏）。
+      门控条件与原先完全一致：总开关 mods.enable 且 enable_random_fish 未显式关闭 */}
   <script
-    th:if="${theme.config?.extendPages?.friends?.enable_random_fish == null || theme.config?.extendPages?.friends?.enable_random_fish}"
-    is:inline
-  >
-    // 随机钓鱼 - 点击按钮鱼钩摇摆 1.5 秒后随机跳转朋友圈文章
-    // 放到 swup-container 外部 + 事件委托，保证直接访问和 Swup 导航都生效
-    (function () {
-      var t =
-        window.__etherealI18n ||
-        function (_key, fallback) {
-          return fallback;
-        };
-      var SPIN_DELAY = 1500; // 摇摆等待时长（ms）
-      var spinning = false; // 防止重复点击
-
-      function getUrls() {
-        var links = document.querySelectorAll(".friends-item-title");
-        var urls = [];
-        for (var i = 0; i < links.length; i++) {
-          var href = links[i].getAttribute("href");
-          if (href && href !== "#") urls.push(href);
-        }
-        return urls;
-      }
-
-      // 停止摇摆，恢复按钮
-      function stopSwing(btn) {
-        spinning = false;
-        btn.classList.remove("spinning");
-        var label = btn.querySelector(".random-fish-label");
-        if (label) label.textContent = t("page.friends.randomFish", "随机钓鱼");
-      }
-
-      // 鱼钩摇摆动画：0.5s 一个来回，匀速晃动
-      function startSwing(btn, callback) {
-        var icon = btn.querySelector(".random-fish-icon");
-        var label = btn.querySelector(".random-fish-label");
-        btn.classList.add("spinning");
-        if (label) label.textContent = t("page.friends.fishing", "正在钓...");
-        if (icon) icon.style.setProperty("--swing-duration", "0.5s");
-        setTimeout(callback, SPIN_DELAY);
-      }
-
-      function doRandomFish(btn) {
-        var urls = getUrls();
-        if (urls.length === 0) {
-          alert(t("page.friends.noRandomPosts", "暂无朋友圈文章可随机跳转"));
-          stopSwing(btn);
-          return;
-        }
-        var chosen = urls[Math.floor(Math.random() * urls.length)];
-        // 通过创建临时 <a> 元素并点击，让外链跳转模态框（external-link-redirect）拦截
-        var a = document.createElement("a");
-        a.href = chosen;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        a.style.display = "none";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        stopSwing(btn);
-      }
-
-      function handleClick(e) {
-        var btn = e.target.closest("#random-fish-btn");
-        if (!btn || spinning) return;
-        e.preventDefault();
-
-        spinning = true;
-        startSwing(btn, function () {
-          doRandomFish(btn);
-        });
-      }
-
-      var bound = false;
-
-      function ensureBound() {
-        if (bound) return;
-        document.addEventListener("click", handleClick);
-        bound = true;
-      }
-
-      // 初始加载
-      if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", ensureBound);
-      } else {
-        ensureBound();
-      }
-
-      // Swup 页面切换后重新确认（事件委托已在 document 上；
-      // SwupScriptsPlugin 换页重执行时 ensureBound 跳过——冗余注册已删除）。
-    })();
-  </script>
+    th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && ((theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish) == null || (theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish))}"
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${ASSET_VERSION}`}
+    defer
+  ></script>
   {/* 页脚友情链接「随机」渲染（源码 src/scripts/assets/footer-friends.ts）——
        本地 1.5.66 的独有改造：列表不再由 Thymeleaf 直出，改由客户端调
        Ethereal 配套插件的随机端点，故脚本必须下发。
