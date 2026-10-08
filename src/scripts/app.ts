@@ -46,6 +46,7 @@ import {
   lockstepScrollToTop,
   scrollDownToContent,
   scrollFunction,
+  smartScrollTo,
 } from "../utils/scroll-manager";
 import {
   isHomePath,
@@ -559,6 +560,25 @@ class TableOfContents extends HTMLElement {
       this.active = this.tocEntries.map((_, index) => index === activeIndex);
       this.update();
     }
+
+    // 🔴 本页锚点滚动由本方法接管（astro.config.mjs 已关 Swup 的 samePageWithHash）：
+    //    插件走的是主线程逐帧 JS 插值（scrl），长文点目录同样有拉扯感；
+    //    改为距离门控 —— 长距离瞬时、短距离平滑。
+    const target = this.anchorNavTarget;
+    if (target && anchor.hash && anchor.hash.length > 1) {
+      event.preventDefault();
+      const navEl = document.getElementById("navbar-wrapper");
+      const navH = navEl ? navEl.getBoundingClientRect().height : 72;
+      smartScrollTo(
+        Math.max(
+          0,
+          window.scrollY + target.getBoundingClientRect().top - navH - 12,
+        ),
+      );
+      try {
+        history.replaceState(null, "", anchor.hash);
+      } catch (e) {}
+    }
   };
 
   currentHeadingIndex() {
@@ -896,8 +916,10 @@ function setupSwup() {
             isHomeSwitching());
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
+            // 非锁步分支同样走距离门控：原先直接 smooth 会让「从文章深处进入下一页」
+            // 变成同款长距离拉扯（与 lockstepScrollToTop 已修的阈值标准保持一致）
             if (lockstep) lockstepScrollToTop();
-            else window.scrollTo({ top: 0, behavior: "smooth" });
+            else smartScrollTo(0);
           }),
         );
         return;

@@ -107,8 +107,11 @@ import { guardOnce, onPageView } from "../../utils/once";
     var featured = document.getElementById("pf-featured");
     if (featured) featured.hidden = anyFilter;
 
+    // 🔴 两趟走（原先每张卡 `void card.offsetWidth` ⇒ N 次 reflow）：
+    // 先统一 display/移除类并收集要播的卡 → 一次强制回流 → 统一加类
     var shown = 0;
     var scopes = [document.getElementById("pf-all"), featured];
+    var toEnter = [];
     for (var s = 0; s < scopes.length; s++) {
       if (!scopes[s]) continue;
       var cards = scopes[s].querySelectorAll("[data-list-item]");
@@ -120,12 +123,17 @@ import { guardOnce, onPageView } from "../../utils/once";
           if (scopes[s].id === "pf-all") shown++;
           if (animate) {
             card.classList.remove("list-item-enter");
-            void card.offsetWidth; // 强制回流：重新加类时动画从头重播
-            card.classList.add("list-item-enter");
+            toEnter.push(card);
           }
         } else {
           card.classList.remove("list-item-enter");
         }
+      }
+    }
+    if (toEnter.length) {
+      void toEnter[0].offsetWidth; // 一次强制回流，让所有卡的动画从头重播
+      for (var t = 0; t < toEnter.length; t++) {
+        toEnter[t].classList.add("list-item-enter");
       }
     }
 

@@ -172,9 +172,22 @@ import PageHeader from "../components/control/PageHeader.astro";
             attributes: true,
             attributeFilter: ["class"],
           });
-          new MutationObserver(function () {
-            scan();
-          }).observe(document.body, { childList: true, subtree: true });
+          // 🔴 原先观察整页 body 子树、每次变动都全量 scan（含 getComputedStyle 上色）
+          // ⇒ 统计页在 Swup 动态容器下持续无谓重算。改为：收窄到 #main-grid +
+          // rAF 合并（一帧内多次变动只扫一次）。
+          var scanFrame = null;
+          function scheduleScan() {
+            if (scanFrame) return;
+            scanFrame = requestAnimationFrame(function () {
+              scanFrame = null;
+              scan();
+            });
+          }
+          var scanRoot = document.getElementById("main-grid") || document.body;
+          new MutationObserver(scheduleScan).observe(scanRoot, {
+            childList: true,
+            subtree: true,
+          });
         }
       })();
     </script>

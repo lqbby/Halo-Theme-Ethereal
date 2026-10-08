@@ -88,7 +88,8 @@ import { Icon } from "astro-icon/components";
         <span
           th:if="${btn.icon != null && btn.icon.value != null}"
           th:utext="${btn.icon.value}"
-          class="custom-btn-icon"></span>
+          class="custom-btn-icon"
+        ></span>
       </a>
     </div>
   </div>
@@ -366,6 +367,20 @@ import { Icon } from "astro-icon/components";
     }
   }
   __moveFloatingControls();
+  // 距离门控滚动：长距离（>1.5 屏）瞬时、短距离平滑 —— 与 scroll-manager.ts 的
+  // smartScrollTo 同逻辑（本脚本 is:raw is:inline，无法 import，故内联一份）。
+  // 理由：从文章底部点「回顶」是数千 px 的长距离，原生 smooth 会慢慢拉回去（拉扯感）。
+  function __smartScrollTo(top) {
+    var reduce =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var dist = Math.abs(top - window.scrollY);
+    var threshold = (window.innerHeight || 800) * 1.5;
+    window.scroll({
+      top: top,
+      behavior: dist > threshold || reduce ? "auto" : "smooth",
+    });
+  }
   // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）；
   // 每次换页由 SwupScriptsPlugin 重执行本脚本时自动覆盖。
 
@@ -384,8 +399,8 @@ import { Icon } from "astro-icon/components";
           : null;
       if (!btn) return;
       if (btn.id === "back-to-top-btn") {
-        // 平滑滚动回顶部
-        window.scroll({ top: 0, behavior: "smooth" });
+        // 回顶：距离门控（长距离瞬时，短距离平滑）
+        __smartScrollTo(0);
       } else if (btn.id === "back-to-home-btn") {
         // 有 Swup 时走 PJAX 跳转，否则整页跳转
         if (window.swup) {
@@ -397,7 +412,10 @@ import { Icon } from "astro-icon/components";
         // 滚动到评论区（仅文章页存在 #comment）
         var el = document.getElementById("comment");
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          // 跳评论：从文章顶部跳到底部是长距离 ⇒ 距座门控，避免拉扯
+          __smartScrollTo(
+            Math.round(window.scrollY + el.getBoundingClientRect().top),
+          );
         }
       } else if (btn.id === "back-to-toc-btn") {
         // 呼出/收起移动端目录弹窗

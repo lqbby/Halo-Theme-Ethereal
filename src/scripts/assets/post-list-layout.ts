@@ -56,11 +56,22 @@ import { guardOnce } from "../../utils/once";
     var tailCount = items.length % colCount;
     var tailStart = items.length - tailCount;
 
-    items.forEach(function (item, idx) {
+    // 🔴 两趟走，避免 layout thrashing：原先在 forEach 里「写 style → 读 offsetHeight」
+    // 交错，每张卡都触发一次强制同步布局（N 张卡 = N 次 reflow，列表页连续长任务来源）。
+    // 第一趟只写（清 transform / height 复位），第二趟只读（一次性拿全部高度），第三趟只写位置。
+    items.forEach(function (item) {
       // 清掉可能残留的入场 transform，避免影响 offsetHeight
       item.style.transform = "";
       // 高度回归内容自定，覆盖 grid 模式的 height:100%（Firefly 同款处理）
       item.style.setProperty("height", "auto", "important");
+    });
+    // 第二趟：统一读取（连续读之间浏览器复用同一份布局，不会反复重排）
+    var itemHeights = [];
+    items.forEach(function (item, idx) {
+      itemHeights[idx] = item.offsetHeight;
+    });
+    // 第三趟：只写位置，用预读高度累加列高
+    items.forEach(function (item, idx) {
       var colIndex;
       if (tailCount > 0 && idx >= tailStart) {
         // 余数行：从左到右依次落位
@@ -73,8 +84,8 @@ import { guardOnce } from "../../utils/once";
       item.style.width = itemWidth + "px";
       item.style.top = colHeights[colIndex] + "px";
       item.style.left = colIndex * (itemWidth + gap) + "px";
-      // 使用 offsetHeight 获取真实内容高度，避免 transform: scale 影响
-      colHeights[colIndex] += item.offsetHeight + gap;
+      // 用预先量好的高度（避免写后读触发强制重排）
+      colHeights[colIndex] += itemHeights[idx] + gap;
     });
 
     // colHeights 每列都多算了一个尾随 gap（含该列最后一张卡），
@@ -109,7 +120,19 @@ import { guardOnce } from "../../utils/once";
     }
   }
 
-  // 封面图加载完成后可能改变卡片高度，重排一次
+  // 封面图加载完成后可能改变卡片高度，重排一次。
+  // 🔴 合并：原先每张封面 load 都直接跑一次 applyMasonry（N 张图 = N 次全量重排）。
+  // 改为 rAF 合并 —— 同一帧内多张图 load 只重排一次。
+  var masonryFrame = null;
+  function scheduleMasonry() {
+    if (masonryFrame) return;
+    masonryFrame = requestAnimationFrame(function () {
+      masonryFrame = null;
+      var c = getContainer();
+      if (c && isMasonryEnabled(c)) applyMasonry(c);
+    });
+  }
+
   function bindImageLoad() {
     var container = getContainer();
     if (!container || !isMasonryEnabled(container)) return;
@@ -117,10 +140,7 @@ import { guardOnce } from "../../utils/once";
     for (var i = 0; i < imgs.length; i++) {
       (function (img) {
         if (img.complete) return;
-        img.addEventListener("load", function () {
-          var c = getContainer();
-          if (c && isMasonryEnabled(c)) applyMasonry(c);
-        });
+        img.addEventListener("load", scheduleMasonry);
       })(imgs[i]);
     }
   }

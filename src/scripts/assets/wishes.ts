@@ -179,6 +179,11 @@
     if (!body) return;
     var cards = body.querySelectorAll(".wish-card");
     var visible = 0;
+    // 🔴 两趟走：原先每张卡都 `void card.offsetWidth` 强制回流一次（N 张 = N 次 reflow）。
+    // 第一趟：只写（display 复位 + 动画清空 + opacity 0）并收集要播的卡；
+    // 第二趟：一次 `void body.offsetWidth` 统一回流；
+    // 第三趟：统一赋 animation（错峰 delay）。
+    var toAnimate = [];
     cards.forEach(function (card) {
       var type = card.getAttribute("data-wish-type");
       var show = currentFilter === "all" || type === currentFilter;
@@ -189,11 +194,14 @@
       card.style.display = "";
       card.style.animation = "none";
       card.style.opacity = "0";
-      void card.offsetWidth; // 强制回流：确保动画重播从 0% 开始
-      card.style.animation =
-        "wishCardIn 0.4s ease " + visible * 40 + "ms forwards";
-      visible++;
+      toAnimate.push(card);
     });
+    // 一次强制回流：确保所有卡的动画都从 0% 开始
+    void body.offsetWidth;
+    toAnimate.forEach(function (card, i) {
+      card.style.animation = "wishCardIn 0.4s ease " + i * 40 + "ms forwards";
+    });
+    visible = toAnimate.length;
     if (el.filterEmpty) {
       el.filterEmpty.style.display = visible === 0 ? "block" : "none";
     }

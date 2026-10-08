@@ -267,6 +267,8 @@ export function isolatePhotoInfoEvents(infoPanel: HTMLElement) {
     event.stopPropagation();
   };
 
-  infoPanel.addEventListener("wheel", stopPropagation);
-  infoPanel.addEventListener("touchmove", stopPropagation);
+  // passive: true —— 只为阻断冒泡，不 preventDefault；非 passive 会让面板内的
+  // 滚轮/触摸滚动先等 JS 执行（滚动发涩）
+  infoPanel.addEventListener("wheel", stopPropagation, { passive: true });
+  infoPanel.addEventListener("touchmove", stopPropagation, { passive: true });
 }

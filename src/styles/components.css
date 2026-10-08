@@ -34,6 +34,14 @@
 
   .float-panel {
     @apply top-[4.875rem] overflow-hidden rounded-(--radius-large) bg-(--card-bg) shadow-xl transition;
+  }
+
+  /* 🔴 will-change 条件挂载：原先常挂在本类上，而关闭态 `.float-panel-closed`
+     只是 opacity-0 + -translate-y-1（**仍渲染**）⇒ 常挂会让每个面板在关闭时也
+     保留独立合成层、白占显存（同页有搜索/显示设置等多个 .float-panel）。
+     改为仅「未处于关闭态」时挂载 —— 打开与过渡窗口有 will-change，静置关闭态没有。
+     （与 CategoryBar.astro 的 .is-scrolling 条件挂载 / banner-mode-transitioning 同模式） */
+  .float-panel:not(.float-panel-closed) {
     will-change: transform, opacity;
   }
 
