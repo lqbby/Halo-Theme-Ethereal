@@ -234,12 +234,10 @@
     /* 使用默认 --page-width，无需覆盖 */
   }
 
-  /* 三栏布局页面宽度：与两栏共用同一「内容列宽」64rem(1024px)，只多一个侧栏 + 1 个 gap。
-     总宽 = md:px-4(2) + 侧栏(17.5) + gap(1) + 内容列(64) + gap(1) + 侧栏(17.5) = 103rem。
-     两栏同为 64rem 内容列 ⇒ 切换布局模式时正文/卡片宽度不跳变。 */
-  .layout-three-column {
-    --page-width: 103rem !important;
-  }
+  /* 2026-10-08 删除上游的 .layout-three-column{--page-width:103rem!important} —— 它无条件命中 #top-row，
+     在特异性层面压过 :root.mods-page-wide .layout-three-column{112rem}，导致「宽屏开了但三栏
+     宽度停在 103rem(1648px)」。本地 1.5.66 本就把它删了（注释里明确警告过这个坑）。
+     现三栏宽度由下面两条条件式控制：非宽屏 93.5rem（:not(mods-page-wide)）、宽屏 112rem。 */
 
   .hide-scrollbar {
     scrollbar-width: none;
