@@ -9,6 +9,12 @@
      ⚠️ 必须与 constants.ts 的 PAGE_WIDTH 一致（它会内联到 <html>、压过本声明），
      改宽度时同步 components.css 的 .layout-three-column 与顶部 TOC 隐藏断点。 */
   --page-width: 75rem;
+  /* 内容外壳宽度：xl 起内容容器 = min(--page-shell-w, --page-width)。
+     默认 92vw（两侧留 4% 余白，避免贴边）；开启「宽屏布局」(mods-page-wide) 时
+     放宽到 100vw —— 否则 112rem 会被 92vw 卡住（1920 屏只有 1766px，几乎看不出宽屏效果）。
+     ⚠️ 改动时必须同步：MainGridLayout 的 xl:w-[var(--page-shell-w)]（2 处）
+     与 Layout.astro 里 #navbar-wrapper 的 width 计算。 */
+  --page-shell-w: 92vw;
   --banner-height: 35vh;
   --banner-height-home: 65vh;
   --banner-height-extend: 30vh;
@@ -221,6 +227,9 @@ body {
 
 :root.mods-page-wide {
   --page-width: 112rem !important;
+  /* 同时解除 92vw 外壳限宽 ⇒ 112rem 真正生效（视口够宽时铺满到 1792px）。
+     不解除的话实际宽度 = min(92vw, 112rem)，1920 屏只能到 1766px。 */
+  --page-shell-w: 100vw;
 }
 
 /* 三栏布局双保险：components.css 已不再写死 93.5rem，此处复合选择器

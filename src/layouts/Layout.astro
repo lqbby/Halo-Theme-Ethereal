@@ -914,7 +914,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
         /* xl 起 #top-row 由 w-full 换为 xl:w-[92vw]，宽度同步跟随 */
         @media (min-width: 80rem) {
           #navbar-wrapper {
-            width: calc(92vw - 2rem) !important;
+            /* 与 #top-row 的 min(--page-shell-w, --page-width) 同几何，宽屏时才跟得上 */
+            width: calc(
+              min(var(--page-shell-w), var(--page-width)) - 2rem
+            ) !important;
           }
         }
         /* 吸顶让位量：导航栏可见时为导航栏高度，随滚动收起时（scroll-manager

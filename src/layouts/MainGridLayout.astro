@@ -136,7 +136,7 @@ const {
 
   <div
     id="top-row"
-    class="pointer-events-none relative z-50 mx-auto w-full xl:w-[92vw] max-w-(--page-width) px-0 transition-all duration-[var(--dur-scroll,700ms)] md:px-4"
+    class="pointer-events-none relative z-50 mx-auto w-full xl:w-[var(--page-shell-w)] max-w-(--page-width) px-0 transition-all duration-[var(--dur-scroll,700ms)] md:px-4"
     th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? 'layout-two-column' : 'layout-three-column'}"
   >
     <div
@@ -477,7 +477,7 @@ const {
   </script>
   <div id="main-panel-wrapper" class="pointer-events-none absolute z-30 w-full">
     <div
-      class="pointer-events-none relative mx-auto w-full xl:w-[92vw] max-w-(--page-width)"
+      class="pointer-events-none relative mx-auto w-full xl:w-[var(--page-shell-w)] max-w-(--page-width)"
       th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? 'layout-two-column' : 'layout-three-column'}"
     >
       <!-- 面板顶部区：全站瞬间条 + banner 署名。
