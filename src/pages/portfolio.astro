@@ -30,7 +30,7 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
              typeLabels=${projectFinder.typeLabels()},
              projects=${projectFinder.listBy('', '', '', '', 1, 999)}"
   >
-    <section class="card-base mb-4 px-6 py-6 md:px-9 onload-animation">
+    <div class="card-base page-head-card onload-animation mb-4">
       <!-- 标题区域（客户端筛选 ⇒ 不传 filteredExpr，同 wishes 页） -->
       <!-- ⚠️ 上游 2.0.0「仪表条」API。本地旧 API（labelExpr/label/subExpr/subShowIfExpr）会被静默忽略。
            本页筛选是**纯客户端就地切显隐**（portfolio-filter.js），URL 不反映筛选态
@@ -214,7 +214,7 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
           </a>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
   <!-- 选中态 / 显隐全靠客户端（见 portfolio-filter.js） -->
