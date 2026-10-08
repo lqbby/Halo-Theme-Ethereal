@@ -233,18 +233,26 @@ import { onPageView, onceBound } from "../../utils/once";
       return;
     }
 
-    // 普通 #comment：立即滚。#comment 顶边由上方正文决定，内容撑开只增自身高度不改变顶边，
-    // 此刻滚动落点本就准确，延后只会让用户多等。
-    box.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
-      block: "start",
-    });
+    // 普通 #comment：滚动延后到 comment:ready。
+    // ⚠️ 原实现是「立即滚」——但文章页正文/封面图多为懒加载，加载完前正文高度偏低 ⇒
+    //    评论区顶边靠前 ⇒ 立即滚动落在靠前位置；随后正文/图片加载撑开、评论区后移 ⇒
+    //    落点偏移（实测差 ~1200px），观感就是「拉扯感」。等 comment:ready（评论区内容稳定、
+    //    正文也已基本加载）后再滚，落点才准。高亮同样在滚动停稳后播。
+    var doScroll = function () {
+      box.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
+    };
 
-    // 高亮延后到内容就绪再播（在空壳上播等于白播），且等滚动停稳 + 目标进视口。
+    // 已就绪（本次导航前评论区已激活，如换页回到已加载过的页）⇒ 立即滚 + 立即高亮
     if (box.dataset.commentReady) {
+      doScroll();
       flashWhenSettled(box);
       return;
     }
+
+    // 未就绪：等 comment:ready（懒加载激活 + 内容稳定），超时兜底也照常滚（不能一直悬着）
     box.classList.add("comment-locating");
     var settled = false;
     var timer = setTimeout(finish, READY_TIMEOUT);
@@ -258,6 +266,7 @@ import { onPageView, onceBound } from "../../utils/once";
       document.removeEventListener("comment:ready", onReady);
       box.classList.remove("comment-locating");
       requestAnimationFrame(function () {
+        doScroll();
         flashWhenSettled(box);
       });
     }
