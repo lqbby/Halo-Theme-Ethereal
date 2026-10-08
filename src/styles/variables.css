@@ -33,9 +33,17 @@
   --bannerOffset: 15vh;
   /* 列表模式卡片封面宽度（占卡片宽 %）：34% 使封面 16:9 高度贴合单行标题
      卡片高度、跨阈值切换无跳变（详见 PostList.astro 的 cover-fixed 块） */
-  --post-card-cover-width: 34%;
+  --post-card-cover-width: 28%;
 
   --primary: oklch(0.7 0.14 var(--hue));
+  /* 主色背景上的前景色（分类栏滑块文字/计数等）：滑块底色 --primary 亮度恒 0.7/0.75（中亮），
+     白字对比仅 ~2.3:1 不达 WCAG AA，须用深色前景。亮暗两套 --primary 亮度接近，故同值。
+     ⚠️ 2026-10-08 补：本地 1.5.66 有、合并时漏带（up2 一度缺失 → 11 处 var(--on-primary) 回退为空） */
+  --on-primary: oklch(0.25 0.07 var(--hue));
+  /* 焦点环专用色：--primary 在浅底上仅 2.7:1、对页面底 2.3:1，达不到 WCAG 2.4.11 的 3:1。
+     压深一档（85%）色相不变、肉眼几乎无感；对白卡 4.01:1、对页面底 3.47:1。
+     ⚠️ 全部焦点环都应引用本变量，别再写 var(--primary)。（同为 2026-10-08 补回的漏带项） */
+  --focus-ring: color-mix(in oklab, var(--primary) 85%, black);
   --page-bg: oklch(0.95 0.01 var(--hue));
   --card-bg: white;
   --btn-content: oklch(0.55 0.12 var(--hue));
@@ -131,6 +139,9 @@
 
   /* 点赞失败提示色（upvote-failed 闪烁），约 Tailwind red-400，与文章页点赞红心一致 */
   --upvote-error: oklch(0.7 0.19 22);
+  /* 时间轴「进行中」节点绿（timeline-node-current），约 Tailwind green-500；
+     亮暗同值（语义状态色，两种模式均可用）。（同为 2026-10-08 补回的漏带项） */
+  --timeline-current: oklch(0.72 0.19 150);
 }
 
 /* 卡片跟随主题色（样式开关 → 访客可在显示设置面板覆盖）：浅色模式下把卡片
@@ -144,6 +155,9 @@
 
 :root.dark {
   --primary: oklch(0.75 0.14 var(--hue));
+  --on-primary: oklch(0.25 0.07 var(--hue));
+  /* 暗色下 --primary（L .75）对卡底（L .23）≈ 7.6:1，本身已远超 3:1，直接用即可 */
+  --focus-ring: var(--primary);
   --page-bg: oklch(0.16 0.014 var(--hue));
   --card-bg: oklch(0.23 0.015 var(--hue));
   --btn-content: oklch(0.75 0.1 var(--hue));
