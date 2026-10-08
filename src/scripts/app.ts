@@ -63,6 +63,16 @@ import {
   refreshPhotosGallery,
 } from "../utils/content-media";
 
+// 最近一次用户滚动时间戳：供「重排类任务不得在滚动期间执行」的守卫使用（见 runWhenIdle）
+let lastUserScrollAt = 0;
+window.addEventListener(
+  "scroll",
+  () => {
+    lastUserScrollAt = Date.now();
+  },
+  { passive: true },
+);
+
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
 let scrollbarInitialized = false;
 function initCustomScrollbar() {
@@ -107,11 +117,31 @@ function initCustomScrollbar() {
     // 挂载本身会触发一次全量重排（移动全部 body 子元素 + 尺寸测量，数百 ms），
     // 用 requestIdleCallback 错峰到主线程空闲时执行；空闲回调不可用（Safari）
     // 时退化为立即执行，行为与旧版一致
+    // 🔴 不得在滚动期间执行：mount 会移动全部 body 子元素 + 尺寸测量（数百 ms 全量重排）。
+    // 原先只靠 requestIdleCallback({timeout:1500}) —— 但用户持续滚动时页面**永不空闲**，
+    // timeout 到点即强执行，恰好在滚动中触发全量重排。LoAF 实测抓到：
+    //   script 95ms  invoker=IdleRequestCallback  src=Layout.astro_astro_type_script_index
+    // 即长帧/掉帧的主因（CPU profile 显示主线程其余时间 4005/4549ms 是 idle）。
+    // 改为「滚动停止 ≥300ms 后才执行」；仍在滚动就 250ms 后重试，最多 20 次（约 5s）
+    // 后强执行，避免极端情况下永不初始化。
+    let scrollGuardTries = 0;
     const runWhenIdle = (task: () => void): void => {
-      if ("requestIdleCallback" in window) {
-        window.requestIdleCallback(task, { timeout: 1500 });
-      } else {
+      const guarded = () => {
+        if (
+          lastUserScrollAt > 0 &&
+          Date.now() - lastUserScrollAt < 300 &&
+          scrollGuardTries < 20
+        ) {
+          scrollGuardTries += 1;
+          setTimeout(guarded, 250);
+          return;
+        }
         task();
+      };
+      if ("requestIdleCallback" in window) {
+        window.requestIdleCallback(guarded, { timeout: 1500 });
+      } else {
+        guarded();
       }
     };
     const running = document
