@@ -3,6 +3,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 import CopyButton from "../components/CopyButton.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
@@ -10,6 +11,7 @@ import PageHeader from "../components/control/PageHeader.astro";
   description="#{page.links.description(${site.title})}"
 >
   <Fragment slot="head">
+    <Canonical path="/links" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <style is:global>
       /* 随机访问按钮：点击后图标匀速旋转 */
@@ -187,12 +189,10 @@ import PageHeader from "../components/control/PageHeader.astro";
         th:title="#{page.links.randomVisitTitle}"
         slot="right"
       >
-        <span
-          class="random-visit-icon icon-[material-symbols--shuffle-rounded] text-base"
-        ></span>
-        <span class="random-visit-label" th:text="#{page.links.randomVisit}"
-          >随机访问</span
-        >
+        <span class="random-visit-icon icon-[material-symbols--shuffle-rounded] text-base"></span>
+        <span class="random-visit-label" th:text="#{page.links.randomVisit}">
+          随机访问
+        </span>
       </button>
     </PageHeader>
 
@@ -230,7 +230,8 @@ import PageHeader from "../components/control/PageHeader.astro";
     >
       <span
         class="links-search-icon icon-[material-symbols--search-rounded]"
-        aria-hidden="true"></span>
+        aria-hidden="true"
+      ></span>
       <input
         id="links-search"
         type="text"
@@ -267,9 +268,7 @@ import PageHeader from "../components/control/PageHeader.astro";
         <div class="mb-4 flex items-center justify-between gap-4">
           <div class="flex min-w-0 items-center gap-3">
             <div class="title-icon" aria-hidden="true">
-              <span
-                class="icon-[material-symbols--link-rounded] text-[1.25rem] text-(--primary)"
-              ></span>
+              <span class="icon-[material-symbols--link-rounded] text-[1.25rem] text-(--primary)"></span>
             </div>
             <h2 class="text-xl font-bold text-90">
               <span th:text="${group.spec.displayName}">Group</span>
@@ -277,8 +276,10 @@ import PageHeader from "../components/control/PageHeader.astro";
           </div>
           <span
             class="rounded-lg bg-(--btn-regular-bg) px-2.5 py-1 text-xs font-bold text-(--btn-content)"
-            th:text="${#lists.size(group.links)}">0</span
+            th:text="${#lists.size(group.links)}"
           >
+            0
+          </span>
         </div>
         <!-- 卡片最小宽 240px：列数由「网格容器宽」决定（容器 = 内容列 − 本卡片的
              md:px-9 72px，随窗口在 482~952px 之间浮动），所以 min 必须同时满足两头，
@@ -288,9 +289,7 @@ import PageHeader from "../components/control/PageHeader.astro";
                  本卡固定开销就有 96px：48px logo + 16px gap + 左右 p-4）
                · min ≤ 248px ⇒ 容器 776px（三栏 + 视口≈1600）时仍能排 3 列，否则掉成 2 列
              ⚠️ 改成 280 会让中等窗口掉成 2 列，改回 220 会在最宽时变 4 列。 -->
-        <div
-          class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]"
-        >
+        <div class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]">
           <a
             th:each="link, linkStat : ${group.links}"
             th:href="${link.spec.url != null and (link.spec.url.startsWith('http') or link.spec.url.startsWith('//') or link.spec.url.startsWith('/')) ? link.spec.url : null}"
@@ -313,8 +312,7 @@ import PageHeader from "../components/control/PageHeader.astro";
               th:unless="${not #strings.isEmpty(link.spec.logo)}"
               class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
             >
-              <span class="icon-[material-symbols--link-rounded] text-2xl"
-              ></span>
+              <span class="icon-[material-symbols--link-rounded] text-2xl"></span>
             </div>
             <div class="min-w-0 flex-1">
               <div class="flex items-start gap-2">
@@ -323,9 +321,8 @@ import PageHeader from "../components/control/PageHeader.astro";
                   th:text="${link.spec.displayName}"
                 >
                   Link
-                </div><span
-                  class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"
-                ></span>
+                </div>
+                <span class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"></span>
               </div>
               <div
                 th:if="${not #strings.isEmpty(link.spec.description)}"
@@ -357,7 +354,8 @@ import PageHeader from "../components/control/PageHeader.astro";
     >
       <span
         class="icon-[material-symbols--search-off-rounded] text-4xl text-30"
-        aria-hidden="true"></span>
+        aria-hidden="true"
+      ></span>
       <p class="mt-3 text-sm text-50" th:text="#{page.links.noResult}">
         找不到相关结果
       </p>
@@ -405,87 +403,77 @@ import PageHeader from "../components/control/PageHeader.astro";
           </div>
         </div>
         <div class="mt-4 space-y-1.5">
-          <div
-            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-          >
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2">
             <div class="min-w-0 flex-1">
               <div class="text-[11px] text-50">
                 <span th:text="#{page.links.ownerSiteName}">站点名称</span>
-              </div><div
+              </div>
+              <div
                 class="truncate text-[13px] text-90"
                 th:text="${theme.config?.links?.ownerInfo.owner_name}"
               >
                 博客名称
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_name}"
-            />
+            </div>
+            <CopyButton copyText="${theme.config?.links?.ownerInfo.owner_name}" />
           </div>
-          <div
-            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-          >
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2">
             <div class="min-w-0 flex-1">
               <div class="text-[11px] text-50">
-                <span th:text="#{page.links.ownerSiteDescription}"
-                  >站点描述</span
-                >
-              </div><div
+                <span th:text="#{page.links.ownerSiteDescription}">
+                  站点描述
+                </span>
+              </div>
+              <div
                 class="line-clamp-2 text-[13px] text-90"
                 th:text="${theme.config?.links?.ownerInfo.owner_description}"
               >
                 博客描述
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_description}"
-            />
+            </div>
+            <CopyButton copyText="${theme.config?.links?.ownerInfo.owner_description}" />
           </div>
-          <div
-            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-          >
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2">
             <div class="min-w-0 flex-1">
               <div class="text-[11px] text-50">
                 <span th:text="#{page.links.ownerSiteUrl}">站点链接</span>
-              </div><div
+              </div>
+              <div
                 class="truncate text-[13px] text-90"
                 th:text="${theme.config?.links?.ownerInfo.owner_url}"
               >
                 https://example.com
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_url}"
-            />
+            </div>
+            <CopyButton copyText="${theme.config?.links?.ownerInfo.owner_url}" />
           </div>
-          <div
-            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-          >
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2">
             <div class="min-w-0 flex-1">
               <div class="text-[11px] text-50">
                 <span th:text="#{page.links.ownerAvatarUrl}">头像链接</span>
-              </div><div
+              </div>
+              <div
                 class="truncate text-[13px] text-90"
                 th:text="${theme.config?.links?.ownerInfo.owner_avatar}"
               >
                 https://example.com/avatar.jpg
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_avatar}"
-            />
+            </div>
+            <CopyButton copyText="${theme.config?.links?.ownerInfo.owner_avatar}" />
           </div>
-          <div
-            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-          >
+          <div class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2">
             <div class="min-w-0 flex-1">
               <div class="text-[11px] text-50">
                 <span th:text="#{page.links.ownerRss}">RSS 地址</span>
-              </div><div
+              </div>
+              <div
                 class="truncate text-[13px] text-90"
                 th:text="${theme.config?.links?.ownerInfo.owner_rss}"
               >
                 /rss.xml
               </div>
-            </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_rss}"
-            />
+            </div>
+            <CopyButton copyText="${theme.config?.links?.ownerInfo.owner_rss}" />
           </div>
         </div>
       </div>
@@ -499,13 +487,9 @@ import PageHeader from "../components/control/PageHeader.astro";
           class="flex flex-col rounded-xl border p-4 pb-3"
           style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
         >
-          <h3
-            class="mb-4 mt-1 flex items-center gap-2 text-base font-bold text-90"
-          >
+          <h3 class="mb-4 mt-1 flex items-center gap-2 text-base font-bold text-90">
             <span class="meta-icon">
-              <span
-                class="icon-[material-symbols--fact-check-outline-rounded] text-xl"
-              ></span>
+              <span class="icon-[material-symbols--fact-check-outline-rounded] text-xl"></span>
             </span>
             <span th:text="#{page.links.applyTitle}">申请友链</span>
           </h3>
@@ -526,15 +510,15 @@ import PageHeader from "../components/control/PageHeader.astro";
               <div
                 th:unless="${stepStat.last}"
                 class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-              >
-              </div>
+              ></div>
               <div class="min-w-0 flex-1">
                 <h4
                   class="text-[13px] font-medium text-90"
                   th:text="${step.title}"
                 >
                   步骤标题
-                </h4><div
+                </h4>
+                <div
                   class="step-desc mt-0.5 text-xs text-50"
                   th:utext="${step.desc}"
                 >
@@ -549,33 +533,23 @@ import PageHeader from "../components/control/PageHeader.astro";
             class="space-y-5"
           >
             <div class="relative flex items-start gap-3">
-              <div
-                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
-              >
+              <div class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white">
                 1
               </div>
-              <div
-                class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-              >
-              </div>
+              <div class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"></div>
               <div class="min-w-0 flex-1">
                 <h4 class="text-[13px] font-medium text-90">添加本站友链</h4>
                 <div class="step-desc mt-0.5 text-xs text-50">
-                  请先在您的网站友链页面<strong>添加本站信息</strong
-                  >，可直接复制左侧各字段
+                  请先在您的网站友链页面<strong>添加本站信息</strong>
+                  ，可直接复制左侧各字段
                 </div>
               </div>
             </div>
             <div class="relative flex items-start gap-3">
-              <div
-                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
-              >
+              <div class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white">
                 2
               </div>
-              <div
-                class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-              >
-              </div>
+              <div class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"></div>
               <div class="min-w-0 flex-1">
                 <h4 class="text-[13px] font-medium text-90">评论留言</h4>
                 <div class="step-desc mt-0.5 text-xs text-50">
@@ -584,9 +558,7 @@ import PageHeader from "../components/control/PageHeader.astro";
               </div>
             </div>
             <div class="relative flex items-start gap-3">
-              <div
-                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
-              >
+              <div class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white">
                 3
               </div>
               <div class="min-w-0 flex-1">
@@ -609,9 +581,7 @@ import PageHeader from "../components/control/PageHeader.astro";
               id="link-apply-btn"
               class="btn-regular group h-11 rounded-xl px-5 text-sm font-bold active:scale-95"
             >
-              <span
-                class="icon-[material-symbols--rocket-launch-rounded] mr-1.5 text-base"
-              ></span>
+              <span class="icon-[material-symbols--rocket-launch-rounded] mr-1.5 text-base"></span>
               <span th:text="#{page.links.applyButton}">申请友链</span>
             </button>
           </div>
@@ -643,10 +613,11 @@ import PageHeader from "../components/control/PageHeader.astro";
               <span
                 class="text-lg text-(--primary)"
                 th:if="${item.icon != null && item.icon.value != null}"
-                th:utext="${item.icon.value}"></span><span
-                class="text-sm font-medium text-90"
-                th:text="${item.title}">面板标题</span
-              >
+                th:utext="${item.icon.value}"
+              ></span>
+              <span class="text-sm font-medium text-90" th:text="${item.title}">
+                面板标题
+              </span>
             </div>
           </button>
           <div
@@ -685,9 +656,9 @@ import PageHeader from "../components/control/PageHeader.astro";
             <div class="collapse-inner px-3 pb-3">
               <div class="text-sm text-50 leading-relaxed">
                 <ul>
-                  <li>请先在您的网站添加本站信息</li><li>
-                    网站能够正常访问，使用HTTPS
-                  </li><li>网站符合中国大陆法律法规</li>
+                  <li>请先在您的网站添加本站信息</li>
+                  <li>网站能够正常访问，使用HTTPS</li>
+                  <li>网站符合中国大陆法律法规</li>
                 </ul>
               </div>
             </div>
@@ -710,7 +681,8 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <ul>
                   <li>
                     本博客严格遵守中华人民共和国法律法规，友情链接及其他外链，仅为了方便学习与交流而收集整理
-                  </li><li>
+                  </li>
+                  <li>
                     本人能力有限，无法逐一甄别每篇文章的全部内容，也无法实时跟进并确认原作者后续是否对链接内容进行篡改，包括但不限于发布违法信息、植入恶意代码、诱导点击或破坏用户计算机等行为
                   </li>
                 </ul>
@@ -728,15 +700,15 @@ import PageHeader from "../components/control/PageHeader.astro";
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/links.bundle.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
-
+    is:inline
+  ></script>
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
-
+    is:inline
+  ></script>
   <!-- 申请友链模态框 -->
   <div
     id="link-apply-modal"
@@ -770,20 +742,17 @@ import PageHeader from "../components/control/PageHeader.astro";
           th:aria-label="#{page.links.applyClose}"
           th:title="#{page.links.applyClose}"
         >
-          <span
-            class="icon-[material-symbols--close-rounded] text-xl leading-none"
-          ></span>
+          <span class="icon-[material-symbols--close-rounded] text-xl leading-none"></span>
         </button>
       </div>
       <form id="link-apply-form" class="link-apply-form" novalidate>
         <div class="link-apply-body">
           <!-- 第一行：网站地址 | 网站名称 -->
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyWebsite}">网站地址</span><em
-                >*</em
-              ></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyWebsite}">网站地址</span>
+              <em>*</em>
+            </span>
             <input
               type="url"
               name="url"
@@ -794,10 +763,10 @@ import PageHeader from "../components/control/PageHeader.astro";
             />
           </label>
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyName}">网站名称</span><em>*</em
-              ></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyName}">网站名称</span>
+              <em>*</em>
+            </span>
             <input
               type="text"
               name="displayName"
@@ -810,9 +779,9 @@ import PageHeader from "../components/control/PageHeader.astro";
           </label>
           <!-- 第二行：网站 Logo | 反链地址 -->
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyLogo}">网站 Logo</span></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyLogo}">网站 Logo</span>
+            </span>
             <input
               type="url"
               name="logo"
@@ -822,9 +791,9 @@ import PageHeader from "../components/control/PageHeader.astro";
             />
           </label>
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyBacklink}">反链地址</span></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyBacklink}">反链地址</span>
+            </span>
             <input
               type="url"
               name="backlink"
@@ -835,10 +804,9 @@ import PageHeader from "../components/control/PageHeader.astro";
           </label>
           <!-- 第三行：网站描述 | RSS 地址 -->
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyDescription}">网站描述</span
-              ></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyDescription}">网站描述</span>
+            </span>
             <textarea
               name="description"
               rows="2"
@@ -848,22 +816,23 @@ import PageHeader from "../components/control/PageHeader.astro";
             ></textarea>
           </label>
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyRss}">RSS 地址</span></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyRss}">RSS 地址</span>
+            </span>
             <textarea
               name="feedUrls"
               rows="2"
               autocomplete="off"
               spellcheck="false"
               placeholder="每行一个 RSS/Atom 订阅地址"
-              th:placeholder="#{page.links.applyRssPlaceholder}"></textarea>
+              th:placeholder="#{page.links.applyRssPlaceholder}"
+            ></textarea>
           </label>
           <!-- 第四行：联系邮箱 | 验证码 -->
           <label class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyEmail}">联系邮箱</span></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyEmail}">联系邮箱</span>
+            </span>
             <input
               type="email"
               name="email"
@@ -873,10 +842,10 @@ import PageHeader from "../components/control/PageHeader.astro";
             />
           </label>
           <div class="link-apply-field">
-            <span class="link-apply-label"
-              ><span th:text="#{page.links.applyCaptcha}">验证码</span><em>*</em
-              ></span
-            >
+            <span class="link-apply-label">
+              <span th:text="#{page.links.applyCaptcha}">验证码</span>
+              <em>*</em>
+            </span>
             <div class="link-apply-captcha">
               <input
                 type="text"
@@ -905,20 +874,20 @@ import PageHeader from "../components/control/PageHeader.astro";
           class="link-apply-message"
           role="status"
           aria-live="polite"
-        >
-        </div>
+        ></div>
         <div class="link-apply-footer">
           <button
             type="submit"
             id="link-apply-submit"
             class="link-apply-btn-submit"
           >
-            <span class="icon-[material-symbols--send-rounded] text-base"
-            ></span>
+            <span class="icon-[material-symbols--send-rounded] text-base"></span>
             <span
               class="link-apply-submit-text"
-              th:text="#{page.links.applySubmit}">提交申请</span
+              th:text="#{page.links.applySubmit}"
             >
+              提交申请
+            </span>
           </button>
         </div>
       </form>
@@ -937,7 +906,9 @@ import PageHeader from "../components/control/PageHeader.astro";
       评论
     </h2>
     <Fragment
-      set:html={'<halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}" />'}
+      set:html={
+        '<halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}" />'
+      }
     />
   </div>
 

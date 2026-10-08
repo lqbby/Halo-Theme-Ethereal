@@ -3,12 +3,16 @@ import EquipmentPagination from "../components/EquipmentPagination.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${title + ' - ' + site.title}"
   description="#{page.equipments.description(${site.title})}"
 >
+  <Fragment slot="head">
+    <Canonical path="/equipments" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <!-- 头部卡：新版页头（modern，含图标水印）+ 胶囊池分组——氛围渐变由
        卡片级 .page-head-card 承载（页头与池之间无缝）；无分组时池区不渲染 -->
@@ -95,14 +99,13 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         >
           <span
             aria-hidden="true"
-            class="icon-[material-symbols--devices-rounded] text-6xl"></span>
+            class="icon-[material-symbols--devices-rounded] text-6xl"
+          ></span>
         </div>
         <div class="flex w-full min-w-0 flex-1 flex-col p-5">
           <!-- 名称+链接 -->
           <div class="flex items-start gap-2">
-            <div
-              class="min-w-0 flex-1 text-base font-bold text-90 transition group-hover:text-(--primary)"
-            >
+            <div class="min-w-0 flex-1 text-base font-bold text-90 transition group-hover:text-(--primary)">
               <span
                 class="line-clamp-2"
                 th:text="${equipment.spec.displayName}"
@@ -140,10 +143,10 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
       th:if="${equipments == null or #lists.isEmpty(equipments.items)}"
       class="py-16 text-center text-50"
     >
-      <span
-        class="icon-[material-symbols--inventory-2-rounded] text-5xl text-30"
-      ></span>
-      <p class="mt-4" th:text="#{page.equipments.empty}">暂无装备</p>
+      <span class="icon-[material-symbols--inventory-2-rounded] text-5xl text-30"></span>
+      <p class="mt-4" th:text="#{page.equipments.empty}">
+        暂无装备
+      </p>
     </div>
   </section>
 
@@ -154,5 +157,6 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
+    is:inline
+  ></script>
 </MainGridLayout>

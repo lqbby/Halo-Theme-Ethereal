@@ -4,12 +4,16 @@ import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import MomentCard from "../components/MomentCard.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${title + ' - ' + site.title}"
   description="${title + ' - ' + site.title}"
 >
+  <Fragment slot="head">
+    <Canonical path="/moments" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <!-- 头部卡：新版页头（modern，含图标水印）+ 胶囊池分组——氛围渐变由
        卡片级 .page-head-card 承载（页头与池之间无缝）；无标签时池区不渲染 -->
@@ -39,8 +43,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
         class="act-outline group w-fit active:scale-95"
         slot="right"
       >
-        <span class="icon-[material-symbols--rss-feed-rounded] text-base"
-        ></span>
+        <span class="icon-[material-symbols--rss-feed-rounded] text-base"></span>
         <span>RSS</span>
       </a>
     </PageHeader>
@@ -97,19 +100,20 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/upvote.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
-
+    is:inline
+  ></script>
   <!-- 卡片「复制链接」（moment-copy.js，.moment-copy-btn）：同样必须在容器内，
        换页进来时才会重新绑定（脚本靠 data-copy-bound 幂等） -->
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/moment-copy.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
-
+    is:inline
+  ></script>
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
     defer
-    is:inline></script>
+    is:inline
+  ></script>
 </MainGridLayout>
