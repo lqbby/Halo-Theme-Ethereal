@@ -127,8 +127,13 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         th:remove="tag"
         th:with="seriesName=${#annotations.get(post, 'series')}"
       >
+        <!-- ⚠️ 必须带配套插件门控：recentCommentsSeriesFinder 由 ethereal-companion 提供，
+             插件未装/被禁用时该变量为 null ⇒ `null.get(...)` 求值即报错（整页挂）。
+             本块的后续消费点已都有 `series != null` 守卫，但那只防「系列不存在」、防不住
+             「Finder 本身不存在」。门控写在 th:if 上（同元素 th:if 优先于 th:with，
+             且这里只读外层声明的 seriesName，不引同元素变量，安全）。 -->
         <div
-          th:if="${not #strings.isEmpty(seriesName)}"
+          th:if="${not #strings.isEmpty(seriesName) and pluginFinder != null and pluginFinder.available('ethereal-companion')}"
           th:with="series=${recentCommentsSeriesFinder.get(seriesName)}"
           class="onload-animation series-post-nav mb-5 overflow-hidden rounded-xl"
         >
