@@ -358,9 +358,22 @@
     );
   }
 
+  /* 🔴 2026-10-08 修「全屏模式换页时波浪摆动」：
+     原式用 `+ 20%`（= 波浪自身高 h-28/32/36 的 20%）下移波浪，意图是「全屏首页只露波峰」。
+     但它让**首页**的波浪位移量（729）与**内容**的位移量（782 = panel 位移 82 + grid translate 700）
+     不一致 ⇒ 首页→其他页的换页过渡中，波浪相对内容少走 53px（82 − 28.8）⇒ 交接处错位
+     = 「波浪先错后对」的摆动（CDP 逐帧实测 grid顶−wave顶 从 219 渐变到 166）。
+     现改为让波浪位移与内容**严格相等**：下移量取
+       (bhh − ext + gap) − (bh − overlap)      ← 即 panel 在 fullscreen 首页相对普通页多出的位移 82px
+     展开化简后等价于 `bhh + gap − bh + overlap`（ext 抵消）。
+     视觉上仍是「全屏首页波浪下移、只露波峰」，只是下移量改为与内容同步的正确值。 */
   html[data-banner-display="fullscreen"] body.is-home #wave-container {
     transform: translateY(
-      calc(-100% + var(--wave-cover-offset) + var(--banner-height-extend) + 20%)
+      calc(
+        -100% + var(--wave-cover-offset) + var(--banner-height-home) +
+          var(--banner-home-content-gap) - var(--banner-height) +
+          var(--panel-overlap)
+      )
     );
   }
 
