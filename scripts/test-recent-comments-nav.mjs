@@ -16,6 +16,8 @@
 //   NAV-6 Swup 动画进行中（is-animating）⇒ 点击被忽略；结束后恢复可点
 //   CL-1  comment-locate 注册 hashchange / ethereal:locate-comment 各一次
 //   CL-2  脚本被克隆重执行（模拟 Swup 换页）⇒ 监听器不重复注册
+//   CL-3  换页路径（带精准 hash 进入）⇒ 先瞬时贴靠 #comment 顶 + replaceState
+//   CL-4  同页路径（hashchange）⇒ 不再瞬时贴靠（单次平滑更连贯），仍做 replaceState
 //
 // 运行（JSDOM 在 managed workspace，不在仓库依赖里）：
 //   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
@@ -338,6 +340,72 @@ console.log("\n── comment-locate 同页锚点监听（产物 comment-locate.
   check("CL 全程无 jsdom 运行时错误", realErrors.length, 0);
   if (realErrors.length) console.log("   ", realErrors.slice(0, 3).join(" | "));
   env.dom.window.close();
+}
+
+console.log("\n── comment-locate 瞬时贴靠（snap）行为 ──");
+{
+  // 需要 #comment 盒子：精准模式下 snap 路径对它 scrollIntoView
+  const virtualConsole = new VirtualConsole();
+  /** @type {string[]} */
+  const jsdomErrors = [];
+  /** @param {any} e */
+  const onJsdomError = (e) => {
+    jsdomErrors.push(e && e.message ? e.message : String(e));
+  };
+  virtualConsole.on("jsdomError", onJsdomError);
+  const dom = new JSDOM(
+    `<!doctype html><html><body>
+      <div id="comment"><div id="comment-lazy-placeholder"></div></div>
+    </body></html>`,
+    {
+      url: ORIGIN + "/archives/post-1#comment-next-comment-c-same",
+      runScripts: "outside-only",
+      pretendToBeVisual: true,
+      virtualConsole,
+    },
+  );
+  const w = /** @type {any} */ (dom.window);
+  /** @type {any[]} */
+  const snapCalls = [];
+  const box = w.document.getElementById("comment");
+  /** 记录 scrollIntoView 调用（jsdom 原生未实现，桩掉）
+   * @param {any} o */
+  const recordSnap = (o) => snapCalls.push(o);
+  box.scrollIntoView = recordSnap;
+  w.eval(CL_SRC);
+  // jsdom 构造返回时 readyState 可能仍是 "loading"（bind 挂到 DOMContentLoaded），
+  // 等事件落地后再断言；bind 的监听器先注册，事件触发时先跑。
+  await new Promise((resolve) => {
+    if (w.document.readyState !== "loading") return resolve(null);
+    w.document.addEventListener("DOMContentLoaded", () => resolve(null), {
+      once: true,
+    });
+  });
+
+  // CL-3 换页路径（onceBound init 立判）：snap=true ⇒ 瞬时贴靠 + replaceState
+  check("CL-3 换页路径瞬时贴靠一次", snapCalls.length, 1);
+  check(
+    "CL-3 贴靠为 auto+start（瞬时、含 scroll-margin 偏移）",
+    JSON.stringify(snapCalls[0]),
+    JSON.stringify({ behavior: "auto", block: "start" }),
+  );
+  check("CL-3 replaceState 暂改 #comment", w.location.hash, "#comment");
+
+  // CL-4 同页路径（hashchange）：snap=false ⇒ 不再贴靠，仍 replaceState
+  w.location.hash = "#comment-next-comment-c-other";
+  await flush();
+  check("CL-4 同页路径不再瞬时贴靠", snapCalls.length, 1);
+  check(
+    "CL-4 同页路径仍 replaceState 暂改 #comment",
+    w.location.hash,
+    "#comment",
+  );
+
+  const realErrors2 = jsdomErrors.filter((m) => !/not implemented/i.test(m));
+  check("CL-3/4 全程无 jsdom 运行时错误", realErrors2.length, 0);
+  if (realErrors2.length)
+    console.log("   ", realErrors2.slice(0, 3).join(" | "));
+  dom.window.close();
 }
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
