@@ -103,9 +103,15 @@ import { guardOnce } from "../../utils/once";
   }
 
   // Firefly 的 runInitWithDelay
-  function runInitDrop() {
+  function runInitDrop(force) {
     initDrop();
-    setTimeout(initDrop, 220);
+    // 🔴 与 banner-typewriter 同款问题：initBannerSubtitle 每次都 destroy 旧实例 + 新建 ⇒
+    //    无条件补调会让副标题效果从头重播（视觉「闪一下」）。改为仅在「未建实例」时补。
+    setTimeout(function () {
+      if (force) return initDrop();
+      var el = document.getElementById("banner-subtitle");
+      if (el && !el.__dropInstance) initDrop();
+    }, 220);
   }
 
   // document 级监听器只绑一次：本脚本会被 SwupScriptsPlugin 在每次换页时克隆
@@ -128,8 +134,17 @@ import { guardOnce } from "../../utils/once";
       }
     });
 
-    document.addEventListener("banner:visible", runInitDrop);
+    document.addEventListener("banner:visible", function () {
+      runInitDrop(true);
+    });
   }
 
-  runInitDrop();
+  // 首屏初始化：已有实例则跳过（SwupScriptsPlugin 换页会重执行本脚本，无条件调用会
+  // 与 220ms 补调叠加成第二次 destroy+重建 ⇒ 副标题闪一次）。换页回首页由 banner:visible
+  // 强制重初始化。
+  (function () {
+    var el = document.getElementById("banner-subtitle");
+    if (el && el.__dropInstance) return;
+    runInitDrop();
+  })();
 })();

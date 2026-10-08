@@ -108,9 +108,17 @@ import { guardOnce } from "../../utils/once";
     );
   }
 
-  function runInitTW() {
+  function runInitTW(force) {
     initTypewriter();
-    setTimeout(initTypewriter, 220);
+    // 🔴 220ms 的「补一次」原本无条件调用 initTypewriter —— 但 initBannerSubtitle 每次都会
+    //    destroy 旧实例 + 清空文本 + 新建 ⇒ 打字机从头重播（实测：453ms 打 1 字 → 677ms 被
+    //    destroy 重建 → idle(~1205ms) 再从头打 ⇒ 视觉「壁纸标题闪一次」）。
+    //    改为仅当「上一次没成功建实例」（元素晚渲染 / 文案未就绪）时才补，已有实例则跳过。
+    setTimeout(function () {
+      if (force) return initTypewriter();
+      var el = document.getElementById("banner-subtitle");
+      if (el && !el.__twInstance) initTypewriter();
+    }, 220);
   }
 
   // document 级监听器只绑一次：本脚本会被 SwupScriptsPlugin 在每次换页时克隆
@@ -151,12 +159,21 @@ import { guardOnce } from "../../utils/once";
       }
     });
 
-    document.addEventListener("banner:visible", runInitTW);
+    document.addEventListener("banner:visible", function () {
+      runInitTW(true);
+    });
   }
 
   // P1（1.2.86）：打字机为 banner 副标题装饰，首屏 home 初始加载不依赖
   // banner:visible（仅 Swup 从非首页回首页才分发），把初始同步初始化推到
   // 主线程空闲（requestIdleCallback），削减首屏 load 期同步主线程工作（TBT）；
   // banner:visible 监听器保留，Swup 导航回首页时照常触发
-  onIdle(runInitTW);
+  // 首屏初始化（idle 错峰）：若前面已成功建过实例就跳过 —— 不跳过会与 220ms 的补调叠加成
+  // 第二次「destroy + 重建」，同样表现为标题闪一次。Swup 换页回首页由 banner:visible
+  // 强制重初始化（banner 重新出现，需要重启打字），故这里只在「尚无实例」时初始化。
+  onIdle(function () {
+    var el = document.getElementById("banner-subtitle");
+    if (el && el.__twInstance) return;
+    runInitTW();
+  });
 })();
