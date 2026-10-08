@@ -1607,13 +1607,6 @@ spec:
                   max: 1
                   step: 0.1
                   value: 0.7
-                - $formkit: url
-                  if: "$value.value === 'music'"
-                  name: music_api
-                  key: widget_music_api
-                  preserve: true
-                  label: 自定义 Meting API（已弃用，请到上方「音乐播放器小组件」组里填）
-                  help: ⚠️ 此字段为 1.5.66 老结构的遗留项：当前组件的 th:if 与 data-api 只读 theme.config.sidebar.music.*（即上方「音乐播放器小组件」组），填在这里不会生效。留空即可。
                 - $formkit: number
                   if: "$value.value === 'schedule'"
                   name: limit
