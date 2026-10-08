@@ -971,3 +971,14 @@ html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
   text-decoration: none;
   margin-inline-start: 0.4em;
 }
+
+/* ── 本地 1.5.66 独有规则（合并时按 mods 模式提取，漏掉了这批非 mods 样式）── */
+
+@keyframes shiki-skeleton-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

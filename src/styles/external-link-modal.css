@@ -227,3 +227,12 @@
     transform: translateY(0) scale(1);
   }
 }
+
+/* ── 本地 1.5.66 独有规则（合并时按 mods 模式提取，漏掉了这批非 mods 样式）── */
+
+@media (prefers-reduced-motion: reduce) {
+  #ext-link-backdrop,
+  #ext-link-card {
+    animation: none;
+  }
+}

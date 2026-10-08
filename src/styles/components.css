@@ -2521,3 +2521,268 @@ body.card-border-enabled .pagination-pages .pager-num-current {
   background: var(--primary);
   color: var(--card-bg);
 }
+
+/* ══════════════════════════════════════════════════════════════════════
+ * 本地 1.5.66 独有样式（合并时按 mods 模式提取，漏掉了这批非 mods 规则）
+ * 含：分页 .pager-*（LQ 报「分页样式异常」的根因）、随机钓鱼遮罩 .random-fish-overlay*、
+ *     .friends-timeline 系列、.tag-chip、toc 标记、#comment 定位等。
+ * 由脚本按「选择器在产物/源码里是否真被使用」筛选后追加；
+ * 同选择器时本块在后 ⇒ 本块胜（与上游同名规则冲突时以本地为准）。
+ * ══════════════════════════════════════════════════════════════════════ */
+
+#comment {
+  scroll-margin-top: calc(var(--navbar-height, 4rem) + 1rem);
+
+  --comment-next-anchor-offset: calc(var(--navbar-height, 4rem) + 1rem);
+}
+#comment.comment-locating #comment-lazy-placeholder::before {
+  content: "评论加载中…";
+  display: block;
+  padding: 1.5rem 0;
+  text-align: center;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: #9ca3af;
+}
+.comment-locate-flash {
+  outline-offset: 2px;
+  border-radius: 0.5rem;
+  animation: comment-locate-flash 1.6s ease-out;
+}
+.friends-timeline-group {
+  display: block;
+  break-inside: avoid;
+}
+.friends-timeline.masonry-active {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 1rem;
+}
+.layout-three-column #active-indicator {
+  left: 0.75rem !important;
+  right: 0.75rem !important;
+}
+.random-fish-btn.spinning .random-fish-icon {
+  animation: random-fish-swing var(--swing-duration, 0.5s) ease-in-out infinite
+    alternate;
+
+  transform-origin: top;
+}
+.random-fish-overlay.show {
+  opacity: 1;
+}
+[data-toc-entry].visible .toc-dot {
+  background-color: var(--primary) !important;
+}
+[data-toc-entry].visible .toc-marker {
+  color: var(--primary) !important;
+}
+@layer components {
+  #right-sidebar .firefly-music-player .btn-lrc-toggle {
+    @apply hidden;
+  }
+  .banner-title-enter #banner-title,
+  .banner-title-enter #banner-subtitle-wrapper {
+    animation-name: fade-in-up;
+    animation-duration: var(--dur-entry, 300ms);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+  }
+  .pager-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    border-radius: 0.5rem;
+    transition:
+      background-color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .pager-btn-disabled {
+    pointer-events: none;
+    opacity: 0.25;
+  }
+  .pager-btn:active {
+    background: var(--btn-card-bg-active);
+    transform: scale(0.9);
+  }
+  .pager-btn:hover {
+    background: var(--btn-card-bg-hover);
+  }
+  .pager-ellipsis {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    padding-inline: 0.25rem;
+    color: rgb(163 163 163 / 0.7);
+  }
+  .pager-num-current {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    height: 2.75rem;
+    min-width: 2.75rem;
+    padding-inline: 0.375rem;
+    border-radius: 0.5rem;
+    background: var(--primary);
+    color: #fff;
+  }
+  .tag-chip {
+    transition:
+      transform 0.2s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.2s ease,
+      filter 0.2s ease;
+  }
+  .tag-chip:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .tag-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 12px -4px
+      color-mix(in srgb, currentColor 45%, transparent);
+    filter: saturate(1.15);
+  }
+  :root.dark .pager-ellipsis {
+    color: #737373;
+  }
+  :root.dark .pager-num-current {
+    color: rgb(0 0 0 / 0.7);
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)):not(.category-bar),
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .btn-card:not(.btn-regular):not(.is-active):not(
+      .floating-btn .btn-card
+    ):not(.bg-\(--primary\)),
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .float-panel,
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .navbar-blur,
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .floating-btn {
+    background-color: rgb(
+      0 0 0 / var(--transparent-card-alpha, 0.6)
+    ) !important;
+    --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
+  }
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-row {
+    --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
+  }
+  body.nav-menu-open #nav-menu-root #nav-menu-panel .nav-drawer-link {
+    animation: nav-menu-link-in var(--dur-entry, 300ms)
+      cubic-bezier(0.4, 0, 0.2, 1) backwards;
+  }
+  html.banner-mode-transitioning #main-panel-wrapper,
+  html.banner-mode-transitioning #main-grid {
+    transition:
+      top var(--dur-banner, 700ms)
+        var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+      min-height var(--dur-banner, 700ms)
+        var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+      translate var(--dur-banner, 700ms)
+        var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
+  }
+  html.toc-not-ready #toc-wrapper,
+  html.toc-not-ready #right-sidebar table-of-contents {
+    pointer-events: none;
+    opacity: 0;
+  }
+  html:not(.page-ready) #main-grid {
+    transition: none;
+  }
+  html[data-banner-display="disabled"] #banner-wrapper,
+  html[data-banner-display="disabled"] #banner-credit,
+  html[data-banner-display="disabled"] #scroll-down-indicator,
+  html[data-banner-display="disabled"] #wave-container,
+  html[data-banner-display="transparent"] #wave-container,
+  body.wave-disabled #wave-container {
+    display: none !important;
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .card-base:not(.btn-regular):not(.bg-\(--primary\)):not(.category-bar),
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .btn-card:not(.btn-regular):not(.is-active):not(
+      .floating-btn .btn-card
+    ):not(.bg-\(--primary\)),
+  html[data-banner-display="transparent"] body.navbar-blur-enabled .float-panel,
+  html[data-banner-display="transparent"] body.navbar-blur-enabled .navbar-blur,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .floating-btn {
+    background-color: rgb(
+      255 255 255 / var(--transparent-card-alpha, 0.6)
+    ) !important;
+    --card-bg: rgb(255 255 255 / var(--transparent-card-alpha, 0.6));
+  }
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .featured-row {
+    --card-bg: rgb(255 255 255 / var(--transparent-card-alpha, 0.6));
+  }
+}
+
+@keyframes comment-locate-flash {
+  0% {
+    outline: 0 solid transparent;
+    background-color: transparent;
+  }
+  12% {
+    outline: 3px solid color-mix(in oklab, var(--primary) 60%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+  }
+  70% {
+    outline: 3px solid color-mix(in oklab, var(--primary) 60%, transparent);
+    background-color: color-mix(in oklab, var(--primary) 18%, transparent);
+  }
+  100% {
+    outline: 0 solid transparent;
+    background-color: transparent;
+  }
+}
+
+@keyframes fish-overlay-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes nav-menu-link-in {
+  from {
+    opacity: 0;
+    translate: 8px 0;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes random-fish-swing {
+  from {
+    transform: rotate(-20deg);
+  }
+  to {
+    transform: rotate(20deg);
+  }
+}
