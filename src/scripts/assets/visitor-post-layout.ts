@@ -4,6 +4,22 @@
 // Swup 换页后由 SwupScriptsPlugin 重执行（同 post-list-layout.js / collapse.js）。
 // 执行顺序约定：必须先于 post-list-layout.js（PostList.astro 中标签顺序保证），
 // 使瀑布流初始化直接读取覆盖后的布局类。
+// localStorage 安全访问：隐私模式/禁存储下 getItem/removeItem 会抛 SecurityError
+// （如 Safari 无痕），裸调会让访客布局覆盖脚本中断（布局开关静默失效）。
+// 🔴 2026-10-08 补回：1.5.66 已修（commit 6568427），合并上游时丢失。
+function storageGet(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch (e) {
+    return null;
+  }
+}
+function storageRemove(key) {
+  try {
+    localStorage.removeItem(key);
+  } catch (e) {}
+}
+
 (function () {
   var container = document.getElementById("post-list-container");
   if (!container) return;
@@ -24,11 +40,11 @@
     (!carrier || carrier.dataset.visitorEnable !== "false") &&
     (!carrier || carrier.dataset.visitorAppearance !== "false");
   if (!switchable) {
-    localStorage.removeItem("postListLayout");
+    storageRemove("postListLayout");
     return;
   }
 
-  var mode = localStorage.getItem("postListLayout");
+  var mode = storageGet("postListLayout");
   if (mode !== "list" && mode !== "grid") return;
   if (mode === container.dataset.serverLayout) return;
 
@@ -53,10 +69,10 @@
     (!carrier || carrier.dataset.visitorEnable !== "false") &&
     (!carrier || carrier.dataset.visitorAppearance !== "false");
   if (!switchable) {
-    localStorage.removeItem("postListMasonry");
+    storageRemove("postListMasonry");
     return;
   }
-  var masonry = localStorage.getItem("postListMasonry");
+  var masonry = storageGet("postListMasonry");
   if (masonry === "true" || masonry === "false") {
     container.setAttribute("data-masonry", masonry);
   }
