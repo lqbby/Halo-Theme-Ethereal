@@ -38,6 +38,7 @@
 //   initCovers + apply）在**每次脚本执行**与**每次 Swup page:view**都跑一次。
 //   apply() 幂等（顺序未变时不动 DOM），重复执行无副作用。
 import { guardOnce, onPageView } from "../../utils/once";
+import { smartScrollTo } from "../../utils/scroll-manager";
 
 (function () {
   var PAGE_SIZE = 12;
@@ -304,10 +305,8 @@ import { guardOnce, onPageView } from "../../utils/once";
     if (!el) return;
     try {
       var top = el.getBoundingClientRect().top + window.scrollY - 96;
-      window.scrollTo({
-        top: Math.max(0, top),
-        behavior: prefersReducedMotion() ? "auto" : "smooth",
-      });
+      // 筛选后滚到列表：从头部跳到下方是长距离 ⇒ 距离门控（>1.5 屏瞬时、短距平滑）
+      smartScrollTo(Math.max(0, top));
     } catch (e) {
       /* 忽略 */
     }

@@ -192,15 +192,19 @@ export function smartScrollTo(top: number): void {
 }
 
 let scrollTicking = false;
-window.addEventListener("scroll", function () {
-  if (!scrollTicking) {
-    requestAnimationFrame(function () {
-      scrollFunction();
-      scrollTicking = false;
-    });
-    scrollTicking = true;
-  }
-});
+window.addEventListener(
+  "scroll",
+  function () {
+    if (!scrollTicking) {
+      requestAnimationFrame(function () {
+        scrollFunction();
+        scrollTicking = false;
+      });
+      scrollTicking = true;
+    }
+  },
+  { passive: true },
+);
 
 // 访客切换壁纸模式（setting-utils 的 applyBannerDisplay 派发）后立即重算
 // 目录显隐：切到横幅/全屏模式且视口在顶部时需补挂隐藏（toc-hide + 无

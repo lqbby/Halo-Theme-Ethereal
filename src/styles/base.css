@@ -40,5 +40,8 @@
   border-left: 2px dashed var(--line-color);
   pointer-events: none;
   transform: translateY(-50%);
-  transition: all 0.3s;
+  transition:
+    border-color 0.3s,
+    background-color 0.3s,
+    transform 0.3s;
 }

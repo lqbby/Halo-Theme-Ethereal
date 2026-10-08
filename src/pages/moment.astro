@@ -55,6 +55,7 @@ import Canonical from "../components/misc/Canonical.astro";
   <!-- 同理写在 Layout 内：换页进来时 SwupScriptsPlugin 会重执行，「等版面稳定再落位」
        才会生效；写在 Layout 外则换页后不执行 -->
   <script>
+    import { smartScrollTo } from "../utils/scroll-manager";
     // #comment 锚点定位：
     // - 详细页内点按评论按钮：布局已稳定，直接平滑滚动；
     // - 从列表页跨页跳进来：等版面稳定后落一次位，落完不再跟随布局变化
@@ -77,7 +78,8 @@ import Canonical from "../components/misc/Canonical.astro";
         a.addEventListener("click", (e) => {
           e.preventDefault();
           const el = target();
-          if (el) window.scrollTo({ top: targetTop(el), behavior: "smooth" });
+          // 评论按钮落位：距目标可能很远（长文/深页）⇒ 距离门控（>1.5 屏瞬时）
+          if (el) smartScrollTo(targetTop(el));
         });
       });
 
