@@ -34,6 +34,7 @@ import {
   scrollDownToContent,
   scrollFunction,
   lockstepScrollToTop,
+  smartScrollTo,
 } from "../utils/scroll-manager";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
 import { initLegacyAdmonitions } from "../utils/legacy-admonitions";
@@ -46,6 +47,16 @@ import {
   refreshPhotosGallery,
   destroyAll,
 } from "../utils/content-media";
+
+// 最近一次用户滚动时间戳：供「重排类任务不得在滚动期间执行」的守卫使用（见 initCustomScrollbar）
+let lastUserScrollAt = 0;
+window.addEventListener(
+  "scroll",
+  () => {
+    lastUserScrollAt = Date.now();
+  },
+  { passive: true },
+);
 
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
 let scrollbarInitialized = false;
@@ -109,10 +120,27 @@ function initCustomScrollbar() {
     // （实测 1.65s/2.68s 都落在 FCP→TTI 的 TBT 窗口内，长任务依旧）。3.5s 远在
     // TTI(~1.7s) 之后，且 Lighthouse 不模拟交互，故该长任务在报告中彻底消失。
     // 等待期间原生滚动条正常工作，切换不可感知。
+    // ⚠️ 触发时机之上再叠「滚动中不执行」守卫（见 runWhenIdle）：wheel/touchmove
+    // 命中瞬间正是滚动中，3.5s 兜底也可能落在持续滚动里，守卫保证挪到滚动停稳之后。
     const runWhenIdle = (task: (fromInteraction: boolean) => void): void => {
       let ran = false;
+      // 🔴 不得在滚动期间执行：mount 会移动全部 body 子元素 + 尺寸测量（数百 ms 全量
+      // 重排）。下面的 wheel/touchmove 触发器命中的正是「刚开始滚动」的时刻，若立刻
+      // 执行，长任务直接落在滚动过程中（up2 线 CDP 实测 112ms 长帧、掉帧 6 帧）；
+      // 3.5s 兜底同样可能在持续滚动中到点。⇒ 统一加守卫：距最近一次用户滚动 ≥300ms
+      // 才执行；仍在滚则 250ms 重试，最多 20 次（≈5s）后强执行（防永不初始化）。
+      let scrollGuardTries = 0;
       const run = (fromInteraction: boolean) => {
         if (ran) return;
+        if (
+          lastUserScrollAt > 0 &&
+          Date.now() - lastUserScrollAt < 300 &&
+          scrollGuardTries < 20
+        ) {
+          scrollGuardTries += 1;
+          setTimeout(() => run(fromInteraction), 250);
+          return;
+        }
         ran = true;
         task(fromInteraction);
       };
@@ -594,6 +622,27 @@ class TableOfContents extends HTMLElement {
       this.active = this.tocEntries.map((_, index) => index === activeIndex);
       this.update();
     }
+
+    // 🔴 本页锚点滚动由本方法接管（astro.config.mjs 已关 Swup 的 samePageWithHash）：
+    //    插件走的是主线程逐帧 JS 插值（scrl），长文点目录同样有拉扯感；
+    //    改为距离门控 —— 长距离瞬时、短距离平滑。锚点落点沿用统一口径：
+    //    标题的 scroll-margin-top（markdown.css 6rem）以「导航栏底边」为基准，
+    //    故用 navbar 高度 + 12px 余量补偿。
+    const target = this.anchorNavTarget;
+    if (target && anchor.hash && anchor.hash.length > 1) {
+      event.preventDefault();
+      const navEl = document.getElementById("navbar-wrapper");
+      const navH = navEl ? navEl.getBoundingClientRect().height : 72;
+      smartScrollTo(
+        Math.max(
+          0,
+          window.scrollY + target.getBoundingClientRect().top - navH - 12,
+        ),
+      );
+      try {
+        history.replaceState(null, "", anchor.hash);
+      } catch (e) {}
+    }
   };
 
   currentHeadingIndex() {
@@ -878,9 +927,10 @@ function setupSwup() {
     initExternalLinkRedirect();
     initCommentLazyLoad();
   });
-  // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"，合成器驱动不占
-  // 主线程，无 scrl 引擎的每帧 JS 测量卡顿）。同页锚点（目录点击）平滑由
-  // samePageWithHash 独立控制，不受影响。
+  // 跨页回顶滚动统一走距离门控（scroll-manager 的 smartScrollTo / lockstepScrollToTop）：
+  // 长距离瞬时、短距离平滑；有 is-home 位移的走锁步插值（见 content:scroll 钩子）。
+  // 同页锚点（目录点击）由 TableOfContents.handleAnchorClick 接管 + 距离门控
+  // （astro.config.mjs 已关 Swup 的 samePageWithHash）。
   // TOC 恢复显示绑定「滚动真正结束」：长文从底部回顶的原生平滑可持续数百
   // ms，晚于 visit:end + 200ms——若按 visit:end 移除 toc-not-ready，后半段
   // 滚动中目录就已显示。滚动结束信号双通道：原生平滑派发 scrollend 事件、
@@ -975,7 +1025,9 @@ function setupSwup() {
             if (document.body.classList.contains("enable-banner")) {
               lockstepScrollToTop();
             } else {
-              window.scrollTo({ top: 0, behavior: "smooth" });
+              // 非锁步分支同样走距离门控：原先直接 smooth 会让「从文章深处进入下一页」
+              // 变成同款长距离拉扯（与 lockstepScrollToTop 的阈值标准保持一致）
+              smartScrollTo(0);
             }
           }),
         );

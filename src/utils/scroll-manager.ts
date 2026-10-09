@@ -126,9 +126,25 @@ export function scrollDownToContent(): void {
     document.documentElement.dataset.navbarFixed === "true"
       ? getNavbar()?.getBoundingClientRect().height || 0
       : 0;
+  // 向下箭头：从 banner 到内容约 65vh，属跳转类滚动 ⇒ 走距离门控（短则平滑）
+  smartScrollTo(
+    window.scrollY + grid.getBoundingClientRect().top - gap - navbarOffset,
+  );
+}
+
+/** 距离门控滚动（全站统一范式）：长距离（>1.5 屏）瞬时到位，短距离保留平滑。
+ *  长距离平滑滚动是明显的「拉扯感」（实测 1836px 平滑拉回耗时 ~2.2s），而短距离
+ *  平滑（如侧边格切换、小段滚动）才是用户期待的顺滑。阈值与 lockstepScrollToTop 一致。
+ *  ⚠️ prefer-reduced-motion 时一律瞬时。 */
+export function smartScrollTo(top: number): void {
+  const reduce =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const dist = Math.abs(top - window.scrollY);
+  const threshold = (window.innerHeight || 800) * 1.5;
   window.scrollTo({
-    top: window.scrollY + grid.getBoundingClientRect().top - gap - navbarOffset,
-    behavior: "smooth",
+    top,
+    behavior: dist > threshold || reduce ? "auto" : "smooth",
   });
 }
 
@@ -170,6 +186,15 @@ const PAGE_SWITCH_EASE = createBezierEasing(0.4, 0, 0.2, 1);
 export function lockstepScrollToTop(): void {
   const startY = window.scrollY;
   if (startY <= 0) return;
+  // 🔴 长距离（>1.5 屏，如从首页底部点文章）直接瞬时到顶：锁步的意义是「与 is-home
+  //    位移动画同曲线」（banner 滑入/滑出），那只在小位移时才有观感价值；大位移时
+  //    平滑拉回是明显的「上下拉扯感」（CDP 实测 1836px 拉回 ~2.2s），而用户预期是
+  //    「直接到新页顶部」。阈值与 smartScrollTo 一致。
+  const LOCKSTEP_MAX_SMOOTH = (window.innerHeight || 800) * 1.5;
+  if (startY > LOCKSTEP_MAX_SMOOTH) {
+    window.scrollTo(0, 0);
+    return;
+  }
   const duration = readDurBannerMs(document.documentElement);
   const token = ++lockstepToken;
   const startTime = performance.now();

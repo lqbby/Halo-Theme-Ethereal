@@ -117,19 +117,21 @@ export default defineConfig({
         "#right-sidebar-toc",
         "#toc-popup",
       ],
-      // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"）：app.ts 在
-      // content:scroll 接管并调用 window.scrollTo 原生平滑，插件的
-      // betweenPages 平滑（scrl JS 引擎）被跳过，不再参与跨页滚动。
-      // 保留 SwupScrollPlugin 是因为同页锚点（目录点击）的 samePageWithHash
-      // 平滑仍依赖它——此处保持插件启用与 animateScroll 对象配置不变。
+      // 跨页回顶滚动统一走距离门控（app.ts 的 smartScrollTo，见 scroll-manager.ts）：
+      // app.ts 在 content:scroll 接管，插件的 betweenPages 被跳过，不再参与跨页滚动。
+      // 🔴 samePageWithHash 已关：同页锚点/目录点击改由 app.ts 的
+      //    TableOfContents.handleAnchorClick 接管 + 距离门控 —— 插件走主线程逐帧
+      //    JS 插值（scrl），长文点目录有拉扯感；其余站内锚点（#comment 等）各有
+      //    自己的处理（comment-locate / moment 页脚本），浏览器默认跳转亦受
+      //    scroll-margin-top 约束，不会丢落点。
       // 注：@swup/astro 类型声明为 boolean，但运行时会透传给 SwupScrollPlugin
       // 选项对象（enabledPlugins 的 options === true ? {} : options 分支），
       // 故此处需绕过类型限制
       smoothScrolling: /** @type {any} */ ({
         animateScroll: {
-          betweenPages: true,
-          samePageWithHash: true,
-          samePage: true,
+          betweenPages: false,
+          samePageWithHash: false,
+          samePage: false,
         },
       }),
       cache: false, // 禁用缓存，避免友链页面内容不完整

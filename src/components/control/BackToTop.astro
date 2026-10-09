@@ -359,6 +359,20 @@ import { Icon } from "astro-icon/components";
 </style>
 
 <script is:raw is:inline>
+  // 距离门控滚动：长距离（>1.5 屏）瞬时、短距离平滑 —— 与 scroll-manager.ts 的
+  // smartScrollTo 同逻辑（本脚本 is:raw is:inline，无法 import，故内联一份；
+  // 改阈值/判据时两处需同步：scroll-manager.ts 的 smartScrollTo）。
+  function __smartScrollTo(top) {
+    var reduce =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var dist = Math.abs(top - window.scrollY);
+    var threshold = (window.innerHeight || 800) * 1.5;
+    window.scroll({
+      top: top,
+      behavior: dist > threshold || reduce ? "auto" : "smooth",
+    });
+  }
   function __moveFloatingControls() {
     var ctrl = document.querySelector(".floating-controls");
     if (ctrl && ctrl.parentElement !== document.body) {
@@ -384,8 +398,9 @@ import { Icon } from "astro-icon/components";
           : null;
       if (!btn) return;
       if (btn.id === "back-to-top-btn") {
-        // 平滑滚动回顶部
-        window.scroll({ top: 0, behavior: "smooth" });
+        // 回顶：距离门控（长距离瞬时、短距离平滑）——从文章底部回顶是数千 px 的
+        // 长距离，原生 smooth 会慢慢拉回去（拉扯感）
+        __smartScrollTo(0);
       } else if (btn.id === "back-to-home-btn") {
         // 有 Swup 时走 PJAX 跳转，否则整页跳转
         if (window.swup) {
@@ -394,10 +409,12 @@ import { Icon } from "astro-icon/components";
           window.location.href = "/";
         }
       } else if (btn.id === "back-to-comment-btn") {
-        // 滚动到评论区（仅文章页存在 #comment）
+        // 跳评论：从文章顶部跳到底部是长距离 ⇒ 同样走距离门控
         var el = document.getElementById("comment");
         if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "start" });
+          __smartScrollTo(
+            Math.round(window.scrollY + el.getBoundingClientRect().top),
+          );
         }
       } else if (btn.id === "back-to-toc-btn") {
         // 呼出/收起移动端目录弹窗
