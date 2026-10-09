@@ -25,10 +25,10 @@ const noSwup = { "data-no-swup": "1" };
        页头计数与「已筛选」徽章因此始终由服务端按新参数算好，无需任何前端状态同步。
        激活态也一样：胶囊在 region 内部，替换后由 SSR 重新渲染 ⇒ 不写 setActiveTab。 -->
   <div id="equipments-region" data-list-region="1">
-    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <div class="card-base page-head-card onload-animation mb-4">
       <!-- 标题区域 -->
       <PageHeader
-        containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        containerClass=""
         titleExpr="${title}"
         title="装备管理"
         iconClass="icon-[material-symbols--devices-outline-rounded]"
@@ -44,7 +44,9 @@ const noSwup = { "data-no-swup": "1" };
           },
         ]}
       />
+    </div>
 
+    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
       <!-- 分组标签（就地筛选触发器；选择器 = [data-list-filter] a） -->
       <div data-list-filter="1">
         <FilterTabs
