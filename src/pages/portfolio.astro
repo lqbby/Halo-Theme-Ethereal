@@ -57,192 +57,193 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
         <div
           th:if="${platformLabels != null and not platformLabels.isEmpty()}"
           class="mb-4"
-          <div
-          class="seg-scroll"
         >
-          <div class="seg" id="pf-seg-platform" data-seg-ready>
-            <span class="seg-thumb" aria-hidden="true"></span>
-            >
-            <button
-              type="button"
-              class="pf-chip seg-item is-active seg-active"
-              data-pf-dim="platform"
-              data-pf-value="__all__"
-              aria-pressed="true"
-              th:text="#{page.portfolio.allPlatforms}"
-            >
-              全部平台
-            </button>
-            <button
-              th:each="entry : ${platformLabels.entrySet()}"
-              th:if="${projectFinder.listByPlatform(entry.key, 1, 1).total > 0}"
-              th:with="pfCount=${projectFinder.listByPlatform(entry.key, 1, 1)}"
-              type="button"
-              class="pf-chip seg-item"
-              th:attr="data-pf-dim='platform',data-pf-value=${entry.key}"
-              aria-pressed="false"
-            >
-              <span th:text="${entry.value}">Platform</span>
-              <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
-            </button>
+          <div class="seg-scroll">
+            <div class="seg" id="pf-seg-platform" data-seg-ready>
+              <span class="seg-thumb" aria-hidden="true"></span>
+              <button
+                type="button"
+                class="pf-chip seg-item is-active seg-active"
+                data-pf-dim="platform"
+                data-pf-value="__all__"
+                aria-pressed="true"
+                th:text="#{page.portfolio.allPlatforms}"
+              >
+                全部平台
+              </button>
+              <button
+                th:each="entry : ${platformLabels.entrySet()}"
+                th:if="${projectFinder.listByPlatform(entry.key, 1, 1).total > 0}"
+                th:with="pfCount=${projectFinder.listByPlatform(entry.key, 1, 1)}"
+                type="button"
+                class="pf-chip seg-item"
+                th:attr="data-pf-dim='platform',data-pf-value=${entry.key}"
+                aria-pressed="false"
+              >
+                <span th:text="${entry.value}">Platform</span>
+                <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          th:if="${typeLabels != null and not typeLabels.isEmpty()}"
+          class="mb-6"
+        >
+          <div class="seg-scroll">
+            <div class="seg" id="pf-seg-type" data-seg-ready>
+              <span class="seg-thumb" aria-hidden="true"></span>
+              <button
+                type="button"
+                class="pf-chip seg-item is-active seg-active"
+                data-pf-dim="type"
+                data-pf-value="__all__"
+                aria-pressed="true"
+                th:text="#{page.portfolio.allTypes}"
+              >
+                全部类型
+              </button>
+              <button
+                th:each="entry : ${typeLabels.entrySet()}"
+                th:if="${projectFinder.listByType(entry.key, 1, 1).total > 0}"
+                th:with="pfCount=${projectFinder.listByType(entry.key, 1, 1)}"
+                type="button"
+                class="pf-chip seg-item"
+                th:attr="data-pf-dim='type',data-pf-value=${entry.key}"
+                aria-pressed="false"
+              >
+                <span th:text="${entry.value}">Type</span>
+                <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div
-        th:if="${typeLabels != null and not typeLabels.isEmpty()}"
-        class="mb-6"
+      <!-- 标签筛选中（详情页的技术栈 / 标签 chip 用同一个 `tag` 参数进来）：
+           初始隐藏，由脚本按 URL 参数 / 点 ✕ 切显隐；✕ 只去掉标签条件、保留平台与类型 -->
+      <div id="pf-active-tag" class="pf-active" hidden>
+        <span class="pf-active__label" th:text="#{page.portfolio.tagFilter}"
+          >标签筛选</span
+        >
+        <button
+          type="button"
+          class="pf-active__chip"
+          th:aria-label="${#messages.msg('page.portfolio.clearTagFilter')}"
+        >
+          <span class="icon-[material-symbols--sell-rounded]"></span>
+          <span data-pf-tag-text="1">Tech</span>
+          <span class="icon-[material-symbols--close-rounded] pf-active__x"
+          ></span>
+        </button>
+      </div>
+
+      <!-- 页面内网格用容器查询分档：双侧栏布局下内容栏只有约 348px，
+           视口媒体查询会误判成"宽屏"而排多列。容器查询挂在 .pf-page 上，
+           卡片按「窄栏横向 / 宽栏纵向多列」两种形态自适应（见页面样式）。 -->
+      <div id="pf-page" class="pf-page">
+        <!-- 推荐项目（有筛选时整体隐藏，由脚本切） -->
+        <div th:remove="tag" th:with="featured=${projectFinder.featured(1, 6)}">
+          <div
+            id="pf-featured"
+            th:if="${featured != null and not featured.items.isEmpty()}"
+          >
+            <h2 class="pf-sec">
+              <span class="pf-sec__bar"></span>
+              <span class="pf-sec__title"
+                ><span
+                  class="icon-[material-symbols--star-rounded] pf-sec__icon"
+                ></span>
+                <span th:text="#{page.portfolio.featuredProjects}"
+                  >推荐项目</span
+                ></span
+              >
+              <span class="pf-sec__line"></span>
+            </h2>
+            <div class="pf-grid">
+              <div class="contents" th:each="project, stat : ${featured.items}">
+                <PortfolioCard />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 全部项目：带分区标题，避免推荐区与全部区的同一项目看起来像重复渲染 -->
         <div
-        class="seg-scroll"
-      >
-        <div class="seg" id="pf-seg-type" data-seg-ready>
-          <span class="seg-thumb" aria-hidden="true"></span>
+          id="pf-all"
+          th:if="${projects != null and not projects.items.isEmpty()}"
+        >
+          <h2 id="pf-all-head" class="pf-sec">
+            <span class="pf-sec__bar"></span>
+            <span class="pf-sec__title" th:text="#{page.portfolio.allProjects}"
+              >全部项目</span
+            >
+            <span
+              id="pf-all-count"
+              class="pf-sec__count"
+              th:text="${projects.total}">0</span
+            >
+            <span class="pf-sec__line"></span>
+          </h2>
+          <div class="pf-grid">
+            <div class="contents" th:each="project, stat : ${projects.items}">
+              <PortfolioCard />
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态：常渲染、初始隐藏（有项目时），由脚本按可见数量切显隐 -->
+        <div
+          id="pf-empty"
+          class="pf-empty"
+          th:attr="hidden=${projects != null and not #lists.isEmpty(projects.items) ? 'hidden' : null}"
+        >
+          <span
+            class="icon-[material-symbols--folder-open-rounded] pf-empty__icon"
+          ></span>
+          <p class="pf-empty__text" th:text="#{page.portfolio.empty}">
+            暂无项目
+          </p>
+          <a
+            id="pf-empty-clear"
+            th:href="@{/portfolio}"
+            class="pf-empty__link"
+            hidden
+            th:text="#{page.portfolio.viewAll}">查看全部</a
           >
-          <button
-            type="button"
-            class="pf-chip seg-item is-active seg-active"
-            data-pf-dim="type"
-            data-pf-value="__all__"
-            aria-pressed="true"
-            th:text="#{page.portfolio.allTypes}"
-          >
-            全部类型
-          </button>
-          <button
-            th:each="entry : ${typeLabels.entrySet()}"
-            th:if="${projectFinder.listByType(entry.key, 1, 1).total > 0}"
-            th:with="pfCount=${projectFinder.listByType(entry.key, 1, 1)}"
-            type="button"
-            class="pf-chip seg-item"
-            th:attr="data-pf-dim='type',data-pf-value=${entry.key}"
-            aria-pressed="false"
-          >
-            <span th:text="${entry.value}">Type</span>
-            <span class="ml-1 text-30" th:text="${pfCount.total}">0</span>
-          </button>
         </div>
       </div>
     </section>
   </div>
 
-  <!-- 标签筛选中（详情页的技术栈 / 标签 chip 用同一个 `tag` 参数进来）：
-           初始隐藏，由脚本按 URL 参数 / 点 ✕ 切显隐；✕ 只去掉标签条件、保留平台与类型 -->
-  <div id="pf-active-tag" class="pf-active" hidden>
-    <span class="pf-active__label" th:text="#{page.portfolio.tagFilter}"
-      >标签筛选</span
-    >
-    <button
-      type="button"
-      class="pf-active__chip"
-      th:aria-label="${#messages.msg('page.portfolio.clearTagFilter')}"
-    >
-      <span class="icon-[material-symbols--sell-rounded]"></span>
-      <span data-pf-tag-text="1">Tech</span>
-      <span class="icon-[material-symbols--close-rounded] pf-active__x"></span>
-    </button>
-  </div>
+  <!-- 选中态 / 显隐全靠客户端（见 portfolio-filter.js） -->
+  <script
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/portfolio-filter.js?v=${ASSET_VERSION}`}
+    defer></script>
 
-  <!-- 页面内网格用容器查询分档：双侧栏布局下内容栏只有约 348px，
-           视口媒体查询会误判成"宽屏"而排多列。容器查询挂在 .pf-page 上，
-           卡片按「窄栏横向 / 宽栏纵向多列」两种形态自适应（见页面样式）。 -->
-  <div id="pf-page" class="pf-page">
-    <!-- 推荐项目（有筛选时整体隐藏，由脚本切） -->
-    <div th:remove="tag" th:with="featured=${projectFinder.featured(1, 6)}">
-      <div
-        id="pf-featured"
-        th:if="${featured != null and not featured.items.isEmpty()}"
-      >
-        <h2 class="pf-sec">
-          <span class="pf-sec__bar"></span>
-          <span class="pf-sec__title"
-            ><span class="icon-[material-symbols--star-rounded] pf-sec__icon"
-            ></span>
-            <span th:text="#{page.portfolio.featuredProjects}">推荐项目</span
-            ></span
-          >
-          <span class="pf-sec__line"></span>
-        </h2>
-        <div class="pf-grid">
-          <div class="contents" th:each="project, stat : ${featured.items}">
-            <PortfolioCard />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 全部项目：带分区标题，避免推荐区与全部区的同一项目看起来像重复渲染 -->
-    <div
-      id="pf-all"
-      th:if="${projects != null and not projects.items.isEmpty()}"
-    >
-      <h2 id="pf-all-head" class="pf-sec">
-        <span class="pf-sec__bar"></span>
-        <span class="pf-sec__title" th:text="#{page.portfolio.allProjects}"
-          >全部项目</span
-        >
-        <span
-          id="pf-all-count"
-          class="pf-sec__count"
-          th:text="${projects.total}">0</span
-        >
-        <span class="pf-sec__line"></span>
-      </h2>
-      <div class="pf-grid">
-        <div class="contents" th:each="project, stat : ${projects.items}">
-          <PortfolioCard />
-        </div>
-      </div>
-    </div>
-
-    <!-- 空状态：常渲染、初始隐藏（有项目时），由脚本按可见数量切显隐 -->
-    <div
-      id="pf-empty"
-      class="pf-empty"
-      th:attr="hidden=${projects != null and not #lists.isEmpty(projects.items) ? 'hidden' : null}"
-    >
-      <span class="icon-[material-symbols--folder-open-rounded] pf-empty__icon"
-      ></span>
-      <p class="pf-empty__text" th:text="#{page.portfolio.empty}">暂无项目</p>
-      <a
-        id="pf-empty-clear"
-        th:href="@{/portfolio}"
-        class="pf-empty__link"
-        hidden
-        th:text="#{page.portfolio.viewAll}">查看全部</a
-      >
-    </div>
-  </div>
-</MainGridLayout>
-
-<!-- 选中态 / 显隐全靠客户端（见 portfolio-filter.js） -->
-<script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/portfolio-filter.js?v=${ASSET_VERSION}`}
-  defer></script>
-
-<!-- 作品集池滑块：本页是**客户端筛选**（portfolio-filter.js 只切 is-active/seg-active，
+  <!-- 作品集池滑块：本页是**客户端筛选**（portfolio-filter.js 只切 is-active/seg-active，
        不导航），故不用全局 filter-seg.js，改用本内联脚本按 .seg-active 定位浮块；
-       筛选脚本切完类后调用 window.__pfSegRefresh() 重定位。 -->
-<script is:inline>
-  (function () {
-    function pool(el) {
-      return el && el.parentNode ? el.parentNode.parentNode : null;
-    }
-    function placeTo(seg, el, animate) {
-      if (!seg || !el) return;
-      var thumb = seg.querySelector(".seg-thumb");
-      if (!thumb) return;
-      if (animate !== true) thumb.style.transition = "none";
-      thumb.style.width = el.offsetWidth + "px";
-      thumb.style.transform = "translateX(" + el.offsetLeft + "px)";
-      if (animate !== true) {
-        void thumb.offsetWidth;
-        thumb.style.transition = "";
+       筛选脚本切完类后调用 window.__pfSegRefresh() 重定位（否则滑块不动）。 -->
+  <script is:inline>
+    (function () {
+      function placeTo(seg, el, animate) {
+        if (!seg || !el) return;
+        var thumb = seg.querySelector(".seg-thumb");
+        if (!thumb) return;
+        if (animate !== true) thumb.style.transition = "none";
+        thumb.style.width = el.offsetWidth + "px";
+        thumb.style.transform = "translateX(" + el.offsetLeft + "px)";
+        if (animate !== true) {
+          void thumb.offsetWidth;
+          thumb.style.transition = "";
+        }
       }
-    }
-    function placeAll(animate) {
-      document
-        .querySelectorAll("#pf-filter [data-seg-ready]")
-        .forEach(function (seg) {
+      function pools() {
+        return document.querySelectorAll("#pf-filter [data-seg-ready]");
+      }
+      function placeAll(animate) {
+        pools().forEach(function (seg) {
           placeTo(
             seg,
             seg.querySelector(".seg-item.seg-active") ||
@@ -250,11 +251,9 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
             animate,
           );
         });
-    }
-    function bind() {
-      document
-        .querySelectorAll("#pf-filter [data-seg-ready]")
-        .forEach(function (seg) {
+      }
+      function bind() {
+        pools().forEach(function (seg) {
           if (seg.dataset.pfSegBound === "1") return;
           seg.dataset.pfSegBound = "1";
           seg.addEventListener("click", function (e) {
@@ -269,27 +268,28 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
             }, 0);
           });
         });
-      placeAll(false);
-    }
-    window.__pfSegRefresh = function () {
-      placeAll(true);
-    };
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", bind);
-    } else {
-      bind();
-    }
-    window.addEventListener("resize", function () {
-      placeAll(false);
-    });
-    window.addEventListener("load", function () {
-      placeAll(false);
-    });
-    document.addEventListener("astro:page-load", function () {
-      bind();
-    });
-  })();
-</script>
+        placeAll(false);
+      }
+      window.__pfSegRefresh = function () {
+        placeAll(true);
+      };
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bind);
+      } else {
+        bind();
+      }
+      window.addEventListener("resize", function () {
+        placeAll(false);
+      });
+      window.addEventListener("load", function () {
+        placeAll(false);
+      });
+      document.addEventListener("astro:page-load", function () {
+        bind();
+      });
+    })();
+  </script>
+</MainGridLayout>
 
 <style is:global>
   /* ==========================================================================
