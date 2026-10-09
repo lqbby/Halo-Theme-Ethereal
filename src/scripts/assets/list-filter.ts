@@ -11,7 +11,7 @@
 //   [data-list-region].is-swapping  拉取中态（样式在 list-filter.css）
 //
 // 对外事件：替换完成后在 document 上派发 `ethereal:list-swapped`（detail.region）。
-//   给页面级脚本一个「region 已是新 DOM」的确定时机 —— 追番页的 bangumi-filter.ts
+//   给页面级脚本一个「region 已是新 DOM」的确定时机 —— （原追番页的筛选脚本，已随页面换上游版移除）
 //   靠它重建卡片索引并重放搜索/排序态。不用 MutationObserver 是因为 observer 会被
 //   页面脚本自己渲染的分页 DOM 反复触发，需要额外写过滤条件才不自激。
 //
@@ -189,7 +189,7 @@ import { guardOnce } from "../../utils/once";
     playEnter(region);
 
     // region 已换新 DOM：派发通知，让页面的客户端脚本重建索引
-    // （追番页的 bangumi-filter.js 靠它重放搜索/排序态；其余页面无监听者，零成本）
+    // （当前无页面监听该事件，保留为扩展点，零成本）
     document.dispatchEvent(
       new CustomEvent("ethereal:list-swapped", {
         detail: { region: region },

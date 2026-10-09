@@ -46,18 +46,15 @@ import PageHeader from "../components/control/PageHeader.astro";
     github=${theme.config?.extendPages?.statistics?.github == null ? true : theme.config?.extendPages?.statistics?.github}"
   >
     <!-- 页头：纯净玻璃卡，不加主色辉光 -->
-    <section class="card-base onload-animation mb-4 px-6 py-7 md:px-9 md:py-8">
+    <div class="card-base page-head-card onload-animation mb-4">
       <PageHeader
-        containerClass="flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+        containerClass=""
         titleExpr="${singlePage.spec.title}"
         title="数据看板"
-        iconClass="icon-[material-symbols--monitoring]"
-        labelExpr="#{page.statistics.title}"
-        label="数据看板"
-        subExpr="#{page.statistics.subtitle}"
-        sub="站点数据统计与流量概览"
+        iconClass="icon-[material-symbols--monitoring-outline-rounded]"
+        eyebrow="STATISTICS"
       />
-    </section>
+    </div>
 
     <!-- Umami 流量统计（历史访问 + 近30分钟实时活动） -->
     <section
