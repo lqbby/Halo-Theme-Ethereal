@@ -21,7 +21,7 @@
  * 用法： node scripts/validate-th.mjs [-v]
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, relative } from "node:path";
 
@@ -120,6 +120,31 @@ if (!targets.length) {
     "⏭️  跳过：没找到 templates/*.html 或 src/**/*.astro（先在主题根目录跑）",
   );
   process.exit(0);
+}
+
+// ── 静态护栏（1.5.80 事故复盘补）：`th:*` 属性值以裸 `#` 开头的 utility 引用
+// （如 th:text="#aggregates.sum(...)"）几乎总是漏了 ${} 包裹。真 Thymeleaf 语法层
+// **不报错**（Java 校验抓不到），但渲染期可能求值成 null 异常 ⇒ 整页 500。这里做
+// 一道廉价静态拦截，防止同类写法再次上线。
+const BARE_HASH = /th:[a-zA-Z-]+=(["'])(#[a-zA-Z][^\1]*?)\1/g;
+const bareHits = [];
+for (const f of targets) {
+  const text = readFileSync(f, "utf8");
+  for (const m of text.matchAll(BARE_HASH)) {
+    // `#{key}` 消息表达式合法，只有 `#utility(...)` 这种才可疑
+    if (m[2].startsWith("#{")) continue;
+    bareHits.push(
+      relative(ROOT, f) + " → th 属性值疑似缺 ${} 包裹：" + m[2].slice(0, 60),
+    );
+  }
+}
+if (bareHits.length) {
+  console.error("");
+  console.error(
+    "✘ 发现裸 # 表达式（th:* 属性值必须带 ${} / #{} / @{} 包裹）：",
+  );
+  for (const h of bareHits) console.error("   " + h);
+  process.exit(1);
 }
 
 const harness = join(ROOT, "scripts", "tools", "ThExpressionCheck.java");
