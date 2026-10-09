@@ -1,6 +1,7 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import PageHeader from "../components/control/PageHeader.astro";
 ---
 
 <MainGridLayout
@@ -14,20 +15,32 @@ import Canonical from "../components/misc/Canonical.astro";
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <h1 class="sr-only" th:text="#{page.categories.title}">分类</h1>
 
-  <!-- 段一：页头卡片（分类 + 共 N 个分类 · M 篇文章，与 tags 页同款简洁风格） -->
-  <div class="card-base px-8 py-6 mb-4">
-    <div
-      class="text-2xl font-bold text-(--primary) mb-2"
-      th:text="#{page.categories.title}"
-    >
-      分类
-    </div>
-    <p class="text-30 text-sm">
-      <span
-        th:text="#{page.categories.subtitleCount(${#lists.size(categories)})}"
-        >共 0 个分类</span
-      ><span data-cat-total></span>
-    </p>
+  <!-- 段一：头部卡片（全站统一仪表条）：分类数 + 文章总数两片。
+       文章总数原由页内 JS 用 data-cat-total 补「· N 篇文章」⇒ 改为服务端统计片
+       （同一个数：各分类 postCount 之和），钩子与写入语句一并移除 -->
+  <div class="card-base page-head-card onload-animation mb-4">
+    <PageHeader
+      containerClass=""
+      titleExpr="#{page.categories.title}"
+      title="分类"
+      iconClass="icon-[material-symbols--folder-open-outline-rounded]"
+      eyebrow="CATEGORIES"
+      stats={[
+        {
+          valueExpr: "${categories == null ? 0 : #lists.size(categories)}",
+          value: "0",
+          labelExpr: "#{common.stat.categories}",
+          label: "分类",
+        },
+        {
+          valueExpr:
+            "${categories == null ? 0 : #aggregates.sum(categories.![postCount ?: 0])}",
+          value: "0",
+          labelExpr: "#{common.stat.posts}",
+          label: "文章",
+        },
+      ]}
+    />
   </div>
 
   <!-- 段二：分类卡片网格
@@ -100,10 +113,6 @@ import Canonical from "../components/misc/Canonical.astro";
       var max = targets.reduce(function (a, b) {
         return Math.max(a, b);
       }, 0);
-
-      /* 页头补一句真实文章总数（JS 不可用时不插入，无残留分隔符） */
-      var totalEl = document.querySelector("[data-cat-total]");
-      if (totalEl && total > 0) totalEl.textContent = " · " + total + " 篇文章";
 
       function roll(el, target) {
         var dur = 550;

@@ -1,6 +1,7 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import PageHeader from "../components/control/PageHeader.astro";
 ---
 
 <MainGridLayout
@@ -14,20 +15,23 @@ import Canonical from "../components/misc/Canonical.astro";
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <h1 class="sr-only" th:text="#{page.tags.title}">标签</h1>
 
-  <!-- 段一：头部卡片（标签 + 全部标签·N 个标签） -->
-  <div class="card-base px-8 py-6 mb-4">
-    <div
-      class="text-2xl font-bold text-(--primary) mb-2"
-      th:text="#{page.tags.title}"
-    >
-      标签
-    </div>
-    <p
-      class="text-30 text-sm"
-      th:text="#{page.tags.subtitleCount(${#lists.size(tags)})}"
-    >
-      全部标签 · 0 个标签
-    </p>
+  <!-- 段一：头部卡片（全站统一仪表条） -->
+  <div class="card-base page-head-card onload-animation mb-4">
+    <PageHeader
+      containerClass=""
+      titleExpr="#{page.tags.title}"
+      title="标签"
+      iconClass="icon-[mingcute--hashtag-fill]"
+      eyebrow="TAGS"
+      stats={[
+        {
+          valueExpr: "${tags == null ? 0 : #lists.size(tags)}",
+          value: "0",
+          labelExpr: "#{common.stat.tags}",
+          label: "标签",
+        },
+      ]}
+    />
   </div>
 
   <!-- 段二：标签云卡片（标签按文章数 --tag-depth 渐深配色） -->
