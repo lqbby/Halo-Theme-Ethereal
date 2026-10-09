@@ -26,11 +26,6 @@ const nonStickyExpr = `widget.sticky == false and widgets.subList(0, widgetStat.
 const nonStickyIf = `\${${nonStickyExpr}}`;
 const stickyIf = `\${not (${nonStickyExpr})}`;
 const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and widgets[0].sticky == false}`;
-// ⚠️ th:replace 的优先级(100)高于 th:if(300) ⇒ 条件必须挂在外层、th:replace 放内层；
-// 文章页「只保留前 2 个吸顶组件」的限额与此合并成一个表达式（包2 会改成 Layout 侧 CSS）
-const stickyItemIf = showToc
-  ? `\${not (${nonStickyExpr}) and widgetStat.index < 2}`
-  : stickyIf;
 ---
 
 <aside
@@ -71,20 +66,18 @@ const stickyItemIf = showToc
     </div>
 
     {
-      /* ===== 吸顶区：功能性小组件吸顶显示；文章页（showToc）限制高度并折叠为前 2 个，
-         为目录腾出剩余空间（包2 会把这套服务端裁剪换成 Layout 侧的 CSS :has 规则） */
+      /* ===== 吸顶区：功能性小组件吸顶显示。
+         ⚠️ 文章页「只留前 2 个」与限高都由 MainGridLayout 的 CSS
+         :has(#right-sidebar-toc > *) 承担（侧栏已不是 Swup 容器，服务端裁剪会导致换页后残留上一页形态） */
     }
     <div
       id="right-sidebar-sticky"
-      class:list={[
-        "sticky top-4 flex w-full flex-col gap-4",
-        showToc && "max-h-[calc(100vh-2rem)] overflow-hidden",
-      ]}
+      class="sticky top-4 flex w-full flex-col gap-4"
     >
       <div
         class="contents"
         th:each="widget, widgetStat : ${widgets}"
-        th:if={stickyItemIf}
+        th:if={stickyIf}
       >
         <div th:replace={widgetSwitchReplace}></div>
       </div>

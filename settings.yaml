@@ -2365,6 +2365,7 @@ spec:
           value:
             enable_toc: true
             toc_depth: 2
+            position: right
           children:
             - $formkit: switch
               name: enable_toc
@@ -2372,6 +2373,18 @@ spec:
               label: 启用目录
               value: true
               help: "启用目录"
+            - $formkit: select
+              name: position
+              id: toc_position
+              if: "$get(toc_enable).value"
+              label: 目录位置
+              value: right
+              options:
+                - label: 右侧栏
+                  value: right
+                - label: 左侧栏
+                  value: left
+              help: "三栏布局下目录挂在哪一侧栏；两栏布局继续使用悬浮目录（此项不影响）"
             - $formkit: number
               name: toc_depth
               if: "$get(toc_enable).value"

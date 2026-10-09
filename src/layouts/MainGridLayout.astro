@@ -49,6 +49,58 @@ const {
   @media (max-width: 767.98px) {
     html.has-mobile-sidebar #sidebar,
     html.has-mobile-sidebar #right-sidebar {
+      display: none !important;
+    }
+  }
+
+  /* 目录槽位：左右两栏各一个恒存在的 Swup 容器（见 SideBar.astro / RightSideBar.astro），
+     内容随换页替换。空壳时必须不产生盒子、也不占吸顶块的 flex gap，故 display:contents
+     （不要用 Tailwind 的 .contents 类：下面按数量隐藏组件的规则会误伤它） */
+  #sidebar-toc,
+  #right-sidebar-toc {
+    display: contents;
+  }
+
+  /* 侧栏含目录时的吸顶块（左右两栏同源规则）：
+     · max-height 必须扣除吸顶位置下移的让位量，否则目录底部会溢出屏幕下方
+       （本地没有 --navbar-sticky-offset，回退到 --navbar-height）
+     · 从 md 起生效——目录卡片是 hidden md:flex（<768px 走目录弹窗按钮）
+     · :has(槽位 > *) 同时是按页门控：槽位是 Swup 容器，换页后里面有没有卡片由服务端
+       条件决定；无目录的页面这些规则都不命中 → 吸顶组件照常全部显示、无限高、不被裁。
+       ⚠️ 侧栏本身已不是 Swup 容器（换页不重建），所以「文章页只留前 2 个」只能靠这套
+       CSS 实现；服务端的 index<2 裁剪已移除（否则换页后会残留上一页形态） */
+  @media (min-width: 768px) {
+    #sidebar-sticky:has(#sidebar-toc > *),
+    #right-sidebar-sticky:has(#right-sidebar-toc > *) {
+      max-height: calc(
+        100vh - var(--navbar-sticky-offset, var(--navbar-height, 4rem)) - 2rem
+      ) !important;
+      overflow: hidden !important;
+      transition: max-height var(--dur-scroll, 700ms);
+    }
+    /* 吸顶组件保持自然高度：差额只该由目录卡片承担。组件若参与收缩，导航栏出现让出
+       72px 时限高变小，就会按比例把两块组件压扁——flex 负空间按「收缩系数 × flex-basis」
+       分摊，目录卡片 basis 为 0 时完全不参与，压力全落到组件上。
+       .card-base 覆盖吸顶组件的三种形态（WidgetLayout / Profile / 自定义HTML）；
+       > :not(槽位) 把槽位排除在外 → 目录卡片不被钉住，仍可伸缩（见 SidebarTOC.astro） */
+    #sidebar-sticky:has(#sidebar-toc > *) > :not(#sidebar-toc) .card-base,
+    #right-sidebar-sticky:has(#right-sidebar-toc > *)
+      > :not(#right-sidebar-toc)
+      .card-base {
+      flex-shrink: 0;
+    }
+    /* 空目录（"此文章无目录"占位）时卡片回到内容高度：既不长大、也撤掉 min-h 保底 */
+    #sidebar-toc .card-base:has([data-toc-empty]:not(.hidden)),
+    #right-sidebar-toc .card-base:has([data-toc-empty]:not(.hidden)) {
+      flex-grow: 0;
+      min-height: 0;
+    }
+    /* 文章页只留前 2 个吸顶组件，把剩余高度让给目录（左右同源）。
+       排除槽位自身，否则「2 个吸顶组件 + 槽位」时槽位正好排第 3 个被隐藏。
+       ⚠️ 折行不要落在 :has 前面——那会变成后代选择器（匹配不到任何元素） */
+    #sidebar-sticky:has(#sidebar-toc > *) > :nth-child(n + 3):not(#sidebar-toc),
+    #right-sidebar-sticky:has(#right-sidebar-toc > *)
+      > :nth-child(n + 3):not(#right-sidebar-toc) {
       display: none;
     }
   }
@@ -520,6 +572,7 @@ const {
         <SideBar
           class="onload-animation col-span-2 md:mb-4 md:col-span-1 md:row-start-1 md:col-start-1 lg:max-w-70"
           th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:row-span-2'}"
+          showToc={showToc}
         />
 
         <!-- 右侧栏 - 移动端第三项，平板隐藏；两栏布局时 xl 隐藏，
