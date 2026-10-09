@@ -2,10 +2,8 @@
 import PhotoExifMeta from "../components/photos/PhotoExifMeta.astro";
 import PhotoI18n from "../components/photos/PhotoI18n.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
-
-// 判断 EXIF 是否真的有数据（exif 对象可能存在但所有字段为空，此时视为无 EXIF 提示）
-const exifHasData =
-  "${photo.exif != null and (photo.exif.dateTimeOriginal != null or not #strings.isEmpty(photo.exif.make) or not #strings.isEmpty(photo.exif.model) or not #strings.isEmpty(photo.exif.lensModel) or photo.exif.fNumber != null or not #strings.isEmpty(photo.exif.exposureTime) or photo.exif.iso != null or photo.exif.focalLength != null or photo.exif.focalLengthIn35mm != null or (photo.exif.imageWidth != null and photo.exif.imageHeight != null) or not #strings.isEmpty(photo.exif.software))}";
+import Canonical from "../components/misc/Canonical.astro";
+import { exifHasDataExpr } from "../utils/photo-exif";
 ---
 
 <MainGridLayout
@@ -13,6 +11,7 @@ const exifHasData =
   description="${not #strings.isEmpty(photo.spec.description) ? #strings.abbreviate(photo.spec.description, 120) : (not #strings.isEmpty(photo.spec.displayName) ? photo.spec.displayName : #messages.msg('page.photo.description', site.title))}"
 >
   <Fragment slot="head">
+    <Canonical path="/photo" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <meta
       property="og:image"
@@ -29,7 +28,7 @@ const exifHasData =
         >
           <a
             th:href="@{${backUrl}}"
-            class="btn-card h-10 w-fit rounded-lg px-3 text-sm font-bold text-75"
+            class="btn-card no-card-border h-10 w-fit rounded-lg px-3 text-sm font-bold text-75"
           >
             <span
               class="icon-[material-symbols--arrow-back-rounded] mr-1 text-xl"
@@ -41,7 +40,7 @@ const exifHasData =
             th:href="${photo.spec.url != null and (photo.spec.url.startsWith('http') or photo.spec.url.startsWith('//') or photo.spec.url.startsWith('/')) ? photo.spec.url : null}"
             target="_blank"
             rel="noopener"
-            class="btn-card h-10 w-fit rounded-lg px-3 text-sm font-bold text-75 sm:shrink-0"
+            class="btn-card no-card-border h-10 w-fit rounded-lg px-3 text-sm font-bold text-75 sm:shrink-0"
             th:aria-label="#{page.photos.openImage}"
           >
             <span
@@ -55,7 +54,7 @@ const exifHasData =
           class="mb-2 flex flex-wrap items-center gap-2 text-xs font-bold uppercase text-30"
         >
           <span th:text="#{page.photos.collection}">Collection</span>
-          <span class="text-30">/</span>
+          <span class="text-20">/</span>
           <span th:text="#{page.photos.position(${position}, ${total})}"
             >1 / 1</span
           >
@@ -111,7 +110,7 @@ const exifHasData =
         >
           <span
             th:each="tag : ${photo.spec.tags}"
-            class="rounded-md bg-(--primary)/10 px-2.5 py-1 text-xs font-bold text-(--primary)"
+            class="rounded-lg bg-(--primary)/10 px-2.5 py-1 text-xs font-bold text-(--primary)"
             th:text="${'#' + tag}"
           >
             #tag
@@ -138,13 +137,14 @@ const exifHasData =
 
       <div class="flex flex-col gap-4 px-6 py-6 md:px-9">
         <div
-          th:if={exifHasData}
+          th:if={exifHasDataExpr}
           class="rounded-xl bg-(--btn-regular-bg) px-4 py-4"
         >
-          <PhotoExifMeta condition={exifHasData} />
+          <!-- 是否渲染由外层 th:if 控制，组件内不再重复判定 -->
+          <PhotoExifMeta />
         </div>
         <div
-          th:unless={exifHasData}
+          th:unless={exifHasDataExpr}
           class="rounded-xl bg-(--btn-regular-bg) px-4 py-4 text-sm font-bold text-30"
         >
           <span th:text="#{page.photos.noExif}">This photo has no EXIF</span>
@@ -154,7 +154,7 @@ const exifHasData =
           <a
             th:if="${prev != null}"
             th:href="@{${photoUrl.detail(prev)}}"
-            class="btn-card min-h-18 justify-start! gap-3 rounded-xl p-3 text-left"
+            class="btn-card no-card-border min-h-18 justify-start! gap-3 rounded-xl p-3 text-left"
           >
             <span
               class="icon-[material-symbols--chevron-left-rounded] text-2xl text-(--primary)"
@@ -191,7 +191,7 @@ const exifHasData =
           <a
             th:if="${next != null}"
             th:href="@{${photoUrl.detail(next)}}"
-            class="btn-card min-h-18 justify-start! gap-3 rounded-xl p-3 text-left sm:justify-end! sm:text-right"
+            class="btn-card no-card-border min-h-18 justify-start! gap-3 rounded-xl p-3 text-left sm:justify-end! sm:text-right"
           >
             <div class="min-w-0 sm:order-1">
               <div
@@ -270,17 +270,8 @@ const exifHasData =
     >
       评论
     </h2>
-    <!-- P3（1.3.3）：评论区懒加载，机制见 post.astro 同名注释 -->
-    <template id="comment-lazy-template">
-      <Fragment
-        set:html={'<halo:comment group="core.halo.run" kind="Photo" th:attr="name=${photo.metadata.name}" />'}
-      />
-    </template>
-    <div id="comment-lazy-placeholder"></div>
+    <Fragment
+      set:html={'<halo:comment group="core.halo.run" kind="Photo" th:attr="name=${photo.metadata.name}" />'}
+    />
   </div>
-  <!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro 同源） -->
-  <script
-    th:if="${haloCommentEnabled}"
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
-    defer></script>
 </MainGridLayout>
