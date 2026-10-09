@@ -1,13 +1,11 @@
 ---
-// 打赏页面模板（Halo 自定义页面 → 自定义模板选「打赏页面」/ reward.html）。
-// 结构：页头 → 用途说明 + 收款码 → 打赏者名单（可选）→ 评论区（跟随页面「允许评论」）。
+// 打赏页面模板（Halo 自定义页面，自定义模板选「打赏页面」/ reward）。
+// 结构：打赏主卡（页头 → 用途说明 → 收款码）→ 打赏者名单（可选）→ 评论（跟随页面「允许评论」）。
 // 数据源：
-//   · 收款码 = 文章打赏弹窗同源（theme.config.post.actionBar.rewardSetting.wechat_qr / alipay_qr），
-//     仅读取，不受「文章操作栏 → 启用打赏」开关影响（数据常驻后台配置）；
+//   · 收款码 = 文章打赏模态框同源（theme.config.post.actionBar.rewardSetting.wechat_qr /
+//     alipay_qr），仅读取、不受「文章操作栏」/「启用打赏」开关影响（数据常驻后台配置）；
 //   · 页面文案与打赏者名单 = 主题设置 extendPages.reward（名单留空则整卡不渲染）。
-// 本地适配（对照上游 0590a1a）：① 页头用本地 PageHeader 的 props 契约（labelExpr/subExpr，
-// 非上游 eyebrow）；② 评论区用本地「懒加载 + comment-locate」机制（同 page.astro），
-// 上游是直接内联 <halo:comment>；③ 名单条目的入场错峰沿用站内既有公式。
+// 纯服务端渲染，无页面脚本；评论区条件与默认 page 模板一致。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import Canonical from "../components/misc/Canonical.astro";
@@ -18,10 +16,11 @@ import Canonical from "../components/misc/Canonical.astro";
   description="#{page.reward.description(${site.title})}"
 >
   <Fragment slot="head">
-    <!-- SEO：canonical（与默认 page 模板一致，解决带/不带尾斜杠的重复内容） -->
+    <!-- SEO：canonical（本地保留，上游无此项） -->
     <Canonical path="${singlePage.status.permalink}" />
     <!-- 二维码白盒的静态阴影：取主题色（与 card-hover-lift 的悬浮阴影同款取值）。
-         用 is:global 样式而非 Tailwind 任意值类：color-mix 含逗号/空格，塞进任意值里转义易踩坑 -->
+         用 is:global 样式而非 Tailwind 任意值类：color-mix 含逗号/空格，
+         塞进任意值里转义易踩坑（见 AGENTS「常见坑」） -->
     <style is:global>
       .reward-qr-box {
         box-shadow: 0 4px 20px
@@ -30,7 +29,9 @@ import Canonical from "../components/misc/Canonical.astro";
     </style>
   </Fragment>
 
-  <!-- ================= ① 打赏主区（页头卡 + 内容卡） =================
+  <!-- ================= ① 打赏主卡 =================
+       cfg / rs / wechatQr / alipayQr / hasQr / hasBothQr 统一在本条 th:with 定义 -->
+  <!-- 打赏主区拆两卡：头部卡（新版页头）+ 内容卡（用途说明 + 收款码）。
        cfg / rs / wechatQr / alipayQr / hasQr / hasBothQr 两卡共用，
        故 th:with 挂在 th:remove="tag" 的包装层上 -->
   <div
@@ -42,25 +43,17 @@ import Canonical from "../components/misc/Canonical.astro";
       hasQr=${!#strings.isEmpty(wechatQr) or !#strings.isEmpty(alipayQr)},
       hasBothQr=${!#strings.isEmpty(wechatQr) and !#strings.isEmpty(alipayQr)}"
   >
-    <!-- 头部卡：本地 PageHeader（h1 = 页面标题） -->
+    <!-- 头部卡：新版页头（modern，含图标水印） -->
     <div
       class="card-base page-head-card onload-animation relative z-10 mb-4 w-full"
     >
+      <!-- 页头：h1 = 页面标题（Halo 自定义页面自带） -->
       <PageHeader
         containerClass=""
         titleExpr="${singlePage.spec.title}"
         title="打赏"
         iconClass="icon-[material-symbols--volunteer-activism-outline-rounded]"
         eyebrow="REWARD"
-        stats={[
-          {
-            valueExpr:
-              "${cfg?.sponsors == null ? 0 : #lists.size(cfg.sponsors)}",
-            value: "0",
-            labelExpr: "#{common.stat.items}",
-            label: "条目",
-          },
-        ]}
       />
     </div>
 
@@ -84,9 +77,12 @@ import Canonical from "../components/misc/Canonical.astro";
         </p>
       </div>
 
-      <!-- 收款码（微信 / 支付宝，与打赏弹窗同源；白底保证二维码识别）。
-           布局：两张卡满宽双列，只配一种时降级为单卡居中；标题文字取恒定的
-           text-neutral-900（白卡明暗都是白底，不能挂 dark: 浅色变体） -->
+      <!-- 收款码（微信 / 支付宝，与打赏模态框同源；白底保证二维码识别）。
+         布局：两张卡满宽双列，只配一种时降级为单卡居中（见 th:classappend）；
+         卡片与标题沿用打赏模态框收款卡语言（白底 + 主题色描边 18% + 圆角，
+         标题文字纯色、图标主题色）；二维码外套带主题色阴影的白盒（.reward-qr-box）。
+         底侧内边距刻意比顶侧大 4px（pt-4 + pb-5）：抵消标题行高（text-xl）多出的
+         视觉空隙，使标题上方 / 白盒下方的留白一致。 -->
       <div
         th:if="${hasQr}"
         class="grid grid-cols-1 gap-4"
@@ -96,6 +92,9 @@ import Canonical from "../components/misc/Canonical.astro";
           th:if="${!#strings.isEmpty(wechatQr)}"
           class="flex flex-col items-center gap-3 rounded-xl border border-(--primary)/18 bg-white px-4 pt-4 pb-5"
         >
+          <!-- 标题：参考 Firefly（图标 text-2xl + 标题 text-xl font-semibold）。
+             文字色取恒定的 text-neutral-900（白卡明暗都是白底，不能挂 dark: 浅色变体）；
+             图标沿用模态框的主题色 text-(--primary) -->
           <div class="flex items-center gap-3 text-neutral-900">
             <span class="icon-[fa6-brands--weixin] text-2xl text-(--primary)"
             ></span>
@@ -179,9 +178,11 @@ import Canonical from "../components/misc/Canonical.astro";
     >
       <div class="mb-6 flex items-center justify-between gap-4">
         <div class="flex min-w-0 items-center gap-3">
-          <span
-            class="icon-[material-symbols--emoji-people-rounded] shrink-0 text-[1.25rem] text-(--primary)"
-          ></span>
+          <div class="title-icon" aria-hidden="true">
+            <span
+              class="icon-[material-symbols--emoji-people-rounded] text-[1.25rem] text-(--primary)"
+            ></span>
+          </div>
           <h2
             class="truncate text-xl font-bold text-90"
             th:text="#{page.reward.sponsorsTitle}"
@@ -195,7 +196,7 @@ import Canonical from "../components/misc/Canonical.astro";
         >
       </div>
 
-      <!-- 条目最小宽 240px，与友链页条目卡同档；入场错峰用站内既有公式 -->
+      <!-- 条目最小宽 240px，与友链页条目卡同档 -->
       <div
         class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]"
       >
