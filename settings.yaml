@@ -108,6 +108,7 @@ spec:
           label: Banner 布局
           value:
             displayMode: banner
+            fullscreenLayout: classic
             wallpaperOpacity: 0.8
             wallpaperBlur: 10
             cardOpacity: 0.6
