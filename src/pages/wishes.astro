@@ -125,27 +125,41 @@ import PageHeader from "../components/control/PageHeader.astro";
               >
             </div>
           </PageHeader>
+          <!-- 类型筛选池（原画布内居中悬浮标签，上移至此与其他页分组池一致；
+             data-seg-ready 直出显示滑块；滑块由页尾内联脚本驱动，不走全局
+             filter-seg.js——其依 .seg-active 定位，而心愿墙是客户端筛选
+             （wishes.js 只切 .active），两者语义不同。
+             「全部」不带计数（对齐其它页）；类型计数由插件 countByType() 提供） -->
+          <div class="px-6 pb-5 md:px-9">
+            <div class="seg-scroll">
+              <div class="seg" id="wishTabs" data-seg-ready>
+                <span class="seg-thumb" aria-hidden="true"></span>
+                <button
+                  type="button"
+                  class="wish-tab seg-item active"
+                  data-wish-filter="all"
+                >
+                  <span th:text="#{common.all}">全部</span>
+                </button>
+                <button
+                  type="button"
+                  th:each="type : ${types}"
+                  class="wish-tab seg-item"
+                  th:data-wish-filter="${type.spec.slug}"
+                  th:data-wish-name="${type.spec.displayName}"
+                >
+                  <span th:text="${type.spec.displayName}">类型</span><span
+                    class="seg-cnt"
+                    th:with="typeCount=${wishFinder.countByType(type.spec.slug)}"
+                    th:text="${typeCount}">0</span
+                  >
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <!-- 画布区（便签散布与拖动区域） -->
         <div class="wish-board-body">
-          <!-- 筛选标签（顶部居中悬浮） -->
-          <div class="wish-tabs" id="wishTabs">
-            <button
-              type="button"
-              class="wish-tab active"
-              data-wish-filter="all"
-              th:text="#{common.all}">全部</button
-            >
-            <button
-              type="button"
-              th:each="type : ${types}"
-              class="wish-tab"
-              th:data-wish-filter="${type.spec.slug}"
-              th:data-wish-name="${type.spec.displayName}"
-              th:text="${type.spec.displayName}">类型</button
-            >
-          </div>
-
           <!-- 便签卡片（JS 随机散布 + 可拖动） -->
           <article
             th:each="wish, iter : ${wishes}"
@@ -302,6 +316,71 @@ import PageHeader from "../components/control/PageHeader.astro";
 
     <div id="wishToast" class="wish-toast" role="status" aria-live="polite">
     </div>
+
+    <!-- 心愿池滑块：wishes.js 点击只切 .active（客户端筛选），此处独立驱动 .seg-thumb。
+       不走全局 filter-seg.js——其依 .seg-active 定位且 refresh 会把滑块弹回；
+       本脚本以 .active 为准，点击/载入/缩放时校正。 -->
+    <script is:inline>
+      (function () {
+        function placeTo(el, animate) {
+          var seg = document.getElementById("wishTabs");
+          if (!seg || !el) return;
+          var thumb = seg.querySelector(".seg-thumb");
+          if (!thumb) return;
+          if (animate !== true) thumb.style.transition = "none";
+          thumb.style.width = el.offsetWidth + "px";
+          thumb.style.transform = "translateX(" + el.offsetLeft + "px)";
+          if (animate !== true) {
+            void thumb.offsetWidth;
+            thumb.style.transition = "";
+          }
+        }
+        function place(animate) {
+          var seg = document.getElementById("wishTabs");
+          if (!seg) return;
+          placeTo(
+            seg.querySelector(".wish-tab.active") ||
+              seg.querySelector(".wish-tab"),
+            animate,
+          );
+        }
+        function bind() {
+          var seg = document.getElementById("wishTabs");
+          if (!seg || seg.dataset.wishSegBound === "1") return;
+          seg.dataset.wishSegBound = "1";
+          seg.addEventListener("click", function (e) {
+            var btn =
+              e.target && e.target.closest
+                ? e.target.closest(".wish-tab")
+                : null;
+            if (btn) {
+              // 点击预移动（与全局 filter-seg.js 同款手感）：先滑向被点项，
+              // 再等 wishes.js 切换 .active 后校正（同一次点击，注册顺序不定）
+              placeTo(btn, true);
+              setTimeout(function () {
+                place(true);
+              }, 0);
+            }
+          });
+          window.addEventListener("resize", function () {
+            place(false);
+          });
+          window.addEventListener("load", function () {
+            place(false);
+          });
+          place(false);
+        }
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", bind);
+        } else {
+          bind();
+        }
+        document.addEventListener("astro:page-load", bind);
+        document.addEventListener("astro:page-load", function () {
+          place(false);
+        });
+      })();
+    </script>
 
     <script
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.js?v=${ASSET_VERSION}`}
