@@ -3,13 +3,17 @@ import Announcement from "./Announcement.astro";
 import Categories from "./Categories.astro";
 import Profile from "./Profile.astro";
 import Tags from "./Tags.astro";
+import SidebarTOC from "./SidebarTOC.astro";
 
 interface Props {
   class?: string;
+  /** 当前页是否为带目录的页面（文章页），由 MainGridLayout 按路由传入 */
+  showToc?: boolean;
   "th:classappend"?: string;
 }
 
 const className = Astro.props.class;
+const showToc = Astro.props.showToc || false;
 const thClassappend = Astro.props["th:classappend"] || "";
 // 小组件分派片段的引用表达式：片段在 WidgetSwitch.astro 定义一次（全站一套），
 // 这里只留一行引用，条目配置与索引以参数传入（index 用于 music/weather 的入场错峰）
@@ -27,6 +31,10 @@ const nonStickyIf = `\${${nonStickyExpr}}`;
 const stickyIf = `\${not (${nonStickyExpr})}`;
 // 不吸顶区只可能是一段前缀，故「列表首项不吸顶」即代表该区有内容
 const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and widgets[0].sticky == false}`;
+// 左栏目录卡片：目录位置配置为 left、且非两栏布局（两栏继续用 #toc-container 悬浮目录）
+const tocEnabledExpr =
+  "theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc";
+const tocIf = showToc ? `\${tocOnLeft and (${tocEnabledExpr})}` : "false";
 ---
 
 <aside
@@ -35,7 +43,7 @@ const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and w
   th:classappend={thClassappend}
 >
   <div
-    th:with="widgets=${theme.config?.sidebar?.widgetsConfig?.widgets}"
+    th:with="widgets=${theme.config?.sidebar?.widgetsConfig?.widgets}, tocOnLeft=${theme.config?.post?.toc?.position == 'left' and theme.config?.layout?.pageLayout?.layoutMode != 'two-column'}"
     th:remove="tag"
   >
     {
@@ -97,6 +105,15 @@ const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and w
       <div th:if="${widgets == null}" class="contents">
         <div class="contents"><Categories class="onload-animation" /></div>
         <div class="contents"><Tags class="onload-animation" /></div>
+      </div>
+      {
+        /* 目录槽位（Swup 容器）：无条件渲染，显示条件写在内部 th:if 上。
+           ⚠️ 容器必须在每个主题页存在（#82 守卫），漏了会让全站换页 abort */
+      }
+      <div id="sidebar-toc">
+        <div th:remove="tag" th:if={tocIf}>
+          <SidebarTOC />
+        </div>
       </div>
     </div>
   </div>

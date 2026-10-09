@@ -3,7 +3,7 @@ import Announcement from "./Announcement.astro";
 import Hitokoto from "./Hitokoto.astro";
 import Profile from "./Profile.astro";
 import SiteStats from "./SiteStats.astro";
-import TOC from "./TOC.astro";
+import SidebarTOC from "./SidebarTOC.astro";
 
 interface Props {
   class?: string;
@@ -97,31 +97,19 @@ const stickyItemIf = showToc
           <SiteStats />
         </div>
       </div>
-      {/* 目录：仅文章页（showToc）且主题开启目录时显示，自适应剩余空间 */}
-      <div
-        th:remove="tag"
-        th:if={showToc
-          ? "${theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc}"
-          : "false"}
-      >
+      {
+        /* 目录槽位（Swup 容器）：无条件渲染，显示条件写在内部 th:if 上。
+           SidebarTOC 是左右两栏共用的目录卡片（含标题 + data-toc-scroll 滚动区）。
+           ⚠️ 容器必须在每个主题页存在（#82 守卫），漏了会让全站换页 abort */
+      }
+      <div id="right-sidebar-toc">
         <div
-          class="card-base hidden md:flex min-h-0 flex-1 flex-col overflow-hidden pb-0"
+          th:remove="tag"
+          th:if={showToc
+            ? "${theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc}"
+            : "false"}
         >
-          <div
-            class="relative mb-2 ml-8 mt-4 shrink-0 text-lg font-bold text-neutral-900 transition before:absolute before:left-[-16px] before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-md before:bg-(--primary) dark:text-neutral-100"
-            th:text="#{widget.toc.title}"
-          >
-            目录
-          </div>
-          <div
-            id="toc-inner-wrapper-right"
-            data-toc-scroll
-            class="hide-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto pb-4"
-          >
-            <div class="toc-right w-full">
-              <TOC />
-            </div>
-          </div>
+          <SidebarTOC />
         </div>
       </div>
     </div>

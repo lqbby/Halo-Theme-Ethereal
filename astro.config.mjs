@@ -113,7 +113,8 @@ export default defineConfig({
       containers: [
         "#swup-container",
         "#toc-container",
-        "#right-sidebar",
+        "#sidebar-toc",
+        "#right-sidebar-toc",
         "#toc-popup",
       ],
       // 跨页回顶滚动统一走浏览器原生平滑（behavior:"smooth"）：app.ts 在

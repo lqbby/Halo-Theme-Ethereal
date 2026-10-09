@@ -299,6 +299,390 @@ if (!customElements.get("widget-layout")) {
   customElements.define("widget-layout", WidgetLayoutElement);
 }
 
+// ── table-of-contents 自定义元素（目录组件，上游 7e6c87c 迁入）──
+// 与 widget-layout 同理：必须在全局无条件注册，不能依赖任何具体实例的渲染位置。
+// TOC 在页面里有多个实例（左右侧栏目录槽位、两栏悬浮目录、移动端目录弹窗），
+// 而侧栏实例会被 th:if 按 post.toc.position 配置移除；Astro 对组件脚本全页只输出
+// 一次且落在第一个实例处，注册脚本随该实例被移除时，另一栏的 <table-of-contents>
+// 永远不会 upgrade —— 表现为目录卡片整体空白（条目、占位都没有）。
+// 本地特有（保留）：headingText 剔除 heading-anchor、阅读线 +2px 容差、三栏窄边距、
+// toc-not-ready 跳过高亮、单次 insertBefore、单一坐标系跟随。
+/**
+ * 标题纯文本：剔除装饰性锚点 <a class="heading-anchor">#</a>。
+ * content-enhance 会给每个 h2/h3 注入这个锚点，直接读 textContent 会把它的
+ * "#" 一起吞进目录标题（显示成「它是什么#」）。
+ */
+function headingText(heading: HTMLElement): string {
+  const clone = heading.cloneNode(true) as HTMLElement;
+  clone.querySelectorAll(".heading-anchor").forEach((el) => el.remove());
+  return clone.textContent?.trim() || "";
+}
+
+class TableOfContents extends HTMLElement {
+  tocEl: HTMLElement | null = null;
+  visibleClass = "visible";
+  mutationObserver?: MutationObserver;
+  scrollHandler?: () => void;
+  resizeHandler?: () => void;
+  anchorNavTarget: HTMLElement | null = null;
+  headings: HTMLElement[] = [];
+  tocEntries: HTMLAnchorElement[] = [];
+  active: boolean[] = [];
+  activeIndicator: HTMLElement | null = null;
+  /** 阅读线（px）：标题顶边越过它就算「已读到」。
+   *  必须与标题的 scroll-margin-top 对齐（markdown.css 里 6rem = 96px，也就是
+   *  锚点跳转的落点），并留 2px 容差 —— 锚点跳转后标题恰好落在 96.xx px，
+   *  严格 `<= 96` 会把目标自己判掉，症状是「点了目录、页面滚到位了，
+   *  高亮却停在上一条」。init() 里按实际计算值算一次，避免每帧读样式。 */
+  readLine = 98;
+
+  connectedCallback() {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", this.refresh);
+    } else {
+      this.refresh();
+    }
+
+    // 换页后刷新由 app.ts 中 swup.hooks.on("content:replace") 的真实钩子
+    // 承担；原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
+  }
+
+  disconnectedCallback() {
+    this.mutationObserver?.disconnect();
+    this.removeWindowListeners();
+    this.tocEl?.removeEventListener("click", this.handleAnchorClick, {
+      capture: true,
+    });
+    document.removeEventListener("DOMContentLoaded", this.refresh);
+  }
+
+  refresh = () => {
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        if (!this.isConnected) return;
+        if (!this.init()) {
+          window.setTimeout(() => this.isConnected && this.init(), 80);
+        }
+      }),
+    );
+  };
+
+  reset() {
+    this.mutationObserver?.disconnect();
+    this.removeWindowListeners();
+    this.tocEl?.removeEventListener("click", this.handleAnchorClick, {
+      capture: true,
+    });
+    this.querySelectorAll("[data-toc-entry]").forEach((entry) =>
+      entry.remove(),
+    );
+    this.headings = [];
+    this.tocEntries = [];
+    this.active = [];
+    this.anchorNavTarget = null;
+    this.readLine = 98;
+    this.activeIndicator = this.querySelector("[data-toc-indicator]");
+    this.activeIndicator?.setAttribute("style", "opacity: 0");
+    this.querySelector("[data-toc-empty]")?.classList.add("hidden");
+  }
+
+  removeWindowListeners() {
+    if (this.scrollHandler) {
+      window.removeEventListener("scroll", this.scrollHandler);
+      this.scrollHandler = undefined;
+    }
+    if (this.resizeHandler) {
+      window.removeEventListener("resize", this.resizeHandler);
+      this.resizeHandler = undefined;
+    }
+  }
+
+  init() {
+    this.reset();
+    const content = document.querySelector<HTMLElement>("#content, .custom-md");
+    const scrollParent = this.closest("[data-toc-scroll]");
+    this.tocEl =
+      scrollParent instanceof HTMLElement
+        ? scrollParent
+        : document.getElementById("toc-inner-wrapper");
+    if (!content || !this.tocEl) {
+      return false;
+    }
+
+    this.mutationObserver = new MutationObserver(() => {
+      if (!this.headings.length) this.refresh();
+    });
+    this.mutationObserver.observe(content, {
+      childList: true,
+      subtree: true,
+    });
+
+    const allHeadings = Array.from(
+      content.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"),
+    ).filter((heading) => headingText(heading));
+    const maxDepth = Math.max(1, Number(this.dataset.maxDepth || "4"));
+    const minDepth = allHeadings.length
+      ? Math.min(
+          ...allHeadings.map((heading) => Number(heading.tagName.substring(1))),
+        )
+      : 1;
+    this.headings = allHeadings.filter(
+      (heading) => Number(heading.tagName.substring(1)) < minDepth + maxDepth,
+    );
+    this.active = this.headings.map(() => false);
+    // 阅读线 = 标题的 scroll-margin-top（锚点落点）+ 2px 容差。这里算一次存起来，
+    // 别放进 currentHeadingIndex（它每帧都被调用，读计算样式会拖慢滚动）。
+    if (this.headings.length) {
+      const smt = Number.parseFloat(
+        getComputedStyle(this.headings[0]).scrollMarginTop,
+      );
+      this.readLine = (Number.isFinite(smt) && smt > 0 ? smt : 96) + 2;
+    }
+
+    if (!this.headings.length) {
+      const emptyEl = this.querySelector<HTMLElement>("#toc-empty");
+      if (emptyEl) {
+        emptyEl.textContent = this.dataset.emptyText || "此文章无目录";
+        emptyEl.classList.remove("hidden");
+      }
+      return true;
+    }
+    this.querySelector("[data-toc-empty]")?.classList.add("hidden");
+
+    this.tocEl.addEventListener("click", this.handleAnchorClick, {
+      capture: true,
+    });
+    // 条目先追加到 DocumentFragment，最后一次性 insertBefore：避免逐条
+    // 插入（每次 childList 变化都会使布局失效，长文换页后 TOC 初始化时
+    // 反复触发整页重排——实测 visit:end 后 300ms 级卡顿来源）
+    const fragment = document.createDocumentFragment();
+    // 一级小节的序号：只数「一级小节」自己，不是标题的扁平下标。
+    // ⚠️ 曾经写成 String(index + 1)（全部标题的下标），下面挂子小节时序号会跳号
+    // —— 三个一级小节显示成 1 / 4 / 7 而不是 1 / 2 / 3。
+    let sectionNo = 0;
+    this.headings.forEach((heading, index) => {
+      if (!heading.id) {
+        heading.id = `heading-${index}`;
+      }
+
+      const depth = Number(heading.tagName.substring(1));
+      const isTop = depth === minDepth;
+      if (isTop) {
+        sectionNo += 1;
+      }
+      const title = headingText(heading);
+      const link = document.createElement("a");
+      link.dataset.tocEntry = "true";
+      link.href = `#${heading.id}`;
+      link.className =
+        "px-2 flex gap-2 relative transition-all duration-(--toc-transition-duration) w-full min-h-10 rounded-xl hover:bg-(--toc-btn-hover) hover:pl-3 active:bg-(--toc-btn-active) py-2";
+      // 三栏布局：调整条目边距以适配更窄的 TOC 宽度
+      if (this.closest(".layout-three-column")) {
+        link.style.marginLeft = "0.75rem";
+        link.style.marginRight = "0.75rem";
+        link.style.width = "calc(100% - 1.5rem)";
+      }
+      // 标记挡位：一级 = 右对齐的等宽数字，子级 = 小圆点。
+      // ⚠️ 别改回「实心方块徽章」（原 w-5 h-5 rounded-lg bg-(--toc-badge-bg)）：
+      //    十几个方块会连成一条比标题还重的竖轴抢焦点，两位数（10/11/12）
+      //    塞进 20px 方块里还会挤成一团。数字沿用 text-50（与标题同色，靠更小
+      //    字号 + 无底色退到背景），既安静又不牺牲对比度。
+      //    标记盒固定 w-5 h-5 且不垂直居中整行：换行标题时标记要与**首行**对齐。
+      const indent =
+        depth === minDepth + 1 ? " ml-3" : depth >= minDepth + 2 ? " ml-6" : "";
+      const marker = isTop
+        ? `<span class="toc-marker toc-num transition w-5 h-5 shrink-0 flex items-center justify-end text-xs font-medium leading-5 tabular-nums text-50${indent}">${sectionNo}</span>`
+        : `<span class="toc-marker transition w-5 h-5 shrink-0 flex items-center justify-center${indent}"><span class="toc-dot transition rounded-full bg-black/20 dark:bg-white/25 ${
+            depth === minDepth + 1 ? "h-1.5 w-1.5" : "h-1 w-1"
+          }"></span></span>`;
+      link.innerHTML = `
+          ${marker}
+          <div class="toc-title transition duration-(--toc-transition-duration) text-sm ${depth >= minDepth + 2 ? "text-30" : "text-50"}"></div>
+        `;
+      const titleEl = link.querySelector(".toc-title");
+      if (titleEl) {
+        titleEl.textContent = title;
+      }
+      fragment.appendChild(link);
+      this.tocEntries.push(link);
+    });
+    this.insertBefore(fragment, this.activeIndicator);
+
+    // 高亮更新由 scroll/resize 的 rAF 节流驱动（currentHeadingIndex 仅读
+    // getBoundingClientRect，无样式写交错时读取不强制重排——layout thrash
+    // 根源是「写 class → 读 rect」交替，已由 toggleActiveHeading 先读后写
+    // 消除）。不引入 IntersectionObserver 快照：isIntersecting 是「与视口
+    // 相交」而非「顶边越过 96px 线」，集合取 max 会指向视口底部标题而非
+    // 阅读区顶部标题，与原 currentHeadingIndex 语义不等价（I23 曾引入，
+    // 已回退）
+    let scrollTicking = false;
+    this.scrollHandler = () => {
+      if (scrollTicking) return;
+      scrollTicking = true;
+      requestAnimationFrame(() => {
+        scrollTicking = false;
+        // 换页期间（html.toc-not-ready）目录被 CSS 隐藏，跳过高亮计算：
+        // 平滑回顶滚动时每帧读 rect + 写 class 纯属浪费（不可见），
+        // 显示后（类移除）自动恢复
+        if (document.documentElement.classList.contains("toc-not-ready")) {
+          return;
+        }
+        this.updateActiveByScroll();
+      });
+    };
+    this.resizeHandler = () => {
+      if (document.documentElement.classList.contains("toc-not-ready")) {
+        return;
+      }
+      this.updateActiveByScroll();
+    };
+    window.addEventListener("scroll", this.scrollHandler, { passive: true });
+    window.addEventListener("resize", this.resizeHandler);
+    this.updateActiveByScroll();
+    return true;
+  }
+
+  update() {
+    requestAnimationFrame(() => {
+      this.toggleActiveHeading();
+      this.scrollToActiveHeading();
+    });
+  }
+
+  toggleActiveHeading() {
+    let min = this.active.length;
+    let max = -1;
+    // 先只遍历 active 数组计算 min/max（不碰 DOM），再统一读一次布局、
+    // 最后写入 class/style：避免「写 class → 读 rect → 写 style」的
+    // 写-读交错强制重排（单帧内仅一次布局计算）
+    for (let i = 0; i < this.active.length; i++) {
+      if (this.active[i]) {
+        min = Math.min(min, i);
+        max = Math.max(max, i);
+      }
+    }
+
+    if (min > max || !this.tocEl || !this.activeIndicator) {
+      this.activeIndicator?.setAttribute("style", "opacity: 0");
+      for (let i = 0; i < this.active.length; i++) {
+        this.tocEntries[i]?.classList.remove(this.visibleClass);
+      }
+      return;
+    }
+
+    const parentOffset = this.getBoundingClientRect().top;
+    const top = this.tocEntries[min].getBoundingClientRect().top - parentOffset;
+    const bottom =
+      this.tocEntries[max].getBoundingClientRect().bottom - parentOffset;
+    this.activeIndicator.setAttribute(
+      "style",
+      `top: ${top}px; height: ${bottom - top}px`,
+    );
+    for (let i = 0; i < this.active.length; i++) {
+      this.tocEntries[i]?.classList.toggle(this.visibleClass, this.active[i]);
+    }
+  }
+
+  scrollToActiveHeading() {
+    if (this.anchorNavTarget || !this.tocEl) return;
+    const activeHeading = this.querySelectorAll<HTMLElement>(
+      `.${this.visibleClass}`,
+    );
+    if (!activeHeading.length) return;
+
+    const topmost = activeHeading[0];
+    const bottommost = activeHeading[activeHeading.length - 1];
+    const tocHeight = this.tocEl.clientHeight;
+    const scrollTop = this.tocEl.scrollTop;
+    // 统一坐标系：以滚动容器 tocEl 为基准（rect 差值），不再混用 offsetTop
+    // （相对最近 positioned 祖先，即 table-of-contents）与 scrollTop（相对
+    // tocEl）——两者隔着 h-8 spacer 等元素，混用依赖巧合的 32px 才成立
+    const tocTop = this.tocEl.getBoundingClientRect().top;
+    const topOffset = topmost.getBoundingClientRect().top - tocTop + scrollTop;
+    const bottomOffset =
+      bottommost.getBoundingClientRect().bottom - tocTop + scrollTop;
+    // 高亮变化即跟随滚动（update 仅在 active 变化时调用，dirty 检查已在
+    // updateActiveByScroll 承担）：恢复 v1.1.1 的平滑跟随行为。目录小容器的
+    // smooth 滚动不触发 window 级 scrollHandler，无放大重排问题
+    const top =
+      bottomOffset - topOffset < 0.9 * tocHeight
+        ? topOffset - 32
+        : bottomOffset - tocHeight * 0.8;
+    this.tocEl.scrollTo({
+      top,
+      left: 0,
+      behavior: "smooth",
+    });
+  }
+
+  handleAnchorClick = (event: Event) => {
+    const anchor = event
+      .composedPath()
+      .find((element) => element instanceof HTMLAnchorElement);
+    if (!(anchor instanceof HTMLAnchorElement)) return;
+
+    const id = decodeURIComponent(anchor.hash?.substring(1));
+    this.anchorNavTarget =
+      this.headings.find((heading) => heading.id === id) || null;
+    const activeIndex = this.headings.findIndex((heading) => heading.id === id);
+    if (activeIndex >= 0) {
+      this.active = this.tocEntries.map((_, index) => index === activeIndex);
+      this.update();
+    }
+  };
+
+  currentHeadingIndex() {
+    if (!this.headings.length) return -1;
+
+    const offset = this.readLine;
+    let activeIndex = 0;
+    for (let index = 0; index < this.headings.length; index++) {
+      if (this.headings[index].getBoundingClientRect().top <= offset) {
+        activeIndex = index;
+      } else {
+        break;
+      }
+    }
+
+    return activeIndex;
+  }
+
+  updateActiveByScroll = () => {
+    const activeIndex = this.currentHeadingIndex();
+    if (activeIndex < 0) return;
+
+    const active = this.tocEntries.map((_, index) => index === activeIndex);
+    // 点击目录后的跳转保护：目标到达阅读线即解除。
+    // ⚠️ 必须与 currentHeadingIndex 用**同一条阅读线**（原先这里写死 100、
+    // 判定用 96，保护会先于「目标被认定为当前项」解除 → 点击高亮被立刻覆盖，
+    // 表现为「点了目录、滚到位了，高亮却停在上一条」）。
+    // ⚠️ 还要兜住「目标永远到不了阅读线」的情形（典型：点最后一条，页面已到底、
+    // 没有更多内容把它顶上来）：否则 anchorNavTarget 永久残留，
+    // scrollToActiveHeading() 会一直早退，目录从此不再自动跟随阅读位置。
+    if (this.anchorNavTarget) {
+      const atBottom =
+        window.scrollY + window.innerHeight >=
+        document.documentElement.scrollHeight - 2;
+      if (
+        this.anchorNavTarget.getBoundingClientRect().top <= this.readLine ||
+        atBottom
+      ) {
+        this.anchorNavTarget = null;
+      }
+    }
+    // dirty 检查：高亮未变化时跳过 indicator 定位/滚动，消除每 tick 布局读取
+    if (active.every((value, index) => value === this.active[index])) {
+      return;
+    }
+    this.active = active;
+    this.update();
+  };
+}
+
+if (!customElements.get("table-of-contents")) {
+  customElements.define("table-of-contents", TableOfContents);
+}
+
 // ── 非主题页判定（上游 #82）──
 // 主题页都由 MainGridLayout 外壳渲染，必然带 astro.config.mjs 声明的全部 Swup 容器
 // （清单由调用方从 swup.options.containers 取，改配置无需同步）；插件自带前台页
@@ -504,7 +888,7 @@ function setupSwup() {
   });
   window.swup.hooks.on("content:replace", () => {
     const rightToc = document.querySelector(
-      "#right-sidebar table-of-contents",
+      "#sidebar-toc table-of-contents, #right-sidebar-toc table-of-contents",
     ) as (HTMLElement & { refresh?: () => void }) | null;
     rightToc?.refresh?.();
     // 换页兜底：弹窗是 swup 容器已整容器替换（自动关闭），但目录按钮在 Swup
@@ -642,7 +1026,7 @@ function setupSwup() {
 }
 
 // 目录悬浮按钮显隐（I29）：只要页面没有可见目录（两栏悬浮目录 #toc-wrapper /
-// 三栏右侧栏目录 #right-sidebar table-of-contents），就显示目录悬浮按钮——
+// 三栏右侧栏目录 #sidebar-toc / #right-sidebar-toc table-of-contents），就显示目录悬浮按钮——
 // 面向移动端/平板端无目录场景；空目录文章仍显示按钮，点开弹窗展示"此文章无目录"
 // 占位（与目录小组件一致）。.floating-controls 位于 Swup 容器外、换页不刷新，
 // 故换页（content:replace）与窗口 resize 都要重算：offsetParent 对 display:none
@@ -653,7 +1037,7 @@ function updateTocBtnVisibility() {
   const hasTocWidget = !!document.querySelector("#toc-popup table-of-contents");
   const floatingToc = document.getElementById("toc-wrapper");
   const rightToc = document.querySelector(
-    "#right-sidebar table-of-contents",
+    "#sidebar-toc table-of-contents, #right-sidebar-toc table-of-contents",
   ) as HTMLElement | null;
   const hasVisibleToc = !!(
     (floatingToc && floatingToc.offsetParent) ||
