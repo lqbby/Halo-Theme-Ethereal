@@ -7,11 +7,6 @@ import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import "../styles/photos-gallery-lightbox.css";
-import "../styles/list-filter.css";
-
-// 分组胶囊点击交给 list-filter.js 做局部 PJAX（只换 [data-list-region] 的内容），
-// 故给胶囊打 data-no-swup 让 Swup 别接管这次点击（否则会走整页换页）。
-const noSwup = { "data-no-swup": "1" };
 ---
 
 <MainGridLayout
@@ -24,8 +19,8 @@ const noSwup = { "data-no-swup": "1" };
     <PhotoI18n />
   </Fragment>
 
-  <!-- 分组切换走胶囊池链接（整页导航 + Swup）；原「就地替换 region」机制已随
-       上游版移除（胶囊池的下滑浮块需稳定的 DOM，就地替换会打断它） -->
+  <!-- 头部卡：新版页头（modern，含图标水印）+ 胶囊池分组——氛围渐变由
+       卡片级 .page-head-card 承载（页头与池之间无缝）；无分组时池区不渲染 -->
   <div class="card-base page-head-card onload-animation mb-4">
     <PageHeader
       containerClass=""
@@ -39,6 +34,12 @@ const noSwup = { "data-no-swup": "1" };
           value: "0",
           labelExpr: "#{common.stat.photos}",
           label: "照片",
+        },
+        {
+          valueExpr: "${#lists.size(groups)}",
+          value: "0",
+          labelExpr: "#{common.stat.albums}",
+          label: "相册",
         },
       ]}
     />
@@ -55,7 +56,6 @@ const noSwup = { "data-no-swup": "1" };
             allHrefExpr="@{${photoUrl.list()}}"
             allActiveExpr="#lists.isEmpty(param.group)"
             eachExpr="group : ${groups}"
-            linkAttrs={noSwup}
             tabTemplate={{
               hrefExpr: "@{${photoUrl.list(group.metadata.name)}}",
               activeExpr: "#lists.contains(param.group, group.metadata.name)",
