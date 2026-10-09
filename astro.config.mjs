@@ -238,6 +238,7 @@ export default defineConfig({
           "inventory-2-rounded",
           "label-outline",
           "link-rounded",
+          "local-florist-rounded",
           "menu-rounded",
           "more-horiz",
           "open-in-new-rounded",

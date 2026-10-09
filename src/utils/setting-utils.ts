@@ -14,3 +14,4 @@ export * from "./settings/scheme";
 export * from "./settings/post-list";
 export * from "./settings/card-style";
 export * from "./settings/wallpaper";
+export * from "./settings/effects";

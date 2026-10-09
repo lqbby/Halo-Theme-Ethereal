@@ -614,6 +614,14 @@ const {
       th:if="${theme.config?.style?.bannerText != null and theme.config?.style?.bannerText?.subtitleEffect == 'drop'}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-drop.js?v=${ASSET_VERSION}`}
       defer></script>
+    <!-- 樱花特效（源码 src/scripts/assets/sakura.ts → 产物 /assets/sakura.js，Web Worker 绘制）。
+         门控：后台「样式开关 → 樱花特效」开启 ⇒ 必须加载；否则仅在总开关允许访客切换时加载
+         （访客可能自行打开）。脚本自身再按 localStorage 覆盖 + 总开关决定是否真的启动。
+         🔴 两个外壳都要挂：插件页外壳 src/pages/layout.astro 不走本布局，漏挂则该壳无樱花 -->
+    <script
+      th:if="${theme.config?.style?.styleSwitches?.sakura == true or theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false}"
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${ASSET_VERSION}`}
+      defer></script>
   </div>
 
   <script is:inline>

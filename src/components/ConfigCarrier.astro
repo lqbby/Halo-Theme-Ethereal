@@ -15,6 +15,7 @@
   th:data-banner-title-default="${theme.config?.style?.bannerText?.enable != false and (!#strings.isEmpty(theme.config?.style?.bannerText?.title) or !#strings.isEmpty(theme.config?.style?.bannerText?.subtitles))}"
   th:data-wave-default="${theme.config?.style?.styleSwitches?.banner_wave != false and theme.config?.style?.styleSwitches?.banner_wave != 'disabled'}"
   th:data-card-hover-lift="${theme.config?.style?.styleSwitches?.card_hover_lift != false}"
+  th:data-sakura-default="${theme.config?.style?.styleSwitches?.sakura == true}"
   th:data-navbar-blur="${theme.config?.style?.styleSwitches?.navbar_blur == true}"
   th:data-page-wide-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.pageWidth == null ? true : theme.config?.mods?.pageWidth)}"
   th:data-card-pattern-default="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) and (theme.config?.mods?.cardPattern == null ? true : theme.config?.mods?.cardPattern)}"

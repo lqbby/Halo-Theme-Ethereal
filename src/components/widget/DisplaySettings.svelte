@@ -26,6 +26,10 @@
     getStoredCardShell,
     setCardShell,
     resetCardShell,
+    getDefaultSakuraEnabled,
+    getStoredSakuraEnabled,
+    setSakuraEnabled,
+    resetSakura,
     getDefaultPostListMasonry,
     getStoredPostListMasonry,
     setPostListMasonry,
@@ -131,6 +135,8 @@
   let pageWide = $state(getStoredPageWide());
   let cardPattern = $state(getStoredCardPattern());
   let cardShell = $state(getStoredCardShell());
+  /* 樱花特效：与后台「样式开关 → 樱花特效」默认值联动（可切换时 localStorage 覆盖） */
+  let sakura = $state(getStoredSakuraEnabled());
   let postListMasonry = $state(getStoredPostListMasonry());
   // 面板里透明度类参数以百分比展示（存储为 0–1）
   const storedWallpaper = getStoredWallpaperParams();
@@ -257,6 +263,11 @@
     setCardShell(cardShell);
   }
 
+  function toggleSakura() {
+    sakura = !sakura;
+    setSakuraEnabled(sakura);
+  }
+
   function toggleMasonry() {
     postListMasonry = !postListMasonry;
     setPostListMasonry(postListMasonry);
@@ -272,6 +283,8 @@
     cardPattern = getDefaultCardPattern();
     resetCardShell();
     cardShell = getDefaultCardShell();
+    resetSakura();
+    sakura = getDefaultSakuraEnabled();
     postListMasonry = getDefaultPostListMasonry();
   }
 
@@ -384,6 +397,11 @@
           <span class="icon-[material-symbols--blur-on-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.navbarBlur", "高级材质")}</span>
           <span class="toggle" class:toggle-on={navbarBlur}><span class="toggle-knob"></span></span>
+        </button>
+        <button type="button" class="toggle-row" class:toggle-on={sakura} role="switch" aria-checked={sakura} on:click={toggleSakura} title={t("display.sakuraDesc", "飘落樱花特效（Web Worker 绘制，可关）")}>
+          <span class="icon-[material-symbols--local-florist-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.sakura", "樱花特效")}</span>
+          <span class="toggle" class:toggle-on={sakura}><span class="toggle-knob"></span></span>
         </button>
         <button type="button" class="toggle-row" class:toggle-on={pageWide} role="switch" aria-checked={pageWide} on:click={togglePageWide} title={t("display.pageWideDesc", "将页面主容器宽度放宽为 112rem")}>
           <span class="icon-[material-symbols--width-wide-rounded] toggle-icon"></span>
