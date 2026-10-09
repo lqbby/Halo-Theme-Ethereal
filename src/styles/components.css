@@ -2849,3 +2849,104 @@ html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
   .navbar-blur {
   background-color: transparent !important;
 }
+
+/* ==========================================================================
+   首页 Banner 标题/副标题字号（首帧定档）+ 链接图标行
+   —— 随上游 v2.0.0 移植（链接行 = commit 7c1d2f6；字号 = 同提交）
+   字号：模板把后台配置输出到 CSS 变量（--banner-title-size 挂 #banner-title、
+   --banner-subtitle-size 挂 #banner-subtitle-wrapper），移动端收窄由媒体查询在
+   **首帧**完成（改由 JS 收窄会先按桌面字号渲染、造成首屏闪变）。
+   ⚠️ 勿把 font-size 写回模板内联：内联会盖过媒体查询、闪变复现。
+   链接行：overlay 是 pointer-events:none，本行单独恢复可点，并在三种隐藏态禁用。
+   ========================================================================== */
+
+/* 首页 Banner 标题/副标题字号：模板输出后台配置值到 CSS 变量（--banner-title-size
+     挂 #banner-title；--banner-subtitle-size 挂 #banner-subtitle-wrapper），这里消费。
+     移动端收窄由下方媒体查询在首帧生效（改为 JS 收窄会让首屏先按桌面字号渲染、闪变）。
+     数值：视口宽×0.007 rem ≡ 9.8vw，标题 clamp 1.8–3.5rem（≥500px 触顶、≤257px 触底）；
+     副标题 480/640/767.98 三档随 root 联动。
+     ⚠️ 勿把 font-size 写回模板内联：内联会盖过媒体查询、闪变复现 */
+#banner-title {
+  font-size: var(--banner-title-size, 3.5rem);
+}
+
+#banner-subtitle {
+  font-size: var(--banner-subtitle-size, 1.5rem);
+}
+
+#banner-cursor {
+  height: var(--banner-subtitle-size, 1.5rem);
+}
+
+@media (max-width: 767.98px) {
+  #scroll-down-indicator .scroll-down-icon {
+    font-size: 3.5rem;
+  }
+
+  #scroll-down-indicator {
+    bottom: 4rem;
+  }
+}
+
+@media (max-width: 640px) {
+  #banner-subtitle {
+    font-size: 1.125rem;
+  }
+
+  #banner-cursor {
+    height: 1.125rem;
+  }
+}
+
+@media (max-width: 480px) {
+  #banner-subtitle {
+    font-size: 1rem;
+  }
+
+  #banner-cursor {
+    height: 1rem;
+  }
+}
+
+/* 首页 Banner 链接行（bannerText.links）：#banner-overlay 整体是 pointer-events:none，
+     本行单独恢复可点击。三种「隐藏态」（访客关闭标题 / 非首页淡出 / hero 滚动淡到半透明
+     以下）必须一并禁用——overlay 隐藏只改 opacity，元素仍占位，否则会出现"看不见却可点"
+     的热区（hero 淡化态由 fullscreen-hero.js 按透明度阈值切换 hero-title-faded 类） */
+#banner-links {
+  pointer-events: auto;
+}
+
+/* 条目全部被过滤（都缺 url 或既无图标又无名称）时容器不占位，避免残留 mt-5 间距 */
+#banner-links:empty {
+  display: none;
+}
+
+body.banner-title-disabled #banner-links,
+#banner-overlay.banner-text-hidden #banner-links,
+#banner-overlay.hero-title-faded #banner-links {
+  pointer-events: none;
+}
+
+/* 链接按钮：半透明白底 + 毛玻璃圆钮，深色壁纸上自然融合；填了名称时由下方
+     .banner-link-text 改为「图标 + 名称」胶囊。极轻 box-shadow 兜底浅色/白色壁纸下的
+     轮廓辨识（深色壁纸上几乎不可见）。悬浮上浮复用 .social-btn-lift（接入「卡片悬浮
+     效果」开关、桌面端生效），此处只管外观与悬停变色 */
+.banner-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 9999px;
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    transform 0.2s ease;
+}

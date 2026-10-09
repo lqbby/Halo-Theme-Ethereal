@@ -1,23 +1,12 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
 import { guardOnce } from "../../utils/once";
-// Banner 叠加层：首页可见 + 居中 + 响应式字号 + 空间不足隐藏
+// Banner 叠加层：首页可见 + 空间不足隐藏
+// （字号已改为「首帧定档」：模板输出 CSS 变量、components.css 用媒体查询收窄，
+//  本脚本不再运行期写字号 —— 旧实现先按桌面字号渲染、defer 脚本执行后才收窄，
+//  移动端首屏会「大字号闪变」，故整段移除，勿再写回内联 font-size）
 (function () {
-  // ── Banner 响应式常量 ──
   var MIN_BANNER_HEIGHT = 180;
-  var BP_TABLET = 768;
-  var TITLE_MIN_REM = 1.8;
-  var TITLE_MAX_REM = 3.5;
-  var TITLE_VW_FACTOR = 0.007;
-  var SUB_SIZE_480 = 1.0;
-  var SUB_SIZE_640 = 1.125;
-  var SUB_SIZE_767 = 1.25;
-  var SUB_SIZE_DEFAULT = 1.5;
-
-  // 保存 th:style 原始字号，PC 端原样还原
-  var origTitleSize = null;
-  var origSubSize = null;
-  var origCursorH = null;
 
   function getEl(id) {
     return document.getElementById(id);
@@ -31,51 +20,6 @@ import { guardOnce } from "../../utils/once";
         .replace(/\/index\.html$/, "")
         .replace(/\/index$/, "") || "/") === "/"
     );
-  }
-
-  function saveOriginals() {
-    var t = getEl("banner-title");
-    var s = getEl("banner-subtitle");
-    var c = getEl("banner-cursor");
-    if (t && origTitleSize === null) origTitleSize = t.style.fontSize || "";
-    if (s && origSubSize === null) origSubSize = s.style.fontSize || "";
-    if (c && origCursorH === null) origCursorH = c.style.height || "";
-  }
-
-  function applyResponsive() {
-    saveOriginals();
-    var title = getEl("banner-title");
-    var sub = getEl("banner-subtitle");
-    var cursor = getEl("banner-cursor");
-
-    // 与全仓 CSS 约定对齐（移动端 = max-width:767.98px / 桌面 = min-width:768px）：
-    // 视口恰为 768px 时应按桌面处理，故用 `<` 而非 `<=`，避免与 CSS 差 1px 错位。
-    if (window.innerWidth < BP_TABLET) {
-      // 标题：min(userSize, vw%) 响应式策略
-      // 10vw / 14px(移动端 root) → 乘数 0.007，上限 3.5rem，下限 1.8rem
-      var w = window.innerWidth;
-      var ts = Math.max(
-        TITLE_MIN_REM,
-        Math.min(TITLE_MAX_REM, w * TITLE_VW_FACTOR),
-      );
-
-      // 副标题：按断点逐级缩放
-      var ss;
-      if (w <= 480) ss = SUB_SIZE_480;
-      else if (w <= 640) ss = SUB_SIZE_640;
-      else if (w <= 767) ss = SUB_SIZE_767;
-      else ss = SUB_SIZE_DEFAULT;
-      if (title) title.style.fontSize = ts.toFixed(2) + "rem";
-      if (sub) sub.style.fontSize = ss.toFixed(2) + "rem";
-      if (cursor) cursor.style.height = ss.toFixed(2) + "rem";
-    } else {
-      // PC：还原 th:style 原始值。注意 origXxx 在「无内联值」时为 ""（falsy），
-      // 若无条件赋值即等同于清除内联样式、回退到 CSS class 字号，因此不能加
-      // `&& origXxx` 判断——否则移动端写入的内联字号会在缩放回桌面时永久残留。
-      if (title) title.style.fontSize = origTitleSize || "";
-      if (sub) sub.style.fontSize = origSubSize || "";
-      if (cursor) cursor.style.height = origCursorH || "";
-    }
   }
 
   function positionOverlay() {
@@ -119,7 +63,6 @@ import { guardOnce } from "../../utils/once";
 
   function fullUpdate() {
     updateVisibility();
-    applyResponsive();
     positionOverlay();
   }
 
