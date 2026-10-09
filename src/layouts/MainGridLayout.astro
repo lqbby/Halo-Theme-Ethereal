@@ -53,6 +53,19 @@ const {
     }
   }
 
+  /* 两栏「右栏模式」（上游 7e6c87c）：侧栏与正文交换列位置。
+     侧栏原本在 col-start-1、正文在 col-start-2 ⇒ 对调。
+     用 !important 覆盖 Tailwind 的 md:col-start-*（同为 1 层特异性，
+     !important 保证生效）。 */
+  @media (min-width: 768px) {
+    .right-sidebar-mode > #sidebar {
+      grid-column-start: 2 !important;
+    }
+    .right-sidebar-mode > div[data-main-content] {
+      grid-column-start: 1 !important;
+    }
+  }
+
   /* Banner 轮播：首张 SSR 即显（.active 带 display:block），其余 display:none
      延迟加载，切换时 JS 两步加类（visible → active）驱动透明度/位移过渡；
      时长变量随动画档位（--dur-banner-transition）注入。
@@ -476,10 +489,11 @@ const {
       <div
         id="main-grid"
         class="pointer-events-auto left-0 right-0 mx-auto grid w-full grid-cols-[1fr] grid-rows-[auto] gap-4 px-0 md:grid-cols-[17.5rem_1fr] md:grid-rows-[auto_1fr_auto] md:px-4"
-        th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:grid-cols-[17.5rem_1fr_17.5rem]'}"
+        th:classappend="${(theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? '' : 'xl:grid-cols-[17.5rem_1fr_17.5rem]') + (theme.config?.layout?.pageLayout?.layoutMode == 'two-column' and theme.config?.layout?.pageLayout?.rightSidebarMode == true ? ' right-sidebar-mode' : '')}"
       >
         <!-- 主内容区 - 移动端第一项 -->
         <div
+          data-main-content
           class="col-span-2 min-w-0 md:col-span-1 md:row-start-1 md:col-start-2 flex flex-col gap-4"
         >
           <div

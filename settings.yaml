@@ -92,6 +92,11 @@ spec:
                 - label: 三栏布局
                   value: three-column
             - $formkit: switch
+              name: rightSidebarMode
+              label: 右栏模式
+              value: false
+              help: "两栏布局下把侧栏放到右侧（与正文交换列位置），悬浮目录镜像到左侧空白槽"
+            - $formkit: switch
               name: categoryBar
               id: categoryBar_enable
               key: categoryBar_enable
