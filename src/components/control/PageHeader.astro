@@ -1,32 +1,47 @@
 ---
-// 分组页页头统一组件（标题 + 副标题行 + 已筛选徽章 + 右侧 slot）。
-// 结构固定、差异参数化，样式与迁移前逐页保持一致：
+// 分组页页头统一组件（上游 ca00c2e「全站统一仪表条」形态）。
 //
-// 约定（Thymeleaf 表达式字符串传 props，与 FilterTab 一致）：
-// - titleExpr/labelExpr/subExpr/subShowIfExpr/filteredExpr/sepShowIfExpr
-//     完整表达式（含 ${} 或 #{}），如 `${linksTitle}` / `#{common.filtered}`
+// 新形态（V3 仪表条）：眉题（图标 + 英文大写设计词）→ 大标题（左侧悬空主色竖线）
+//   → 右侧统计方片组 + 动作槽（贴底对齐）→ 大图标水印（右下角）
+// 约定（Thymeleaf 表达式字符串传 props）：
+// - titleExpr / filteredExpr / filteredClearExpr 传完整表达式（含 ${} 或 #{}）
 // - titleExpr 缺省时 h1 内容改由默认 slot 渲染（wishes 用嵌套 span）
-// - iconClass 只传 Iconify 类名的**字面量**（形如 `icon-` 前缀 + `[material-symbols--psychology]`），
-//     组件统一追加 `text-base text-(--primary)`。字面量留在各页源码，
-//     Tailwind/Iconify 内容扫描才能生成图标规则，**不要**动态拼接类名
-//     （本注释刻意不写出完整的 icon 方括号写法：那会被内容扫描当成图标名去解析并告警）
-// - filteredExpr 缺省则整个徽章不渲染（wishes 为客户端筛选无 URL 参数）
-// - sepShowIfExpr 缺省则 `·` 恒显（与迁移前一致）；wishes 用它条件显隐。
-//     注意：不能默认跟随 subShowIfExpr——links/equipments/portfolio 的 `·`
-//     恒显而 sub 条件显，两者语义不同，必须显式传
-// - 右侧按钮/徽章放 `slot="right"`（links 随机访问 / moments RSS / wishes 纪念日）
+// - iconClass 只传 Iconify 类名**字面量**（Tailwind/Iconify 内容扫描才能生成图标规则，
+//   勿动态拼接）；眉题内用 0.9rem，水印由 .ph-watermark 控制
+// - eyebrow：静态英文大写设计词（如 ARCHIVES / MOMENTS），不走 i18n
+// - stats：数值 + 词条（valueExpr 数值表达式 / labelExpr 词条表达式）；无数字可展示的
+//   页面不传 ⇒ 整个右区不输出
+// - 右侧按钮/徽章放 slot="right"（links 随机访问 / moments RSS / wishes 纪念日）
+//
+// ⚠️ 旧契约兼容回退（分批迁移期保留；全部页面迁完后在收尾批次删除）：
+//   调用方若传了旧 props（labelExpr 且无 eyebrow/stats）则按旧版式渲染
+//   （标题 + 副标题行 + 已筛选徽章），保证尚未迁移的页面外观完全不变。
+interface HeaderStat {
+  valueExpr: string;
+  value: string;
+  labelExpr: string;
+  label: string;
+}
+
 interface Props {
   containerClass: string;
   titleExpr?: string;
   title?: string;
   iconClass: string;
-  labelExpr: string;
-  label: string;
+  /** 英文大写眉题：静态设计词（如 ARCHIVES / MOMENTS），不走 i18n */
+  eyebrow?: string;
+  filteredExpr?: string;
+  /** 「已筛选」徽章的清除链接（Thymeleaf @{} 表达式） */
+  filteredClearExpr?: string;
+  /** 统计方片组（数值 + 词条） */
+  stats?: HeaderStat[];
+  // ── 旧契约（兼容回退用，勿在新页面使用）──
+  labelExpr?: string;
+  label?: string;
   sepShowIfExpr?: string;
   subExpr?: string;
   subShowIfExpr?: string;
   sub?: string;
-  filteredExpr?: string;
 }
 
 const {
@@ -34,48 +49,102 @@ const {
   titleExpr,
   title = "",
   iconClass,
+  eyebrow,
+  filteredExpr,
+  filteredClearExpr,
+  stats,
   labelExpr,
-  label,
+  label = "",
   sepShowIfExpr,
   subExpr,
   subShowIfExpr,
   sub = "",
-  filteredExpr,
 } = Astro.props;
+
+// 旧版式回退：调用方只传旧 props（无 eyebrow 且无 stats）时走旧结构
+const legacy = !eyebrow && !stats && !!labelExpr;
+// 右侧区（统计片 + 动作槽）是否有内容渲染：都没有时整个右区不输出
+const hasRight = Astro.slots.has("right");
 ---
 
-<div class={containerClass}>
-  <div class="min-w-0">
-    <h1
-      class="relative mb-2 text-3xl font-bold text-90 before:absolute before:-left-4.5 before:top-3 before:h-5 before:w-1 before:rounded-md before:bg-(--primary) md:text-4xl"
-      th:text={titleExpr}
-    >
-      {titleExpr ? title : <slot />}
-    </h1>
-    <div class="flex flex-wrap items-center gap-1.5 text-sm">
-      <span class={`${iconClass} text-base text-(--primary)`}></span>
-      <span class="font-bold text-(--primary)" th:text={labelExpr}>{label}</span
-      >
-      <span th:if={sepShowIfExpr} class="text-30">·</span>
-      {
-        subExpr && (
-          <span th:if={subShowIfExpr} class="text-50" th:text={subExpr}>
-            {sub}
+{
+  legacy ? (
+    <div class={containerClass}>
+      <div class="min-w-0">
+        <h1
+          class="relative mb-2 text-3xl font-bold text-90 before:absolute before:-left-4.5 before:top-3 before:h-5 before:w-1 before:rounded-md before:bg-(--primary) md:text-4xl"
+          th:text={titleExpr}
+        >
+          {titleExpr ? title : <slot />}
+        </h1>
+        <div class="flex flex-wrap items-center gap-1.5 text-sm">
+          <span class={`${iconClass} text-base text-(--primary)`} />
+          <span class="font-bold text-(--primary)" th:text={labelExpr}>
+            {label}
           </span>
-        )
-      }
-      {
-        filteredExpr && (
-          <span
-            th:if={filteredExpr}
-            class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
-            th:text="#{common.filtered}"
-          >
-            已筛选
+          <span th:if={sepShowIfExpr} class="text-30">
+            ·
           </span>
-        )
-      }
+          {subExpr && (
+            <span th:if={subShowIfExpr} class="text-50" th:text={subExpr}>
+              {sub}
+            </span>
+          )}
+          {filteredExpr && (
+            <span
+              th:if={filteredExpr}
+              class="rounded-md bg-(--btn-regular-bg) px-2 py-1 text-xs font-bold text-(--btn-content)"
+              th:text="#{common.filtered}"
+            >
+              已筛选
+            </span>
+          )}
+        </div>
+      </div>
+      <slot name="right" />
     </div>
-  </div>
-  <slot name="right" />
-</div>
+  ) : (
+    <div class={`page-head-modern ${containerClass}`.trim()}>
+      <div class="flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div class="min-w-0">
+          <div class="inline-flex items-center gap-1.5 text-[0.72rem] font-extrabold tracking-[0.12em] text-(--primary)">
+            <span class={`${iconClass} text-[0.9rem]`} />
+            <span>{eyebrow}</span>
+          </div>
+          <h1
+            class="mt-1.5 text-[1.7rem] leading-[1.2] font-extrabold tracking-tight text-90 md:text-[1.95rem]"
+            th:text={titleExpr}
+          >
+            {titleExpr ? title : <slot />}
+          </h1>
+        </div>
+        {(stats && stats.length > 0) || hasRight ? (
+          <div class="flex flex-wrap items-end gap-2.5">
+            {stats?.map((st) => (
+              <div class="stat">
+                <b th:text={st.valueExpr}>{st.value}</b>
+                <span th:text={st.labelExpr}>{st.label}</span>
+              </div>
+            ))}
+            <slot name="right" />
+          </div>
+        ) : null}
+      </div>
+      {filteredExpr && (
+        <a
+          th:if={filteredExpr}
+          th:href={filteredClearExpr}
+          th:title="#{common.clearFilter}"
+          class="ph-filter-chip"
+        >
+          <span th:text="#{common.filtered}">已筛选</span>
+          <span
+            class="icon-[material-symbols--close-rounded] text-[0.8rem]"
+            aria-hidden="true"
+          />
+        </a>
+      )}
+      <span class={`ph-watermark ${iconClass}`} aria-hidden="true" />
+    </div>
+  )
+}
