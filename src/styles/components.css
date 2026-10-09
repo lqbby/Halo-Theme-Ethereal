@@ -2502,3 +2502,110 @@ body.pswp-transition #photo-detail-image {
 }
 
 /* 朋友圈时间轴 - 纵向虚线布局 */
+
+/* ==========================================================================
+   全屏沉浸（Hero）布局 + 导航栏滚动玻璃 —— 随上游 v2.0.0（commit 4875eaf）移植
+   提取方式（最终）：按「选择器指纹 + 括号配对」从 `4875eaf:src/styles/components.css`
+   整条提规则。前几版从 diff 抠「+ 行」或按行号切片 ⇒ 丢上下文/截断 ⇒ 两起事故
+   （导航栏透明、材质规则被插进 rgb()）。⚠️ 要改动本段：整条替换 + 构建验证。
+   ========================================================================== */
+
+html.banner-mode-transitioning #banner-wrapper {
+  transition:
+    height var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    opacity var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)) !important;
+}
+
+html.banner-mode-transitioning #banner,
+html.banner-mode-transitioning #banner-mobile {
+  transition: height var(--dur-banner, 700ms)
+    var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)) !important;
+}
+
+html.banner-mode-transitioning #banner img,
+html.banner-mode-transitioning #banner-mobile img,
+html.banner-mode-transitioning #banner video,
+html.banner-mode-transitioning #banner-mobile video {
+  transition:
+    transform var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    filter var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)) !important;
+}
+
+#banner-wrapper {
+  top: calc(-1 * var(--banner-height-extend));
+}
+
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"] #banner,
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner-mobile {
+  height: 100% !important;
+  /* 同上：banner 模式下这里是 translate: 0 var(--bannerOffset)（默认 15vh），
+       写 none 会让切换瞬间跳过 15vh */
+  translate: 0 0 !important;
+}
+
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner
+  img,
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner-mobile
+  img,
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner
+  video,
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner-mobile
+  video {
+  filter: blur(var(--hero-wallpaper-blur, 0px));
+  transform: scale(1.05);
+}
+
+#banner-overlay {
+  transition: opacity var(--dur-banner, 700ms) ease;
+}
+
+#main-panel-wrapper {
+  top: var(--no-banner-panel-top);
+}
+
+#main-grid {
+  min-height: calc(100vh - var(--no-banner-panel-top));
+}
+
+#scroll-down-indicator.hide {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html[data-banner-display="fullscreen"] body.is-home #banner-credit {
+  translate: 0 -0.75rem;
+}
+
+html.hero-blur-transitioning #banner img,
+html.hero-blur-transitioning #banner-mobile img,
+html.hero-blur-transitioning #banner video,
+html.hero-blur-transitioning #banner-mobile video {
+  transition: filter var(--dur-banner, 700ms)
+    var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
+}
+
+html[data-banner-display="fullscreen"]
+  body.is-home.navbar-blur-enabled
+  .navbar-blur {
+  transition:
+    background-color var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    backdrop-filter var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    -webkit-backdrop-filter var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    box-shadow var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+    border-color var(--dur-banner, 700ms)
+      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)) !important;
+}
