@@ -38,6 +38,32 @@ export interface ExtendPages {
   friends?: Friends;
   timeline?: Timeline;
   skills?: Skills;
+  /** 打赏页面（extendPages.reward，见 reward.astro） */
+  reward?: Reward;
+}
+
+// ========== 「打赏页面」设置（上游 0590a1a） ==========
+/**
+ * 「打赏页面」设置（settings.yaml 的 extendPages.reward 组）。
+ * 收款二维码不在此组：与文章打赏模态框同源（post.actionBar.rewardSetting.wechat_qr / alipay_qr），
+ * 且改仅读取，不受「文章操作栏 → 启用打赏」开关影响。
+ */
+export interface Reward {
+  /** 页面副标题；留空回落到 i18n `page.reward.subtitle` */
+  subtitle?: string;
+  /** 打赏用途说明（多行）；留空则不显示说明框 */
+  usage?: string;
+  /** 打赏者名单（留空则整卡不渲染；头像留空显示昵称首字） */
+  sponsors?: RewardSponsor[];
+}
+
+export interface RewardSponsor {
+  name: string;
+  avatar?: string;
+  /** 金额（纯文本；前台显示时自动补全 ¥） */
+  amount?: string;
+  /** 日期（纯文本，如 2026-01-01） */
+  date?: string;
 }
 
 /** 欢迎弹窗配置 */
