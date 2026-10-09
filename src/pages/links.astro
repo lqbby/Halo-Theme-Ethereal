@@ -125,12 +125,18 @@ import PageHeader from "../components/control/PageHeader.astro";
       containerClass="mb-6 flex flex-col items-start gap-3 md:flex-row md:items-end md:justify-between"
       titleExpr="${linksTitle}"
       title="友情链接"
-      iconClass="icon-[material-symbols--diversity-3-rounded]"
-      labelExpr="#{page.links.subtitle}"
-      label="朋友们"
-      subExpr="#{page.links.subtitleCount(${#aggregates.sum(groups.![links.size()])})}"
-      subShowIfExpr="${groups != null and not #lists.isEmpty(groups)}"
-      sub="0 个链接"
+      iconClass="icon-[material-symbols--handshake-outline-rounded]"
+      eyebrow="LINKS"
+      filteredExpr="${not #lists.isEmpty(param.group)}"
+      filteredClearExpr="@{/links}"
+      stats={[
+        {
+          valueExpr: "#aggregates.sum(groups.![links.size()])",
+          value: "0",
+          labelExpr: "#{common.stat.friends}",
+          label: "朋友",
+        },
+      ]}
     >
       <button
         th:if="${theme.config?.links?.features?.enable_random_visit != false && not #lists.isEmpty(groups)}"

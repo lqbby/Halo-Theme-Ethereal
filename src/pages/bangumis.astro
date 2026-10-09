@@ -104,10 +104,18 @@ const modalStats = [
           containerClass="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
           titleExpr="#{page.bangumi.title}"
           title="追番"
-          iconClass="icon-[mingcute--bilibili-fill]"
-          labelExpr="#{page.bangumi.subtitle}"
-          label="我的追番"
-          sepShowIfExpr="${false}"
+          iconClass="icon-[mingcute--bilibili-line]"
+          eyebrow="BANGUMI"
+          filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
+          filteredClearExpr="@{/bangumis(typeNum=1, status=0)}"
+          stats={[
+            {
+              valueExpr: "#lists.size(allBangumis)",
+              value: "0",
+              labelExpr: "#{common.stat.bangumi}",
+              label: "追番",
+            },
+          ]}
         />
 
         <!-- 工具栏：搜索（按标题）+ 排序（默认顺序 / 评分 / 追番人数）。

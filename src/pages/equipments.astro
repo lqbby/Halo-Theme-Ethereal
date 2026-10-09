@@ -31,13 +31,18 @@ const noSwup = { "data-no-swup": "1" };
         containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
         titleExpr="${title}"
         title="装备管理"
-        iconClass="icon-[material-symbols--devices-rounded]"
-        labelExpr="#{page.equipments.subtitle}"
-        label="我的装备"
-        subExpr="#{page.equipments.subtitleCount(${equipments.total})}"
-        subShowIfExpr="${equipments != null}"
-        sub="0 个装备"
+        iconClass="icon-[material-symbols--devices-outline-rounded]"
+        eyebrow="EQUIPMENTS"
         filteredExpr="${not #lists.isEmpty(param.group)}"
+        filteredClearExpr="@{/equipments}"
+        stats={[
+          {
+            valueExpr: "${equipments.total}",
+            value: "0",
+            labelExpr: "#{common.stat.gear}",
+            label: "装备",
+          },
+        ]}
       />
 
       <!-- 分组标签（就地筛选触发器；选择器 = [data-list-filter] a） -->

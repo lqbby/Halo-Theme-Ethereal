@@ -23,12 +23,18 @@ import Canonical from "../components/misc/Canonical.astro";
       containerClass="mb-5 flex flex-col items-start gap-3 md:flex-row md:items-end md:justify-between"
       titleExpr="${title}"
       title="瞬间"
-      iconClass="icon-[material-symbols--update-rounded]"
-      labelExpr="#{page.moments.subtitle}"
-      label="我的动态"
-      subExpr="#{page.moments.subtitleCount(${moments.total})}"
-      sub="共 0 条动态"
+      iconClass="icon-[material-symbols--bolt-outline-rounded]"
+      eyebrow="MOMENTS"
       filteredExpr="${not #lists.isEmpty(param.tag)}"
+      filteredClearExpr="@{/moments}"
+      stats={[
+        {
+          valueExpr: "${moments.total}",
+          value: "0",
+          labelExpr: "#{common.stat.moments}",
+          label: "瞬间",
+        },
+      ]}
     >
       <a
         th:href="@{/moments/rss.xml}"
