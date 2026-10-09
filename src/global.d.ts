@@ -23,5 +23,12 @@ declare global {
     // 相册页「就地筛选」替换列表区后重建 PhotoSwipe 灯箱
     // （content-media.ts → app.ts 暴露，public/assets/list-filter.js 调用）
     __etherealRefreshPhotosGallery?: () => void;
+    // 樱花特效（scripts/assets/sakura.ts）：初始化守卫 + 管理器调试/扩展入口
+    __sakuraInitialized?: boolean;
+    __etherealSakura?: {
+      init: () => void;
+      stop: () => void;
+      getIsRunning: () => boolean;
+    };
   }
 }

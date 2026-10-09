@@ -168,22 +168,17 @@ export interface MobileMenuConfig {
   visitorStyle?: VisitorStyleConfig;
 }
 
-/** 访客样式切换：控制显示设置面板中访客可自助切换的项，缺省视为开启 */
+/** 访客样式切换：控制显示设置面板中访客可自助切换的项，缺省视为开启。
+ *  上游 v2.0.0 起由「分项开关」收敛为「标签页级」：外观 / 壁纸 / 特效 */
 export interface VisitorStyleConfig {
-  /** 总开关：关闭后不显示任何样式切换开关 */
+  /** 总开关：关闭后隐藏面板入口 */
   enable?: boolean;
-  /** 主题色相切换 */
-  hue?: boolean;
-  /** 文章布局（列表/网格）切换 */
-  postListLayout?: boolean;
-  /** 卡片样式（悬浮效果/高级材质/瀑布流）切换 */
-  cardStyle?: boolean;
-  /** 壁纸模式（纯色背景/横幅/全屏/全屏透明）切换 */
-  wallpaperMode?: boolean;
-  /** 壁纸设置（横幅/全屏下的波浪开关）切换 */
-  wallpaperSettings?: boolean;
-  /** 透明设置（透明度/模糊度/卡片透明度）调节，仅全屏透明模式下显示 */
-  transparent?: boolean;
+  /** 外观页：主题色相 + 文章布局（列表/网格）+ 卡片样式 */
+  appearance?: boolean;
+  /** 壁纸页：壁纸模式 + 壁纸设置（波浪/首页壁纸标题）+ 透明设置 */
+  wallpaper?: boolean;
+  /** 特效页：樱花等全站特效 */
+  effects?: boolean;
 }
 
 /** 页面布局 */

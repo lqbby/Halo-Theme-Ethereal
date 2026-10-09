@@ -10,11 +10,12 @@
 
 export interface VisitorSwitches {
   enable: boolean;
-  postListLayout: boolean;
-  cardStyle: boolean;
-  transparent: boolean;
-  wallpaperMode: boolean;
-  wallpaperSettings: boolean;
+  /** 外观页（色相 + 文章布局 + 卡片样式） */
+  appearance: boolean;
+  /** 壁纸页（壁纸模式 + 壁纸设置 + 透明设置） */
+  wallpaper: boolean;
+  /** 特效页（樱花等） */
+  effects: boolean;
 }
 
 export function getCarrier(): HTMLElement | null {
@@ -40,16 +41,14 @@ function readVisitorSwitches(): VisitorSwitches {
   const enable = carrierBool("visitorEnable", true);
   return {
     enable,
-    postListLayout: enable && carrierBool("visitorLayout", true),
-    cardStyle: enable && carrierBool("visitorCardStyle", true),
-    transparent: enable && carrierBool("visitorTransparent", true),
-    wallpaperMode: enable && carrierBool("visitorWallpaperMode", true),
-    wallpaperSettings: enable && carrierBool("visitorWallpaperSettings", true),
+    appearance: enable && carrierBool("visitorAppearance", true),
+    wallpaper: enable && carrierBool("visitorWallpaper", true),
+    effects: enable && carrierBool("visitorEffects", true),
   };
 }
 
 /** 访客开关结果缓存：ConfigCarrier 的 data 属性是服务端静态值、运行期不变，
- *  避免每个 getStored* 内部重复调用时各做 6 次 getElementById */
+ *  避免每个 getStored* 内部重复调用时各做多次 getElementById */
 export function getVisitorSwitches(): VisitorSwitches {
   if (!cachedVisitorSwitches) cachedVisitorSwitches = readVisitorSwitches();
   return cachedVisitorSwitches;

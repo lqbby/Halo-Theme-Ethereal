@@ -16,7 +16,7 @@ export function getDefaultSakuraEnabled(): boolean {
 
 /** 当前生效值：可切换时 localStorage 覆盖默认，否则跟随默认 */
 export function getStoredSakuraEnabled(): boolean {
-  if (!getVisitorSwitches().enable) return getDefaultSakuraEnabled();
+  if (!getVisitorSwitches().effects) return getDefaultSakuraEnabled();
   const stored = localStorage.getItem("sakuraEnabled");
   return stored == null ? getDefaultSakuraEnabled() : stored === "true";
 }

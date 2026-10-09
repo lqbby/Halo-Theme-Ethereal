@@ -75,7 +75,7 @@ function triggerContentTransition(afterExit: () => void): void {
 }
 
 export function getStoredPostListLayout(): PostListLayoutMode | null {
-  if (!getVisitorSwitches().postListLayout) return null;
+  if (!getVisitorSwitches().appearance) return null;
   const stored = localStorage.getItem("postListLayout");
   return stored === "list" || stored === "grid" ? stored : null;
 }
@@ -112,7 +112,7 @@ export function getDefaultPostListMasonry(): boolean {
 }
 
 export function getStoredPostListMasonry(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultPostListMasonry();
+  if (!getVisitorSwitches().appearance) return getDefaultPostListMasonry();
   const stored = localStorage.getItem("postListMasonry");
   return stored == null ? getDefaultPostListMasonry() : stored === "true";
 }

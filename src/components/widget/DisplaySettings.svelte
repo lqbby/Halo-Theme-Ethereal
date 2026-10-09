@@ -8,11 +8,8 @@
     getStoredPostListLayout,
     setPostListLayout,
     getDefaultPostListLayout,
-    getDefaultCardHoverLift,
     getDefaultNavbarBlur,
-    getStoredCardHoverLift,
     getStoredNavbarBlur,
-    setCardHoverLift,
     setNavbarBlur,
     getDefaultPageWide,
     getStoredPageWide,
@@ -69,10 +66,14 @@
     setHue(hue);
   });
 
-  /* ── 访客样式切换：分区可见性 ── */
+  /* ── 访客样式切换：分区可见性（上游 v2.0.0 标签页级：外观 / 壁纸 / 特效） ──
+     后台由「分项开关」收敛为三个标签页开关：外观（色相 + 文章布局 + 卡片样式）、
+     壁纸（壁纸模式 + 壁纸设置 + 透明设置）、特效（樱花等） */
   const switches = getVisitorSwitches();
-  const showLayout = switches.postListLayout;
-  const showCardStyle = switches.cardStyle;
+  const showAppearance = switches.appearance;
+  const showLayout = switches.appearance;
+  const showCardStyle = switches.appearance;
+  const showEffects = switches.effects;
 
   /* ── 壁纸模式 / 壁纸设置（首页壁纸标题 + 波浪）状态 ── */
   let wallpaperMode = $state<BannerDisplayMode>(getStoredBannerDisplay());
@@ -87,30 +88,34 @@
   );
 
   // 壁纸参数区跟随访客当前生效模式（仅全屏透明时显示），而非服务端初值
-  const showWallpaperMode = switches.wallpaperMode;
-  // 壁纸设置区（横幅/全屏：首页壁纸标题 + 波浪开关）：访客壁纸设置开关 + 任一后台项
+  const showWallpaperMode = switches.wallpaper;
+  // 壁纸设置区（横幅/全屏：首页壁纸标题 + 波浪开关）：访客壁纸页开关 + 任一后台项
   // 可用（首页壁纸标题或波浪）且访客可切壁纸模式时可见，具体渲染还取决于当前模式
   const showWallpaperSettings =
-    showWallpaperMode &&
-    switches.wallpaperSettings &&
-    (defaultWave || defaultBannerTitle);
+    showWallpaperMode && (defaultWave || defaultBannerTitle);
   const showWallpaper = $derived(
-    switches.transparent && wallpaperMode === "transparent",
+    switches.wallpaper && wallpaperMode === "transparent",
   );
 
-  /* ── 面板 Tab（外观 / 壁纸，参考 firefly） ── */
+  /* ── 面板 Tab（外观 / 壁纸 / 特效，参考 firefly + 上游 v2.0.0） ── */
   const hasAppearanceContent = $derived(!hueFixed || showLayout || showCardStyle);
   const hasWallpaperContent = $derived(showWallpaperMode || showWallpaper);
-  const showTabBar = $derived(hasAppearanceContent && hasWallpaperContent);
-  let activeTab = $state<"appearance" | "wallpaper">("appearance");
+  const hasEffectsContent = $derived(showEffects);
+  const showTabBar = $derived(
+    [hasAppearanceContent, hasWallpaperContent, hasEffectsContent].filter(
+      Boolean,
+    ).length > 1,
+  );
+  type PanelTab = "appearance" | "wallpaper" | "effects";
+  let activeTab = $state<PanelTab>("appearance");
 
-  // 当前 Tab 不可用时自动切换到可用的 Tab
+  // 当前 Tab 不可用时自动切换到第一个可用 Tab
   $effect(() => {
-    if (hasWallpaperContent && !hasAppearanceContent) {
-      activeTab = "wallpaper";
-    } else if (!hasWallpaperContent) {
-      activeTab = "appearance";
-    }
+    const available: PanelTab[] = [];
+    if (hasAppearanceContent) available.push("appearance");
+    if (hasWallpaperContent) available.push("wallpaper");
+    if (hasEffectsContent) available.push("effects");
+    if (!available.includes(activeTab)) activeTab = available[0] ?? "appearance";
   });
 
   /* ── 文章布局：当前生效值 = localStorage 覆盖 ?? 服务端默认 ──
@@ -130,7 +135,6 @@
   }
 
   let layout = $state<PostListLayoutMode>(currentLayout());
-  let cardHoverLift = $state(getStoredCardHoverLift());
   let navbarBlur = $state(getStoredNavbarBlur());
   let pageWide = $state(getStoredPageWide());
   let cardPattern = $state(getStoredCardPattern());
@@ -146,7 +150,6 @@
   // 各分区是否偏离默认（用于标题旁「恢复默认」按钮显隐）。
   // 判定与主题色一致：对比当前值与默认值，手动切回默认即自动隐藏。
   const defaultLayout = getDefaultPostListLayout();
-  const defaultCardHoverLift = getDefaultCardHoverLift();
   const defaultNavbarBlur = getDefaultNavbarBlur();
   const defaultPageWide = getDefaultPageWide();
   const defaultCardPattern = getDefaultCardPattern();
@@ -155,8 +158,7 @@
   const defaultWallpaper = getDefaultWallpaperParams();
   const dirtyLayout = $derived(layout !== defaultLayout);
   const dirtyCard = $derived(
-    cardHoverLift !== defaultCardHoverLift ||
-      navbarBlur !== defaultNavbarBlur ||
+    navbarBlur !== defaultNavbarBlur ||
       pageWide !== defaultPageWide ||
       cardPattern !== defaultCardPattern ||
       cardShell !== defaultCardShell ||
@@ -238,11 +240,6 @@
     layout = getDefaultPostListLayout();
   }
 
-  function toggleCardHoverLift() {
-    cardHoverLift = !cardHoverLift;
-    setCardHoverLift(cardHoverLift);
-  }
-
   function toggleNavbarBlur() {
     navbarBlur = !navbarBlur;
     setNavbarBlur(navbarBlur);
@@ -275,7 +272,6 @@
 
   function resetCard() {
     resetCardStyle();
-    cardHoverLift = getDefaultCardHoverLift();
     navbarBlur = getDefaultNavbarBlur();
     resetPageWide();
     pageWide = getDefaultPageWide();
@@ -312,14 +308,24 @@
 <div id="display-setting" class="float-panel float-panel-closed absolute w-80 right-4 px-4 pb-4 pt-0">
   {#if showTabBar}
     <div class="panel-tabs" role="tablist">
-      <button type="button" class="panel-tab" class:panel-tab-on={activeTab === "appearance"}
-              role="tab" aria-selected={activeTab === "appearance"} on:click={() => (activeTab = "appearance")}>
-        <span>{t("display.tabAppearance", "外观")}</span>
-      </button>
-      <button type="button" class="panel-tab" class:panel-tab-on={activeTab === "wallpaper"}
-              role="tab" aria-selected={activeTab === "wallpaper"} on:click={() => (activeTab = "wallpaper")}>
-        <span>{t("display.tabWallpaper", "壁纸")}</span>
-      </button>
+      {#if hasAppearanceContent}
+        <button type="button" class="panel-tab" class:panel-tab-on={activeTab === "appearance"}
+                role="tab" aria-selected={activeTab === "appearance"} on:click={() => (activeTab = "appearance")}>
+          <span>{t("display.tabAppearance", "外观")}</span>
+        </button>
+      {/if}
+      {#if hasWallpaperContent}
+        <button type="button" class="panel-tab" class:panel-tab-on={activeTab === "wallpaper"}
+                role="tab" aria-selected={activeTab === "wallpaper"} on:click={() => (activeTab = "wallpaper")}>
+          <span>{t("display.tabWallpaper", "壁纸")}</span>
+        </button>
+      {/if}
+      {#if hasEffectsContent}
+        <button type="button" class="panel-tab" class:panel-tab-on={activeTab === "effects"}
+                role="tab" aria-selected={activeTab === "effects"} on:click={() => (activeTab = "effects")}>
+          <span>{t("display.tabEffects", "特效")}</span>
+        </button>
+      {/if}
     </div>
   {/if}
 
@@ -388,20 +394,12 @@
             </div>
           </button>
         </div>
-        <button type="button" class="toggle-row" class:toggle-on={cardHoverLift} role="switch" aria-checked={cardHoverLift} on:click={toggleCardHoverLift}>
-          <span class="icon-[material-symbols--touch-app-rounded] toggle-icon"></span>
-          <span class="toggle-label">{t("display.cardHoverLift", "卡片悬浮效果")}</span>
-          <span class="toggle" class:toggle-on={cardHoverLift}><span class="toggle-knob"></span></span>
-        </button>
+        <!-- 卡片悬浮效果：上游 v2.0.0 起改为**仅后台控制**（「样式开关 → 卡片悬浮效果」），
+             前台不再提供开关 ⇒ 此处不做 toggle（getStoredCardHoverLift 恒取后台默认） -->
         <button type="button" class="toggle-row" class:toggle-on={navbarBlur} role="switch" aria-checked={navbarBlur} on:click={toggleNavbarBlur}>
           <span class="icon-[material-symbols--blur-on-rounded] toggle-icon"></span>
           <span class="toggle-label">{t("display.navbarBlur", "高级材质")}</span>
           <span class="toggle" class:toggle-on={navbarBlur}><span class="toggle-knob"></span></span>
-        </button>
-        <button type="button" class="toggle-row" class:toggle-on={sakura} role="switch" aria-checked={sakura} on:click={toggleSakura} title={t("display.sakuraDesc", "飘落樱花特效（Web Worker 绘制，可关）")}>
-          <span class="icon-[material-symbols--local-florist-rounded] toggle-icon"></span>
-          <span class="toggle-label">{t("display.sakura", "樱花特效")}</span>
-          <span class="toggle" class:toggle-on={sakura}><span class="toggle-knob"></span></span>
         </button>
         <button type="button" class="toggle-row" class:toggle-on={pageWide} role="switch" aria-checked={pageWide} on:click={togglePageWide} title={t("display.pageWideDesc", "将页面主容器宽度放宽为 112rem")}>
           <span class="icon-[material-symbols--width-wide-rounded] toggle-icon"></span>
@@ -426,6 +424,18 @@
           </button>
         {/if}
       {/if}
+    {/if}
+
+    {#if activeTab === "effects"}
+      <!-- 特效（上游 v2.0.0 标签页级开关：effects） -->
+      <div class="section-title mb-3">
+        {t("display.effectsSettings", "特效")}
+      </div>
+        <button type="button" class="toggle-row" class:toggle-on={sakura} role="switch" aria-checked={sakura} on:click={toggleSakura} title={t("display.sakuraDesc", "飘落樱花特效（Web Worker 绘制，可关）")}>
+          <span class="icon-[material-symbols--local-florist-rounded] toggle-icon"></span>
+          <span class="toggle-label">{t("display.sakura", "樱花特效")}</span>
+          <span class="toggle" class:toggle-on={sakura}><span class="toggle-knob"></span></span>
+        </button>
     {/if}
 
     {#if activeTab === "wallpaper"}

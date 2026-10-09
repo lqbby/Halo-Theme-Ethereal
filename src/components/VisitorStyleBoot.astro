@@ -4,6 +4,8 @@
 // 消费 #config-carrier 的 data-*（后台默认值）+ localStorage（访客偏好），在可见
 // 内容解析前把 body / html 的类与变量应用好，避免 FOUC。开关关闭时忽略并清理对应
 // localStorage（与 Layout.astro 的 __eecs 语义一致）。
+// ⚠️ 上游 v2.0.0 起门控为**标签页级**：visitorAppearance（外观）/ visitorWallpaper
+//    （壁纸：模式 + 设置 + 透明）/ visitorEffects（特效，樱花由 sakura.js 自读）。
 //
 // 调用位置（两处必须都挂，且紧跟在 <ConfigCarrier /> 之后）：
 //   1. src/layouts/Layout.astro      —— 主题页外壳（首页 / 文章 / 归档 / 关于我 …）
@@ -41,24 +43,22 @@
     var enable = on(d.visitorEnable);
     var body = document.body;
 
-    // 卡片样式：悬浮效果 / 高级材质
-    if (enable && on(d.visitorCardStyle)) {
-      var lift = storageGet("cardHoverLift");
-      if (lift != null) {
-        body.classList.toggle("card-hover-lift-enabled", lift === "true");
-      }
+    // 卡片样式（外观页）：高级材质可被访客覆盖。
+    // ⚠️ 卡片悬浮效果自上游 v2.0.0 起改为**仅后台控制**（服务端 th:classappend 施加），
+    //    不再应用访客偏好 —— 这里清掉历史残留的 localStorage，避免老访客的旧选择继续生效。
+    if (enable && on(d.visitorAppearance)) {
       var blur = storageGet("navbarBlur");
       if (blur != null) {
         body.classList.toggle("navbar-blur-enabled", blur === "true");
       }
     } else {
-      storageRemove("cardHoverLift");
       storageRemove("navbarBlur");
     }
+    storageRemove("cardHoverLift");
 
     // 宽屏布局：访客偏好覆盖服务端 th:classappend（与卡片样式区解耦，
-    // 后台 visitorStyle.cardStyle 关闭时 UI 不显示但已存偏好仍生效）。
-    // 不读 visitorCardStyle 门控：pageWide 独立于卡片样式。
+    // 后台「访客样式切换 → 外观」关闭时 UI 不显示但已存偏好仍生效）。
+    // 不读 visitorAppearance 门控：pageWide 独立于卡片样式。
     var pw = storageGet("pageWide");
     if (pw != null) {
       document.documentElement.classList.toggle(
@@ -87,7 +87,7 @@
     }
 
     // 透明设置（全屏透明模式）：覆盖 body 内联变量
-    if (enable && on(d.visitorTransparent)) {
+    if (enable && on(d.visitorWallpaper)) {
       var num = function (key) {
         var n = parseFloat(storageGet(key) || "");
         return isNaN(n) ? null : n;
@@ -117,7 +117,7 @@
     // 并重算延伸像素（与 constants.ts 的 calcBannerHeightExtend 同式：
     // extendVh 对应 bannerExtendVh，全屏 65 / 横幅 30；%4 对齐对应
     // BANNER_EXTEND_ROUNDING，勿硬编码到别处）。内容解析前生效无 FOUC
-    if (enable && on(d.visitorWallpaperMode)) {
+    if (enable && on(d.visitorWallpaper)) {
       var bannerModes = ["disabled", "banner", "fullscreen", "transparent"];
       var mode = storageGet("bannerDisplay");
       if (bannerModes.indexOf(mode) === -1) {
@@ -139,9 +139,9 @@
       storageRemove("bannerDisplay");
     }
 
-    // 壁纸设置访客覆盖（波浪 + 首页壁纸标题）：关闭时给 body 加对应
+    // 壁纸设置访客覆盖（波浪 + 首页壁纸标题，同属「壁纸」页）：关闭时给 body 加对应
     // 隐藏类（CSS 门控）；开启/缺省时由后台默认决定
-    if (enable && on(d.visitorWallpaperSettings)) {
+    if (enable && on(d.visitorWallpaper)) {
       var waveDefault = d.waveDefault !== "false";
       var waveStored = storageGet("bannerWave");
       var waveOn = waveStored == null ? waveDefault : waveStored === "true";

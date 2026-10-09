@@ -34,7 +34,7 @@ export function getDefaultWallpaperParams(): WallpaperParams {
 
 export function getStoredWallpaperParams(): WallpaperParams {
   const defaults = getDefaultWallpaperParams();
-  if (!getVisitorSwitches().transparent) return defaults;
+  if (!getVisitorSwitches().wallpaper) return defaults;
   return {
     opacity: parseNum(
       localStorage.getItem("wallpaperOpacity") ?? undefined,
@@ -95,7 +95,7 @@ export function getDefaultBannerDisplay(): BannerDisplayMode {
 }
 
 export function getStoredBannerDisplay(): BannerDisplayMode {
-  if (!getVisitorSwitches().wallpaperMode) return getDefaultBannerDisplay();
+  if (!getVisitorSwitches().wallpaper) return getDefaultBannerDisplay();
   const stored = localStorage.getItem("bannerDisplay");
   return isBannerDisplayMode(stored) ? stored : getDefaultBannerDisplay();
 }
@@ -155,7 +155,7 @@ export function getDefaultWave(): boolean {
 }
 
 export function getStoredWave(): boolean {
-  if (!getVisitorSwitches().wallpaperSettings) return getDefaultWave();
+  if (!getVisitorSwitches().wallpaper) return getDefaultWave();
   const stored = localStorage.getItem("bannerWave");
   return stored == null ? getDefaultWave() : stored === "true";
 }
@@ -180,7 +180,7 @@ export function getDefaultBannerTitle(): boolean {
 }
 
 export function getStoredBannerTitle(): boolean {
-  if (!getVisitorSwitches().wallpaperSettings) return getDefaultBannerTitle();
+  if (!getVisitorSwitches().wallpaper) return getDefaultBannerTitle();
   const stored = localStorage.getItem("bannerTitle");
   return stored == null ? getDefaultBannerTitle() : stored === "true";
 }

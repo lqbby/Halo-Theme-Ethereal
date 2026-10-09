@@ -50,8 +50,7 @@ function getDefaultEnabled(): boolean {
 
 function isVisitorSwitchable(): boolean {
   const d = getCarrierData();
-  // 本地未做上游「访客样式标签页化」（无 visitorEffects 分项）⇒ 只认总开关
-  return d.visitorEnable !== "false";
+  return d.visitorEnable !== "false" && d.visitorEffects !== "false";
 }
 
 function getEnabledOnLoad(): boolean {

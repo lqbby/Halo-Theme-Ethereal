@@ -36,7 +36,7 @@ function storageRemove(key) {
 
   // 开关关闭（或总开关关闭）时忽略并清理访客选择，与 fixed 色调语义一致。
   // 改用设置模块的 getVisitorSwitches() 单一真相源，消除与 setting-utils 的抄写重复。
-  if (!getVisitorSwitches().postListLayout) {
+  if (!getVisitorSwitches().appearance) {
     storageRemove("postListLayout");
     return;
   }
@@ -62,7 +62,7 @@ function storageRemove(key) {
   var container = document.getElementById("post-list-container");
   if (!container) return;
   // 改用设置模块的 getVisitorSwitches() 单一真相源（与 postListLayout 同款 seam）。
-  if (!getVisitorSwitches().cardStyle) {
+  if (!getVisitorSwitches().appearance) {
     storageRemove("postListMasonry");
     return;
   }

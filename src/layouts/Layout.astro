@@ -57,6 +57,8 @@ const i18nInlineScript = `<script th:inline="javascript">
     "display.layout": \`[(#{display.layout})]\`,
     "display.tabAppearance": \`[(#{display.tabAppearance})]\`,
     "display.tabWallpaper": \`[(#{display.tabWallpaper})]\`,
+    "display.tabEffects": \`[(#{display.tabEffects})]\`,
+    "display.effectsSettings": \`[(#{display.effectsSettings})]\`,
     "display.layoutList": \`[(#{display.layoutList})]\`,
     "display.layoutGrid": \`[(#{display.layoutGrid})]\`,
     "display.cardStyle": \`[(#{display.cardStyle})]\`,
@@ -232,7 +234,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
 <html
   th:lang="${#locale.toLanguageTag}"
   th:data-hue="${theme.config?.style?.themeColor?.hue}"
-  th:data-hue-fixed="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable == false or theme.config?.layout?.mobileMenu?.visitorStyle?.hue == false}"
+  th:data-hue-fixed="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable == false or theme.config?.layout?.mobileMenu?.visitorStyle?.appearance == false}"
   th:data-navbar-fixed="${theme.config?.layout?.mobileMenu?.navbarFixed}"
   th:data-theme-anim-style="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == false ? 'none' : theme.config?.style?.colorScheme?.colorSchemeAnimation?.style}"
   th:data-theme-anim-easing="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.easing}"

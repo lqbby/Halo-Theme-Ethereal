@@ -39,7 +39,7 @@ const className = Astro.props.class;
   }
   <div
     id="navbar-card"
-    th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.hue != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.postListLayout != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.cardStyle != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperMode != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaperSettings != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.transparent != false))}`}
+    th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.appearance != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaper != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false))}`}
     class:list={[
       className,
       "relative z-10 mx-auto flex h-[4.5rem] max-w-(--page-width) items-center justify-between px-4 rounded-(--radius-large) !rounded-t-none",

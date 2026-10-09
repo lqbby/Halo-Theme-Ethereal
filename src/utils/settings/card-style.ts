@@ -11,14 +11,13 @@ export function getDefaultNavbarBlur(): boolean {
   return carrierBool("navbarBlur", false);
 }
 
+/** 卡片悬浮效果：上游 v2.0.0 起改为**仅后台控制**（前台面板不再提供开关）⇒ 恒取后台默认 */
 export function getStoredCardHoverLift(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultCardHoverLift();
-  const stored = localStorage.getItem("cardHoverLift");
-  return stored == null ? getDefaultCardHoverLift() : stored === "true";
+  return getDefaultCardHoverLift();
 }
 
 export function getStoredNavbarBlur(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultNavbarBlur();
+  if (!getVisitorSwitches().appearance) return getDefaultNavbarBlur();
   const stored = localStorage.getItem("navbarBlur");
   return stored == null ? getDefaultNavbarBlur() : stored === "true";
 }
@@ -71,7 +70,7 @@ export function getDefaultCardPattern(): boolean {
 // 独立存储：访客可覆盖后台 mods.cardPattern；存储生命周期与卡片样式区联动
 // （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
 export function getStoredCardPattern(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultCardPattern();
+  if (!getVisitorSwitches().appearance) return getDefaultCardPattern();
   const stored = localStorage.getItem("cardPattern");
   return stored == null ? getDefaultCardPattern() : stored === "true";
 }
@@ -98,7 +97,7 @@ export function getDefaultCardShell(): boolean {
 // 独立存储：访客可覆盖后台 mods.cardShell；存储生命周期与卡片样式区联动
 // （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
 export function getStoredCardShell(): boolean {
-  if (!getVisitorSwitches().cardStyle) return getDefaultCardShell();
+  if (!getVisitorSwitches().appearance) return getDefaultCardShell();
   const stored = localStorage.getItem("cardShell");
   return stored == null ? getDefaultCardShell() : stored === "true";
 }
