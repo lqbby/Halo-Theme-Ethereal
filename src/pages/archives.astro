@@ -103,10 +103,16 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         id="archive-list"
         th:attr="data-archive-total-pages=${archives.totalPages}"
       >
-        <div class="contents" th:each="archive : ${archives.items}">
-          <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对 -->
+        <div
+          class="contents"
+          th:each="archive, archiveStat : ${archives.items}"
+        >
+          <!-- th:attr 赋值序列不支持裸布尔项，须为 k=v 对。
+               行级入场错峰：每年一组（父索引 × 8），年行先于组内条目 -->
           <div
             th:attr="data-archive-year-row=${archive.year}, data-year=${archive.year}"
+            th:style="|animation-delay: min(calc(var(--content-delay) + ${archiveStat.index * 8} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+            class="onload-animation"
           >
             <div class="flex h-15 w-full flex-row items-center">
               <!-- 年份列：窄定宽（4rem）+ 右对齐 —— 列宽从 15%/10% 收窄后年份右缘
@@ -133,13 +139,17 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
               </div>
             </div>
 
-            <div class="contents" th:each="month : ${archive.months}">
+            <div
+              class="contents"
+              th:each="month, monthStat : ${archive.months}"
+            >
               <a
-                th:each="post : ${month.posts}"
+                th:each="post, postStat : ${month.posts}"
                 th:if={`\${${postMatchRow}}`}
                 th:href="@{${post.status.permalink}}"
                 th:attr="aria-label=${post.spec.title}, data-archive-row=${post.spec.slug}, data-year=${archive.year}, data-archive-cats=${post.categories == null ? '' : post.categories.![spec.slug]}"
-                class="group btn-plain block! h-10 w-full rounded-lg hover:text-[initial]"
+                th:style="|animation-delay: min(calc(var(--content-delay) + ${archiveStat.index * 8 + monthStat.index * 4 + postStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+                class="group btn-plain onload-animation block! h-10 w-full rounded-lg hover:text-[initial]"
               >
                 <div class="flex h-full flex-row items-center justify-start">
                   <!-- 日期列与年份列同宽（4rem）右对齐：右缘对齐、紧贴时间轴 -->
@@ -219,9 +229,9 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   </div>
 
   <style is:global>
-    /* 归档页局部 PJAX 列表切换过渡：复用主题 --dur-swup/--dur-entry 变量，
-       退场淡出+下沉（同 .transition-swup-fade 的 translate-y-4 观感），
-       入场重播主题 fade-in-up（.onload-animation）。 */
+    /* 归档页局部 PJAX 列表切换过渡：退场淡出+下沉（同 .transition-swup-fade 的
+       translate-y-4 观感）用 --dur-swup；入场由「行级 .onload-animation + 索引错峰」
+       承担（innerHTML 替换即自动重播，容器不再重放）。 */
     #archive-list {
       transition-property: opacity, translate;
       transition-duration: var(--dur-swup, 200ms);
@@ -236,11 +246,9 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       translate: 0 1rem;
     }
 
-    /* 局部刷新的入场动画用 --dur-swup（200ms）而非 --dur-entry（300ms），
-       同页小范围更新更快、更跟手。 */
-    #archive-list.onload-animation {
-      animation-duration: var(--dur-swup, 200ms);
-    }
+    /* 局部刷新的入场动画由「行级 onload-animation + 索引错峰」承担（innerHTML 替换
+       即自动重播，与文章列表/友链页同一套公式）⇒ 容器不再重放 fade-in-up，
+       此处原 #archive-list.onload-animation 的时长覆写已随之下线。 */
   </style>
 
   <!-- 局部 PJAX：分类菜单点击只刷新框三 #archive-list，框一/框二保持不动。
@@ -524,7 +532,8 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
       // 全部态：fetch 未筛选第 1 页完整 HTML → 提取 #archive-list → 替换（保留分页）。
       // 目标页无 #archive-list（如浏览器后退到非归档页）则整页跳转兜底。
       // 过渡：点击立即退场淡出（与取数并行，对齐 Swup 点击即反馈），取数完成
-      // 且退场结束即换入新内容并重播主题 fade-in-up（onload-animation）。
+      // 且退场结束即换入新内容 —— 新行 DOM 自带 .onload-animation + 索引错峰，
+      // 解析即重播入场动画（无需容器级重放）。
       function loadArchive(url) {
         if (loading) return;
         loading = true;
@@ -561,10 +570,10 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           history.pushState({ archiveFilter: true }, "", url);
           setActiveTab(url);
           run();
-          // 重播主题 fade-in-up：移除→强制重排→加回，确保每次切换都触发动画。
-          current.classList.remove("onload-animation");
-          void current.offsetWidth;
-          current.classList.add("onload-animation");
+          // 重播入场动画：innerHTML 已被整段替换（新的年行/文章行 DOM 自带
+          // onload-animation + 索引错峰），解析即自动重播 ⇒ 不再对容器重放 fade-in-up。
+          // 容器级 + 行级两层叠加会让行错峰的前段被父层淡入压暗（观感「整块糊一下
+          // 再铺开」），故只保留上方的退场过渡（.archive-list-exit）。
         }
 
         function onExit() {
