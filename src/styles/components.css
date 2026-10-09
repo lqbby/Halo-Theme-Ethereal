@@ -432,6 +432,13 @@
   }
 
   /* 卡片图标盒：内联 SVG（后台自定义图标）按字号 1em 渲染，与 mask 图标/首字母大小一致 */
+  /* 分区标题前置图标盒（打赏者名单 / 友链分组 / 即将开始 / 推荐·全部项目共用同一套）：
+     纯装饰，使用处带 aria-hidden；背景 = 主色 10%（随上游 v2.0.0 补移植） */
+  .title-icon {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center rounded-lg;
+    background: color-mix(in oklab, var(--primary) 10%, transparent);
+  }
+
   .card-icon svg {
     width: 1em;
     height: 1em;
