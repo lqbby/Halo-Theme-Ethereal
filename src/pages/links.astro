@@ -131,7 +131,8 @@ import PageHeader from "../components/control/PageHeader.astro";
       filteredClearExpr="@{/links}"
       stats={[
         {
-          valueExpr: "#aggregates.sum(groups.![links.size()])",
+          valueExpr:
+            "${groups == null ? 0 : #aggregates.sum(groups.![links.size()])}",
           value: "0",
           labelExpr: "#{common.stat.friends}",
           label: "朋友",

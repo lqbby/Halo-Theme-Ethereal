@@ -37,7 +37,7 @@ const noSwup = { "data-no-swup": "1" };
         filteredClearExpr="@{/equipments}"
         stats={[
           {
-            valueExpr: "${equipments.total}",
+            valueExpr: "${equipments == null ? 0 : equipments.total}",
             value: "0",
             labelExpr: "#{common.stat.gear}",
             label: "装备",
