@@ -22,6 +22,8 @@ declare global {
     __etherealSyncCurrentPostUrlBound?: boolean;
     // 全屏沉浸（hero）滚动脚本防重复绑定标记（scripts/assets/fullscreen-hero.ts）
     __fullscreenHeroBound?: boolean;
+    // 导航栏滚动玻璃状态绑定标记（scripts/assets/navbar.ts）
+    __navbarScrollGlassBound?: boolean;
     // 相册页「就地筛选」替换列表区后重建 PhotoSwipe 灯箱
     // （content-media.ts → app.ts 暴露，public/assets/list-filter.js 调用）
     __etherealRefreshPhotosGallery?: () => void;

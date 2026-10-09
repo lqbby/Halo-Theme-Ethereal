@@ -1,5 +1,6 @@
 ---
 import ConfigCarrier from "../components/ConfigCarrier.astro";
+import FullscreenHeroEffect from "../components/FullscreenHeroEffect.astro";
 import PageTruncationGuard from "../components/misc/PageTruncationGuard.astro";
 import VisitorStyleBoot from "../components/VisitorStyleBoot.astro";
 import WelcomePopup from "../components/control/WelcomePopup.astro";
@@ -241,6 +242,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   th:data-theme-anim-angle="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.angle}"
   th:data-speed="${theme.config?.style?.animationSpeed?.speedTier}"
   th:data-banner-display="${bannerMode}"
+  th:data-fullscreen-layout="${theme.config?.layout?.bannerLayout?.fullscreenLayout ?: 'classic'}"
   th:with={bannerModeThWith() + ", " + speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
@@ -1065,6 +1067,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
     <script>
       import "../scripts/app";
     </script>
+    <!-- 全屏沉浸（hero）布局：滚动模糊斜坡 + 首页标题淡出（脚本内部按
+         data-banner-display / data-fullscreen-layout 自门控，无条件加载） -->
+    <FullscreenHeroEffect />
+
     <!-- 页面完整性哨兵：必须是文档最末的**元素**（配合 <head> 的 PageTruncationGuard）。
          文档被截断 ⇒ 哨兵不存在 ⇒ 守卫带随机参数重载一次自愈。
          ⚠️ 插件页外壳 src/pages/layout.astro 必须有同款哨兵，改一处必须同步另一处。 -->
