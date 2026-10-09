@@ -18,6 +18,11 @@
 const W_IS_ZERO = "(w == 0 or w == '0')";
 
 /** Thymeleaf 后缀表达式主体（不含 ${} 包裹），引用局部变量 w/provider/fmt */
+/** 可追加 CDN 尺寸后缀的图片扩展名白名单（服务端 / 浏览器端共用同一来源；
+    由上游 v2.0.0 挑移——此前本地无白名单、对任何无 `?`/`!/` 的图片都加参数，
+    会给 .gif/.svg/.avif 等乱加压缩参数） */
+export const SUFFIX_ELIGIBLE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp"];
+
 export const CDN_SUFFIX_RAW =
   W_IS_ZERO +
   " || provider == 'none' ? '' : provider == 'halo' ? '?width=' + w : provider == 'lsky' ? '?w=' + w : provider == 'aliyun_esa' ? '?image_process=resize,w_' + w : provider == 'aliyun_oss' ? '?x-oss-process=image/resize,w_' + w : provider == 'tencent_eo' ? '?eo-img.resize=w/' + w : provider == 'tencent_cos' ? '?imageMogr2/thumbnail/' + w + 'x' : provider == 'qiniu' ? '?imageView2/2/w/' + w : provider == 'upyun' ? '!/fw/' + w : provider == 'custom' ? #strings.replace(#strings.defaultString(fmt, ''), '{width}', '' + w) : ''";
