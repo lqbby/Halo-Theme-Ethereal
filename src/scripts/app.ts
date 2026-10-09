@@ -210,34 +210,22 @@ function alignBannerTheme() {
 }
 
 // ── Banner 显示 ──
-// 双容器（桌面 #banner / 移动 #banner-mobile-reveal）各自等待首图加载后
-// 移除 opacity-0/scale-105 渐显；隐藏端（display:none）不触发加载回调，
-// 由 banner-src-switch.js 在激活时升级 eager 后自然走完同一流程。
-// 渐显必须绑定 img.onload 时刻：图片就绪才解除遮蔽 + 触发 transition，
+// 揭示逻辑（媒体就绪判定 + 首帧门槛 + 摘 opacity-0/scale-105）统一放在
+// MainGridLayout 的内联脚本里，经 window.__etherealRevealBanners 暴露：首屏由它
+// 在解析期直接调用（不等本模块，避免主 bundle 拖慢 LCP），Swup 换页后重建的 banner
+// 由这里再调一次。保持单一实现——双容器/多媒体的就绪判定不再各写一份。
+// 渐显仍必须绑定「媒体就绪」时刻：图片就绪才解除遮蔽 + 触发 transition，
 // 保证「图片出现即渐显」的观感；若脱离加载时序（如 CSS 无条件动画），
 // 慢加载图片会先空白后硬闪现。
 function showBanner() {
+  const revealBanners = window.__etherealRevealBanners;
+  if (typeof revealBanners === "function") {
+    revealBanners();
+    return;
+  }
+  // 内联脚本缺失（异常构建）时的兜底：直接显示，宁可丢动画也不能让 banner 永久隐藏
   document.querySelectorAll(".banner-reveal").forEach((banner) => {
-    const reveal = () => banner.classList.remove("opacity-0", "scale-105");
-    const video = banner.querySelector("video");
-    if (video) {
-      if (video.readyState >= 2) reveal();
-      else {
-        video.addEventListener("loadeddata", reveal, { once: true });
-        video.addEventListener("error", reveal, { once: true });
-      }
-      return;
-    }
-    const img = banner.querySelector("img");
-    if (img) {
-      if (img.complete && img.naturalWidth > 0) reveal();
-      else {
-        img.onload = reveal;
-        img.onerror = reveal;
-      }
-    } else {
-      reveal();
-    }
+    banner.classList.remove("opacity-0", "scale-105");
   });
 }
 

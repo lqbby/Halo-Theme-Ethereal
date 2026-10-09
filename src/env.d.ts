@@ -20,6 +20,9 @@ interface Window {
   };
   // 自定义悬浮按钮位置重算（BackToTop.astro 注入）：内置按钮显隐变化后调用
   __etherealFloatingControlsReposition?: () => void;
+  // Banner 首屏揭示（MainGridLayout 紧随 #banner-wrapper 的内联脚本注入）：
+  // 媒体就绪 + 首帧已绘制后摘 opacity-0/scale-105；app.ts 在 Swup 换页后复用
+  __etherealRevealBanners?: () => void;
 }
 
 // 允许在模板元素上使用 Thymeleaf 属性（Halo 服务端渲染）
@@ -32,6 +35,7 @@ declare namespace astroHTML.JSX {
     "th:unless"?: string;
     "th:utext"?: string;
     "th:src"?: string;
+    "th:srcset"?: string;
     "th:with"?: string;
     "th:target"?: string;
     "th:content"?: string;
