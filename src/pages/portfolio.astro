@@ -30,20 +30,26 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
              typeLabels=${projectFinder.typeLabels()},
              projects=${projectFinder.listBy('', '', '', '', 1, 999)}"
   >
-    <section class="card-base mb-4 px-6 py-6 md:px-9 onload-animation">
+    <div class="card-base page-head-card onload-animation mb-4">
       <!-- 标题区域（客户端筛选 ⇒ 不传 filteredExpr，同 wishes 页） -->
       <PageHeader
-        containerClass="mb-6 flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"
+        containerClass=""
         titleExpr="${projectFinder.setting().seoTitle ?: #messages.msg('page.portfolio.seoTitle')}"
         title="作品集"
-        iconClass="icon-[material-symbols--inventory-2-rounded]"
-        labelExpr="#{page.portfolio.subtitle}"
-        label="我的项目"
-        subExpr="#{page.portfolio.subtitleCount(${projects.total})}"
-        subShowIfExpr="${projects != null}"
-        sub="0 个项目"
+        iconClass="icon-[material-symbols--storefront-outline-rounded]"
+        eyebrow="PORTFOLIO"
+        stats={[
+          {
+            valueExpr: "${projects == null ? 0 : projects.total}",
+            value: "0",
+            labelExpr: "#{common.stat.projects}",
+            label: "项目",
+          },
+        ]}
       />
+    </div>
 
+    <section class="card-base mb-4 px-6 py-6 md:px-9 onload-animation">
       <!-- 筛选胶囊（平台 / 类型两维，各含「全部」；点击就地切显隐，见 portfolio-filter.js）
            showIfExpr 与 counts 都不能引用彼此——th:if 先于 th:with 执行，故 th:if 里直接调
            Finder。计数为 0 的选项不渲染（后台默认选项常含未使用的项）。 -->
