@@ -46,6 +46,11 @@
     resetCardStyle,
     resetWallpaperParams,
     resetWallpaperMode,
+    getDefaultFullscreenLayout,
+    getStoredFullscreenLayout,
+    setFullscreenLayout,
+    resetFullscreenLayout,
+    type FullscreenLayoutMode,
     resetWave,
     resetBannerTitle,
     type PostListLayoutMode,
@@ -77,6 +82,13 @@
 
   /* ── 壁纸模式 / 壁纸设置（首页壁纸标题 + 波浪）状态 ── */
   let wallpaperMode = $state<BannerDisplayMode>(getStoredBannerDisplay());
+  let fullscreenLayout = $state<FullscreenLayoutMode>(
+    getStoredFullscreenLayout(),
+  );
+  const defaultFullscreenLayout = getDefaultFullscreenLayout();
+  const dirtyFullscreenLayout = $derived(
+    fullscreenLayout !== defaultFullscreenLayout,
+  );
   let wave = $state(getStoredWave());
   let bannerTitle = $state(getStoredBannerTitle());
   const defaultBannerDisplay = getDefaultBannerDisplay();
@@ -93,9 +105,36 @@
   // 可用（首页壁纸标题或波浪）且访客可切壁纸模式时可见，具体渲染还取决于当前模式
   const showWallpaperSettings =
     showWallpaperMode && (defaultWave || defaultBannerTitle);
+  // 壁纸参数区：全屏透明模式全显示；「全屏 + 沉浸（hero）」下也显示（背景模糊度 =
+  // 首页斜坡封顶/非首页固定值，卡片透明度 = 磨砂强度）；壁纸透明度只对透明模式有意义
   const showWallpaper = $derived(
-    switches.wallpaper && wallpaperMode === "transparent",
+    switches.wallpaper &&
+      (wallpaperMode === "transparent" ||
+        (wallpaperMode === "fullscreen" && fullscreenLayout === "hero")),
   );
+  /* 全屏布局（经典 / 沉浸 Hero）：访客开关开启 + 当前为全屏模式时显示 */
+  const showFullscreenLayout = $derived(
+    switches.fullscreenLayout && wallpaperMode === "fullscreen",
+  );
+  const fullscreenLayouts: {
+    value: FullscreenLayoutMode;
+    icon: string;
+    key: string;
+    label: string;
+  }[] = [
+    {
+      value: "classic",
+      icon: "icon-[material-symbols--view-day-outline-rounded]",
+      key: "display.fullscreenLayoutClassic",
+      label: "经典模式",
+    },
+    {
+      value: "hero",
+      icon: "icon-[material-symbols--desktop-landscape-outline-rounded]",
+      key: "display.fullscreenLayoutHero",
+      label: "沉浸模式",
+    },
+  ];
 
   /* ── 面板 Tab（外观 / 壁纸 / 特效，参考 firefly + 上游 v2.0.0） ── */
   const hasAppearanceContent = $derived(!hueFixed || showLayout || showCardStyle);
@@ -216,6 +255,15 @@
   function toggleBannerTitle() {
     bannerTitle = !bannerTitle;
     setBannerTitle(bannerTitle);
+  }
+
+  function chooseFullscreenLayout(mode: FullscreenLayoutMode) {
+    fullscreenLayout = mode;
+    setFullscreenLayout(mode);
+  }
+  function resetFullscreenLayoutBtn() {
+    resetFullscreenLayout();
+    fullscreenLayout = getDefaultFullscreenLayout();
   }
 
   function resetWallpaperModeBtn() {
@@ -456,6 +504,29 @@
                     aria-pressed={wallpaperMode === m.value} on:click={() => chooseMode(m.value)}>
               <span class="{m.icon} mode-icon"></span>
               <span>{t(m.key, m.label)}</span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+
+      <!-- 全屏布局（经典 / 沉浸 Hero）：访客开关开启 + 当前为全屏模式时显示；
+           classic 壁纸随页滚动移出首屏、hero 钉住视口 + 首页滚动模糊斜坡 + 标题淡出 -->
+      {#if showFullscreenLayout}
+        <div class="section-title mb-3">
+          {t("display.fullscreenLayout", "全屏布局")}
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+                  class:opacity-0={!dirtyFullscreenLayout} class:pointer-events-none={!dirtyFullscreenLayout} on:click={resetFullscreenLayoutBtn}>
+            <div class="text-(--btn-content)">
+              <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
+            </div>
+          </button>
+        </div>
+        <div class="mode-grid" role="group" aria-label={t("display.fullscreenLayout", "全屏布局")}>
+          {#each fullscreenLayouts as f}
+            <button type="button" class="mode-item" class:mode-on={fullscreenLayout === f.value}
+                    aria-pressed={fullscreenLayout === f.value} on:click={() => chooseFullscreenLayout(f.value)}>
+              <span class="{f.icon} mode-icon"></span>
+              <span>{t(f.key, f.label)}</span>
             </button>
           {/each}
         </div>
