@@ -16,6 +16,8 @@ export interface VisitorSwitches {
   wallpaper: boolean;
   /** 特效页（樱花等） */
   effects: boolean;
+  /** 全屏布局（全屏模式下的经典 / 沉浸 Hero） */
+  fullscreenLayout: boolean;
 }
 
 export function getCarrier(): HTMLElement | null {
@@ -43,6 +45,7 @@ function readVisitorSwitches(): VisitorSwitches {
     enable,
     appearance: enable && carrierBool("visitorAppearance", true),
     wallpaper: enable && carrierBool("visitorWallpaper", true),
+    fullscreenLayout: enable && carrierBool("visitorFullscreenLayout", true),
     effects: enable && carrierBool("visitorEffects", true),
   };
 }

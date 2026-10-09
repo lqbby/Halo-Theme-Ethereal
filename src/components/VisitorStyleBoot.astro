@@ -139,6 +139,19 @@
       storageRemove("bannerDisplay");
     }
 
+    // 全屏布局访客覆盖（classic / hero）：写 html[data-fullscreen-layout]，仅全屏模式下
+    // 有视觉效果（CSS 全部带 fullscreen 前缀门控）；开关关闭时清 localStorage 交回后台默认
+    if (enable && on(d.visitorFullscreenLayout)) {
+      var fsLayouts = ["classic", "hero"];
+      var fsLayout = storageGet("fullscreenLayout");
+      if (fsLayouts.indexOf(fsLayout) === -1) {
+        fsLayout = d.fullscreenLayoutDefault || "classic";
+      }
+      document.documentElement.setAttribute("data-fullscreen-layout", fsLayout);
+    } else {
+      storageRemove("fullscreenLayout");
+    }
+
     // 壁纸设置访客覆盖（波浪 + 首页壁纸标题，同属「壁纸」页）：关闭时给 body 加对应
     // 隐藏类（CSS 门控）；开启/缺省时由后台默认决定
     if (enable && on(d.visitorWallpaper)) {

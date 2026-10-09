@@ -1,3 +1,4 @@
+import { readDurBannerMs } from "../dur-banner";
 import {
   bannerExtendVh,
   calcBannerHeightExtend,
@@ -7,6 +8,7 @@ import {
   getVisitorSwitches,
   getCarrier,
   carrierBool,
+  carrierStr,
 } from "./visitor-switches";
 
 /* ── 壁纸参数（全屏透明模式） ── */
@@ -260,4 +262,61 @@ export function resetWave(): void {
 export function resetBannerTitle(): void {
   localStorage.removeItem("bannerTitle");
   applyBannerTitle(getDefaultBannerTitle());
+}
+
+/* ── 全屏布局（全屏模式下的 classic 经典 / hero 沉浸） ── */
+
+/** classic 经典（壁纸在文档流内、不模糊）| hero 沉浸（壁纸钉视口 + 首页滚动模糊斜坡 + 标题淡出） */
+export type FullscreenLayoutMode = "classic" | "hero";
+
+const FULLSCREEN_LAYOUT_MODES: FullscreenLayoutMode[] = ["classic", "hero"];
+
+function isFullscreenLayoutMode(value: unknown): value is FullscreenLayoutMode {
+  return (
+    typeof value === "string" &&
+    (FULLSCREEN_LAYOUT_MODES as string[]).includes(value)
+  );
+}
+
+/** 后台默认（theme.config.layout.bannerLayout.fullscreenLayout，经 ConfigCarrier 传递）；未设回退 classic */
+export function getDefaultFullscreenLayout(): FullscreenLayoutMode {
+  return carrierStr("fullscreenLayoutDefault", "classic") === "hero"
+    ? "hero"
+    : "classic";
+}
+
+export function getStoredFullscreenLayout(): FullscreenLayoutMode {
+  if (!getVisitorSwitches().fullscreenLayout)
+    return getDefaultFullscreenLayout();
+  const stored = localStorage.getItem("fullscreenLayout");
+  return isFullscreenLayoutMode(stored) ? stored : getDefaultFullscreenLayout();
+}
+
+/** 应用全屏布局：写 html[data-fullscreen-layout] 并派发 fullscreenLayoutChange
+ *  （hero 滚动斜坡等脚本监听）。带过渡窗口：classic 与 hero 的视觉位置由
+ *  「top + translate」一负一正相抵拼出（净位置 0），窗口内只放 height/opacity 过渡，
+ *  位置类属性瞬时到位 ⇒ 零位移；缺窗口会「壁纸上下摆动」 */
+export function applyFullscreenLayout(mode: FullscreenLayoutMode): void {
+  const root = document.documentElement;
+  root.classList.add("banner-mode-transitioning");
+  void root.offsetWidth;
+  window.setTimeout(
+    () => root.classList.remove("banner-mode-transitioning"),
+    readDurBannerMs(root) + 100,
+  );
+  root.setAttribute("data-fullscreen-layout", mode);
+  window.dispatchEvent(
+    new CustomEvent("fullscreenLayoutChange", { detail: mode }),
+  );
+}
+
+export function setFullscreenLayout(mode: FullscreenLayoutMode): void {
+  localStorage.setItem("fullscreenLayout", mode);
+  applyFullscreenLayout(mode);
+}
+
+/** 恢复后台默认布局（面板 Reset；清 localStorage 后应用默认值） */
+export function resetFullscreenLayout(): void {
+  localStorage.removeItem("fullscreenLayout");
+  applyFullscreenLayout(getDefaultFullscreenLayout());
 }
