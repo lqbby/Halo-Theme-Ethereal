@@ -638,9 +638,14 @@
     transform: translateY(calc(-100% + var(--wave-cover-offset)));
     /* 时长与 banner 装配件统一用 --dur-banner（随速度档位）：
        硬编码 700ms 会在舒缓档（800ms）/疾速档（500ms）与 banner/主网格
-       移速不一致，wave 领先产生间隙 */
-    transition: transform var(--dur-banner, 700ms)
-      var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
+       移速不一致，wave 领先产生间隙。
+       opacity 同速同曲线：无横幅模式与 hero 下波浪以透明度隐去（替代 display:none），
+       模式切换需要淡入淡出 */
+    transition:
+      transform var(--dur-banner, 700ms)
+        var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)),
+      opacity var(--dur-banner, 700ms)
+        var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
   }
 
   body.is-home #wave-container {
@@ -719,7 +724,11 @@
     transform: translateX(-50%);
     color: rgb(255 255 255 / 0.85);
     cursor: pointer;
-    transition: color 0.3s ease;
+    /* opacity/visibility 的过渡供全屏沉浸（hero）滚动隐藏用（.hide 类） */
+    transition:
+      color 0.3s ease,
+      opacity 0.35s ease,
+      visibility 0.35s ease;
   }
 
   body:not(.is-home) #scroll-down-indicator {
@@ -761,14 +770,23 @@
   /* ── 访客壁纸模式切换支持 ──
      #banner-wrapper 已去掉 th:if 恒渲染，显隐/定位全部由 html[data-banner-display]
      门控，访客运行期切换模式无需重建 DOM。disabled：横幅整体隐藏（含署名/箭头）；
-     波浪仅横幅/全屏显示，透明模式与访客关闭（body.wave-disabled）亦隐藏 */
+     波浪以「透明度」隐去（见下方规则，支持淡入淡出）；总开关关闭时硬隐藏 */
   html[data-banner-display="disabled"] #banner-wrapper,
   html[data-banner-display="disabled"] #banner-credit,
   html[data-banner-display="disabled"] #scroll-down-indicator,
-  html[data-banner-display="disabled"] #wave-container,
-  html[data-banner-display="transparent"] #wave-container,
   body.wave-disabled #wave-container {
     display: none !important;
+  }
+
+  /* 无横幅（纯色 / 全屏透明）与 hero：波浪以透明度隐去 —— 模式切换时淡入淡出。
+     display:none 是无过渡的，切换时会「闪现 / 瞬跳」；容器带 opacity 即整棵子树
+     （三层波浪 SVG）一起渐变，无需逐个处理。pointer-events 归零避免不可见时拦截 */
+  html[data-banner-display="disabled"] #wave-container,
+  html[data-banner-display="transparent"] #wave-container,
+  html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+    #wave-container {
+    opacity: 0;
+    pointer-events: none;
   }
 
   /* 首页壁纸标题访客关闭：opacity 过渡渐隐（替代原 display:none，支持平滑过渡） */
@@ -860,16 +878,16 @@
     display: none !important;
   }
 
-  /* 壁纸磨砂：背景图片/视频模糊 + 轻压暗，形成柔和的背景遮罩
-     （与 Firefly overlay 同思路）；卡片靠半透明背景透出这张模糊壁纸来
-     呈现磨砂感（见下方说明），因此壁纸模糊值即磨砂强度；
-     scale 放大裁掉模糊边缘（外层 overflow-hidden 兜底）。
-     独立于「高级材质」开关 */
+  /* 壁纸磨砂：背景图片/视频模糊，形成柔和的背景遮罩；卡片靠半透明背景透出这张
+     模糊壁纸来呈现磨砂感（见下方说明），因此壁纸模糊值即磨砂强度；scale 放大
+     裁掉模糊边缘（外层 overflow-hidden 兜底）。独立于「高级材质」开关。
+     注：不做 brightness 压暗（曾为 0.95）——压暗会让整页背景偏闷、卡片透出的底
+     也变暗；hero 模式的壁纸本就不压暗，此处统一 */
   html[data-banner-display="transparent"] #banner img,
   html[data-banner-display="transparent"] #banner-mobile img,
   html[data-banner-display="transparent"] #banner video,
   html[data-banner-display="transparent"] #banner-mobile video {
-    filter: blur(var(--transparent-wallpaper-blur, 10px)) brightness(0.95);
+    filter: blur(var(--transparent-wallpaper-blur, 10px));
     transform: scale(1.06);
   }
 
@@ -940,7 +958,31 @@
     body.navbar-blur-enabled
     .floating-btn {
     background-color: rgb(
-      0 0 0 / var(--transparent-card-alpha, 0.6)
+      : root.dark[data-banner-display= "fullscreen"][data-fullscreen-layout=
+        "hero"] body.navbar-blur-enabled
+        .card-base: not(.btn-regular): not(.bg-\(--primary\)),
+      : root.dark[data-banner-display= "fullscreen"][data-fullscreen-layout=
+        "hero"] body.navbar-blur-enabled
+        .btn-card: not(.btn-regular): not(.floating-btn .btn-card): not(
+          .bg-\(--primary\)
+        ),
+      : root.dark[data-banner-display= "fullscreen"][data-fullscreen-layout=
+        "hero"] body.navbar-blur-enabled .float-panel,
+      : root.dark[data-banner-display= "fullscreen"][data-fullscreen-layout=
+        "hero"] body.navbar-blur-enabled .navbar-blur,
+      body.navbar-blur-enabled .floating-btn,
+      : root.dark[data-banner-display= "fullscreen"][data-fullscreen-layout=
+        "hero"] /* 深灰 #171717 而非纯黑：纯黑在暗色下显得死、脏，深灰更透气 */
+        23 23 23 / var(--transparent-card-alpha, 0.6)
+        /* 全屏模式（经典 / 沉浸）：banner 署名胶囊不再显示——
+     两种全屏布局下内容区直接压在壁纸上，署名胶囊失去「压在横幅下沿」的
+     定位语境（会悬浮在页面中部、与波浪/内容重叠），故隐藏。
+     注：此处用 display:none 隐藏，不做服务端条件渲染，因为布局属性在
+     访客切换壁纸模式时是运行时变更的，需要随之即时显隐。
+     必须 !important：胶囊自带 .flex（display:flex，utilities 层），
+     未加 important 的声明会被其打败（同 disabled / transparent 两条的处理） */
+        html[data-banner-display= "fullscreen"] #banner-credit {display: none
+        !important;}
     ) !important;
     --card-bg: rgb(0 0 0 / var(--transparent-card-alpha, 0.6));
   }
@@ -2743,3 +2785,9 @@ html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
   .navbar-blur {
   background-color: transparent !important;
 }
+
+/* 块5：壁纸容器过渡补显式 0 长度（上游「改既有」块，本地无对应删除行 ⇒ 直接追加） */
+/* 必须显式写 0 长度：透明模式下 .enable-banner 不命中，本项会落到初始值 none，
+       而 none 与长度不可插值 —— 与横幅/全屏经典（translate: 0 extend）互切时
+       这项会瞬时而 top 走过渡，形成小幅错位再归位（「上下轻微摇摆」） */
+translate: 0 0 !important;
