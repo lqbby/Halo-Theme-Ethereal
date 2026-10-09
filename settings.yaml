@@ -1446,6 +1446,330 @@ spec:
                   label: 游戏条目可点击跳转 Steam 商店
                   value: true
             - $formkit: array
+              name: mobileWidgets
+              label: 移动端小组件（<768px）
+              help: "仅移动端（<768px）显示的小组件，按顺序排列；留空则移动端沿用「内容 → 左栏 → 右栏」顺序"
+              value: []
+              children:
+                - $formkit: select
+                  name: value
+                  id: widgets_value
+                  label: 部件
+                  options:
+                    - label: 热门文章
+                      value: popular-posts
+                    - label: 文章分类
+                      value: categories
+                    - label: 文章标签
+                      value: tag
+                    - label: 音乐播放器
+                      value: music
+                    - label: 一言
+                      value: hitokoto
+                    - label: 站点统计
+                      value: site-stats
+                    - label: 访客计数
+                      value: moe-counter
+                    - label: 天气
+                      value: weather
+                    - label: 最近日程
+                      value: schedule
+                    - label: Steam 游戏状态
+                      value: steam
+                    - label: 自定义HTML
+                      value: html
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_posts
+                  key: widget_site_stats_show_posts
+                  preserve: true
+                  label: 显示文章数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_categories
+                  key: widget_site_stats_show_categories
+                  preserve: true
+                  label: 显示分类数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_tags
+                  key: widget_site_stats_show_tags
+                  preserve: true
+                  label: 显示标签数
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_total_words
+                  key: widget_site_stats_show_total_words
+                  preserve: true
+                  label: 显示总字数
+                  value: true
+                  help: "未安装「API 拓展包」插件时由客户端逐篇统计，文章较多会有额外请求"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_last_activity
+                  key: widget_site_stats_show_last_activity
+                  preserve: true
+                  label: 显示最后活动
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_running_days
+                  key: widget_site_stats_show_running_days
+                  preserve: true
+                  label: 显示运行天数
+                  value: true
+                  help: "需同时在下方选择网站上线日期，未选择则不显示该项"
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_visits
+                  key: widget_site_stats_show_visits
+                  preserve: true
+                  label: 显示访问量
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_upvotes
+                  key: widget_site_stats_show_upvotes
+                  preserve: true
+                  label: 显示点赞数
+                  value: false
+                - $formkit: checkbox
+                  if: "$value.value === 'site-stats'"
+                  name: show_comments
+                  key: widget_site_stats_show_comments
+                  preserve: true
+                  label: 显示评论数
+                  value: false
+                - $formkit: date
+                  if: "$value.value === 'site-stats'"
+                  name: site_start_date
+                  key: widget_site_stats_site_start_date
+                  preserve: true
+                  label: 网站上线日期
+                  help: "用于计算运行天数，留空则不显示运行天数"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: tencent_key
+                  key: widget_weather_tencent_key
+                  preserve: true
+                  label: 腾讯位置服务 Key
+                  value: ""
+                  help: "WebService API 类型，免费注册：https://lbs.qq.com/dev/console/application/mine；Key 会在前端页面源码中明文出现，建议在腾讯位置服务控制台配置域名白名单。对【账户额度】下的“天气:天气”和“IP定位”分别进行配额分配，确保“调用量分配”和“并发量分配”满足网站需求。"
+                - $formkit: text
+                  if: "$value.value === 'weather'"
+                  name: default_city
+                  key: widget_weather_default_city
+                  preserve: true
+                  label: 默认城市编码
+                  value: "110000"
+                  help: "IP定位失败时的回退城市，填写行政区划编码如 110000（北京）或 310000（上海）"
+                - $formkit: url
+                  if: "$value.value === 'hitokoto'"
+                  name: hitokoto_api
+                  key: widget_hitokoto_api
+                  preserve: true
+                  label: 一言 API 地址
+                  value: ""
+                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_text
+                  key: widget_hitokoto_fallback_text
+                  preserve: true
+                  label: 获取失败文案
+                  value: "世界很大，开心第一。"
+                  help: "一言获取失败时显示的句子"
+                - $formkit: text
+                  if: "$value.value === 'hitokoto'"
+                  name: fallback_source
+                  key: widget_hitokoto_fallback_source
+                  preserve: true
+                  label: 获取失败来源
+                  value: "楠南NanNan"
+                  help: "一言获取失败时显示的作者或来源"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_source
+                  key: widget_counter_source
+                  preserve: true
+                  label: 计数来源
+                  value: "moe"
+                  options:
+                    - label: Moe-Counter 自身计数
+                      value: "moe"
+                    - label: 站点统计（Halo 访问量）
+                      value: "site"
+                  help: "选「站点统计」时数字取自 Halo 站点统计的访问量，与「站点统计」小组件的「访问量」同一来源，两处数字必然一致；看板娘 / 人物贴片仍由 Moe-Counter 主题渲染（用 num 参数注入，不写库、不自增）。1.5.24 起该模式的字形改用 Moe-Counter 的 @demo 精灵图本地拼：首访取一次即被浏览器缓存一年，之后每次导航零外部请求；若 @demo 取不到则自动回落到直接请求主题图"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_name
+                  key: widget_counter_name
+                  preserve: true
+                  label: 计数器 ID
+                  value: "lqbby"
+                  help: "Moe-Counter 的唯一 id，对应服务端 /@:name；全站建议只用一个 id"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_api
+                  key: widget_counter_api
+                  preserve: true
+                  label: 计数器服务地址
+                  value: "https://moe.lqbby.com:1443"
+                  help: "Moe-Counter 服务地址，只填地址、结尾不要加斜杠（如 https://moe.lqbby.com:1443）；若旧值带了 /get/@:id?theme=… 后缀，组件会自动裁掉"
+                - $formkit: text
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_theme
+                  key: widget_counter_theme
+                  preserve: true
+                  label: 计数器主题
+                  value: "moebooru"
+                  help: "Moe-Counter 主题名，默认 moebooru（看板娘数字）；可换 3d-num / miku / capoo-1 / minecraft 等。填 native 则改用主题配色自绘数字方块（不带看板娘）"
+                - $formkit: select
+                  if: "$value.value === 'moe-counter'"
+                  name: counter_padding
+                  key: widget_counter_padding
+                  preserve: true
+                  label: 补零位数
+                  value: "7"
+                  options:
+                    - label: 不补零
+                      value: "0"
+                    - label: 5 位
+                      value: "5"
+                    - label: 6 位
+                      value: "6"
+                    - label: 7 位（Moe-Counter 默认，推荐）
+                      value: "7"
+                    - label: 8 位
+                      value: "8"
+                  help: "不足位数时在前面补 0：7 位时 3743 会显示成 0003743 —— 这与 Moe-Counter 服务端的默认观感一致（服务端 padding 默认就是 7），也是原版主题图的样式。只影响 native 自绘与 @demo 精灵图这两种本地渲染；原版主题图由服务端补零，此处不生效"
+                - $formkit: text
+                  if: "$value.value === 'music'"
+                  name: title
+                  key: widget_music_title
+                  preserve: true
+                  label: 标题
+                  value: 音乐
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: server
+                  key: widget_music_server
+                  preserve: true
+                  label: 平台
+                  value: netease
+                  options:
+                    - label: 网易云音乐
+                      value: netease
+                    - label: QQ 音乐
+                      value: tencent
+                    - label: 酷狗音乐
+                      value: kugou
+                    - label: 虾米音乐
+                      value: xiami
+                    - label: 百度音乐
+                      value: baidu
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: type
+                  key: widget_music_type
+                  preserve: true
+                  label: 类型
+                  value: playlist
+                  options:
+                    - label: 歌曲
+                      value: song
+                    - label: 歌单
+                      value: playlist
+                    - label: 专辑
+                      value: album
+                    - label: 歌手
+                      value: artist
+                    - label: 搜索
+                      value: search
+                - $formkit: text
+                  if: "$value.value === 'music'"
+                  name: id
+                  key: widget_music_id
+                  preserve: true
+                  label: ID
+                  validation: required
+                  help: 歌曲 / 歌单 / 专辑 / 歌手 ID，搜索类型时填写关键词
+                - $formkit: select
+                  if: "$value.value === 'music'"
+                  name: play_mode
+                  key: widget_music_play_mode
+                  preserve: true
+                  label: 播放模式
+                  value: list
+                  options:
+                    - label: 列表循环
+                      value: list
+                    - label: 单曲循环
+                      value: one
+                    - label: 随机
+                      value: random
+                - $formkit: number
+                  if: "$value.value === 'music'"
+                  name: volume
+                  key: widget_music_volume
+                  preserve: true
+                  label: 默认音量
+                  min: 0
+                  max: 1
+                  step: 0.1
+                  value: 0.7
+                - $formkit: url
+                  if: "$value.value === 'music'"
+                  name: music_api
+                  key: widget_music_api
+                  preserve: true
+                  label: 自定义 Meting API
+                  help: 留空时使用 MetingJS 默认 API，地址可包含 :server、:type、:id、:r 占位符
+                - $formkit: number
+                  if: "$value.value === 'schedule'"
+                  name: limit
+                  key: widget_schedule_limit
+                  preserve: true
+                  label: 显示条数
+                  min: 1
+                  max: 10
+                  value: 3
+                  help: "显示最近日程的条数，最多10条，显示过多会导致小组件过高，建议保持默认"
+                - $formkit: textarea
+                  if: "$value.value === 'html'"
+                  name: html
+                  key: widget_html_html
+                  preserve: true
+                  label: HTML
+                  value: "<p>自定义HTML</p>"
+                - $formkit: number
+                  if: "$value.value === 'steam'"
+                  name: steam_recent_count
+                  key: widget_steam_recent_count
+                  preserve: true
+                  label: 最近游玩条数
+                  min: 1
+                  max: 6
+                  value: 3
+                  help: "侧边栏列宽固定 17.5rem（内容宽 260px），条数过多会把吸顶区顶出视口，建议 3 条"
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_show_stats
+                  key: widget_steam_show_stats
+                  preserve: true
+                  label: 显示统计（游戏数 / 总时长 / 近两周）
+                  value: true
+                - $formkit: checkbox
+                  if: "$value.value === 'steam'"
+                  name: steam_enable_link
+                  key: widget_steam_enable_link
+                  preserve: true
+                  label: 游戏条目可点击跳转 Steam 商店
+                  value: true
+            - $formkit: array
               name: rightWidgets
               label: 右侧边栏小部件
               help: "仅三栏布局（布局设置中的页面布局）下生效，两栏布局时不显示右侧边栏;点击部件进行详细配置"

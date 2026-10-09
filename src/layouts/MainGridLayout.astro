@@ -7,6 +7,10 @@ import Navbar from "../components/Navbar.astro";
 import HomeMoments from "../components/HomeMoments.astro";
 import RightSideBar from "../components/widget/RightSideBar.astro";
 import SideBar from "../components/widget/SideBar.astro";
+// 小组件分派片段库（上游 7e6c87c）：这里渲染一次「定义」，两侧栏/移动端用
+// th:replace="~{::widgetSwitch(${widget}, ${widgetStat.index})}" 引用它。
+// 片段外层是 th:if="false" ⇒ 本处不产生任何可见输出（零副作用）
+import WidgetSwitch from "../components/widget/WidgetSwitch.astro";
 import TOC from "../components/widget/TOC.astro";
 import {
   bannerMobileThWith,
@@ -479,6 +483,10 @@ const {
             </div>
           </main>
         </div>
+
+        <!-- 小组件分派片段库的定义处：th:if="false" ⇒ 不产生可见输出，
+             只为让 th:replace="~{::widgetSwitch(...)}" 能在本页解析到片段 -->
+        <WidgetSwitch />
 
         <!-- 左侧栏 - 移动端第二项，平板端用 grid 放到左侧；
              三栏模式下跨两行（与右侧栏等高对齐） -->

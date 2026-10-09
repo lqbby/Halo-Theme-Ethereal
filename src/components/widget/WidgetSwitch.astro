@@ -1,0 +1,90 @@
+---
+/**
+ * 小组件分派片段（Thymeleaf 片段库）：全套 `th:switch` 只在这里定义一次（上游 7e6c87c）。
+ *
+ * 引用方式：各侧栏在自己的 `th:each="widget, widgetStat : ..."` 迭代体内写
+ *   <div th:replace="~{::widgetSwitch(${widget}, ${widgetStat.index})}"></div>
+ * Thymeleaf 把它替换成本片段的渲染结果；条目配置以片段参数传入，其余上下文由调用处继承。
+ * 定义处由 MainGridLayout 渲染一次（外层 th:if="false" ⇒ 不产生任何可见输出）。
+ *
+ * ⚠️ 三个硬约束（改动前必读）：
+ * 1. 外层 th:if="false" 守卫只负责「定义处不渲染」——片段选择走解析树、不受它影响，
+ *    引用处照常取得到；守卫**不能**写进片段根元素，否则副本连条件一起复制、渲染结果为空。
+ * 2. 片段根元素必须自带 class="contents"：th:replace 是整体替换，不保留引用点 div 的属性。
+ * 3. 本地特有：music / weather 两张卡带「按索引错峰」的 animation-delay（上游那份片段没有），
+ *    由第二个参数 index 传入 —— 两栏与移动端必须都传 `widgetStat.index`。
+ */
+import Announcement from "./Announcement.astro";
+import Categories from "./Categories.astro";
+import Hitokoto from "./Hitokoto.astro";
+import MoeCounter from "./MoeCounter.astro";
+import MusicPlayer from "./MusicPlayer.astro";
+import PopularPosts from "./PopularPosts.astro";
+import Profile from "./Profile.astro";
+import RecentComments from "./RecentComments.astro";
+import Schedule from "./Schedule.astro";
+import SiteStats from "./SiteStats.astro";
+import SteamCard from "./SteamCard.astro";
+import Tags from "./Tags.astro";
+import Weather from "./Weather.astro";
+---
+
+<div th:if="false">
+  <div
+    class="contents"
+    th:fragment="widgetSwitch(widget, index)"
+    th:switch="${widget.value}"
+  >
+    <div class="contents" th:case="'profile'">
+      <Profile class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'announcement'">
+      <Announcement class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'categories'">
+      <Categories class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'tag'">
+      <Tags class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'music'">
+      <MusicPlayer
+        class="onload-animation"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+      />
+    </div>
+    <div class="contents" th:case="'hitokoto'">
+      <Hitokoto class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'site-stats'">
+      <SiteStats class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'moe-counter'">
+      <MoeCounter class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'weather'">
+      <Weather
+        class="onload-animation"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+      />
+    </div>
+    <div class="contents" th:case="'popular-posts'">
+      <PopularPosts class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'schedule'">
+      <Schedule class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'steam'">
+      <SteamCard class="onload-animation" />
+    </div>
+    <div class="contents" th:case="'recent-comments'">
+      <RecentComments class="onload-animation" />
+    </div>
+    <div
+      th:case="'html'"
+      class="card-base onload-animation p-4"
+      th:utext="${widget.html}"
+    >
+    </div>
+  </div>
+</div>
