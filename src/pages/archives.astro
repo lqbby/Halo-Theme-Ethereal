@@ -266,11 +266,6 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   <script is:inline>
     // @ts-nocheck 浏览器运行时脚本
     (function () {
-      var ACTIVE_CLASSES = [
-        "bg-(--primary)",
-        "text-white",
-        "dark:text-black/70",
-      ];
       // 局部加载进行中标记：退场过渡/拉取期间忽略重复点击，避免重叠切换。
       var loading = false;
       var exitTimer = null;
@@ -516,8 +511,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
         }
       }
 
-      // 激活态切换：按目标 URL 的筛选参数匹配各 tab（全部/分类/未分类），
-      // 客户端增删 active class（Tailwind 规则已由服务端渲染的 active tab 保证存在）。
+      // 激活态切换：按目标 URL 的筛选参数匹配各 tab（全部/分类/未分类）。
+      // ⚠️ 池已改为胶囊池（`.seg-item` + `.seg-thumb` 浮块）：
+      // ① 只切换 `.seg-active`（旧胶囊的 bg-(--primary)/text-white 会与浮块打架）；
+      // ② 切完必须调用全局滑块脚本 refresh() 重定位浮块 —— 池是 PJAX 之外不重渲染的
+      //    （框二保持不动），不刷新就会「点了分类但滑块不动」。
       function setActiveTab(url) {
         var target = new URL(url, window.location.origin).searchParams;
         var tabBox = document.getElementById("archive-filter-tabs");
@@ -527,10 +525,11 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
           var active =
             (hp.get("category") || "") === (target.get("category") || "") &&
             hp.has("uncategorized") === target.has("uncategorized");
-          ACTIVE_CLASSES.forEach(function (c) {
-            a.classList[active ? "add" : "remove"](c);
-          });
+          a.classList[active ? "add" : "remove"]("seg-active");
         });
+        if (window.__etherealFilterSeg && window.__etherealFilterSeg.refresh) {
+          window.__etherealFilterSeg.refresh();
+        }
       }
 
       // 局部加载：分类 tab 点击 → 只替换框三 #archive-list，框一/框二保持不动。
