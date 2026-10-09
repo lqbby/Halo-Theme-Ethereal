@@ -78,8 +78,11 @@ import { guardOnce, onPageView } from "../../utils/once";
       var val = chips[i].getAttribute("data-pf-value");
       var on = (state[dim] || ALL) === val;
       chips[i].classList.toggle("is-active", on);
+      // 池已改胶囊池：同步 .seg-active 让浮块跟随（否则滑块不动）
+      chips[i].classList.toggle("seg-active", on);
       chips[i].setAttribute("aria-pressed", on ? "true" : "false");
     }
+    if (window.__pfSegRefresh) window.__pfSegRefresh();
   }
 
   function setTagChip() {
