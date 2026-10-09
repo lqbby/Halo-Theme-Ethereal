@@ -30,7 +30,11 @@ import {
   getHue,
   setHue,
 } from "../utils/setting-utils";
-import { scrollDownToContent, scrollFunction } from "../utils/scroll-manager";
+import {
+  scrollDownToContent,
+  scrollFunction,
+  lockstepScrollToTop,
+} from "../utils/scroll-manager";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
 import { initLegacyAdmonitions } from "../utils/legacy-admonitions";
 import { initContentEnhance } from "../utils/content-enhance";
@@ -1002,7 +1006,16 @@ function setupSwup() {
       if (!visit?.history?.popstate && !visit?.to?.hash) {
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
+            // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
+            // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
+            // 恢复单调（随上游 v2.0.0 commit b7e94d7 移植）。
+            // 纯色 / 全屏透明无 enable-banner、无位移 ⇒ 保持原生平滑（合成器驱动）
+            if (document.body.classList.contains("enable-banner")) {
+              lockstepScrollToTop();
+            } else {
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }
           }),
         );
         return;
