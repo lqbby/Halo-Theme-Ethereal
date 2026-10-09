@@ -4,11 +4,6 @@ import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
-import "../styles/list-filter.css";
-
-// 分组胶囊点击交给 list-filter.js 做局部 PJAX（只换 [data-list-region] 的内容），
-// 故给胶囊打 data-no-swup 让 Swup 别接管这次点击（否则会走整页换页）。
-const noSwup = { "data-no-swup": "1" };
 ---
 
 <MainGridLayout
@@ -16,143 +11,152 @@ const noSwup = { "data-no-swup": "1" };
   description="#{page.equipments.description(${site.title})}"
 >
   <Fragment slot="head">
-    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <!-- SEO：canonical（本地保留，上游无此项） -->
     <Canonical path="/equipments" />
   </Fragment>
+
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
+  <!-- 头部卡：新版页头（modern，含图标水印）+ 胶囊池分组——氛围渐变由
+       卡片级 .page-head-card 承载（页头与池之间无缝）；无分组时池区不渲染 -->
+  <div class="card-base page-head-card onload-animation mb-4">
+    <!-- 标题区域 -->
+    <PageHeader
+      containerClass=""
+      titleExpr="${title}"
+      title="装备管理"
+      iconClass="icon-[material-symbols--devices-outline-rounded]"
+      eyebrow="EQUIPMENTS"
+      stats={[
+        {
+          valueExpr: "${equipments.total}",
+          value: "0",
+          labelExpr: "#{common.stat.gear}",
+          label: "装备",
+        },
+        {
+          valueExpr: "${#lists.size(groups)}",
+          value: "0",
+          labelExpr: "#{common.stat.groups}",
+          label: "分组",
+        },
+      ]}
+    />
 
-  <!-- 就地筛选区：点分组胶囊只替换本容器内的 HTML（页头/胶囊/网格/分页/空态一起换），
-       页头计数与「已筛选」徽章因此始终由服务端按新参数算好，无需任何前端状态同步。
-       激活态也一样：胶囊在 region 内部，替换后由 SSR 重新渲染 ⇒ 不写 setActiveTab。 -->
-  <div id="equipments-region" data-list-region="1">
-    <div class="card-base page-head-card onload-animation mb-4">
-      <!-- 标题区域 -->
-      <PageHeader
-        containerClass=""
-        titleExpr="${title}"
-        title="装备管理"
-        iconClass="icon-[material-symbols--devices-outline-rounded]"
-        eyebrow="EQUIPMENTS"
-        stats={[
-          {
-            valueExpr: "${equipments == null ? 0 : equipments.total}",
-            value: "0",
-            labelExpr: "#{common.stat.gear}",
-            label: "装备",
-          },
-        ]}
-      />
+    <!-- 分组标签 -->
+    <div class="px-6 pb-5 md:px-9" th:if="${not #lists.isEmpty(groups)}">
+      <div class="seg-scroll">
+        <div class="seg" data-filter-seg>
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <FilterTabs
+            segmented
+            showIfExpr="${not #lists.isEmpty(groups)}"
+            allHrefExpr="@{/equipments}"
+            allActiveExpr="#lists.isEmpty(param.group)"
+            eachExpr="group : ${groups}"
+            tabTemplate={{
+              hrefExpr: "@{/equipments(group=${group.metadata.name})}",
+              activeExpr: "#lists.contains(param.group, group.metadata.name)",
+              labelExpr: "${group.spec.displayName}",
+              countExpr: "${group.status.equipmentCount}",
+            }}
+          />
+        </div>
+      </div>
     </div>
-
-    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-      <!-- 分组标签（就地筛选触发器；选择器 = [data-list-filter] a） -->
-      <div data-list-filter="1">
-        <FilterTabs
-          showIfExpr="${not #lists.isEmpty(groups)}"
-          allHrefExpr="@{/equipments}"
-          allActiveExpr="#lists.isEmpty(param.group)"
-          eachExpr="group : ${groups}"
-          linkAttrs={noSwup}
-          tabTemplate={{
-            hrefExpr: "@{/equipments(group=${group.metadata.name})}",
-            activeExpr: "#lists.contains(param.group, group.metadata.name)",
-            labelExpr: "${group.spec.displayName}",
-            countExpr: "${group.status.equipmentCount}",
-          }}
-        />
-      </div>
-
-      <!-- 装备卡片网格（统一分页） -->
-      <div
-        th:if="${equipments != null and not #lists.isEmpty(equipments.items)}"
-        class="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-5"
-      >
-        <a
-          th:each="equipment, equipStat : ${equipments.items}"
-          th:href="${equipment.spec.url != null and (equipment.spec.url.startsWith('http') or equipment.spec.url.startsWith('//') or equipment.spec.url.startsWith('/')) ? equipment.spec.url : null}"
-          th:title="${equipment.spec.displayName}"
-          target="_blank"
-          rel="noopener noreferrer"
-          data-list-item="1"
-          th:style="|animation-delay: min(calc(var(--content-delay) + ${equipStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-          class="btn-card btn-card-outline group min-w-0 flex-col items-stretch! justify-start! gap-0 overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
-        >
-          <!-- 封面 -->
-          <div
-            th:if="${not #strings.isEmpty(equipment.spec.cover)}"
-            class="aspect-4/3 w-full overflow-hidden bg-(--btn-regular-bg)"
-          >
-            <img
-              th:src="${equipment.spec.cover}"
-              th:alt="${equipment.spec.displayName}"
-              th:attr="loading=${equipStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${equipStat.index == 0 ? 'high' : 'auto'}"
-              decoding="async"
-              class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-            />
-          </div>
-          <div
-            th:if="${#strings.isEmpty(equipment.spec.cover)}"
-            class="flex aspect-4/3 w-full items-center justify-center bg-(--btn-regular-bg) text-(--primary)/45"
-          >
-            <span
-              aria-hidden="true"
-              class="icon-[material-symbols--devices-rounded] text-6xl"></span>
-          </div>
-          <div class="flex w-full min-w-0 flex-1 flex-col p-5">
-            <!-- 名称+链接 -->
-            <div class="flex items-start gap-2">
-              <div
-                class="min-w-0 flex-1 text-base font-bold text-90 transition group-hover:text-(--primary)"
-              >
-                <span
-                  class="line-clamp-2"
-                  th:text="${equipment.spec.displayName}"
-                >
-                  Equipment
-                </span>
-              </div>
-              <span
-                th:if="${not #strings.isEmpty(equipment.spec.url)}"
-                class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"
-              ></span>
-            </div>
-            <!-- 规格 -->
-            <div
-              th:if="${not #strings.isEmpty(equipment.spec.specification)}"
-              class="mt-2 text-sm font-medium leading-5 text-(--primary)"
-              th:text="${equipment.spec.specification}"
-            >
-              Specification
-            </div>
-            <!-- 描述 -->
-            <div
-              th:if="${not #strings.isEmpty(equipment.spec.description)}"
-              class="mt-2 line-clamp-4 text-sm leading-6 text-50"
-              th:text="${equipment.spec.description}"
-            >
-              Description
-            </div>
-          </div>
-        </a>
-      </div>
-
-      <!-- 空状态 -->
-      <div
-        th:if="${equipments == null or #lists.isEmpty(equipments.items)}"
-        class="py-16 text-center text-50"
-      >
-        <span
-          class="icon-[material-symbols--inventory-2-rounded] text-5xl text-30"
-        ></span>
-        <p class="mt-4" th:text="#{page.equipments.empty}">暂无装备</p>
-      </div>
-    </section>
-
-    <EquipmentPagination context="equipments" class="mb-4 onload-animation" />
   </div>
 
-  <!-- 就地筛选脚本（装备/相册/追番共用；放在 region 之外，避免被替换掉不再执行） -->
+  <!-- 内容卡：装备网格 + 空态 -->
+  <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <!-- 装备卡片网格（统一分页） -->
+    <div
+      th:if="${equipments != null and not #lists.isEmpty(equipments.items)}"
+      class="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-5"
+    >
+      <a
+        th:each="equipment, equipStat : ${equipments.items}"
+        th:href="${equipment.spec.url != null and (equipment.spec.url.startsWith('http') or equipment.spec.url.startsWith('//') or equipment.spec.url.startsWith('/')) ? equipment.spec.url : null}"
+        th:title="${equipment.spec.displayName}"
+        target="_blank"
+        rel="noopener noreferrer"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${equipStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+        class="btn-card btn-card-outline group min-w-0 flex-col items-stretch! justify-start! gap-0 overflow-hidden rounded-xl text-left active:scale-95 onload-animation card-hover-lift"
+      >
+        <!-- 封面 -->
+        <div
+          th:if="${not #strings.isEmpty(equipment.spec.cover)}"
+          class="aspect-4/3 w-full overflow-hidden bg-(--btn-regular-bg)"
+        >
+          <img
+            th:src="${equipment.spec.cover}"
+            th:alt="${equipment.spec.displayName}"
+            loading="lazy"
+            class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+          />
+        </div>
+        <div
+          th:if="${#strings.isEmpty(equipment.spec.cover)}"
+          class="flex aspect-4/3 w-full items-center justify-center bg-(--btn-regular-bg) text-(--primary)/45"
+        >
+          <span
+            aria-hidden="true"
+            class="icon-[material-symbols--devices-rounded] text-6xl"></span>
+        </div>
+        <div class="flex w-full min-w-0 flex-1 flex-col p-5">
+          <!-- 名称+链接 -->
+          <div class="flex items-start gap-2">
+            <div
+              class="min-w-0 flex-1 text-base font-bold text-90 transition group-hover:text-(--primary)"
+            >
+              <span
+                class="line-clamp-2"
+                th:text="${equipment.spec.displayName}"
+              >
+                Equipment
+              </span>
+            </div>
+            <span
+              th:if="${not #strings.isEmpty(equipment.spec.url)}"
+              class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"
+            ></span>
+          </div>
+          <!-- 规格 -->
+          <div
+            th:if="${not #strings.isEmpty(equipment.spec.specification)}"
+            class="mt-2 text-sm font-medium leading-5 text-(--primary)"
+            th:text="${equipment.spec.specification}"
+          >
+            Specification
+          </div>
+          <!-- 描述 -->
+          <div
+            th:if="${not #strings.isEmpty(equipment.spec.description)}"
+            class="mt-2 line-clamp-4 text-sm leading-6 text-50"
+            th:text="${equipment.spec.description}"
+          >
+            Description
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- 空状态 -->
+    <div
+      th:if="${equipments == null or #lists.isEmpty(equipments.items)}"
+      class="py-16 text-center text-50"
+    >
+      <span
+        class="icon-[material-symbols--inventory-2-rounded] text-5xl text-30"
+      ></span>
+      <p class="mt-4" th:text="#{page.equipments.empty}">暂无装备</p>
+    </div>
+  </section>
+
+  <EquipmentPagination context="equipments" class="mb-4 onload-animation" />
+
+  <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
+       Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/list-filter.js?v=${ASSET_VERSION}`}
-    defer></script>
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
+    defer
+    is:inline></script>
 </MainGridLayout>
