@@ -169,44 +169,17 @@ document.addEventListener("animationend", removeOnloadAnimation);
 document.addEventListener("animationcancel", removeOnloadAnimation);
 
 // ── 首刷壁纸主题对齐 ──
-// SSR 渲染的是亮色图（src=亮色，data-theme-src=暗色）。暗色主题下若等
-// banner-theme-switch 到 DOMContentLoaded 才切暗色图，会先「亮色图渐显 →
-// 换 src 二次加载」，造成 banner 视觉跳变（"瞬间条"闪现）。故提前到 init
-// 阶段对齐：暗色下先把 src 切到 data-theme-src，showBanner 再按「图片就绪
-// 才 reveal」等待暗色图，首显即为正确主题图。亮色主题下 src===next 零副作用。
+// 对齐逻辑（暗色 source 存废 + src/位置归位）统一放在 MainGridLayout 紧随
+// #banner-wrapper 的内联脚本里，经 window.__etherealAlignBannerTheme 暴露：
+// 那里在**解析期**就按 html.dark（<head> 内联脚本已同步定档）落定壁纸，比本模块早得多
+// （本模块 import 十余个样式表）。本处 init 阶段再调一次（幂等）：
+// · 暗色下先把 src 切到 data-theme-src，showBanner 再按「图片就绪才 reveal」等待暗色图，
+//   首显即为正确主题图（亮色主题下 src===next 零副作用）；
+// · 亮色下若系统是暗色，内联脚本已移除暗色 <source>，避免「揭示出暗图再被换掉」的闪图。
+// 内联脚本缺失（异常构建）时不额外兜底：banner-theme-switch 到 DOMContentLoaded 仍会对齐。
 function alignBannerTheme() {
-  const dark = document.documentElement.classList.contains("dark");
-  document
-    .querySelectorAll<HTMLImageElement>(
-      "#banner img[data-theme-src], #banner-mobile img[data-theme-src]",
-    )
-    .forEach((img) => {
-      const darkSrc = img.getAttribute("data-theme-src");
-      if (!darkSrc) return;
-      const lightSrc = img.getAttribute("src") || "";
-      if (!img.getAttribute("data-light-src")) {
-        img.setAttribute("data-light-src", lightSrc);
-      }
-      if (!img.getAttribute("data-light-position")) {
-        img.setAttribute("data-light-position", img.style.objectPosition || "");
-      }
-      const next = dark ? darkSrc : lightSrc;
-      if (img.getAttribute("src") !== next) {
-        // srcset 清空，避免浏览器按 srcset 覆盖我们指定的 src
-        if (img.hasAttribute("srcset")) img.removeAttribute("srcset");
-        img.setAttribute("src", next);
-      }
-      // 暗色壁纸独立位置（object-position）：配置了 data-theme-position 时
-      // 覆盖，否则沿用亮色位置（与 banner-theme-switch 的 swap 保持一致）
-      const darkPos = img.getAttribute("data-theme-position") || "";
-      const pos =
-        dark && darkPos
-          ? darkPos
-          : img.getAttribute("data-light-position") || "";
-      if (img.style.objectPosition !== pos) {
-        img.style.objectPosition = pos;
-      }
-    });
+  const align = window.__etherealAlignBannerTheme;
+  if (typeof align === "function") align();
 }
 
 // ── Banner 显示 ──

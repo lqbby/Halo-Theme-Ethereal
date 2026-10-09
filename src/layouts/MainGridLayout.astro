@@ -562,6 +562,67 @@ const {
     </button>
   </div>
 
+  <!-- banner 主题对齐（必须排在下方揭示脚本之前）：
+       🔴 为什么需要它：<picture> 内的暗色 <source media="(prefers-color-scheme: dark)">
+       只认 **OS 偏好**、看不到 html.dark ⇒「站点亮色 + 系统暗色」时浏览器解析期就选中
+       暗色壁纸，要等 banner-theme-switch（defer，DOMContentLoaded）才换回亮色 ⇒ 亮色模式
+       刷新会先闪一下暗色壁纸（揭示脚本在解析期就摘了遮罩，闪得更明显）。故这里按 html.dark
+       （<head> 内联脚本已同步定档）在解析期就把主题落到壁纸上：
+       · 亮色有效 ⇒ 移除暗色 source，交还 img.src / srcset（亮色阶梯）控制权；
+       · 暗色有效 ⇒ 把 src 切到 data-theme-src（清 srcset），供揭示脚本等待「正确那张图」。
+       封装为 window.__etherealAlignBannerTheme 供 app.ts 复用（幂等；后续主题切换仍由
+       banner-theme-switch 的 MutationObserver 接管）。本脚本须紧随 #banner-wrapper。 -->
+  <script is:inline>
+    (function () {
+      window.__etherealAlignBannerTheme = function () {
+        var dark = document.documentElement.classList.contains("dark");
+        // 亮色有效时暗色 source 已无意义：留着只会在 OS 暗色下抢占解析期选择
+        if (!dark) {
+          var sources = document.querySelectorAll(
+            "#banner picture > source[data-ethereal-theme-dark], #banner-mobile picture > source[data-ethereal-theme-dark]",
+          );
+          for (var s = 0; s < sources.length; s++) {
+            if (sources[s].parentNode) {
+              sources[s].parentNode.removeChild(sources[s]);
+            }
+          }
+        }
+        var imgs = document.querySelectorAll(
+          "#banner img[data-theme-src], #banner-mobile img[data-theme-src]",
+        );
+        for (var i = 0; i < imgs.length; i++) {
+          var img = imgs[i];
+          var darkSrc = img.getAttribute("data-theme-src");
+          if (!darkSrc) continue;
+          if (!img.getAttribute("data-light-src")) {
+            img.setAttribute("data-light-src", img.getAttribute("src") || "");
+          }
+          if (!img.getAttribute("data-light-position")) {
+            img.setAttribute(
+              "data-light-position",
+              img.style.objectPosition || "",
+            );
+          }
+          var next = dark ? darkSrc : img.getAttribute("data-light-src") || "";
+          if (img.getAttribute("src") !== next) {
+            // srcset 清空，避免浏览器按 srcset 覆盖我们指定的 src
+            if (img.hasAttribute("srcset")) img.removeAttribute("srcset");
+            img.setAttribute("src", next);
+          }
+          var darkPos = img.getAttribute("data-theme-position") || "";
+          var pos =
+            dark && darkPos
+              ? darkPos
+              : img.getAttribute("data-light-position") || "";
+          if (img.style.objectPosition !== pos) {
+            img.style.objectPosition = pos;
+          }
+        }
+      };
+      window.__etherealAlignBannerTheme();
+    })();
+  </script>
+
   <!-- banner 首屏揭示：媒体就绪 + 首帧已绘制后摘 opacity-0/scale-105，不等 app.ts
        主 bundle（其 import 十余个样式表，实测会把 LCP 元素渲染推迟到 2.7s）。必须
        等首帧——元素若从未以透明态渲染过，transition 无起始值、缩放渐显整体丢失
@@ -603,17 +664,23 @@ const {
             };
             var media = el.querySelector("video, img");
             if (!media) return show();
-            if (media.tagName === "VIDEO") {
-              // readyState >= 2 为首帧可播；error 为确实加载失败，同样放行
-              if (media.readyState >= 2 || media.error) return show();
-              media.addEventListener("loadeddata", show, { once: true });
+            // 🔴 就绪判定推迟一个任务：上方对齐脚本可能刚动过候选集（移除暗色 <source> /
+            // 换 src），浏览器要到下一个任务才提交新的 currentSrc —— 立刻读 complete 会读到
+            // 「换图前」的终态（暗图已缓存时报 true）⇒ 把暗图当成就绪揭示、随即被换掉
+            // = 亮色模式刷新闪暗色壁纸。推迟一个任务后再判，读到的必是当前候选的状态。
+            setTimeout(function () {
+              if (media.tagName === "VIDEO") {
+                // readyState >= 2 为首帧可播；error 为确实加载失败，同样放行
+                if (media.readyState >= 2 || media.error) return show();
+                media.addEventListener("loadeddata", show, { once: true });
+                media.addEventListener("error", show, { once: true });
+                return;
+              }
+              // complete 覆盖加载成功与失败两种终态；在已终结的失败图上等 load/error 会永久隐藏
+              if (media.complete) return show();
+              media.addEventListener("load", show, { once: true });
               media.addEventListener("error", show, { once: true });
-              return;
-            }
-            // complete 覆盖加载成功与失败两种终态；在已终结的失败图上等 load/error 会永久隐藏
-            if (media.complete) return show();
-            media.addEventListener("load", show, { once: true });
-            media.addEventListener("error", show, { once: true });
+            }, 0);
           })(reveals[i]);
         }
       };

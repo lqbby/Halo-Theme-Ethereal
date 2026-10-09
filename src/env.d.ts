@@ -23,6 +23,9 @@ interface Window {
   // Banner 首屏揭示（MainGridLayout 紧随 #banner-wrapper 的内联脚本注入）：
   // 媒体就绪 + 首帧已绘制后摘 opacity-0/scale-105；app.ts 在 Swup 换页后复用
   __etherealRevealBanners?: () => void;
+  // Banner 主题对齐（同处内联脚本注入）：按 html.dark 决定暗色 <source> 存废与
+  // src/object-position 归位（解析期执行，早于主 bundle）；app.ts init 阶段复用
+  __etherealAlignBannerTheme?: () => void;
 }
 
 // 允许在模板元素上使用 Thymeleaf 属性（Halo 服务端渲染）
