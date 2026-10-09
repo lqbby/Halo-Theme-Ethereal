@@ -64,10 +64,14 @@ function refreshBannerExtend(): void {
     stableViewportHeight(),
     bannerExtendVh(fullscreen),
   );
-  document.documentElement.style.setProperty(
-    "--banner-height-extend",
-    `${offset}px`,
-  );
+  // 写守卫（随上游 v2.0.0 commit 138fc69 移植）：值未变时不写 —— 滚动时地址栏
+  // 收展近每帧触发 resize，重算恒为同值，而引擎对「相同值 setProperty」仍会标记
+  // 样式失效（修「地址栏滑动时壁纸抽搐」）。与上方宽度守卫叠加：宽度不变直接跳过、
+  // 即便走到这里也只在值真变化时落地
+  const next = `${offset}px`;
+  const root = document.documentElement;
+  if (root.style.getPropertyValue("--banner-height-extend") === next) return;
+  root.style.setProperty("--banner-height-extend", next);
 }
 
 // resize 守卫：移动端地址栏展开/收起同样会触发 resize，但宽度不变。此时若
