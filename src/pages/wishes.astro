@@ -18,19 +18,7 @@ import PageHeader from "../components/control/PageHeader.astro";
   description="#{page.wishes.description(${site.title})}"
 >
   <Fragment slot="head">
-    <!--
-      ⚠️⚠️ 必须判空：本页有**两种渲染模式**（见上方注释）——
-        1. 插件内置页（enableBuiltinPage=true，本站即此模式）：插件拦截 /wishes，
-           只注入 pageTitle，**singlePage 恒为 null**；
-        2. Halo 自定义页面（后台选「心愿便签」模板）：注入 singlePage。
-      裸写 ${singlePage.status.permalink} 在模式 1 下会抛
-        TemplateProcessingException: Exception evaluating SpringEL expression: "site.url + p"
-      且因响应已 commit 200 → 页面 **渲染中断在半途**（HTML 被截断），线上回源即 404。
-      回退值用常量 "/wishes"：插件内置页的路由是固定的。
-    -->
-    <Canonical
-      path="${singlePage != null ? singlePage.status.permalink : '/wishes'}"
-    />
+    <Canonical path="/wishes" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <link
       rel="stylesheet"
@@ -90,300 +78,314 @@ import PageHeader from "../components/control/PageHeader.astro";
              wishes=${wishFinder.listApproved()},
              typeMap=${wishFinder.getTypeMap()}"
   >
-    <!-- ===== 便签墙视框（含主题标题区，整体一个卡片） ===== -->
-    <div id="wishBoard" class="wish-board card-base onload-animation">
-      <!-- 主题风格标题区（头部卡：page-head-card 提供水印定位与氛围渐变） -->
-      <div class="card-base page-head-card onload-animation mb-4">
-        <div class="wish-board-header">
-          <PageHeader
-            containerClass=""
-            iconClass="icon-[material-symbols--cards-star-outline-rounded]"
-            eyebrow="WISH WALL"
-            stats={[
-              {
-                valueExpr: "${wishes == null ? 0 : #lists.size(wishes)}",
-                value: "0",
-                labelExpr: "#{common.stat.notes}",
-                label: "便签",
-              },
-            ]}
-          >
-            <span th:text="${wishesTitle}">心愿便签</span>
-            <!-- 纪念日徽章 -->
-            <div
-              th:if="${wishesDays}"
-              class="wish-days-badge-static"
-              id="wishDaysBadge"
-              th:attr="data-date=${wishesDate},data-name-a=${wishesNameA},data-name-b=${wishesNameB}"
-              slot="right"
-            >
-              <span
-                class="icon-[material-symbols--favorite-rounded] text-sm text-(--primary)"
-              ></span>
-              <span id="wishDaysContent"
-                >在一起 <span class="wish-days-num">0</span> 天</span
-              >
-            </div>
-          </PageHeader>
-          <!-- 类型筛选池（原画布内居中悬浮标签，上移至此与其他页分组池一致；
-             data-seg-ready 直出显示滑块；滑块由页尾内联脚本驱动，不走全局
-             filter-seg.js——其依 .seg-active 定位，而心愿墙是客户端筛选
-             （wishes.js 只切 .active），两者语义不同。
-             「全部」不带计数（对齐其它页）；类型计数由插件 countByType() 提供） -->
-          <div class="px-6 pb-5 md:px-9">
-            <div class="seg-scroll">
-              <div class="seg" id="wishTabs" data-seg-ready>
-                <span class="seg-thumb" aria-hidden="true"></span>
-                <button
-                  type="button"
-                  class="wish-tab seg-item active"
-                  data-wish-filter="all"
-                >
-                  <span th:text="#{common.all}">全部</span>
-                </button>
-                <button
-                  type="button"
-                  th:each="type : ${types}"
-                  class="wish-tab seg-item"
-                  th:data-wish-filter="${type.spec.slug}"
-                  th:data-wish-name="${type.spec.displayName}"
-                >
-                  <span th:text="${type.spec.displayName}">类型</span><span
-                    class="seg-cnt"
-                    th:with="typeCount=${wishFinder.countByType(type.spec.slug)}"
-                    th:text="${typeCount}">0</span
-                  >
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- 画布区（便签散布与拖动区域） -->
-        <div class="wish-board-body">
-          <!-- 便签卡片（JS 随机散布 + 可拖动） -->
-          <article
-            th:each="wish, iter : ${wishes}"
-            class="wish-card"
-            th:attr="data-color=${wish.spec.color ?: 'green'},data-wish-type=${wish.spec.type}"
-            th:style="|animation: wishCardIn .4s ease ${iter.index * 50 < 1000 ? iter.index * 50 : 1000}ms forwards|"
-          >
-            <div class="wish-card-header">
-              <div class="wish-dots">
-                <span class="wish-dot red"></span>
-                <span class="wish-dot yellow"></span>
-                <span class="wish-dot green"></span>
-              </div>
-              <span
-                class="wish-card-label"
-                th:text="${typeMap[wish.spec.type] ?: wish.spec.type}"
-                >类型</span
-              >
-            </div>
-            <div class="wish-card-body">
-              <span th:text="${wish.spec.content}">内容</span>
-              <em
-                th:if="${wish.spec.status == 'doing'}"
-                class="wish-status-text doing"
-                th:text="#{page.wishes.statusDoing}">进行中</em
-              >
-              <em
-                th:if="${wish.spec.status == 'done'}"
-                class="wish-status-text"
-                th:text="#{page.wishes.statusDone}">已达成</em
-              >
-            </div>
-            <p
-              th:if="${not #strings.isEmpty(wish.spec.doneNote)}"
-              class="wish-done-note"
-              th:text="${wish.spec.doneNote}"
-            >
-              感言
-            </p>
-            <img
-              th:if="${wish.spec.status == 'done' and wish.spec.doneImage != null and not #strings.isEmpty(wish.spec.doneImage)}"
-              class="wish-done-img"
-              th:src="${wish.spec.doneImage}"
-              alt=""
-              loading="lazy"
-            />
-            <div
-              th:if="${not #strings.isEmpty(wish.spec.aiReply)}"
-              class="wish-card-ai"
-              th:text="${wish.spec.aiReply}"
-            >
-              AI 回复
-            </div>
-            <div class="wish-card-footer">
-              <span
-                class="wish-card-nick"
-                th:text="${wish.spec.anonymous ? #messages.msg('page.wishes.anonymous') : (wish.spec.nickname ?: #messages.msg('page.wishes.anonymous'))}"
-                >匿名</span
-              >
-              <time
-                th:if="${wish.spec.createdAt != null}"
-                th:datetime="${wish.spec.createdAt}"
-                th:text="${#temporals.format(wish.spec.createdAt, 'yyyy/M/d')}"
-                >2026/1/1</time
-              >
-            </div>
-          </article>
-
-          <!-- 空状态（完全无便签） -->
+    <!-- ===== 头部卡：新版页头（modern，含图标水印）+ 类型筛选池 ===== -->
+    <div class="card-base page-head-card onload-animation mb-4">
+      <div class="wish-board-header">
+        <PageHeader
+          containerClass=""
+          iconClass="icon-[material-symbols--cards-star-outline-rounded]"
+          eyebrow="WISH WALL"
+          stats={[
+            {
+              key: "wish-notes",
+              valueExpr: "${#lists.size(wishes)}",
+              value: "0",
+              labelExpr: "#{common.stat.notes}",
+              label: "便签",
+            },
+          ]}
+        >
+          <span th:text="${wishesTitle}">心愿便签</span>
+          <!-- 纪念日片（与页头统计片同款，容器复用全局 .stat；天数由 JS 写入） -->
           <div
-            th:if="${#lists.isEmpty(wishes)}"
-            class="wish-empty"
-            id="wishEmpty"
+            th:if="${wishesDays}"
+            class="stat"
+            id="wishDaysBadge"
+            th:attr="data-date=${wishesDate},data-name-a=${wishesNameA},data-name-b=${wishesNameB}"
+            slot="right"
           >
-            <span th:text="#{page.wishes.empty}">还没有便签，来贴第一张吧</span>
+            <span
+              class="wish-days-icon icon-[material-symbols--favorite-rounded]"
+            ></span>
+            <span id="wishDaysContent"
+              >在一起 <span class="wish-days-num">0</span> 天</span
+            >
           </div>
-          <!-- 空状态（筛选后无结果，JS 控制） -->
-          <div class="wish-empty" id="wishFilterEmpty" style="display: none">
-            <span th:text="#{page.wishes.emptyFiltered}">该类型下暂无便签</span>
-          </div>
-
-          <!-- 发布输入栏（底部悬浮） -->
-          <div th:if="${wishesSubmit}" class="wish-input-bar" id="wishInputBar">
-            <input
-              type="text"
-              class="wish-input-nick"
-              id="wishNickInput"
-              th:placeholder="#{page.wishes.nicknamePlaceholder}"
-              maxlength="20"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <input
-              type="text"
-              id="wishContentInput"
-              th:placeholder="#{page.wishes.placeholder}"
-              th:maxlength="${wishesMaxLen}"
-              autocomplete="off"
-              spellcheck="false"
-            />
-            <span class="wish-char-counter" id="wishCharCounter">0/200</span>
-            <div class="wish-bar-colors" id="wishColorPicker">
-              <span
-                class="wish-bar-color active"
-                data-wish-color="green"
-                title="绿色"
-                th:title="#{page.wishes.colorGreen}"></span>
-              <span
-                class="wish-bar-color"
-                data-wish-color="yellow"
-                title="黄色"
-                th:title="#{page.wishes.colorYellow}"></span>
-              <span
-                class="wish-bar-color"
-                data-wish-color="purple"
-                title="紫色"
-                th:title="#{page.wishes.colorPurple}"></span>
-              <span
-                class="wish-bar-color"
-                data-wish-color="pink"
-                title="粉色"
-                th:title="#{page.wishes.colorPink}"></span>
-              <span
-                class="wish-bar-color"
-                data-wish-color="blue"
-                title="蓝色"
-                th:title="#{page.wishes.colorBlue}"></span>
-              <span
-                class="wish-bar-color"
-                data-wish-color="orange"
-                title="橙色"
-                th:title="#{page.wishes.colorOrange}"></span>
-            </div>
-            <button type="button" class="wish-bar-type" id="wishTypeBtn">
-              <span id="wishTypeLabel">心愿</span>
+        </PageHeader>
+      </div>
+      <!-- 类型筛选池（原画布内居中悬浮标签，上移至此与其他页分组池一致；
+           data-seg-ready 直出显示滑块；滑块由页尾内联脚本驱动，
+           不走全局 filter-seg.js——wishes.js 只切 .active（见页尾注释）。
+           「全部」不带计数（对齐其它页）；类型项计数由插件 countByType()
+           提供（插件无 URL 筛选，属客户端过滤范式） -->
+      <div class="px-6 pb-5 md:px-9">
+        <div class="seg-scroll">
+          <div class="seg" id="wishTabs" data-seg-ready>
+            <span class="seg-thumb" aria-hidden="true"></span>
+            <button
+              type="button"
+              class="wish-tab seg-item active"
+              data-wish-filter="all"
+            >
+              <span th:text="#{common.all}">全部</span>
             </button>
             <button
-              th:if="${wishesAi}"
               type="button"
-              class="wish-bar-btn polish"
-              id="wishPolishBtn"
-              th:text="#{page.wishes.polish}">润色</button
+              th:each="type : ${types}"
+              class="wish-tab seg-item"
+              th:data-wish-filter="${type.spec.slug}"
+              th:data-wish-name="${type.spec.displayName}"
             >
-            <button
-              type="button"
-              class="wish-bar-btn"
-              id="wishSubmitBtn"
-              th:text="#{page.wishes.submit}">发布</button
-            >
+              <span th:text="${type.spec.displayName}">类型</span><span
+                class="seg-cnt"
+                th:with="typeCount=${wishFinder.countByType(type.spec.slug)}"
+                th:text="${typeCount}">0</span
+              >
+            </button>
           </div>
         </div>
       </div>
     </div>
 
-    <div id="wishToast" class="wish-toast" role="status" aria-live="polite">
-    </div>
+    <!-- ===== 内容卡：便签画布（散布与拖动区域） ===== -->
+    <div id="wishBoard" class="wish-board card-base onload-animation mb-4">
+      <div class="wish-board-body">
+        <!-- 便签卡片（JS 随机散布 + 可拖动） -->
+        <article
+          th:each="wish, iter : ${wishes}"
+          class="wish-card"
+          th:attr="data-color=${wish.spec.color ?: 'green'},data-wish-type=${wish.spec.type}"
+          th:style="|animation: wishCardIn .4s ease ${iter.index * 50 < 1000 ? iter.index * 50 : 1000}ms both|"
+        >
+          <div class="wish-card-header">
+            <div class="wish-dots">
+              <span class="wish-dot red"></span>
+              <span class="wish-dot yellow"></span>
+              <span class="wish-dot green"></span>
+            </div>
+            <span
+              class="wish-card-label"
+              th:text="${typeMap[wish.spec.type] ?: wish.spec.type}">类型</span
+            >
+          </div>
+          <div class="wish-card-body">
+            <span th:text="${wish.spec.content}">内容</span>
+            <em
+              th:if="${wish.spec.status == 'doing'}"
+              class="wish-status-text doing"
+              th:text="#{page.wishes.statusDoing}">进行中</em
+            >
+            <em
+              th:if="${wish.spec.status == 'done'}"
+              class="wish-status-text"
+              th:text="#{page.wishes.statusDone}">已达成</em
+            >
+          </div>
+          <p
+            th:if="${not #strings.isEmpty(wish.spec.doneNote)}"
+            class="wish-done-note"
+            th:text="${wish.spec.doneNote}"
+          >
+            感言
+          </p>
+          <img
+            th:if="${wish.spec.status == 'done' and wish.spec.doneImage != null and not #strings.isEmpty(wish.spec.doneImage)}"
+            class="wish-done-img"
+            th:src="${wish.spec.doneImage}"
+            alt=""
+            loading="lazy"
+          />
+          <div
+            th:if="${not #strings.isEmpty(wish.spec.aiReply)}"
+            class="wish-card-ai"
+            th:text="${wish.spec.aiReply}"
+          >
+            AI 回复
+          </div>
+          <div class="wish-card-footer">
+            <span
+              class="wish-card-nick"
+              th:text="${wish.spec.anonymous ? #messages.msg('page.wishes.anonymous') : (wish.spec.nickname ?: #messages.msg('page.wishes.anonymous'))}"
+              >匿名</span
+            >
+            <time
+              th:if="${wish.spec.createdAt != null}"
+              th:datetime="${wish.spec.createdAt}"
+              th:text="${#temporals.format(wish.spec.createdAt, 'yyyy/M/d')}"
+              >2026/1/1</time
+            >
+          </div>
+        </article>
 
-    <!-- 心愿池滑块：wishes.js 点击只切 .active（客户端筛选），此处独立驱动 .seg-thumb。
-       不走全局 filter-seg.js——其依 .seg-active 定位且 refresh 会把滑块弹回；
-       本脚本以 .active 为准，点击/载入/缩放时校正。 -->
-    <script is:inline>
-      (function () {
-        function placeTo(el, animate) {
-          var seg = document.getElementById("wishTabs");
-          if (!seg || !el) return;
-          var thumb = seg.querySelector(".seg-thumb");
-          if (!thumb) return;
-          if (animate !== true) thumb.style.transition = "none";
-          thumb.style.width = el.offsetWidth + "px";
-          thumb.style.transform = "translateX(" + el.offsetLeft + "px)";
-          if (animate !== true) {
-            void thumb.offsetWidth;
-            thumb.style.transition = "";
+        <!-- 空状态（完全无便签） -->
+        <div
+          th:if="${#lists.isEmpty(wishes)}"
+          class="wish-empty"
+          id="wishEmpty"
+        >
+          <span th:text="#{page.wishes.empty}">还没有便签，来贴第一张吧</span>
+        </div>
+        <!-- 空状态（筛选后无结果，JS 控制） -->
+        <div class="wish-empty" id="wishFilterEmpty" style="display: none">
+          <span th:text="#{page.wishes.emptyFiltered}">该类型下暂无便签</span>
+        </div>
+
+        <!-- 发布输入栏（底部悬浮） -->
+        <div th:if="${wishesSubmit}" class="wish-input-bar" id="wishInputBar">
+          <input
+            type="text"
+            class="wish-input-nick"
+            id="wishNickInput"
+            th:placeholder="#{page.wishes.nicknamePlaceholder}"
+            maxlength="20"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <input
+            type="text"
+            id="wishContentInput"
+            th:placeholder="#{page.wishes.placeholder}"
+            th:maxlength="${wishesMaxLen}"
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <span class="wish-char-counter" id="wishCharCounter">0/200</span>
+          <div class="wish-bar-colors" id="wishColorPicker">
+            <span
+              class="wish-bar-color active"
+              data-wish-color="green"
+              title="绿色"
+              th:title="#{page.wishes.colorGreen}"></span>
+            <span
+              class="wish-bar-color"
+              data-wish-color="yellow"
+              title="黄色"
+              th:title="#{page.wishes.colorYellow}"></span>
+            <span
+              class="wish-bar-color"
+              data-wish-color="purple"
+              title="紫色"
+              th:title="#{page.wishes.colorPurple}"></span>
+            <span
+              class="wish-bar-color"
+              data-wish-color="pink"
+              title="粉色"
+              th:title="#{page.wishes.colorPink}"></span>
+            <span
+              class="wish-bar-color"
+              data-wish-color="blue"
+              title="蓝色"
+              th:title="#{page.wishes.colorBlue}"></span>
+            <span
+              class="wish-bar-color"
+              data-wish-color="orange"
+              title="橙色"
+              th:title="#{page.wishes.colorOrange}"></span>
+          </div>
+          <button type="button" class="wish-bar-type" id="wishTypeBtn">
+            <span id="wishTypeLabel">心愿</span>
+          </button>
+          <button
+            th:if="${wishesAi}"
+            type="button"
+            class="wish-bar-btn polish"
+            id="wishPolishBtn"
+            th:text="#{page.wishes.polish}">润色</button
+          >
+          <button
+            type="button"
+            class="wish-bar-btn"
+            id="wishSubmitBtn"
+            th:text="#{page.wishes.submit}">发布</button
+          >
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="wishToast" class="wish-toast" role="status" aria-live="polite"></div>
+
+  <!-- 心愿池滑块：wishes.js 点击只切 .active（客户端筛选），此处独立驱动
+       .seg-thumb。不走全局 filter-seg.js——其依 .seg-active 定位且 refresh
+       会把滑块弹回；本脚本以 .active 为准，点击/载入/缩放时校正。 -->
+  <script is:inline>
+    (function () {
+      function placeTo(el, animate) {
+        var seg = document.getElementById("wishTabs");
+        if (!seg || !el) return;
+        var thumb = seg.querySelector(".seg-thumb");
+        if (!thumb) return;
+        if (animate !== true) thumb.style.transition = "none";
+        thumb.style.width = el.offsetWidth + "px";
+        thumb.style.transform = "translateX(" + el.offsetLeft + "px)";
+        if (animate !== true) {
+          void thumb.offsetWidth;
+          thumb.style.transition = "";
+        }
+      }
+      function place(animate) {
+        var seg = document.getElementById("wishTabs");
+        if (!seg) return;
+        placeTo(
+          seg.querySelector(".wish-tab.active") ||
+            seg.querySelector(".wish-tab"),
+          animate,
+        );
+      }
+      // 页头「x 便签」统计片：类型筛选是客户端行为，服务端给的是全部已通过张数，
+      // 需要按当前可见卡片重算。放在内联脚本而非 wishes.js：外部脚本 URL 带
+      // 固定 ?v=<主题版本>，版本未升时浏览器可能命中旧缓存（本项曾因此不生效），
+      // 内联脚本始终随模板更新。
+      function syncNotesStat() {
+        var stat = document.querySelector('[data-stat="wish-notes"] b');
+        if (!stat) return;
+        var cards = document.querySelectorAll(".wish-card");
+        if (cards.length === 0) return;
+        var visible = 0;
+        cards.forEach(function (card) {
+          if (card.style.display !== "none") visible++;
+        });
+        stat.textContent = String(visible);
+      }
+      function bind() {
+        var seg = document.getElementById("wishTabs");
+        if (!seg || seg.dataset.wishSegBound === "1") return;
+        seg.dataset.wishSegBound = "1";
+        seg.addEventListener("click", function (e) {
+          var btn =
+            e.target && e.target.closest ? e.target.closest(".wish-tab") : null;
+          if (btn) {
+            // 点击预移动（与全局 filter-seg.js 同款手感）：先滑向被点项，
+            // 再等 wishes.js 切换 .active 后校正（同一次点击，注册顺序不定）
+            placeTo(btn, true);
+            setTimeout(function () {
+              place(true);
+              syncNotesStat();
+            }, 0);
           }
-        }
-        function place(animate) {
-          var seg = document.getElementById("wishTabs");
-          if (!seg) return;
-          placeTo(
-            seg.querySelector(".wish-tab.active") ||
-              seg.querySelector(".wish-tab"),
-            animate,
-          );
-        }
-        function bind() {
-          var seg = document.getElementById("wishTabs");
-          if (!seg || seg.dataset.wishSegBound === "1") return;
-          seg.dataset.wishSegBound = "1";
-          seg.addEventListener("click", function (e) {
-            var btn =
-              e.target && e.target.closest
-                ? e.target.closest(".wish-tab")
-                : null;
-            if (btn) {
-              // 点击预移动（与全局 filter-seg.js 同款手感）：先滑向被点项，
-              // 再等 wishes.js 切换 .active 后校正（同一次点击，注册顺序不定）
-              placeTo(btn, true);
-              setTimeout(function () {
-                place(true);
-              }, 0);
-            }
-          });
-          window.addEventListener("resize", function () {
-            place(false);
-          });
-          window.addEventListener("load", function () {
-            place(false);
-          });
-          place(false);
-        }
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", bind);
-        } else {
-          bind();
-        }
-        document.addEventListener("astro:page-load", bind);
-        document.addEventListener("astro:page-load", function () {
+        });
+        window.addEventListener("resize", function () {
           place(false);
         });
-      })();
-    </script>
+        window.addEventListener("load", function () {
+          place(false);
+        });
+        place(false);
+      }
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", bind);
+      } else {
+        bind();
+      }
+      document.addEventListener("astro:page-load", bind);
+      document.addEventListener("astro:page-load", function () {
+        place(false);
+      });
+    })();
+  </script>
 
-    <script
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.js?v=${ASSET_VERSION}`}
-      defer></script>
-  </div>
+  <script
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.js?v=${ASSET_VERSION}`}
+    defer
+    is:inline></script>
 </MainGridLayout>

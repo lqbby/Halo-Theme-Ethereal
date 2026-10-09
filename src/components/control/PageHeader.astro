@@ -23,6 +23,8 @@ interface HeaderStat {
   value: string;
   labelExpr: string;
   label: string;
+  /** 可选：渲染为 .stat 的 data-stat（供 CSS/脚本按片定位，上游同款） */
+  key?: string;
 }
 
 interface Props {
@@ -68,7 +70,7 @@ const hasRight = Astro.slots.has("right");
       (stats && stats.length > 0) || hasRight ? (
         <div class="flex flex-wrap items-end gap-2.5">
           {stats?.map((st) => (
-            <div class="stat">
+            <div class="stat" data-stat={st.key}>
               <b th:text={st.valueExpr}>{st.value}</b>
               <span th:text={st.labelExpr}>{st.label}</span>
             </div>

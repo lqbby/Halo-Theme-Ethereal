@@ -26,8 +26,10 @@ import PageHeader from "../components/control/PageHeader.astro";
           transform: rotate(360deg);
         }
       }
+      /* 折叠面板展开指示：形状来自公共 .round-triangle（components.css），
+         这里只负责展开态旋转（▶ → ▼） */
       .collapse-icon.is-expanded {
-        transform: rotate(180deg);
+        transform: rotate(90deg);
       }
       .collapse-inner ul,
       .step-desc ul {
@@ -45,10 +47,12 @@ import PageHeader from "../components/control/PageHeader.astro";
         text-decoration: underline;
       }
 
-      /* ── 友链就地筛选（搜索框 + 分组胶囊）：点击/输入即刷新卡片列表，不跳转、不重载 ──
-         参考 cuteleaf/friends 的交互（friend-filter 自定义元素）。
-         注意：本块是「未分层」的作者样式，天然胜过 Tailwind @layer 里的 .btn-card
-         背景/hover，故激活态无需 !important。 */
+      /* 搜索框：全宽横在内容卡顶部（列表上方），只过滤当前页已渲染的卡片
+         （分组跳转仍走服务端）。视觉沿用主题输入框语言（= 申请友链模态框
+         .link-apply-field input：1.5px 主题色 18% 边框 + 4% 淡底 + 0.75rem
+         圆角）；padding 撑出的高度（≈42px）作为舒展的工具条。focus 不做
+         表单那套「底变实色」（全宽实底视觉过重），只加强边框与光环。
+         行为（输入即过滤 / 整组隐藏 / 空态）见 links.bundle.js 末尾 IIFE */
       .links-search {
         position: relative;
       }
@@ -57,49 +61,75 @@ import PageHeader from "../components/control/PageHeader.astro";
         left: 0.75rem;
         top: 50%;
         translate: 0 -50%;
-        font-size: 1.125rem;
+        font-size: 1rem;
         color: color-mix(in oklab, var(--deep-text) 45%, transparent);
         pointer-events: none;
       }
       .links-search-input {
         width: 100%;
+        border: 1.5px solid color-mix(in oklab, var(--primary) 18%, transparent);
         border-radius: 0.75rem;
-        border: 1px solid var(--line-divider);
-        background: transparent;
-        padding: 0.625rem 0.875rem 0.625rem 2.5rem;
-        font-size: 0.875rem;
-        line-height: 1.5;
+        background: color-mix(in oklab, var(--primary) 4%, transparent);
         color: var(--deep-text);
+        padding: 0.625rem 2.25rem 0.625rem 2.125rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
         outline: none;
+        font-family: inherit;
         transition:
-          border-color 0.2s ease,
-          box-shadow 0.2s ease;
+          border-color 0.2s,
+          box-shadow 0.2s;
       }
       .links-search-input::placeholder {
-        color: color-mix(in oklab, var(--deep-text) 40%, transparent);
+        opacity: 0.4;
       }
-      .links-search-input:focus-visible {
+      .links-search-input:hover {
+        border-color: color-mix(in oklab, var(--primary) 35%, transparent);
+      }
+      .links-search-input:focus {
         border-color: var(--primary);
         box-shadow: 0 0 0 3px
-          color-mix(in oklab, var(--primary) 22%, transparent);
+          color-mix(in oklab, var(--primary) 15%, transparent);
       }
-      /* 胶囊激活态：与 FilterTab 激活样式一致（primary 底 + 反色文字）；
-         显式写 :hover 覆盖 .btn-card 的 hover 背景，避免悬停时「激活色」被顶掉。
-         ⚠️ 2 处坑（与 /portfolio 的 .pf-chip 同源，一起修）：
-         ① components.css 里「全屏透明 + 高级材质」的卡片磨砂带 `!important`，
-            分层 important 恒胜无层普通声明 ⇒ 激活底会被换成半透明白/黑、反色
-            文字整条看不见；已在那边选择器排除 `.is-active`。
-         ② 文字用 --on-primary 而非 #fff：主色亮度恒为 L .7/.75，白字约 2.3:1
-            不达 AA；--on-primary 语义即「主色之上的文字」，明暗都 >5:1，
-            故不再需要 `.dark` 反色补丁。 */
-      .link-chip.is-active,
-      .link-chip.is-active:hover {
-        background: var(--primary);
-        color: var(--on-primary);
-        border-color: transparent;
+      /* 清空按钮：搜索框内部右侧，SSR 带 hidden，有输入时由脚本摘掉 hidden 显示。
+         按压内凹走主题按钮惯例（active:scale-95 类 + 下方 scale 过渡，
+         过渡参数同池项 .seg-item；active 底色 20% 同 .act-outline） */
+      .links-search-clear {
+        position: absolute;
+        right: 0.5rem;
+        top: 50%;
+        translate: 0 -50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.75rem;
+        height: 1.75rem;
+        border: 0;
+        border-radius: 0.5rem;
+        background: none;
+        color: color-mix(in oklab, var(--deep-text) 55%, transparent);
+        cursor: pointer;
+        transition:
+          background-color 0.15s ease,
+          color 0.15s ease,
+          scale 0.15s cubic-bezier(0.4, 0, 0.2, 1);
       }
-      /* 「点击刷新」的入场反馈：筛选后卡片重新出现时上移淡入。
-         用独立动画名（而非复用 fade-in-up），以便再次点击时可靠重播 */
+      /* (0,2,0) 稳定压过 Tailwind .hidden（同属性胜负不依赖产物顺序） */
+      .links-search-clear.hidden {
+        display: none;
+      }
+      .links-search-clear:hover {
+        background: color-mix(in oklab, var(--primary) 12%, transparent);
+        color: var(--primary);
+      }
+      .links-search-clear:active {
+        background: color-mix(in oklab, var(--primary) 20%, transparent);
+      }
+
+      /* 搜索结果入场动画：脚本给「由隐藏变显示」的卡片加 .link-card-enter，
+         内联 animation-delay 承载错峰（与列表首屏错峰同款 min(…, --dur-entry-max)）。
+         :root 前缀提高特异性——卡片同时带 .onload-animation（首屏入场），
+         两条 animation 简写同特异性时胜负取决于构建后的样式表顺序，不可靠 */
       @keyframes links-card-in {
         from {
           opacity: 0;
@@ -110,17 +140,20 @@ import PageHeader from "../components/control/PageHeader.astro";
           translate: 0 0;
         }
       }
-      .link-card-enter {
+      :root .link-card-enter {
         animation: links-card-in var(--dur-entry, 300ms) ease both;
       }
       @media (prefers-reduced-motion: reduce) {
-        .link-card-enter {
+        :root .link-card-enter {
           animation: none;
         }
       }
     </style>
   </Fragment>
 
+  <!-- 头部卡：新版页头（modern，含图标水印）+ 胶囊池分组——氛围渐变由
+       卡片级 .page-head-card 承载（页头与池之间无缝）。无分组时池区不渲染
+       （头部卡保留）；页头自带内距，卡不再包 px/py -->
   <div class="card-base page-head-card onload-animation mb-4">
     <PageHeader
       containerClass=""
@@ -130,11 +163,17 @@ import PageHeader from "../components/control/PageHeader.astro";
       eyebrow="LINKS"
       stats={[
         {
-          valueExpr:
-            "${groups == null ? 0 : #aggregates.sum(groups.![links.size()])}",
+          key: "links-friends",
+          valueExpr: "${#aggregates.sum(groups.![links.size()])}",
           value: "0",
           labelExpr: "#{common.stat.friends}",
           label: "朋友",
+        },
+        {
+          valueExpr: "${#lists.size(groups)}",
+          value: "0",
+          labelExpr: "#{common.stat.groups}",
+          label: "分组",
         },
       ]}
     >
@@ -143,44 +182,22 @@ import PageHeader from "../components/control/PageHeader.astro";
         type="button"
         id="random-visit-btn"
         th:attr="data-random-groups=${theme.config?.links?.features?.random_visit_groups}"
-        class="random-visit-btn btn-regular group h-11 w-fit rounded-xl px-4 text-sm font-bold active:scale-95"
+        class="random-visit-btn act-outline group w-fit active:scale-95"
         title="随机访问一个友链"
         th:title="#{page.links.randomVisitTitle}"
         slot="right"
       >
         <span
-          class="random-visit-icon icon-[material-symbols--shuffle-rounded] mr-1.5 text-base transition-transform group-hover:scale-110"
+          class="random-visit-icon icon-[material-symbols--shuffle-rounded] text-base"
         ></span>
         <span class="random-visit-label" th:text="#{page.links.randomVisit}"
           >随机访问</span
         >
       </button>
     </PageHeader>
-  </div>
 
-  <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-    <!-- 搜索框 + 分组胶囊：点击/输入即就地刷新卡片列表（不跳转、不重载；行为见 links.bundle.js）
-         胶囊由 <a href="/links?group=…"> 改为 <button>，分组筛选完全在客户端完成 ⇒ 全部分组
-         恒渲染，任何过滤状态都能就地还原（不再依赖 param.group 的 SSR 过滤）。 -->
-    <div th:if="${not #lists.isEmpty(groups)}" class="mb-6">
-      <div class="links-search mb-3">
-        <span
-          class="links-search-icon icon-[material-symbols--search]"
-          aria-hidden="true"></span>
-        <input
-          id="links-search"
-          type="text"
-          autocomplete="off"
-          spellcheck="false"
-          th:placeholder="#{page.links.searchPlaceholder}"
-          th:aria-label="#{page.links.searchPlaceholder}"
-          placeholder="搜索友链..."
-          class="links-search-input"
-        />
-      </div>
-      <!-- 分组胶囊池（segmented，服务端链接；原自研 .link-chip 按钮的就地显隐已换成
-           与全站一致的滑动浮块形态，滑块脚本见页尾 filter-seg.js） -->
-      <div class="seg-scroll mt-3" th:if="${not #lists.isEmpty(groups)}">
+    <div class="px-6 pb-5 md:px-9" th:if="${not #lists.isEmpty(groups)}">
+      <div class="seg-scroll">
         <div class="seg" data-filter-seg>
           <span class="seg-thumb" aria-hidden="true"></span>
           <FilterTabs
@@ -201,673 +218,749 @@ import PageHeader from "../components/control/PageHeader.astro";
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- 内容卡：搜索 + 友链列表 + 空态。搜索框全宽横在列表上方：
+       只过滤当前页已渲染的卡片（换组跳转后在新页面内搜），视觉见上方
+       <style> 的 .links-search 段，行为见 links.bundle.js 末尾 IIFE -->
+  <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <div
+      th:if="${not #lists.isEmpty(groups) and theme.config?.links?.features?.enable_search != false}"
+      class="links-search mb-4"
+    >
+      <span
+        class="links-search-icon icon-[material-symbols--search-rounded]"
+        aria-hidden="true"></span>
+      <input
+        id="links-search"
+        type="text"
+        autocomplete="off"
+        spellcheck="false"
+        th:placeholder="#{page.links.searchPlaceholder}"
+        th:aria-label="#{page.links.searchPlaceholder}"
+        placeholder="搜索友链..."
+        class="links-search-input"
+      />
+      <button
+        type="button"
+        id="links-search-clear"
+        class="links-search-clear active:scale-95 hidden"
+        th:aria-label="#{page.links.searchClear}"
+        th:title="#{page.links.searchClear}"
+      >
+        <span class="icon-[material-symbols--close-rounded] text-base"></span>
+      </button>
+    </div>
+
+    <div
+      th:if="${not #lists.isEmpty(groups)}"
+      id="links-grid"
+      class="space-y-8"
+    >
+      <section
+        th:each="group, groupStat : ${groups}"
+        th:if="${(#lists.isEmpty(param.group) or #lists.contains(param.group, group.spec.displayName)) and not #lists.isEmpty(group.links)}"
+        th:attr="data-link-section=${group.spec.displayName}"
+        th:style="|animation-delay: min(calc(var(--content-delay) + ${groupStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+        class="onload-animation"
+      >
+        <div class="mb-4 flex items-center justify-between gap-4">
+          <div class="flex min-w-0 items-center gap-3">
+            <div class="title-icon" aria-hidden="true">
+              <span
+                class="icon-[material-symbols--link-rounded] text-[1.25rem] text-(--primary)"
+              ></span>
+            </div>
+            <h2 class="text-xl font-bold text-90">
+              <span th:text="${group.spec.displayName}">Group</span>
+            </h2>
+          </div>
+          <span
+            class="rounded-lg bg-(--btn-regular-bg) px-2.5 py-1 text-xs font-bold text-(--btn-content)"
+            th:text="${#lists.size(group.links)}">0</span
+          >
+        </div>
+        <!-- 卡片最小宽 240px：列数由「网格容器宽」决定（容器 = 内容列 − 本卡片的
+             md:px-9 72px，随窗口在 482~952px 之间浮动），所以 min 必须同时满足两头，
+             取值区间只有 (226, 248]：
+               · min > 226px ⇒ 最宽时（容器上限 952px）不会排成 4 列
+                 （4×226+3×16=952，卡会被压到 226px、文字区只剩 ~130px ——
+                 本卡固定开销就有 96px：48px logo + 16px gap + 左右 p-4）
+               · min ≤ 248px ⇒ 容器 776px（三栏 + 视口≈1600）时仍能排 3 列，否则掉成 2 列
+             ⚠️ 改成 280 会让中等窗口掉成 2 列，改回 220 会在最宽时变 4 列。 -->
+        <div
+          class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))]"
+        >
+          <a
+            th:each="link, linkStat : ${group.links}"
+            th:href="${link.spec.url != null and (link.spec.url.startsWith('http') or link.spec.url.startsWith('//') or link.spec.url.startsWith('/')) ? link.spec.url : null}"
+            th:title="${link.spec.displayName}"
+            th:attr="data-link-group=${group.spec.displayName}"
+            th:style="|animation-delay: min(calc(var(--content-delay) + ${groupStat.index * 4 + linkStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn-card btn-card-outline group min-h-28 items-start! justify-start! gap-4 rounded-xl p-4 text-left active:scale-95 onload-animation card-hover-lift"
+          >
+            <img
+              alt=""
+              th:if="${not #strings.isEmpty(link.spec.logo)}"
+              th:src="${link.spec.logo != null and (link.spec.logo.startsWith('http') or link.spec.logo.startsWith('//') or link.spec.logo.startsWith('/')) ? link.spec.logo : null}"
+              th:alt="${link.spec.displayName}"
+              loading="lazy"
+              class="h-12 w-12 shrink-0 rounded-xl bg-(--btn-regular-bg) object-cover transition group-hover:scale-105"
+            />
+            <div
+              th:unless="${not #strings.isEmpty(link.spec.logo)}"
+              class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
+            >
+              <span class="icon-[material-symbols--link-rounded] text-2xl"
+              ></span>
+            </div>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-start gap-2">
+                <div
+                  class="min-w-0 flex-1 truncate text-base font-bold text-90 transition group-hover:text-(--primary)"
+                  th:text="${link.spec.displayName}"
+                >
+                  Link
+                </div><span
+                  class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"
+                ></span>
+              </div>
+              <div
+                th:if="${not #strings.isEmpty(link.spec.description)}"
+                class="mt-1 line-clamp-2 text-sm leading-6 text-50"
+                th:text="${link.spec.description}"
+              >
+                Description
+              </div>
+              <div
+                class="mt-2 truncate text-xs font-medium text-30"
+                th:text="${link.spec.url}"
+              >
+                https://example.com
+              </div>
+            </div>
+          </a>
+        </div>
+      </section>
+    </div>
+
+    <!-- 搜索无结果（JS 控制显隐；与下方「暂无友情链接」是两件事）。
+         role=status：由隐藏变显示时播报，读屏可感知结果变化（同申请结果条先例） -->
+    <div
+      id="links-empty"
+      th:if="${not #lists.isEmpty(groups)}"
+      role="status"
+      aria-live="polite"
+      class="hidden py-12 text-center"
+    >
+      <span
+        class="icon-[material-symbols--search-off-rounded] text-4xl text-30"
+        aria-hidden="true"></span>
+      <p class="mt-3 text-sm text-50" th:text="#{page.links.noResult}">
+        找不到相关结果
+      </p>
+    </div>
+
+    <div th:if="${#lists.isEmpty(groups)}" class="py-12 text-center text-50">
+      <span th:text="#{page.links.noLinks}">暂无友情链接</span>
+    </div>
   </section>
 
-  <div th:if="${not #lists.isEmpty(groups)}" id="links-grid" class="space-y-8">
-    <section
-      th:each="group, groupStat : ${groups}"
-      th:if="${not #lists.isEmpty(group.links)}"
-      th:attr="data-link-section=${group.spec.displayName}"
-      th:style="|animation-delay: min(calc(var(--content-delay) + ${groupStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-      class="onload-animation"
-    >
-      <div class="mb-4 flex items-center justify-between gap-4">
-        <h2 class="text-xl font-bold text-90">
-          <span th:text="${group.spec.displayName}">Group</span>
-        </h2>
-        <span
-          class="rounded-lg bg-(--btn-regular-bg) px-2.5 py-1 text-xs font-bold text-(--btn-content)"
-          th:text="${#lists.size(group.links)}">0</span
-        >
-      </div>
+  <!-- 我的博客信息 + 申请友链 + 折叠面板 -->
+  <div class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <!-- 左卡片：我的博客信息 -->
       <div
-        class="grid gap-4 grid-cols-[repeat(auto-fill,minmax(min(220px,100%),1fr))]"
+        class="rounded-xl border p-4"
+        style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
       >
-        <a
-          th:each="link, linkStat : ${group.links}"
-          th:href="${link.spec.url != null and (link.spec.url.startsWith('http') or link.spec.url.startsWith('//') or link.spec.url.startsWith('/')) ? link.spec.url : null}"
-          th:title="${link.spec.displayName}"
-          th:attr="data-link-group=${group.spec.displayName}"
-          th:style="|animation-delay: min(calc(var(--content-delay) + ${groupStat.index * 4 + linkStat.index} * var(--dur-entry-step)), var(--dur-entry-max, 400ms))|"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="btn-card btn-card-outline group min-h-28 items-start! justify-start! gap-4 rounded-xl p-4 text-left active:scale-95 onload-animation card-hover-lift"
-        >
+        <div class="flex items-center gap-3">
           <img
-            alt=""
-            th:if="${not #strings.isEmpty(link.spec.logo)}"
-            th:src="${link.spec.logo != null and (link.spec.logo.startsWith('http') or link.spec.logo.startsWith('//') or link.spec.logo.startsWith('/')) ? link.spec.logo : null}"
-            th:alt="${link.spec.displayName}"
-            loading="lazy"
-            class="h-12 w-12 shrink-0 rounded-xl bg-(--btn-regular-bg) object-cover transition group-hover:scale-105"
+            th:if="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
+            th:src="${theme.config?.links?.ownerInfo.owner_avatar}"
+            th:alt="${theme.config?.links?.ownerInfo.owner_name}"
+            class="h-14 w-14 shrink-0 rounded-xl object-cover"
           />
           <div
-            th:unless="${not #strings.isEmpty(link.spec.logo)}"
-            class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
+            th:unless="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
+            class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
           >
             <span class="icon-[material-symbols--link-rounded] text-2xl"></span>
           </div>
           <div class="min-w-0 flex-1">
-            <div class="flex items-start gap-2">
-              <div
-                class="min-w-0 flex-1 truncate text-base font-bold text-90 transition group-hover:text-(--primary)"
-                th:text="${link.spec.displayName}"
+            <h3
+              class="text-base font-bold text-90"
+              th:text="${theme.config?.links?.ownerInfo.owner_name}"
+            >
+              博客名称
+            </h3>
+            <p
+              class="mt-0.5 line-clamp-2 text-[13px] text-50"
+              th:text="${theme.config?.links?.ownerInfo.owner_description}"
+            >
+              博客描述
+            </p>
+          </div>
+        </div>
+        <div class="mt-4 space-y-1.5">
+          <div
+            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-50">
+                <span th:text="#{page.links.ownerSiteName}">站点名称</span>
+              </div><div
+                class="truncate text-[13px] text-90"
+                th:text="${theme.config?.links?.ownerInfo.owner_name}"
               >
-                Link
-              </div><span
-                class="icon-[fa6-solid--arrow-up-right-from-square] mt-0.5 shrink-0 text-sm text-30 transition group-hover:text-(--primary)"
+                博客名称
+              </div>
+            </div><CopyButton
+              copyText="${theme.config?.links?.ownerInfo.owner_name}"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-50">
+                <span th:text="#{page.links.ownerSiteDescription}"
+                  >站点描述</span
+                >
+              </div><div
+                class="line-clamp-2 text-[13px] text-90"
+                th:text="${theme.config?.links?.ownerInfo.owner_description}"
+              >
+                博客描述
+              </div>
+            </div><CopyButton
+              copyText="${theme.config?.links?.ownerInfo.owner_description}"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-50">
+                <span th:text="#{page.links.ownerSiteUrl}">站点链接</span>
+              </div><div
+                class="truncate text-[13px] text-90"
+                th:text="${theme.config?.links?.ownerInfo.owner_url}"
+              >
+                https://example.com
+              </div>
+            </div><CopyButton
+              copyText="${theme.config?.links?.ownerInfo.owner_url}"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-50">
+                <span th:text="#{page.links.ownerAvatarUrl}">头像链接</span>
+              </div><div
+                class="truncate text-[13px] text-90"
+                th:text="${theme.config?.links?.ownerInfo.owner_avatar}"
+              >
+                https://example.com/avatar.jpg
+              </div>
+            </div><CopyButton
+              copyText="${theme.config?.links?.ownerInfo.owner_avatar}"
+            />
+          </div>
+          <div
+            class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
+          >
+            <div class="min-w-0 flex-1">
+              <div class="text-[11px] text-50">
+                <span th:text="#{page.links.ownerRss}">RSS 地址</span>
+              </div><div
+                class="truncate text-[13px] text-90"
+                th:text="${theme.config?.links?.ownerInfo.owner_rss}"
+              >
+                /rss.xml
+              </div>
+            </div><CopyButton
+              copyText="${theme.config?.links?.ownerInfo.owner_rss}"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 右卡片：申请友链流程 -->
+      <div
+        th:remove="tag"
+        th:with="applySteps=${theme.config?.links?.['applyFlow']?.applySteps}"
+      >
+        <div
+          class="flex flex-col rounded-xl border p-4 pb-3"
+          style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
+        >
+          <h3
+            class="mb-4 mt-1 flex items-center gap-2 text-base font-bold text-90"
+          >
+            <span class="meta-icon">
+              <span
+                class="icon-[material-symbols--fact-check-outline-rounded] text-xl"
               ></span>
-            </div>
+            </span>
+            <span th:text="#{page.links.applyTitle}">申请友链</span>
+          </h3>
+          <div
+            th:if="${applySteps != null and not #lists.isEmpty(applySteps)}"
+            class="space-y-5"
+          >
             <div
-              th:if="${not #strings.isEmpty(link.spec.description)}"
-              class="mt-1 line-clamp-2 text-sm leading-6 text-50"
-              th:text="${link.spec.description}"
+              th:each="step, stepStat : ${applySteps}"
+              class="relative flex items-start gap-3"
             >
-              Description
-            </div>
-            <div
-              class="mt-2 truncate text-xs font-medium text-30"
-              th:text="${link.spec.url}"
-            >
-              https://example.com
+              <div
+                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
+                th:text="${stepStat.index + 1}"
+              >
+                1
+              </div>
+              <div
+                th:unless="${stepStat.last}"
+                class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
+              >
+              </div>
+              <div class="min-w-0 flex-1">
+                <h4
+                  class="text-[13px] font-medium text-90"
+                  th:text="${step.title}"
+                >
+                  步骤标题
+                </h4><div
+                  class="step-desc mt-0.5 text-xs text-50"
+                  th:utext="${step.desc}"
+                >
+                  步骤说明
+                </div>
+              </div>
             </div>
           </div>
-        </a>
+          <!-- 默认申请流程（新安装未保存设置时显示） -->
+          <div
+            th:if="${applySteps == null or #lists.isEmpty(applySteps)}"
+            class="space-y-5"
+          >
+            <div class="relative flex items-start gap-3">
+              <div
+                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
+              >
+                1
+              </div>
+              <div
+                class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
+              >
+              </div>
+              <div class="min-w-0 flex-1">
+                <h4 class="text-[13px] font-medium text-90">添加本站友链</h4>
+                <div class="step-desc mt-0.5 text-xs text-50">
+                  请先在您的网站友链页面<strong>添加本站信息</strong
+                  >，可直接复制左侧各字段
+                </div>
+              </div>
+            </div>
+            <div class="relative flex items-start gap-3">
+              <div
+                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
+              >
+                2
+              </div>
+              <div
+                class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
+              >
+              </div>
+              <div class="min-w-0 flex-1">
+                <h4 class="text-[13px] font-medium text-90">评论留言</h4>
+                <div class="step-desc mt-0.5 text-xs text-50">
+                  在本页下方评论区留言提交申请
+                </div>
+              </div>
+            </div>
+            <div class="relative flex items-start gap-3">
+              <div
+                class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white"
+              >
+                3
+              </div>
+              <div class="min-w-0 flex-1">
+                <h4 class="text-[13px] font-medium text-90">等待审核</h4>
+                <div class="step-desc mt-0.5 text-xs text-50">
+                  确认信息无误后会尽快添加您的友链
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 申请友链按钮：步骤下方空白区域垂直居中，左右居中，上下间距一致。
+               显示需同时满足：主题开关开启 且 插件申请功能可用（linkApplicationEnabled 为 true） -->
+          <div
+            th:if="${theme.config?.links?.features?.enable_apply_btn != false and linkApplicationEnabled == true}"
+            class="mt-3 flex flex-1 items-center justify-center"
+          >
+            <button
+              type="button"
+              id="link-apply-btn"
+              class="btn-regular group h-11 rounded-xl px-5 text-sm font-bold active:scale-95"
+            >
+              <span
+                class="icon-[material-symbols--rocket-launch-rounded] mr-1.5 text-base"
+              ></span>
+              <span th:text="#{page.links.applyButton}">申请友链</span>
+            </button>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
+
+    <!-- 折叠面板 -->
+    <div
+      th:remove="tag"
+      th:with="accs=${theme.config?.links?.['accordionPanel']?.accordions}"
+    >
+      <div
+        th:if="${accs != null and not #lists.isEmpty(accs)}"
+        class="space-y-2"
+        id="links-accordion"
+      >
+        <div
+          th:each="item, itemStat : ${accs}"
+          class="collapse-item rounded-xl bg-(--btn-regular-bg)"
+        >
+          <button
+            type="button"
+            class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
+            th:attr="data-collapse-target='accordion-'+${itemStat.index}"
+          >
+            <div class="flex items-center gap-2">
+              <span class="collapse-icon round-triangle"></span>
+              <span
+                class="text-lg text-(--primary)"
+                th:if="${item.icon != null && item.icon.value != null}"
+                th:utext="${item.icon.value}"></span><span
+                class="text-sm font-medium text-90"
+                th:text="${item.title}">面板标题</span
+              >
+            </div>
+          </button>
+          <div
+            th:attr="id='accordion-'+${itemStat.index}"
+            class="collapse-content"
+          >
+            <div class="collapse-inner px-3 pb-3">
+              <div
+                class="text-sm text-50 leading-relaxed"
+                th:utext="${item.content}"
+              >
+                正文
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- 默认折叠面板（新安装未保存设置时显示） -->
+      <div
+        th:if="${accs == null or #lists.isEmpty(accs)}"
+        class="space-y-2"
+        id="links-accordion"
+      >
+        <div class="collapse-item rounded-xl bg-(--btn-regular-bg)">
+          <button
+            type="button"
+            class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
+            data-collapse-target="accordion-0"
+          >
+            <div class="flex items-center gap-2">
+              <span class="collapse-icon round-triangle"></span>
+              <span class="text-sm font-medium text-90">友链须知</span>
+            </div>
+          </button>
+          <div id="accordion-0" class="collapse-content">
+            <div class="collapse-inner px-3 pb-3">
+              <div class="text-sm text-50 leading-relaxed">
+                <ul>
+                  <li>请先在您的网站添加本站信息</li><li>
+                    网站能够正常访问，使用HTTPS
+                  </li><li>网站符合中国大陆法律法规</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="collapse-item rounded-xl bg-(--btn-regular-bg)">
+          <button
+            type="button"
+            class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
+            data-collapse-target="accordion-1"
+          >
+            <div class="flex items-center gap-2">
+              <span class="collapse-icon round-triangle"></span>
+              <span class="text-sm font-medium text-90">免责申明</span>
+            </div>
+          </button>
+          <div id="accordion-1" class="collapse-content">
+            <div class="collapse-inner px-3 pb-3">
+              <div class="text-sm text-50 leading-relaxed">
+                <ul>
+                  <li>
+                    本博客严格遵守中华人民共和国法律法规，友情链接及其他外链，仅为了方便学习与交流而收集整理
+                  </li><li>
+                    本人能力有限，无法逐一甄别每篇文章的全部内容，也无法实时跟进并确认原作者后续是否对链接内容进行篡改，包括但不限于发布违法信息、植入恶意代码、诱导点击或破坏用户计算机等行为
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- 就地筛选「无结果」（JS 控制显隐；与下方「暂无友情链接」是两件事） -->
-  <div
-    id="links-empty"
-    th:if="${not #lists.isEmpty(groups)}"
-    class="hidden py-12 text-center"
-  >
-    <span class="icon-[material-symbols--search-off-rounded] text-4xl text-30"
-    ></span>
-    <p class="mt-3 text-sm text-50" th:text="#{page.links.noResult}">
-      找不到相关结果。
-    </p>
-  </div>
+  <!-- 友链页脚本（I27）：由 requirements/collapse/copy/link-apply/random-visit/search
+       六个脚本合并为单请求；link-apply 与 random-visit 的原 th:if 门控改由脚本内部守卫
+       （按钮/模态框不存在即不绑定，行为等价，见 links.bundle.js 各 IIFE 注释） -->
+  <script
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/links.bundle.js?v=${ASSET_VERSION}`}
+    defer
+    is:inline></script>
 
-  <div th:if="${#lists.isEmpty(groups)}" class="py-12 text-center text-50">
-    <span th:text="#{page.links.noLinks}">暂无友情链接</span>
-  </div>
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
     defer
     is:inline></script>
-</MainGridLayout>
 
-<!-- 我的博客信息 + 申请友链 + 折叠面板 -->
-<div class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
-  <div class="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <!-- 左卡片：我的博客信息 -->
-    {
-      /* ownerInfo：本站信息，卡片内 16 处引用，提取为变量统一复用；
-          改用空安全导航 ownerInfo?.xxx，ownerInfo 存在时与原式等价 */
-    }
+  <!-- 申请友链模态框 -->
+  <div
+    id="link-apply-modal"
+    class="link-apply-modal"
+    aria-hidden="true"
+    th:if="${theme.config?.links?.features?.enable_apply_btn != false and linkApplicationEnabled == true}"
+  >
+    <div id="link-apply-backdrop" class="link-apply-backdrop"></div>
     <div
-      th:with="ownerInfo=${theme.config?.links?.ownerInfo}"
-      class="rounded-xl border p-4"
-      style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
+      id="link-apply-card"
+      class="link-apply-card"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="link-apply-title"
     >
-      <div class="flex items-center gap-3">
-        <img
-          th:if="${not #strings.isEmpty(ownerInfo?.owner_avatar)}"
-          th:src="${ownerInfo?.owner_avatar}"
-          th:alt="${ownerInfo?.owner_name}"
-          class="h-14 w-14 shrink-0 rounded-xl object-cover"
-        />
-        <div
-          th:unless="${not #strings.isEmpty(ownerInfo?.owner_avatar)}"
-          class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
-        >
-          <span class="icon-[material-symbols--link-rounded] text-2xl"></span>
-        </div>
-        <div class="min-w-0 flex-1">
-          <h3
-            class="text-base font-bold text-90"
-            th:text="${ownerInfo?.owner_name}"
-          >
-            博客名称
-          </h3>
-          <p
-            class="mt-0.5 line-clamp-2 text-[13px] text-50"
-            th:text="${ownerInfo?.owner_description}"
-          >
-            博客描述
-          </p>
-        </div>
-      </div>
-      <div class="mt-4 space-y-1.5">
-        <div
-          class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-50">
-              <span th:text="#{page.links.ownerSiteName}">站点名称</span>
-            </div><div
-              class="truncate text-[13px] text-90"
-              th:text="${ownerInfo?.owner_name}"
-            >
-              博客名称
-            </div>
-          </div><CopyButton copyText="${ownerInfo?.owner_name}" />
-        </div>
-        <div
-          class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-50">
-              <span th:text="#{page.links.ownerSiteDescription}">站点描述</span>
-            </div><div
-              class="line-clamp-2 text-[13px] text-90"
-              th:text="${ownerInfo?.owner_description}"
-            >
-              博客描述
-            </div>
-          </div><CopyButton copyText="${ownerInfo?.owner_description}" />
-        </div>
-        <div
-          class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-50">
-              <span th:text="#{page.links.ownerSiteUrl}">站点链接</span>
-            </div><div
-              class="truncate text-[13px] text-90"
-              th:text="${ownerInfo?.owner_url}"
-            >
-              https://example.com
-            </div>
-          </div><CopyButton copyText="${ownerInfo?.owner_url}" />
-        </div>
-        <div
-          class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-50">
-              <span th:text="#{page.links.ownerAvatarUrl}">头像链接</span>
-            </div><div
-              class="truncate text-[13px] text-90"
-              th:text="${ownerInfo?.owner_avatar}"
-            >
-              https://example.com/avatar.jpg
-            </div>
-          </div><CopyButton copyText="${ownerInfo?.owner_avatar}" />
-        </div>
-        <div
-          class="flex items-center justify-between gap-2 rounded-lg bg-(--btn-regular-bg) p-2"
-        >
-          <div class="min-w-0 flex-1">
-            <div class="text-[11px] text-50">
-              <span th:text="#{page.links.ownerRss}">RSS 地址</span>
-            </div><div
-              class="truncate text-[13px] text-90"
-              th:text="${ownerInfo?.owner_rss}"
-            >
-              /rss.xml
-            </div>
-          </div><CopyButton copyText="${ownerInfo?.owner_rss}" />
-        </div>
-      </div>
-    </div>
-
-    <!-- 右卡片：申请友链流程 -->
-    <div
-      th:remove="tag"
-      th:with="applySteps=${theme.config?.links?.['applyFlow']?.applySteps}"
-    >
-      <div
-        class="flex flex-col rounded-xl border p-4 pb-3"
-        style="border-color: color-mix(in oklab, var(--primary) 18%, transparent)"
-      >
+      <div class="link-apply-header">
         <h3
-          class="mb-4 mt-1 flex items-center gap-2 text-base font-bold text-90"
+          id="link-apply-title"
+          class="link-apply-title"
+          th:text="#{page.links.applyTitle}"
         >
-          <span class="meta-icon">
-            <span
-              class="icon-[material-symbols--fact-check-outline-rounded] text-xl"
-            ></span>
-          </span>
-          <span th:text="#{page.links.applyTitle}">申请友链</span>
+          申请友链
         </h3>
-        <div
-          th:if="${applySteps != null and not #lists.isEmpty(applySteps)}"
-          class="space-y-5"
-        >
-          <div
-            th:each="step, stepStat : ${applySteps}"
-            class="relative flex items-start gap-3"
-          >
-            <div
-              class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white dark:text-black/70"
-              th:text="${stepStat.index + 1}"
-            >
-              1
-            </div>
-            <div
-              th:unless="${stepStat.last}"
-              class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-            >
-            </div>
-            <div class="min-w-0 flex-1">
-              <h4
-                class="text-[13px] font-medium text-90"
-                th:text="${step.title}"
-              >
-                步骤标题
-              </h4><div
-                class="step-desc mt-0.5 text-xs text-50"
-                th:utext="${step.desc}"
-              >
-                步骤说明
-              </div>
-            </div>
-          </div>
-        </div>
-        <!-- 默认申请流程（新安装未保存设置时显示） -->
-        <div
-          th:if="${applySteps == null or #lists.isEmpty(applySteps)}"
-          class="space-y-5"
-        >
-          <div class="relative flex items-start gap-3">
-            <div
-              class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white dark:text-black/70"
-            >
-              1
-            </div>
-            <div
-              class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-            >
-            </div>
-            <div class="min-w-0 flex-1">
-              <h4 class="text-[13px] font-medium text-90">添加本站友链</h4>
-              <div class="step-desc mt-0.5 text-xs text-50">
-                请先在您的网站友链页面<strong>添加本站信息</strong
-                >，可直接复制左侧各字段
-              </div>
-            </div>
-          </div>
-          <div class="relative flex items-start gap-3">
-            <div
-              class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white dark:text-black/70"
-            >
-              2
-            </div>
-            <div
-              class="absolute left-[11px] top-7 bottom-[-1rem] w-0.5 bg-black/10 dark:bg-white/10"
-            >
-            </div>
-            <div class="min-w-0 flex-1">
-              <h4 class="text-[13px] font-medium text-90">评论留言</h4>
-              <div class="step-desc mt-0.5 text-xs text-50">
-                在本页下方评论区留言提交申请
-              </div>
-            </div>
-          </div>
-          <div class="relative flex items-start gap-3">
-            <div
-              class="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-(--primary) text-xs font-bold text-white dark:text-black/70"
-            >
-              3
-            </div>
-            <div class="min-w-0 flex-1">
-              <h4 class="text-[13px] font-medium text-90">等待审核</h4>
-              <div class="step-desc mt-0.5 text-xs text-50">
-                确认信息无误后会尽快添加您的友链
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 申请友链按钮：步骤下方空白区域垂直居中，左右居中，上下间距一致。
-               显示需同时满足：主题开关开启 且 插件申请功能可用（linkApplicationEnabled 为 true） -->
-        <div
-          th:if="${theme.config?.links?.features?.enable_apply_btn != false and linkApplicationEnabled == true}"
-          class="mt-3 flex flex-1 items-center justify-center"
-        >
-          <button
-            type="button"
-            id="link-apply-btn"
-            class="btn-regular group h-11 rounded-xl px-5 text-sm font-bold active:scale-95"
-          >
-            <span
-              class="icon-[material-symbols--rocket-launch-rounded] mr-1.5 text-base transition-transform group-hover:scale-110"
-            ></span>
-            <span th:text="#{page.links.applyButton}">申请友链</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 折叠面板 -->
-  <div
-    th:remove="tag"
-    th:with="accs=${theme.config?.links?.['accordionPanel']?.accordions}"
-  >
-    <div
-      th:if="${accs != null and not #lists.isEmpty(accs)}"
-      class="space-y-2"
-      id="links-accordion"
-    >
-      <div
-        th:each="item, itemStat : ${accs}"
-        class="collapse-item rounded-xl bg-(--btn-regular-bg)"
-      >
+        <span class="link-apply-title-divider"></span>
         <button
           type="button"
-          class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
-          th:attr="data-collapse-target='accordion-'+${itemStat.index}"
+          id="link-apply-close"
+          class="link-apply-close"
+          aria-label="关闭"
+          title="关闭"
+          th:aria-label="#{page.links.applyClose}"
+          th:title="#{page.links.applyClose}"
         >
-          <div class="flex items-center gap-2">
-            <span
-              class="text-lg text-(--primary)"
-              th:if="${item.icon != null && item.icon.value != null}"
-              th:utext="${item.icon.value}"></span><span
-              class="text-sm font-medium text-90"
-              th:text="${item.title}">面板标题</span
+          <span
+            class="icon-[material-symbols--close-rounded] text-xl leading-none"
+          ></span>
+        </button>
+      </div>
+      <form id="link-apply-form" class="link-apply-form" novalidate>
+        <div class="link-apply-body">
+          <!-- 第一行：网站地址 | 网站名称 -->
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyWebsite}">网站地址</span><em
+                >*</em
+              ></span
             >
-          </div>
-          <span
-            class="collapse-icon icon-[material-symbols--expand-more-rounded] text-lg text-50 transition-transform duration-200"
-          ></span>
-        </button>
-        <div
-          th:attr="id='accordion-'+${itemStat.index}"
-          class="collapse-content"
-        >
-          <div class="collapse-inner px-3 pb-3">
-            <div
-              class="text-sm text-50 leading-relaxed"
-              th:utext="${item.content}"
-            >
-              正文
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    <!-- 默认折叠面板（新安装未保存设置时显示） -->
-    <div
-      th:if="${accs == null or #lists.isEmpty(accs)}"
-      class="space-y-2"
-      id="links-accordion"
-    >
-      <div class="collapse-item rounded-xl bg-(--btn-regular-bg)">
-        <button
-          type="button"
-          class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
-          data-collapse-target="accordion-0"
-        >
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-90">友链须知</span>
-          </div>
-          <span
-            class="collapse-icon icon-[material-symbols--expand-more-rounded] text-lg text-50 transition-transform duration-200"
-          ></span>
-        </button>
-        <div id="accordion-0" class="collapse-content">
-          <div class="collapse-inner px-3 pb-3">
-            <div class="text-sm text-50 leading-relaxed">
-              <ul>
-                <li>请先在您的网站添加本站信息</li><li>
-                  网站能够正常访问，使用HTTPS
-                </li><li>网站符合中国大陆法律法规</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="collapse-item rounded-xl bg-(--btn-regular-bg)">
-        <button
-          type="button"
-          class="collapse-header flex w-full items-center justify-between p-3 text-left transition"
-          data-collapse-target="accordion-1"
-        >
-          <div class="flex items-center gap-2">
-            <span class="text-sm font-medium text-90">免责申明</span>
-          </div>
-          <span
-            class="collapse-icon icon-[material-symbols--expand-more-rounded] text-lg text-50 transition-transform duration-200"
-          ></span>
-        </button>
-        <div id="accordion-1" class="collapse-content">
-          <div class="collapse-inner px-3 pb-3">
-            <div class="text-sm text-50 leading-relaxed">
-              <ul>
-                <li>
-                  本博客严格遵守中华人民共和国法律法规，友情链接及其他外链，仅为了方便学习与交流而收集整理
-                </li><li>
-                  本人能力有限，无法逐一甄别每篇文章的全部内容，也无法实时跟进并确认原作者后续是否对链接内容进行篡改，包括但不限于发布违法信息、植入恶意代码、诱导点击或破坏用户计算机等行为
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 友链页脚本（I27）：由 requirements/collapse/copy/link-apply/random-visit 五个脚本
-       合并为单请求；link-apply 与 random-visit 的原 th:if 门控改由脚本内部守卫
-       （按钮/模态框不存在即不绑定，行为等价，见 links.bundle.js 各 IIFE 注释） -->
-<script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/links.bundle.js?v=${ASSET_VERSION}`}
-  defer></script>
-
-<!-- 申请友链模态框 -->
-<div
-  id="link-apply-modal"
-  class="link-apply-modal"
-  aria-hidden="true"
-  th:if="${theme.config?.links?.features?.enable_apply_btn != false and linkApplicationEnabled == true}"
->
-  <div id="link-apply-backdrop" class="link-apply-backdrop"></div>
-  <div
-    id="link-apply-card"
-    class="link-apply-card"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="link-apply-title"
-  >
-    <div class="link-apply-header">
-      <h3
-        id="link-apply-title"
-        class="link-apply-title"
-        th:text="#{page.links.applyTitle}"
-      >
-        申请友链
-      </h3>
-      <span class="link-apply-title-divider"></span>
-      <button
-        type="button"
-        id="link-apply-close"
-        class="link-apply-close"
-        aria-label="关闭"
-        title="关闭"
-        th:aria-label="#{page.links.applyClose}"
-        th:title="#{page.links.applyClose}"
-      >
-        <span
-          class="icon-[material-symbols--close-rounded] text-xl leading-none"
-        ></span>
-      </button>
-    </div>
-    <form id="link-apply-form" class="link-apply-form" novalidate>
-      <div class="link-apply-body">
-        <!-- 第一行：网站地址 | 网站名称 -->
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyWebsite}">网站地址</span><em>*</em
-            ></span
-          >
-          <input
-            type="url"
-            name="url"
-            required
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="https://example.com"
-          />
-        </label>
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyName}">网站名称</span><em>*</em
-            ></span
-          >
-          <input
-            type="text"
-            name="displayName"
-            required
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="您的网站名称"
-            th:placeholder="#{page.links.applyNamePlaceholder}"
-          />
-        </label>
-        <!-- 第二行：网站 Logo | 反链地址 -->
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyLogo}">网站 Logo</span></span
-          >
-          <input
-            type="url"
-            name="logo"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="https://example.com/avatar.png"
-          />
-        </label>
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyBacklink}">反链地址</span></span
-          >
-          <input
-            type="url"
-            name="backlink"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="https://example.com/friends"
-          />
-        </label>
-        <!-- 第三行：网站描述 | RSS 地址 -->
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyDescription}">网站描述</span
-            ></span
-          >
-          <textarea
-            name="description"
-            rows="2"
-            autocomplete="off"
-            placeholder="一句话介绍您的网站"
-            th:placeholder="#{page.links.applyDescriptionPlaceholder}"
-          ></textarea>
-        </label>
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyRss}">RSS 地址</span></span
-          >
-          <textarea
-            name="feedUrls"
-            rows="2"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="每行一个 RSS/Atom 订阅地址"
-            th:placeholder="#{page.links.applyRssPlaceholder}"></textarea>
-        </label>
-        <!-- 第四行：联系邮箱 | 验证码 -->
-        <label class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyEmail}">联系邮箱</span></span
-          >
-          <input
-            type="email"
-            name="email"
-            autocomplete="off"
-            spellcheck="false"
-            placeholder="you@example.com"
-          />
-        </label>
-        <div class="link-apply-field">
-          <span class="link-apply-label"
-            ><span th:text="#{page.links.applyCaptcha}">验证码</span><em>*</em
-            ></span
-          >
-          <div class="link-apply-captcha">
             <input
-              type="text"
-              name="captchaCode"
-              id="link-apply-captcha-code"
+              type="url"
+              name="url"
               required
-              maxlength="6"
               autocomplete="off"
               spellcheck="false"
-              placeholder="输入图中字符"
-              th:placeholder="#{page.links.applyCaptchaPlaceholder}"
+              placeholder="https://example.com"
             />
-            <img
-              id="link-apply-captcha-img"
-              class="link-apply-captcha-img"
-              alt="验证码"
-              title="点击刷新验证码"
-              th:alt="#{page.links.applyCaptcha}"
-              th:title="#{page.links.applyRefreshCaptcha}"
+          </label>
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyName}">网站名称</span><em>*</em
+              ></span
+            >
+            <input
+              type="text"
+              name="displayName"
+              required
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="您的网站名称"
+              th:placeholder="#{page.links.applyNamePlaceholder}"
             />
+          </label>
+          <!-- 第二行：网站 Logo | 反链地址 -->
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyLogo}">网站 Logo</span></span
+            >
+            <input
+              type="url"
+              name="logo"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://example.com/avatar.png"
+            />
+          </label>
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyBacklink}">反链地址</span></span
+            >
+            <input
+              type="url"
+              name="backlink"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="https://example.com/friends"
+            />
+          </label>
+          <!-- 第三行：网站描述 | RSS 地址 -->
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyDescription}">网站描述</span
+              ></span
+            >
+            <textarea
+              name="description"
+              rows="2"
+              autocomplete="off"
+              placeholder="一句话介绍您的网站"
+              th:placeholder="#{page.links.applyDescriptionPlaceholder}"
+            ></textarea>
+          </label>
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyRss}">RSS 地址</span></span
+            >
+            <textarea
+              name="feedUrls"
+              rows="2"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="每行一个 RSS/Atom 订阅地址"
+              th:placeholder="#{page.links.applyRssPlaceholder}"></textarea>
+          </label>
+          <!-- 第四行：联系邮箱 | 验证码 -->
+          <label class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyEmail}">联系邮箱</span></span
+            >
+            <input
+              type="email"
+              name="email"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="you@example.com"
+            />
+          </label>
+          <div class="link-apply-field">
+            <span class="link-apply-label"
+              ><span th:text="#{page.links.applyCaptcha}">验证码</span><em>*</em
+              ></span
+            >
+            <div class="link-apply-captcha">
+              <input
+                type="text"
+                name="captchaCode"
+                id="link-apply-captcha-code"
+                required
+                maxlength="6"
+                autocomplete="off"
+                spellcheck="false"
+                placeholder="输入图中字符"
+                th:placeholder="#{page.links.applyCaptchaPlaceholder}"
+              />
+              <img
+                id="link-apply-captcha-img"
+                class="link-apply-captcha-img"
+                alt="验证码"
+                title="点击刷新验证码"
+                th:alt="#{page.links.applyCaptcha}"
+                th:title="#{page.links.applyRefreshCaptcha}"
+              />
+            </div>
           </div>
         </div>
-      </div>
-      <div
-        id="link-apply-message"
-        class="link-apply-message"
-        role="status"
-        aria-live="polite"
-      >
-      </div>
-      <div class="link-apply-footer">
-        <button
-          type="submit"
-          id="link-apply-submit"
-          class="link-apply-btn-submit"
+        <div
+          id="link-apply-message"
+          class="link-apply-message"
+          role="status"
+          aria-live="polite"
         >
-          <span class="icon-[material-symbols--send-rounded] text-base"></span>
-          <span
-            class="link-apply-submit-text"
-            th:text="#{page.links.applySubmit}">提交申请</span
+        </div>
+        <div class="link-apply-footer">
+          <button
+            type="submit"
+            id="link-apply-submit"
+            class="link-apply-btn-submit"
           >
-        </button>
-      </div>
-    </form>
+            <span class="icon-[material-symbols--send-rounded] text-base"
+            ></span>
+            <span
+              class="link-apply-submit-text"
+              th:text="#{page.links.applySubmit}">提交申请</span
+            >
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
-</div>
 
-<div
-  id="comment"
-  th:if="${haloCommentEnabled && (theme.config?.links?.features.enable_comment == null || theme.config?.links?.features.enable_comment)}"
-  class="card-base relative z-10 w-full px-6 pb-4 pt-6 md:px-9"
->
-  <h2
-    class="mb-2 text-base font-medium text-gray-900 dark:text-slate-50"
-    th:text="#{common.comment}"
+  <div
+    id="comment"
+    th:if="${haloCommentEnabled && (theme.config?.links?.features.enable_comment == null || theme.config?.links?.features.enable_comment)}"
+    class="card-base relative z-10 w-full px-6 pb-4 pt-6 md:px-9"
   >
-    评论
-  </h2>
-  <!-- P3（1.3.3）：评论区懒加载，机制见 post.astro 同名注释 -->
-  <template id="comment-lazy-template">
+    <h2
+      class="mb-2 text-base font-medium text-gray-900 dark:text-slate-50"
+      th:text="#{common.comment}"
+    >
+      评论
+    </h2>
     <Fragment
       set:html={'<halo:comment group="plugin.halo.run" kind="Plugin" th:attr="name=${pluginName}" />'}
     />
-  </template>
-  <div id="comment-lazy-placeholder"></div>
-</div>
-<!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro 同源） -->
-<script
-  th:if="${haloCommentEnabled && (theme.config?.links?.features.enable_comment == null || theme.config?.links?.features.enable_comment)}"
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
-  defer></script>
+  </div>
+
+  <!-- 筛选态补丁：URL 带分组参数时「x 朋友」应显示该分组的链接数（服务端给的是
+       全部链接总数——分组过滤在行级 th:if 完成，无法用聚合表达式求和）。
+       非筛选态零副作用；Swup 换页后由 SwupScriptsPlugin 重执行。 -->
+  <script is:inline>
+    // @ts-nocheck 浏览器运行时脚本
+    (function () {
+      function run() {
+        if (!new URL(window.location.href).searchParams.has("group")) return;
+        var stat = document.querySelector('[data-stat="links-friends"] b');
+        if (!stat) return;
+        stat.textContent = String(
+          document.querySelectorAll("[data-link-group]").length,
+        );
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", run);
+      } else {
+        run();
+      }
+    })();
+  </script>
+</MainGridLayout>
