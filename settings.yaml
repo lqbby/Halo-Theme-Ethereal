@@ -1127,6 +1127,12 @@ spec:
                 - value: categories
                 - value: tag
               children:
+                - $formkit: switch
+                  name: sticky
+                  id: sidebar_widgets_sticky
+                  label: 吸顶
+                  value: true
+                  help: "勾选后该小组件随页面滚动吸顶显示；不吸顶的小组件须排在列表最前面（其后的条目一律按吸顶处理）"
                 - $formkit: select
                   name: value
                   id: widgets_value
@@ -1778,6 +1784,12 @@ spec:
                 - value: site-stats
                 - value: recent-comments
               children:
+                - $formkit: switch
+                  name: sticky
+                  id: sidebar_right_widgets_sticky
+                  label: 吸顶
+                  value: true
+                  help: "勾选后该小组件随页面滚动吸顶显示；不吸顶的小组件须排在列表最前面（其后的条目一律按吸顶处理）"
                 - $formkit: select
                   name: value
                   id: right_widgets_value

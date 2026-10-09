@@ -11,6 +11,9 @@ import SideBar from "../components/widget/SideBar.astro";
 // th:replace="~{::widgetSwitch(${widget}, ${widgetStat.index})}" 引用它。
 // 片段外层是 th:if="false" ⇒ 本处不产生任何可见输出（零副作用）
 import WidgetSwitch from "../components/widget/WidgetSwitch.astro";
+// 移动端专用小组件列表（<768px）：仅当「移动端小组件」非空时渲染，挂载成功才给
+// <html> 加 has-mobile-sidebar（下面的 CSS 据此在移动端隐藏左右两栏）
+import MobileSideBar from "../components/widget/MobileSideBar.astro";
 import TOC from "../components/widget/TOC.astro";
 import {
   bannerMobileThWith,
@@ -40,6 +43,16 @@ const {
 ---
 
 <style is:global>
+  /* 移动端专用小组件列表挂载成功（脚本给 <html> 加 has-mobile-sidebar）后，
+     隐藏左右两栏避免与其重复显示；脚本未跑（禁用 JS / 报错）时类不存在，
+     移动端照旧显示两栏，不会白屏。 */
+  @media (max-width: 767.98px) {
+    html.has-mobile-sidebar #sidebar,
+    html.has-mobile-sidebar #right-sidebar {
+      display: none;
+    }
+  }
+
   /* Banner 轮播：首张 SSR 即显（.active 带 display:block），其余 display:none
      延迟加载，切换时 JS 两步加类（visible → active）驱动透明度/位移过渡；
      时长变量随动画档位（--dur-banner-transition）注入。
@@ -502,6 +515,10 @@ const {
           th:classappend="${theme.config?.layout?.pageLayout?.layoutMode == 'two-column' ? 'xl:!hidden' : ''}"
           showToc={showToc}
         />
+
+        <!-- 移动端专用小组件（<768px）：列表为空时整块不渲染；挂载脚本成功后才给
+             <html> 加 has-mobile-sidebar（见下方 CSS 隐藏左右两栏），脚本未跑则照旧显示两栏 -->
+        <MobileSideBar />
 
         <!-- 移动端页脚 -->
         <div class="footer onload-animation col-span-2 block lg:hidden">
