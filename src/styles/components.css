@@ -2368,3 +2368,112 @@ body.card-border-enabled .pagination-pages .btn-card {
   background: var(--line-color);
   margin: 0.75rem 0;
 }
+
+/* ==========================================================================
+   瞬间卡片（MomentCard.astro，moments / moment 共用）——随「瞬间页同步上游」移植
+   来源：上游 v2.0.0 src/styles/components.css:1767-1866
+   覆盖 .moment-card / 操作钮胶囊 .moment-action / 复制按钮 / 右下角水印 等；
+   缺失时表现为「点赞/评论/更多 三个按钮没有胶囊、卡片内小闪电裸字形」
+   ========================================================================== */
+
+/* ===== 瞬间卡片（MomentCard.astro，moments / moment 共用） =====
+   - 外壳 card-base（边框/阴影跟随开关）；缩进轨道对齐作者名（移动端归零）
+   - 操作栏胶囊 .moment-action：点赞「已投」走 .is-upvoted（upvote.js 切换），
+     文字色单一类控制，避免与 .btn-regular 打特异性官司
+   - 复制按钮默认隐藏、卡片 hover / 键盘聚焦渐现（触屏常显）
+   - 水印：右下角 bolt，与页头水印同族（位置 / 大小 / 浓度可微调） */
+
+/* 复制链接按钮（模板里位于昵称行内 ml-auto + -my-2：不撑高昵称行；
+   .moment-card 在这里只作「卡片 hover 渐现」的作用域钩子） */
+.moment-copy-btn {
+  opacity: 0;
+  transition:
+    opacity 0.2s,
+    background 0.2s,
+    color 0.2s;
+}
+
+.moment-card:hover .moment-copy-btn,
+.moment-card:focus-within .moment-copy-btn {
+  opacity: 1;
+}
+
+/* 触屏没有 hover：常显 */
+@media (hover: none) {
+  .moment-copy-btn {
+    opacity: 1;
+  }
+}
+
+/* 复制成功反馈：链接图标切对勾（moment-copy.js 加 .is-copied，1.5s 后移除） */
+.moment-copy-btn .moment-copy-check {
+  display: none;
+}
+
+.moment-copy-btn.is-copied .moment-copy-icon {
+  display: none;
+}
+
+.moment-copy-btn.is-copied .moment-copy-check {
+  display: grid;
+  color: var(--primary);
+}
+
+.moment-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 2.25rem;
+  padding-inline: 0.875rem;
+  border-radius: 0.75rem;
+  background: var(--btn-regular-bg);
+  color: var(--btn-content);
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.15s;
+}
+
+.moment-action:hover {
+  background: var(--btn-regular-bg-hover);
+}
+
+.moment-action:active {
+  background: var(--btn-regular-bg-active);
+  transform: scale(0.95);
+}
+
+/* 已点赞（upvote.js 切换）：主题色高亮 + 禁用点击（状态全在类上，脚本不写内联样式，
+   失败回滚只需移除本类）。加一层淡主题色底：暗色下 --btn-content 与 --primary
+   太接近，只换文字色看不出变化 */
+.moment-action.is-upvoted {
+  pointer-events: none;
+  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+
+.moment-card-watermark {
+  position: absolute;
+  right: 1rem;
+  bottom: 0.85rem;
+  font-size: 2.5rem;
+  line-height: 1;
+  color: color-mix(in oklab, var(--primary) 13%, transparent);
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+
+/* PhotoSwipe 打开/关闭动画期间：缩略图复位（清除 hover 放大的 transform 与过渡），
+   保证 zoom 过渡采样到真实的缩略图矩形（由 content-photoswipe.ts 切换 body 类）。
+   !important 用于覆盖模板上的 Tailwind hover 放大工具类（位于 utilities 层） */
+body.pswp-transition .moment-media img,
+body.pswp-transition .custom-md img,
+body.pswp-transition #post-cover img,
+body.pswp-transition #photo-detail-image {
+  transform: none !important;
+  transition: none !important;
+}
+
+/* 朋友圈时间轴 - 纵向虚线布局 */
