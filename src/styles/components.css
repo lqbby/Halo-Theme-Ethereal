@@ -2232,3 +2232,139 @@ body.pswp-transition #photo-detail-image {
   background: var(--primary);
   color: var(--card-bg);
 }
+
+/* ==========================================================================
+   朋友圈时间轴（纵向虚线布局）——随「朋友圈整页照上游」移植
+   来源：上游 v2.0.0 src/styles/components.css:1868-1997
+   （含 .friends-timeline* 纵向时间轴 + .friends-article-separator/-item 同博主分组）
+   ========================================================================== */
+
+.friends-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 时间轴一行 */
+.friends-timeline-row {
+  display: flex;
+  align-items: stretch;
+}
+
+/* 中栏：虚线 + 圆点容器 */
+.friends-timeline-col-line {
+  position: relative;
+  width: 2rem;
+  min-width: 2rem;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+/* 纵向虚线 */
+.friends-timeline-col-line::before {
+  content: "";
+  position: absolute;
+  left: calc(50% - 1px);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-left: 2px dashed var(--line-color);
+  pointer-events: none;
+}
+
+/* 圆点节点 */
+.friends-timeline-dot {
+  position: relative;
+  z-index: 1;
+  margin-top: calc(0.3rem + 3px);
+  width: 12px;
+  height: 12px;
+  min-width: 12px;
+  border-radius: 50%;
+  background: var(--primary);
+  outline: 3px solid var(--card-bg);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
+}
+
+/* 日期变更时的主节点（实心） */
+.friends-timeline-dot-primary {
+  background: var(--primary);
+  outline-color: color-mix(in oklab, var(--primary) 12%, transparent);
+}
+
+/* 同业后续条目：不显示圆点，虚线直接贯穿 */
+.friends-timeline-dot-dimmed {
+  display: none;
+}
+
+/* 右栏：卡片区域 */
+.friends-timeline-col-card {
+  flex: 1;
+  min-width: 0;
+  padding-bottom: 0.5rem;
+}
+
+/* 卡片上方的日期时间 */
+.friends-timeline-card-date {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1;
+  padding: 0.3rem 0 0.5rem 0;
+  letter-spacing: 0.02em;
+}
+
+/* 卡片悬浮上移 + 主题色阴影（受样式开关控制）。
+   移动端（<768px）卡片连排不分块，屏蔽悬浮上移；md+ 保留 */
+@media (min-width: 768px) {
+  body.card-hover-lift-enabled .card-hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 20px color-mix(in oklab, var(--primary) 20%, transparent);
+  }
+}
+
+/* ── 卡片边框和阴影（样式开关，默认关闭 → 访客可在显示设置覆盖）──
+   给原本无边框的 .card-base / .btn-card 补细边框 + 浅阴影（1px --line-divider +
+   shadow-xs）；分页页码组（.pagination-pages）整体算一张卡片（内部按钮反覆盖排除）。
+   排除项（有专属描边/阴影语言或不是卡片）：.btn-card-outline（主题色描边条目卡）、
+   .no-card-border（功能按钮）、.toc-popup-card / .welcome-card（浮层弹窗）、
+   .is-pinned（置顶卡）。
+   ⚠️ 排除项用 :where(:not(...)) 包裹：归零特异性，保证悬停时 .card-hover-lift:hover
+   的主题色阴影（0,3,1）能压过本规则（0,2,1） */
+body.card-border-enabled
+  .card-base:where(:not(.btn-card-outline)):where(:not(.toc-popup-card)):where(
+    :not(.welcome-card)
+  ):where(:not(.is-pinned)),
+body.card-border-enabled
+  .btn-card:where(:not(.btn-card-outline)):where(:not(.no-card-border)),
+body.card-border-enabled .pagination-pages {
+  border: 1px solid var(--line-divider);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+
+/* 分页页码组容器内部的页码按钮：反覆盖排除（边框只加在容器上、整组为一张
+   卡片，避免每个数字各自描边）。特异性 (0,3,1) 压过上方 .btn-card 命中
+   (0,2,1)；页码按钮不带 card-hover-lift，不受悬浮阴影规则干扰 */
+body.card-border-enabled .pagination-pages .btn-card {
+  border: none;
+  box-shadow: none;
+}
+
+/* 头像 hover 微交互 */
+.friends-avatar {
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.friends-card:hover .friends-avatar {
+  transform: scale(1.08);
+}
+
+/* 同博主多篇文章分隔线 */
+.friends-article-separator {
+  height: 1px;
+  background: var(--line-color);
+  margin: 0.75rem 0;
+}

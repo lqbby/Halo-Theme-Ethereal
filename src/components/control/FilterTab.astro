@@ -18,6 +18,8 @@ interface Props {
   showIfExpr?: string;
   withExpr?: string;
   countShowIfExpr?: string;
+  /** 胶囊池条目模式：透明条目（.seg-item），激活底色由页面 .seg-thumb 浮块承载 */
+  segmented?: boolean;
   label?: string;
   countClass?: string;
   size?: "sm" | "lg";
@@ -34,15 +36,19 @@ const {
   countShowIfExpr,
   label,
   countClass = "ml-1 text-30",
+  segmented = false,
   size = "sm",
   attrs = {},
 } = Astro.props;
 
-const tabClass = `btn-card shrink-0 rounded-xl px-3 text-sm font-bold text-75 ${
-  size === "lg" ? "h-10" : "h-9"
-}`;
+// 经典模式：按钮卡形态；池式模式：透明条目，视觉交给 .seg-item / .seg-thumb
+const tabClass = segmented
+  ? "seg-item shrink-0"
+  : `btn-card shrink-0 rounded-xl px-3 text-sm font-bold text-75 ${
+      size === "lg" ? "h-10" : "h-9"
+    }`;
 const activeAppend = activeExpr
-  ? `\${${activeExpr} ? ' bg-(--primary) text-white dark:text-black/70' : ''}`
+  ? `\${${activeExpr} ? '${segmented ? " seg-active" : " bg-(--primary) text-white dark:text-black/70"}' : ''}`
   : undefined;
 ---
 
@@ -57,7 +63,11 @@ const activeAppend = activeExpr
   <span th:text={labelExpr}>{label}</span>
   {
     countExpr && (
-      <span th:if={countShowIfExpr} class={countClass} th:text={countExpr}>
+      <span
+        th:if={countShowIfExpr}
+        class={segmented ? `seg-cnt ${countClass}` : countClass}
+        th:text={countExpr}
+      >
         0
       </span>
     )

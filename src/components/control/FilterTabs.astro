@@ -23,6 +23,8 @@ interface TabItem {
 interface Props {
   showIfExpr?: string;
   class?: string;
+  /** 胶囊池模式：只输出条目（外层 display:contents 透传布局），池外壳由页面手写 */
+  segmented?: boolean;
   size?: "sm" | "lg";
   countClass?: string;
   allHrefExpr: string;
@@ -41,6 +43,7 @@ const {
   showIfExpr,
   size = "sm",
   countClass,
+  segmented = false,
   allHrefExpr,
   allActiveExpr,
   allLabelExpr = "#{common.all}",
@@ -55,7 +58,7 @@ const {
 } = Astro.props;
 ---
 
-<div th:if={showIfExpr} class={className}>
+<div th:if={showIfExpr} class={segmented ? "contents" : className}>
   <FilterTab
     hrefExpr={allHrefExpr}
     activeExpr={allActiveExpr}
@@ -65,6 +68,7 @@ const {
     countShowIfExpr={allCountShowIfExpr}
     size={size}
     countClass={countClass}
+    segmented={segmented}
     attrs={linkAttrs}
   />
   {
@@ -74,6 +78,7 @@ const {
           {...tabTemplate}
           size={size}
           countClass={countClass}
+          segmented={segmented}
           attrs={linkAttrs}
         />
       </div>
@@ -83,6 +88,7 @@ const {
           {...item}
           size={size}
           countClass={countClass}
+          segmented={segmented}
           attrs={linkAttrs}
         />
       ))
