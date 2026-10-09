@@ -401,6 +401,26 @@ const layoutId = `${widgetId}-layout`;
   </WidgetLayout>
 </div>
 
+<!-- 未配置 ID：渲染提示卡而不是静默消失（上游 7e6c87c）。
+     与上方播放器互斥（th:if 取反），同一时刻只会渲染一个节点。
+     后台该字段不再设必填校验时，用前台提示代替校验。 -->
+<div class="contents" th:if="${#strings.isEmpty(widget.id)}">
+  <WidgetLayout
+    name="音乐"
+    nameKey="widget.music.title"
+    id={`${layoutId}-empty`}
+    class={className}
+    style={style}
+  >
+    <p
+      class="mb-3 break-words px-3 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400"
+      th:text="#{widget.music.noId}"
+    >
+      音乐播放器未配置 ID
+    </p>
+  </WidgetLayout>
+</div>
+
 <script define:vars={{ widgetId }} is:inline>
   function initFirefly() {
     const widget = document.getElementById(widgetId);
