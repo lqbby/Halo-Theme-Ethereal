@@ -56,8 +56,6 @@ import QueryPagination from "../components/control/QueryPagination.astro";
         title="技能"
         iconClass="icon-[material-symbols--psychology-outline-rounded]"
         eyebrow="SKILLS"
-        filteredExpr="${not #lists.isEmpty(param.category)}"
-        filteredClearExpr="@{${singlePage.status.permalink}}"
         stats={[
           {
             valueExpr: "${totalSize}",

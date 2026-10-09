@@ -121,8 +121,6 @@ import QueryPagination from "../components/control/QueryPagination.astro";
         title="时间轴"
         iconClass="icon-[mingcute--timeline-line]"
         eyebrow="TIMELINE"
-        filteredExpr="${not #lists.isEmpty(param.type)}"
-        filteredClearExpr="@{${singlePage.status.permalink}}"
         stats={[
           {
             valueExpr: "${totalSize}",

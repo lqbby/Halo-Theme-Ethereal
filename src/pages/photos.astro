@@ -35,8 +35,6 @@ const noSwup = { "data-no-swup": "1" };
         title="图库"
         iconClass="icon-[material-symbols--photo-library-outline-rounded]"
         eyebrow="COLLECTION"
-        filteredExpr="${not #lists.isEmpty(param.group)}"
-        filteredClearExpr="@{${photoUrl.list()}}"
         stats={[
           {
             valueExpr: "${photos.total}",

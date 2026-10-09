@@ -4,6 +4,7 @@ import FilterTab from "../components/control/FilterTab.astro";
 import Pagination from "../components/control/Pagination.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import PageHeader from "../components/control/PageHeader.astro";
 
 // 分类筛选：由页面内分类选择器（FilterTabs，moment 同款）驱动，
 // 分类导航栏（CategoryBar）在归档页不再转换筛选模式，仅保留 permalink。
@@ -47,25 +48,25 @@ const yearCountThWith = `postCount=\${#aggregates.sum(archive.months.![posts.siz
   </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <div th:remove="tag" th:with={topWith}>
-    <!-- 框一：头部卡片（归档 + 共 N 篇文章，与 tags/categories 同款简洁风格） -->
-    <div class="card-base px-8 py-6 mb-4">
-      <!-- 用 <h1> 而不是 <div>：① 换页焦点归位依赖「#swup-container 内存在主标题」
-           （见 scripts/app.ts 的 visit:start 钩子）；② 读屏按标题导航时，本页原先
-           一个标题都没有。Tailwind Preflight 会把 h1 的字号/字重重置成继承，配合
-           下面的 text-2xl / font-bold / mb-2，渲染结果与 div 完全一致。 -->
-      <h1
-        class="text-2xl font-bold text-(--primary) mb-2"
-        th:text="#{page.archives.title}"
-      >
-        归档
-      </h1>
-      <p
-        id="archive-subtitle"
-        class="text-30 text-sm"
-        th:text="#{page.archives.subtitleCount(${totalPosts})}"
-      >
-        共 0 篇文章
-      </p>
+    <!-- 框一：头部卡片（全站统一仪表条：眉题 + 标题 + 统计方片）。
+         ⚠️ h1 由 PageHeader 渲染 ⇒ 换页焦点归位（app.ts visit:start 要求
+         #swup-container 内存在主标题）与读屏导航仍成立 -->
+    <div class="card-base page-head-card onload-animation mb-4">
+      <PageHeader
+        containerClass=""
+        titleExpr="#{page.archives.title}"
+        title="归档"
+        iconClass="icon-[material-symbols--archive-outline-rounded]"
+        eyebrow="ARCHIVES"
+        stats={[
+          {
+            valueExpr: "${totalPosts}",
+            value: "0",
+            labelExpr: "#{common.stat.posts}",
+            label: "文章",
+          },
+        ]}
+      />
     </div>
 
     <!-- 框二：分类菜单（PJAX 局部刷新触发器：点击只刷新框三 #archive-list，

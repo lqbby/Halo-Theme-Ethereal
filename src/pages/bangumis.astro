@@ -54,8 +54,6 @@ const stats = [
       title="追番"
       iconClass="icon-[mingcute--bilibili-line]"
       eyebrow="BANGUMI"
-      filteredExpr="${bangumis != null and (bangumis.typeNum != 1 or bangumis.status != 0)}"
-      filteredClearExpr="@{/bangumis(typeNum=1, status=0)}"
       stats={[
         {
           valueExpr: "${bangumis.total}",

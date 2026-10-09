@@ -33,8 +33,6 @@ const noSwup = { "data-no-swup": "1" };
         title="装备管理"
         iconClass="icon-[material-symbols--devices-outline-rounded]"
         eyebrow="EQUIPMENTS"
-        filteredExpr="${not #lists.isEmpty(param.group)}"
-        filteredClearExpr="@{/equipments}"
         stats={[
           {
             valueExpr: "${equipments == null ? 0 : equipments.total}",

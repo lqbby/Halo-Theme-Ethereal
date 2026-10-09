@@ -32,10 +32,6 @@ interface Props {
   iconClass: string;
   /** 英文大写眉题：静态设计词（如 ARCHIVES / MOMENTS），不走 i18n */
   eyebrow?: string;
-  filteredExpr?: string;
-  /** 「已筛选」徽章的清除链接（Thymeleaf @{} 表达式） */
-  filteredClearExpr?: string;
-  /** 统计方片组（数值 + 词条） */
   stats?: HeaderStat[];
 }
 
@@ -45,8 +41,6 @@ const {
   title = "",
   iconClass,
   eyebrow,
-  filteredExpr,
-  filteredClearExpr,
   stats,
 } = Astro.props;
 
@@ -84,21 +78,5 @@ const hasRight = Astro.slots.has("right");
       ) : null
     }
   </div>
-  {
-    filteredExpr && (
-      <a
-        th:if={filteredExpr}
-        th:href={filteredClearExpr}
-        th:title="#{common.clearFilter}"
-        class="ph-filter-chip"
-      >
-        <span th:text="#{common.filtered}">已筛选</span>
-        <span
-          class="icon-[material-symbols--close-rounded] text-[0.8rem]"
-          aria-hidden="true"
-        />
-      </a>
-    )
-  }
   <span class={`ph-watermark ${iconClass}`} aria-hidden="true"></span>
 </div>

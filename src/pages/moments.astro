@@ -23,8 +23,6 @@ import Canonical from "../components/misc/Canonical.astro";
       title="瞬间"
       iconClass="icon-[material-symbols--bolt-outline-rounded]"
       eyebrow="MOMENTS"
-      filteredExpr="${not #lists.isEmpty(param.tag)}"
-      filteredClearExpr="@{/moments}"
       stats={[
         {
           valueExpr: "${moments.total}",
