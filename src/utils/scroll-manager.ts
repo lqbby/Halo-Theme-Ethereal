@@ -191,8 +191,17 @@ export function cancelLockstepScrollToTop(): void {
 
 const PAGE_SWITCH_EASE = createBezierEasing(0.4, 0, 0.2, 1);
 
-/** 与 is-home 位移动画锁步的换页回顶。用户主动滚动（滚轮/触摸）即取消让位 */
-export function lockstepScrollToTop(): void {
+/** 与 is-home 位移动画锁步的换页回顶。用户主动滚动（滚轮/触摸）即取消让位。
+ *  syncEl（v1.7.19，is-home 切换场景传 #main-grid）：滚动不再 ease 自走，
+ *  改为**跟随目标元素 translate 的实时进度**——每帧 getComputedStyle 读
+ *  translate 当前值，按「位移已走过比例」写滚动位置。
+ *  背景：CSS transition 的启动延迟 / 合成器提交相位不可控（实测 1~2 帧），
+ *  ease 自走时滚动与位移互相超前滞后：位移先启（page:view 比 content:scroll
+ *  早 ~37ms）→「先上后下」反向段 ~25px（上下抖动）；同帧触发则滚动超前→
+ *  反向段换向且更大（ease 前段陡，首 2 帧可走 8%×1749≈140px，实测 49~83px）。
+ *  跟随模式下合成位置 = f(tr) 的单调函数（tr 本身单调），与 CSS 启动延迟、
+ *  曲线细节完全解耦——数学上保证无反向段。 */
+export function lockstepScrollToTop(syncEl?: HTMLElement | null): void {
   const startY = window.scrollY;
   if (startY <= 0) return;
   // v1.7.18：取消「>1.5 屏瞬时截断」，任意距离统一走锁步动画——非宽屏下首页
@@ -221,6 +230,50 @@ export function lockstepScrollToTop(): void {
   };
   window.addEventListener("wheel", cancelOnUserInput, { passive: true });
   window.addEventListener("touchstart", cancelOnUserInput, { passive: true });
+  // 位移基准：--banner-height-extend（is-home 侧 translate-y 的 px 值，
+  // global.css @utility is-home 与 components.css 基值 0 同源）；读不到 /
+  // 为 0 ⇒ 该视口无位移，退回 ease 自走
+  const extendPx = syncEl
+    ? parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue(
+          "--banner-height-extend",
+        ),
+      )
+    : NaN;
+  const el = syncEl || null;
+  if (el && Number.isFinite(extendPx) && extendPx > 1) {
+    const grid = el;
+    const readTr = (): number => {
+      const v = getComputedStyle(grid).translate;
+      if (!v || v === "none") return 0;
+      const parts = v.trim().split(/\s+/);
+      const n = parseFloat(parts.length > 1 ? parts[1] : parts[0]);
+      return Number.isFinite(n) ? n : 0;
+    };
+    // 调用前 app.ts 已在同帧翻转 is-home——tr 现值靠近哪端即刚离开哪端：
+    // 离开首页 tr extendPx→0 / 进入首页 tr 0→extendPx
+    const leavingHome = readTr() > extendPx / 2;
+    const followStep = (now: number) => {
+      if (token !== lockstepToken) {
+        unbindUserInputGuard();
+        return;
+      }
+      const tr = readTr();
+      const progress = leavingHome ? 1 - tr / extendPx : tr / extendPx;
+      const clamped = Math.min(Math.max(progress, 0), 1);
+      window.scrollTo(0, Math.round(startY * (1 - clamped)));
+      const done = leavingHome ? tr <= 0.5 : tr >= extendPx - 0.5;
+      if (done || now - startTime > duration + 250) {
+        // transition 异常（未启动/被打断）时超时兜底，终点恒为顶
+        window.scrollTo(0, 0);
+        unbindUserInputGuard();
+        return;
+      }
+      requestAnimationFrame(followStep);
+    };
+    requestAnimationFrame(followStep);
+    return;
+  }
   const step = (now: number) => {
     if (token !== lockstepToken) {
       unbindUserInputGuard();

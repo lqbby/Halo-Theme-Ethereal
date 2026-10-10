@@ -1368,7 +1368,20 @@ function setupSwup() {
     // 首刷走 DOMContentLoaded，换页走这里——缺了它 callout 短代码（7 种）
     // 在换页后不转译、显示成原始 GitHub Alert 样式。
     initContentEnhance();
-    syncHomeClass();
+    // is-home 将切换且已推迟：不在此翻转（等 content:scroll 与锁步同帧翻转，
+    // 消除「位移先动 37ms」的反向段前窗）；不切换（文章→文章等）照常同步
+    // （幂等）。安全兜底：content:scroll 异常不触发时 1200ms 后仍翻转。
+    if (deferHomeClassForFollow && isHomeSwitching()) {
+      setTimeout(() => {
+        if (deferHomeClassForFollow && isHomeSwitching()) {
+          deferHomeClassForFollow = false;
+          syncHomeClass();
+        }
+      }, 1200);
+    } else {
+      deferHomeClassForFollow = false;
+      syncHomeClass();
+    }
     syncBannerOverlay();
     armLazyLightbox();
     void initPhotosGallery();
@@ -1390,6 +1403,12 @@ function setupSwup() {
   // needsScrollWait 仅对「从非顶部换页回顶」的场景置真；从顶部换页（零距离
   // 短路无滚动结束信号）与 popstate 由 visit:end 直接移除
   let needsScrollWait = false;
+  // is-home 翻转推迟到锁步启动（v1.7.19）：横幅模式「从非顶部换页且 is-home
+  // 将切换」时 page:view 不立即 syncHomeClass——位移 transition 先启动而锁步
+  // 回顶晚 ~37ms 启动，会形成「位移先走、滚动后追」的反向段（上下抖动）；
+  // 推迟后由 content:scroll 在锁步启动同帧翻转，滚动跟随 translate 实时进度
+  // （lockstepScrollToTop 的 follow 模式），合成运动严格单调。
+  let deferHomeClassForFollow = false;
   const releaseTocNotReady = () => {
     document.documentElement.classList.remove("toc-not-ready");
   };
@@ -1434,6 +1453,17 @@ function setupSwup() {
       document.documentElement.classList.add("toc-not-ready");
       needsScrollWait =
         !visit?.history?.popstate && !visit?.to?.hash && window.scrollY > 0;
+      // 是否推迟 is-home 翻转（见 deferHomeClassForFollow 声明注释）：
+      // 横幅模式（全屏在 content:replace 已提前切，无推迟语义）+ 非 reduce
+      // （reduce 锁步瞬时，无跟随循环，保持 page:view 原行为）
+      deferHomeClassForFollow =
+        needsScrollWait &&
+        document.body.classList.contains("enable-banner") &&
+        !isFullscreenMode() &&
+        !(
+          window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        );
       // SwupScrollPlugin 在 before("visit:start")（priority -1）设置
       // visit.scroll.animate，此处（默认 priority 0）在接管回顶滚动时覆盖为
       // false，早于其 content:scroll 的 doScrollingBetweenPages 消费点。
@@ -1497,7 +1527,17 @@ function setupSwup() {
             // 走锁步动画，取消 >1.5 屏瞬时截断——窄屏页底点卡片不再一帧裸跳）。
             // 纯色 / 全屏透明无 enable-banner、无位移 ⇒ 保持原生平滑（合成器驱动）
             if (document.body.classList.contains("enable-banner")) {
-              lockstepScrollToTop();
+              if (deferHomeClassForFollow && isHomeSwitching()) {
+                // is-home 切换：锁步启动同帧翻转（消除位移先动的前窗），滚动
+                // 跟随 #main-grid 的 translate 实时进度（同相 ⇒ 合成单调）
+                deferHomeClassForFollow = false;
+                syncHomeClass();
+                lockstepScrollToTop(document.getElementById("main-grid"));
+              } else {
+                // 文章→文章等无位移场景：ease 自走即单调
+                deferHomeClassForFollow = false;
+                lockstepScrollToTop();
+              }
             } else {
               // 非锁步分支同样走距离门控：原先直接 smooth 会让「从文章深处进入下一页」
               // 变成长距离拉扯（原生 smooth 时长随距离缩放）
