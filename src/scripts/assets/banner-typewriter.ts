@@ -76,14 +76,22 @@ import { guardOnce } from "../../utils/once";
     }
   };
 
-  // 光标闪烁（抽出供初始化与后台恢复共用）
-  function createCursorBlink(cursor) {
-    cursor.style.opacity = "1";
-    var vis = true;
-    cursor.__blinkInterval = setInterval(function () {
-      if (cursor) cursor.style.opacity = vis ? "1" : "0";
-      vis = !vis;
-    }, 530);
+  // 光标闪烁（CSS 驱动，样式见 components.css 的 .banner-cursor-blink）：
+  // 1.06s 周期、前 50% 亮后 50% 灭，与原 setInterval(530ms) 观感一致。
+  // 摘/挂 class 即重启相位 —— 不再有定时器，换页重挂与后台恢复都只是「摘/挂类」，
+  // 不存在「漏清 interval」导致的常驻定时器（原 __blinkInterval 三处读写）。
+  var BLINK_CLASS = "banner-cursor-blink";
+
+  function startCursorBlink(cursor) {
+    cursor.classList.remove(BLINK_CLASS);
+    cursor.style.opacity = ""; // 清掉旧实现可能留下的 inline 透明度，交给动画控制
+    // 强制一次回流后重新挂类，让动画从 0% 起播（与全站「重新加类重播动画」同一手法）
+    void cursor.offsetWidth;
+    cursor.classList.add(BLINK_CLASS);
+  }
+
+  function stopCursorBlink(cursor) {
+    cursor.classList.remove(BLINK_CLASS);
   }
 
   function initTypewriter() {
@@ -98,11 +106,8 @@ import { guardOnce } from "../../utils/once";
         el.textContent = "";
         var cursor = document.getElementById("banner-cursor");
         if (cursor) {
-          if (cursor.__blinkInterval) {
-            clearInterval(cursor.__blinkInterval);
-            delete cursor.__blinkInterval;
-          }
-          createCursorBlink(cursor);
+          // 重启相位（内部含摘类 → 回流 → 挂类）
+          startCursorBlink(cursor);
         }
       },
     );
@@ -119,7 +124,8 @@ import { guardOnce } from "../../utils/once";
   // 不守卫则监听器逐次累积；换页后的重初始化由下方 runInitTW() 承担。
   // 原 swup:contentReplaced 监听删除：Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
   if (!guardOnce("banner-tw")) {
-    // I24：后台标签页暂停（打字链 + 光标闪烁；状态保留在实例字段，回前台继续。
+    // I24：后台标签页暂停（打字链 + 光标闪烁；打字机状态存实例字段 __twInstance、
+    // 光标状态是持久元素上的 .banner-cursor-blink 类，回前台都接着原状态继续。
     // 对照 banner-drop.js visibilitychange 守卫，动画本体不变）
     document.addEventListener("visibilitychange", function () {
       var subtitle = document.getElementById("banner-subtitle");
@@ -133,9 +139,8 @@ import { guardOnce } from "../../utils/once";
           clearTimeout(subtitle.__twInstance.timeoutId);
           subtitle.__twInstance.timeoutId = null;
         }
-        if (cursor && cursor.__blinkInterval) {
-          clearInterval(cursor.__blinkInterval);
-          cursor.__blinkInterval = null;
+        if (cursor && cursor.classList.contains(BLINK_CLASS)) {
+          stopCursorBlink(cursor);
         }
       } else {
         if (
@@ -145,8 +150,8 @@ import { guardOnce } from "../../utils/once";
         ) {
           subtitle.__twInstance.type();
         }
-        if (cursor && !cursor.__blinkInterval) {
-          createCursorBlink(cursor);
+        if (cursor && !cursor.classList.contains(BLINK_CLASS)) {
+          startCursorBlink(cursor);
         }
       }
     });

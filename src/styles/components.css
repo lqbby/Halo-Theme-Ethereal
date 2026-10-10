@@ -1,6 +1,31 @@
 @reference "./global.css";
 
 @layer components {
+  /* 圆角三角指示器（当前使用方：友链页折叠面板 .collapse-icon，展开态由
+     links.astro 的 .is-expanded 旋转 90°（▶ → ▼）。
+     🔴 2026-10-10 补：links.astro 早就写了 class="collapse-icon round-triangle"，
+     但本规则与形状定义在主线都不存在 ⇒ 指示器实际是零尺寸空元素（面板上看不见箭头）。
+     ⚠️ 形状用 `--svg` 承载（而非上游的 --triangle-mask 变量）是**有意为之**：
+     `scripts/ensure-icon-mask-prefix.mjs` 只给含 `--svg: url(data:image/svg+xml…)` 的
+     规则补 -webkit-mask-* 前缀，而 Chromium<120（HeyTap/老微信内核）不认无前缀
+     mask-*，会退化成实心方块。内联 --svg 即复用该已验证通道；补齐的
+     `-webkit-mask-size:100% 100% + no-repeat` 对本 0.7em×0.7em 方形元素与
+     `contain` 等价（SVG viewBox 16×16 正方）。
+     若将来正文 details 的 summary 三角也要用同一形状，把这里的值抽成 --triangle-mask
+     并同步扩展该脚本的标记正则。 */
+  .round-triangle {
+    --svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='black' stroke='black' stroke-width='3' stroke-linejoin='round'%3E%3Cpath d='M4.5 3.5 11.5 8 4.5 12.5z'/%3E%3C/svg%3E");
+    flex: none;
+    width: 0.7em;
+    height: 0.7em;
+    background: var(--primary);
+    mask-image: var(--svg);
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    transition: transform 0.15s ease;
+  }
+
   .card-base {
     @apply overflow-hidden rounded-(--radius-large) bg-(--card-bg) transition;
     /* 背景纹理改为由 :root.mods-card-pattern 作用域控制（见下方 .float-panel 后规则）；
@@ -2884,6 +2909,25 @@ html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
 
 #banner-cursor {
   height: var(--banner-subtitle-size, 1.5rem);
+}
+
+/* 光标闪烁改 CSS 驱动（2026-10-10）：原实现是 setInterval(530ms) 反复写 inline
+   opacity，且 __blinkInterval 在「创建 / 换页重挂 / 后台恢复」三处读写（漏清就常驻
+   定时器白烧主线程）。改动画后无定时器；重启相位由脚本摘/挂 .banner-cursor-blink
+   完成。周期与原一致：1.06s（前 50% 亮、后 50% 灭）。 */
+@keyframes banner-cursor-blink {
+  0%,
+  49.99% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.banner-cursor-blink {
+  animation: banner-cursor-blink 1.06s infinite;
 }
 
 @media (max-width: 767.98px) {
