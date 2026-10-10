@@ -58,6 +58,13 @@ window.addEventListener(
   { passive: true },
 );
 
+// 换页滚动的「复位纪元」：换页开始（visit:start）与跨页回顶复位执行时递增。
+// initCustomScrollbar 挂载后「恢复滚动位置」的 rAF 据此放弃过期恢复——否则会出现
+// 「导航已回顶（scrollTo 0），随后到达的挂载 rAF 发现位置对不上、又把旧位置写回」
+// 的竞态：新页面里旧位置超出可滚动上限即被钳制，移动端表现为「首页底部点文章 →
+// 直接落在文章页最底」（2026-10-10 CDP 实测：复位后 ~60ms 被写回 top=原位置）。
+let navResetStamp = 0;
+
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
 let scrollbarInitialized = false;
 function initCustomScrollbar() {
@@ -67,6 +74,11 @@ function initCustomScrollbar() {
   if (!bodyElement) return;
   import("overlayscrollbars").then(({ OverlayScrollbars }) => {
     let mounted = false;
+    // 换页进行中：is-changing / is-animating 由 Swup 在 visit 生命周期挂/摘，
+    // 与 theme 其它守卫（如 RecentComments 点击拦截）同一判据
+    const navBusy = () =>
+      document.documentElement.classList.contains("is-changing") ||
+      document.documentElement.classList.contains("is-animating");
     const mount = (fromInteraction: boolean) => {
       if (mounted) return; // 防重入：Promise.all 与 setTimeout 兜底可能双调
       mounted = true;
@@ -76,7 +88,11 @@ function initCustomScrollbar() {
       // scrollY，挂载完成后下一帧（等 OS 完成初始布局）若有偏差则恢复；用户主动
       // 滚动（wheel/touchmove/keydown）触发时不恢复——wheel 的默认滚动发生在事件
       // 处理返回后，此刻恢复会把用户刚滚到的位置拉回滚动前。
-      const scrollYBefore = fromInteraction ? null : window.scrollY;
+      // 🔴 换页进行中（navBusy）同样不恢复：此刻的「位置变化」是本主题自己的
+      // 跨页回顶复位（scrollTo 0），恢复写回旧位置 = 把用户拽到新页深处甚至最底。
+      const scrollYBefore =
+        fromInteraction || navBusy() ? null : window.scrollY;
+      const stampAtCapture = navResetStamp;
       OverlayScrollbars(
         { target: bodyElement, cancel: { nativeScrollbarsOverlaid: true } },
         {
@@ -102,6 +118,9 @@ function initCustomScrollbar() {
       );
       if (scrollYBefore !== null) {
         requestAnimationFrame(() => {
+          // 捕获 → 恢复之间发生过换页/回顶复位（纪元变化）⇒ 旧位置已无意义，
+          // 放弃恢复（否则竞态会把用户拽到新页面深处/最底）
+          if (navResetStamp !== stampAtCapture) return;
           if (Math.abs(window.scrollY - scrollYBefore) > 1) {
             window.scrollTo({ top: scrollYBefore });
           }
@@ -132,11 +151,11 @@ function initCustomScrollbar() {
       let scrollGuardTries = 0;
       const run = (fromInteraction: boolean) => {
         if (ran) return;
-        if (
-          lastUserScrollAt > 0 &&
-          Date.now() - lastUserScrollAt < 300 &&
-          scrollGuardTries < 20
-        ) {
+        // 换页进行中也一并推迟（同一计数上限）：mount 的全量重排落在换页窗口里
+        // 既制造卡顿，又会与回顶复位抢滚动位置（位置恢复另有纪元守卫兜底）。
+        const scrollRecent =
+          lastUserScrollAt > 0 && Date.now() - lastUserScrollAt < 300;
+        if ((scrollRecent || navBusy()) && scrollGuardTries < 20) {
           scrollGuardTries += 1;
           setTimeout(() => run(fromInteraction), 250);
           return;
@@ -990,6 +1009,8 @@ function setupSwup() {
       history?: { popstate?: boolean };
     }) => {
       restoreOriginalHistoryStateHandlers();
+      // 换页开始：递增复位纪元（OverlayScrollbars 挂载后的位置恢复据此放弃过期恢复）
+      navResetStamp += 1;
       // 标记会话内已发生换页（<html> 不被 Swup 替换，标记永久有效）：
       // #right-sidebar 是 swup 容器，换页会换入带静态 onload-animation 类的新
       // aside，transition.css 据此标记永久抑制其入场动画（首刷动画不受影响）。
@@ -1048,6 +1069,9 @@ function setupSwup() {
       if (!visit?.history?.popstate && !visit?.to?.hash) {
         requestAnimationFrame(() =>
           requestAnimationFrame(() => {
+            // 回顶复位执行：递增复位纪元——此刻任何「挂载后恢复滚动位置」的 rAF
+            // 都必须放弃（其捕获的旧位置属于上一页面，写回会把用户拽到深处）
+            navResetStamp += 1;
             // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
             // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
             // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
