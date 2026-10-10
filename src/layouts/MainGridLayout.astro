@@ -846,7 +846,11 @@ const {
   </div>
 
   <!-- Banner 脚本：所有页面均加载（脚本自身有全局守卫，非首页无副作用），
-     按显示模式精确门控（th:if），typewriter/drop 互斥，defer 不阻塞渲染 -->
+     按显示模式精确门控（th:if），typewriter/drop 互斥，defer 不阻塞渲染。
+     ⚠️ data-swup-ignore-script 判定规则（v1.7.24 换页重执行减负）：
+       脚本「每次重跑都会做实质工作」→ 不加（responsive/typewriter/drop/
+       src-switch：换页重排是设计行为）；「重跑纯空转或重复注册」→ 加豁免。
+       判定前必须读脚本是否整段守卫（guardOnce / window 标志 / 早退 return）。 -->
   <div th:with={bannerThWith()} th:remove="tag">
     <script
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-responsive.js?v=${ASSET_VERSION}`}
@@ -854,10 +858,12 @@ const {
     <script
       th:if="${mode == 'carousel' or (mobileActive and mobileMode == 'carousel')}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-carousel.js?v=${ASSET_VERSION}`}
+      data-swup-ignore-script
       defer></script>
     <script
       th:if="${(mode == 'single' and isVideo) or (mobileActive and mobileIsVideo)}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-media.js?v=${ASSET_VERSION}`}
+      data-swup-ignore-script
       defer></script>
     <script
       th:if="${mobileActive}"
@@ -867,6 +873,7 @@ const {
          在亮/暗两套壁纸间切换（无 data-theme-src 时无副作用） -->
     <script
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-theme-switch.js?v=${ASSET_VERSION}`}
+      data-swup-ignore-script
       defer></script>
     <script
       th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.subtitleEffect == null or theme.config?.style?.bannerText?.subtitleEffect == 'typewriter'}"
@@ -883,10 +890,11 @@ const {
     <script
       th:if="${theme.config?.style?.styleSwitches?.sakura == true or theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false}"
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${ASSET_VERSION}`}
+      data-swup-ignore-script
       defer></script>
   </div>
 
-  <script is:inline>
+  <script is:inline data-swup-ignore-script>
     // 全屏模式首页向下箭头：点击平滑滚动到内容区。落点计算见
     // utils/scroll-manager.ts 的 scrollDownToContent()（app.ts 挂到
     // window.__etherealScrollDown）。事件委托置于 Swup 容器外，
@@ -913,6 +921,7 @@ const {
   <script
     th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && ((theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish) == null || (theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish))}"
     src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${ASSET_VERSION}`}
+    data-swup-ignore-script
     defer></script>
 
   {

@@ -240,6 +240,11 @@ const className = Astro.props.class;
   </div>
 </div>
 
+<!-- data-swup-ignore-script：navbar.js 全部三段均整段守卫（guardOnce /
+     window 标志），换页重执行纯空转且会重复注册监听——豁免克隆重执行
+     （v1.7.24 换页重执行减负）。导航栏在 Swup 容器外、跨页持久，绑定一次
+     长期有效。 -->
 <script
   src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/navbar.js?v=${ASSET_VERSION}`}
+  data-swup-ignore-script
   defer></script>

@@ -291,7 +291,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
       })();
     </script>
     <!-- Guard against duplicate Custom Element registration during Swup page transitions -->
-    <script>
+    <script data-swup-ignore-script>
       (function () {
         var _define = customElements.define.bind(customElements);
         customElements.define = function (name, constructor, options) {
