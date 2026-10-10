@@ -579,12 +579,16 @@
        启用过渡会在首帧形成瞬移；同时首帧 --banner-height-extend 从 vh 兜底
        切到 JS px 时，禁用过渡可避免该过渡被纳入 CLS 计分窗口。复用现有
        html:not(.page-ready) 范式（与 #wave-container 一致，app.ts 双 rAF 后
-       加 page-ready 恢复） */
+       加 page-ready 恢复）。
+       ⚠️ 瞬间条（.moment-marquee-anchor）同列（1.7.13）：它同样首帧消费
+       --banner-height-extend（vh 兜底↔JS px 切换），缺此门会只有瞬间条
+       在播过渡、网格已锁死，两侧错位 */
     transition: translate var(--dur-banner, 700ms)
       var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1));
   }
 
-  html:not(.page-ready) #main-grid {
+  html:not(.page-ready) #main-grid,
+  html:not(.page-ready) .moment-marquee-anchor {
     transition: none;
   }
 
@@ -702,11 +706,17 @@
 
   /* 显式 0 长度基值：is-home 切换时 translate 在 length↔length 间过渡。
      translate: none 与长度不可插值（CSS Transforms 2），会导致网格瞬移。
-     wave 用 transform、网格/banner 用 translate，属性不同但同为 --dur-banner、
-     同缓动、同帧切换（body.is-home），天然同步滑动，
+     ⚠️ 瞬间条（.moment-marquee-anchor）必须同列：它与网格同帧消费
+     --banner-height-extend，缺这条基值时非首页侧计算值为 none，换页
+     （首页↔其他页）与分类栏/波浪的滑动失步——在把 none↔长度按离散过渡
+     实现的引擎（WebKit）上表现为瞬间条不跟分类栏走、单独跳出来
+     （线上实测「瞬间条从菜单栏下面钻出来」，1.7.13 补齐此基值）。
+     wave 用 transform、网格/banner/瞬间条用 translate，属性不同但同为
+     --dur-banner、同缓动、同帧切换（body.is-home），天然同步滑动，
      无需任何 is-changing 覆盖（wave 保持自然过渡，不闪现） */
   .enable-banner #main-grid,
-  .enable-banner #banner-wrapper {
+  .enable-banner #banner-wrapper,
+  .enable-banner .moment-marquee-anchor {
     translate: 0 0;
   }
 
