@@ -333,12 +333,27 @@ import { onPageView, onceBound } from "../../utils/once";
       return;
     }
 
-    // 普通 #comment：立即滚。#comment 顶边由上方正文决定，内容撑开只增自身高度不改变顶边，
-    // 此刻滚动落点本就准确，延后只会让用户多等。
-    box.scrollIntoView({
-      behavior: reduce ? "auto" : "smooth",
-      block: "start",
-    });
+    // 普通 #comment：立即滚。#comment 顶边由上方正文决定，内容撑开只增自身高度不改变顶边。
+    // 🔴 换页进入（snap=true）时绝不能裸用 smooth：换页瞬间 Safari/WKWebView 的
+    //    scroll anchoring 会把视口瞬时冲到页底 maxScroll（移动端实测，同精准模式注释），
+    //    从页底出发的长距离 smooth 在 iOS 上会被取消/丢失 ⇒ 视口留在页底
+    //    （真机实测「点底部文章/最近评论落在页底」＝本 bug；1.7.14）。
+    //    距离远（同 __smartScrollTo 判据：>1.5 屏或 reduce-motion）⇒ 先瞬时贴靠；
+    //    贴靠后评论区进入懒加载触发范围，容器尺寸稳定后再由 settleAndScrollOnce
+    //    精确落位（长距离瞬时 / 短距离平滑），与精准模式共用同款收尾。
+    var farFromBox =
+      reduce ||
+      Math.abs(box.getBoundingClientRect().top) >
+        (window.innerHeight || 800) * 1.5;
+    if (snap && farFromBox) {
+      box.scrollIntoView({ behavior: "auto", block: "start" });
+      settleAndScrollOnce(box);
+    } else {
+      box.scrollIntoView({
+        behavior: reduce ? "auto" : "smooth",
+        block: "start",
+      });
+    }
 
     // 高亮延后到内容就绪再播（在空壳上播等于白播），且等滚动停稳 + 目标进视口。
     if (box.dataset.commentReady) {

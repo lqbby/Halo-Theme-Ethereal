@@ -274,6 +274,30 @@ if (existsSync(TEMPLATES)) {
     /var scrollTicking = false;[\s\S]*?requestAnimationFrame/.test(src),
     true,
   );
+  // SS-10 裸 #comment 换页路径防「iOS 丢 smooth 留在页底」（v1.7.14）：
+  //   换页进入且距离远时必须瞬时贴靠（auto）+ settleAndScrollOnce 收尾，
+  //   不得裸 smooth；近距/同页路径保持原 smooth 行为。
+  check(
+    "SS-10a 裸 #comment 换页远距分支存在（farFromBox + snap 判据）",
+    /var farFromBox =\s*reduce \|\|\s*Math\.abs\(box\.getBoundingClientRect\(\)\.top\) >\s*\(window\.innerHeight \|\| 800\) \* 1\.5;/.test(
+      src,
+    ) && /if \(snap && farFromBox\) \{/.test(src),
+    true,
+  );
+  check(
+    "SS-10b 远距分支为瞬时贴靠 + settleAndScrollOnce 收尾",
+    /if \(snap && farFromBox\) \{\s*box\.scrollIntoView\(\{ behavior: "auto", block: "start" \}\);\s*settleAndScrollOnce\(box\);/.test(
+      src,
+    ),
+    true,
+  );
+  check(
+    "SS-10c 近距/同页分支保留 smooth 行为",
+    /box\.scrollIntoView\(\{\s*behavior: reduce \? "auto" : "smooth",\s*block: "start",\s*\}\);/.test(
+      src,
+    ),
+    true,
+  );
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
