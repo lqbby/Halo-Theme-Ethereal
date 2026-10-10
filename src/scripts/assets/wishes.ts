@@ -194,15 +194,31 @@ import { fetchWithTimeout } from "../../utils/fetch-timeout";
     var body = el.body;
     if (!body) return;
     var cards = body.querySelectorAll(".wish-card");
-    var visible = 0;
+    // 🔴 三趟走（随 up2 A4② 移植）：原先每张卡都 `void card.offsetWidth` 强制回流
+    // 一次（N 张 = N 次 reflow）。第一趟：只写（display 复位 + 动画清空 + opacity 0）
+    // 并收集要播的卡；第二趟：一次 `void body.offsetWidth` 统一回流；
+    // 第三趟：统一赋 animation（错峰 delay）——切分组时卡片重播错峰入场，
+    // 与首屏 th:style 的 wishCardIn 观感一致。
+    var toAnimate = [];
     cards.forEach(function (card) {
       var type = card.getAttribute("data-wish-type");
       var show = currentFilter === "all" || type === currentFilter;
-      card.style.display = show ? "" : "none";
-      if (show) visible++;
+      if (!show) {
+        card.style.display = "none";
+        return;
+      }
+      card.style.display = "";
+      card.style.animation = "none";
+      card.style.opacity = "0";
+      toAnimate.push(card);
+    });
+    // 一次强制回流：确保所有卡的动画都从 0% 开始
+    void body.offsetWidth;
+    toAnimate.forEach(function (card, i) {
+      card.style.animation = "wishCardIn 0.4s ease " + i * 40 + "ms forwards";
     });
     if (el.filterEmpty) {
-      el.filterEmpty.style.display = visible === 0 ? "block" : "none";
+      el.filterEmpty.style.display = toAnimate.length === 0 ? "block" : "none";
     }
   }
 

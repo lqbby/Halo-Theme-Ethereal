@@ -32,7 +32,10 @@ html.swup-visited #right-sidebar {
    复用 #right-sidebar 同源机制：html.swup-visited 自首次换页起永久挂在 <html>，
    此处据此永久抑制追番页容器内入场动画、强制终态可见（覆盖 .onload-animation
    的 opacity:0），与主题其他 Swup 过渡保持一致观感。 */
-html.swup-visited .bangumi-page .onload-animation {
+/* 自身即 .onload-animation 的顶层块（页头卡/内容卡/分页）也要覆盖——后代选择器
+   只管得到卡片内部，管不到挂载类的那一层自身 */
+html.swup-visited .bangumi-page .onload-animation,
+html.swup-visited .bangumi-page.onload-animation {
   animation: none !important;
   opacity: 1 !important;
   transform: none !important;

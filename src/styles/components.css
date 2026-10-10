@@ -1786,12 +1786,6 @@ body.pswp-transition #photo-detail-image {
   transform: scale(1.08);
 }
 
-/* 来源链接 - 轻量文字样式 */
-.friends-source-link {
-  position: relative;
-  transition: color 0.15s ease;
-}
-
 /* 同博主多篇文章分隔线 */
 .friends-article-separator {
   height: 1px;

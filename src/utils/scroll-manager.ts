@@ -261,6 +261,3 @@ function createBezierEasing(x1: number, y1: number, x2: number, y2: number) {
     return sampleY(t);
   };
 }
-
-/** 打断进行中的锁步回顶（新一轮导航、用户主动滚动时让位） */
-/** 与 is-home 位移动画锁步的换页回顶。用户主动滚动（滚轮/触摸）即取消让位 */
