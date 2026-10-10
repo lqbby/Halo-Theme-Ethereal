@@ -149,15 +149,21 @@ export function smartScrollTo(top: number): void {
 }
 
 let scrollTicking = false;
-window.addEventListener("scroll", function () {
-  if (!scrollTicking) {
-    requestAnimationFrame(function () {
-      scrollFunction();
-      scrollTicking = false;
-    });
-    scrollTicking = true;
-  }
-});
+// passive: 本监听只读滚动位置，不 preventDefault —— 声明 passive 后浏览器不必在
+// 滚动派发时等待 JS 返回（滚动事件每帧触发，省掉的是主线程握手开销）
+window.addEventListener(
+  "scroll",
+  function () {
+    if (!scrollTicking) {
+      requestAnimationFrame(function () {
+        scrollFunction();
+        scrollTicking = false;
+      });
+      scrollTicking = true;
+    }
+  },
+  { passive: true },
+);
 
 // 访客切换壁纸模式（setting-utils 的 applyBannerDisplay 派发）后立即重算
 // 目录显隐：切到横幅/全屏模式且视口在顶部时需补挂隐藏（toc-hide + 无

@@ -656,6 +656,9 @@ import { t } from "../../utils/i18n";
 
     var sections = grid.querySelectorAll("[data-link-section]");
     var visibleTotal = 0;
+    // 🔴 两趟走（原先每张卡 `void card.offsetWidth` ⇒ N 次 reflow）：
+    // 循环内只「移除类 + 收集要播的卡」→ 全部遍历完一次强制回流 → 统一加类。
+    var toEnter = [];
 
     for (var s = 0; s < sections.length; s++) {
       var section = sections[s];
@@ -679,8 +682,7 @@ import { t } from "../../utils/i18n";
           card.style.display = "";
           card.classList.remove("link-card-enter");
           if (animate) {
-            void card.offsetWidth; // 强制回流，确保重新加类时动画从头重播
-            card.classList.add("link-card-enter");
+            toEnter.push(card);
           }
           shown++;
         } else {
@@ -691,6 +693,13 @@ import { t } from "../../utils/i18n";
 
       section.style.display = groupOk && shown > 0 ? "" : "none";
       visibleTotal += shown;
+    }
+
+    if (toEnter.length) {
+      void toEnter[0].offsetWidth; // 一次强制回流，让所有卡的动画从头重播
+      for (var t = 0; t < toEnter.length; t++) {
+        toEnter[t].classList.add("link-card-enter");
+      }
     }
 
     var empty = document.getElementById("links-empty");

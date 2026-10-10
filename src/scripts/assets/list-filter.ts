@@ -73,11 +73,15 @@ import { guardOnce } from "../../utils/once";
 
   function playEnter(root) {
     var items = root.querySelectorAll("[data-list-item]");
-    for (var i = 0; i < items.length; i++) {
-      var el = items[i];
-      el.classList.remove("list-item-enter");
-      void el.offsetWidth; // 强制回流：重新加类时动画从头重播
-      el.classList.add("list-item-enter");
+    // 🔴 三趟走：原先每项 `void el.offsetWidth` 强制回流一次（N 项 = N 次 reflow）。
+    // 第一趟统一移除类，第二趟一次强制回流，第三趟统一添加（重新加类时动画从头重播）。
+    var i;
+    for (i = 0; i < items.length; i++) {
+      items[i].classList.remove("list-item-enter");
+    }
+    if (items.length && items[0].offsetWidth >= 0) void items[0].offsetWidth;
+    for (i = 0; i < items.length; i++) {
+      items[i].classList.add("list-item-enter");
     }
   }
 

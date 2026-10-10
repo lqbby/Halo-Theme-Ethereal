@@ -994,20 +994,30 @@ const layoutId = `${widgetId}-layout`;
     ui.cover.addEventListener("error", () =>
       ui.cover.classList.add("opacity-0"),
     );
-    ui.lrcContainer.addEventListener("wheel", () => {
-      state.isUserScrolling = true;
-      window.clearTimeout(state.scrollTimeout);
-      state.scrollTimeout = window.setTimeout(() => {
-        state.isUserScrolling = false;
-      }, 3000);
-    });
-    ui.lrcContainer.addEventListener("touchstart", () => {
-      state.isUserScrolling = true;
-      window.clearTimeout(state.scrollTimeout);
-      state.scrollTimeout = window.setTimeout(() => {
-        state.isUserScrolling = false;
-      }, 3000);
-    });
+    // passive: true —— 这两个监听只改状态、不 preventDefault，加上后浏览器不必
+    // 在滚动歌词容器前等 JS 执行（否则手滚歌词发涩，移动端更明显）
+    ui.lrcContainer.addEventListener(
+      "wheel",
+      () => {
+        state.isUserScrolling = true;
+        window.clearTimeout(state.scrollTimeout);
+        state.scrollTimeout = window.setTimeout(() => {
+          state.isUserScrolling = false;
+        }, 3000);
+      },
+      { passive: true },
+    );
+    ui.lrcContainer.addEventListener(
+      "touchstart",
+      () => {
+        state.isUserScrolling = true;
+        window.clearTimeout(state.scrollTimeout);
+        state.scrollTimeout = window.setTimeout(() => {
+          state.isUserScrolling = false;
+        }, 3000);
+      },
+      { passive: true },
+    );
 
     audio.addEventListener("timeupdate", () => {
       if (Number.isNaN(audio.duration)) return;

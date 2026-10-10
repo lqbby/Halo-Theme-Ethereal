@@ -205,7 +205,14 @@ import Canonical from "../components/misc/Canonical.astro";
         line-height: 1;
         white-space: nowrap;
         text-decoration: none;
-        transition: all 0.25s ease;
+        /* 只列按钮各状态实际会变的属性（hover：底色 / 文字色 / 描边 / 位移 / 阴影）；
+           原 `transition: all` 会让浏览器盯着所有属性，白白付出样式重算成本 */
+        transition:
+          background-color 0.25s ease,
+          color 0.25s ease,
+          border-color 0.25s ease,
+          transform 0.25s ease,
+          box-shadow 0.25s ease;
       }
       .about-ico {
         width: 1.05em;
