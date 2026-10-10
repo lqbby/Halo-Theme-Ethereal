@@ -1,25 +1,30 @@
 // @ts-check
-// 换页「落点兜底」桩测（2026-10-10，v1.7.15）
+// 换页「落点兜底」桩测（2026-10-10，v1.7.15 初版 → v1.7.16 即时化）
 //
 // 背景（真机复现，iPhone Safari）：点击列表最后几张卡片（普通卡片链接、
-// 无 hash）换页后，复位回顶仍会被「外部写者」把滚动位置拽走——
-//   scroll anchoring 持续重锚 / 地址栏收展 / 惯性余量 / 懒加载高度变化；
-//   真机症状：位置原地上下拉扯几轮后停在页底。
-// 对策 armLandingGuard：复位后按 [900,1800,3000,4500]ms 各复核一次落点，
-// 无用户输入且位置偏离顶部（>2px）即再瞬时回顶；用户任何输入（wheel /
-// touchstart / touchmove / pointerdown / keydown）立即让位；新一轮换页
-// （visit:start 递增 landingGuardToken）使旧 guard 失效。
+// 无 hash）换页后，复位回顶仍会被「外部写者」把滚动位置拽走。
+//   v1.7.15 兜底（固定档位复核）生效但「拉回」延迟大——用户仍可感知
+//   「先拉扯一会儿，然后回复到顶部」。
+//   v1.7.16 即时化：瞬时路径（复位前位置 >1.5 屏）额外挂 scroll 事件
+//   即时纠正（外部写者一写就于下一帧收回）+ 密集档位兜底；动画路径
+//   （≤1.5 屏）保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
+//
+// ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring——此现象
+//    与「重锚」无关；外部写者来源未在真机定位（本地 WebKit 复刻不出）。
 //
 // 判据（源码级，全部必须在 app.ts 中成立）：
-//   L1 armLandingGuard 函数与档位常量存在，首档 900（晚于复位动画窗口
-//      --dur-banner 默认 700ms，避免打断正常复位动画）
-//   L2 复核三守卫：token / userTookOver / is-changing，且 scrollY>2 才写回
-//   L3 用户输入五监听（含 pointerdown，覆盖桌面拖滚动条不派发 wheel 的操作）
-//   L4 清理定时器摘除全部五监听
+//   L1 双档位表 + 清理常量：INSTANT [120,300,600,1200,2000,3200,4500]、
+//      ANIMATED [900,1800,3000,4500]（首档晚于复位动画窗口 700ms）
+//   L2 enforce 三判据（token / userTookOver / scrollY>2）——不含
+//      is-changing（移除：防「换页类异常卡住 ⇒ 兜底全废」，防打断动画
+//      已由档位时序负责）
+//   L3 用户输入五监听（含 pointerdown）；L4 清理摘除全五 + scroll 监听
 //   L5 visit:start 递增 landingGuardToken（旧 guard 失效）
-//   L6 挂载点在 content:scroll 非 hash 分支：复位调用之后、comment 早退之后，
-//      且仅 needsScrollWait（从非顶部出发）时挂
-//   L7 运行语义仿真：正常零写回 / 被拽走一次收敛 / 用户接管跳过 / 换页失效
+//   L6 挂载点：content:scroll 非 hash 分支、复位调用之后、comment 早退
+//      之后、preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
+//   L7 instantPath 分流：判据 preResetY > 1.5 屏；scroll 事件仅瞬时路径挂
+//   L8 运行语义仿真：正常零写回 / 被拽走一次收敛 / 用户接管跳过 /
+//      换页失效 / **即时纠正（事件驱动，不等档位）**
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -45,34 +50,39 @@ const src = readFileSync(APP, "utf8");
 /** 压掉空白便于跨行匹配 */
 const flat = src.replace(/\s+/g, " ");
 
-// L1 函数与档位
+// L1 双档位表 + 清理
 check(
-  "L1a armLandingGuard 函数存在",
-  /function armLandingGuard\(\): void \{/.test(flat),
+  "L1a armLandingGuard 函数存在（含 preResetY 传参）",
+  /function armLandingGuard\(preResetY: number\): void \{/.test(flat),
   true,
 );
 check(
-  "L1b 复核档位 [900,1800,3000,4500]（首档晚于复位动画窗口）",
-  /const LANDING_GUARD_DELAYS = \[900, 1800, 3000, 4500\];/.test(flat),
+  "L1b 瞬时路径档表 [120,300,600,1200,2000,3200,4500]",
+  /const LANDING_GUARD_DELAYS_INSTANT = \[120, 300, 600, 1200, 2000, 3200, 4500\];/.test(
+    flat,
+  ),
   true,
 );
 check(
-  "L1c 清理时长 4700ms（覆盖末档 4500）",
+  "L1c 动画路径档表 [900,1800,3000,4500]（首档晚于复位动画窗口）",
+  /const LANDING_GUARD_DELAYS_ANIMATED = \[900, 1800, 3000, 4500\];/.test(flat),
+  true,
+);
+check(
+  "L1d 清理时长 4700ms（覆盖末档 4500）",
   /const LANDING_GUARD_CLEANUP_MS = 4700;/.test(flat),
   true,
 );
 
-// L2 复核三守卫 + 回顶动作
+// L2 enforce 三判据
 check(
-  "L2a 复核守卫：token 过期或用户接管即放弃",
-  /if \(token !== landingGuardToken \|\| userTookOver\) return;/.test(flat),
+  "L2a enforce 函数抽取存在",
+  /const enforce = \(\): void => \{/.test(flat),
   true,
 );
 check(
-  "L2b 复核守卫：换页进行中（is-changing）不干预",
-  /if \(document\.documentElement\.classList\.contains\("is-changing"\)\) return;/.test(
-    flat,
-  ),
+  "L2b enforce 守卫：token 过期或用户接管即放弃",
+  /if \(token !== landingGuardToken \|\| userTookOver\) return;/.test(flat),
   true,
 );
 check(
@@ -96,7 +106,7 @@ check(
   check("L3 用户输入五监听齐全（含 pointerdown）", hits, 5);
 }
 
-// L4 清理摘除五监听
+// L4 清理摘除五监听 + scroll 即时监听
 {
   const removes = [
     /window\.removeEventListener\("wheel", release\);/,
@@ -104,9 +114,10 @@ check(
     /window\.removeEventListener\("touchmove", release\);/,
     /window\.removeEventListener\("pointerdown", release\);/,
     /window\.removeEventListener\("keydown", release\);/,
+    /window\.removeEventListener\("scroll", onScroll\);/,
   ];
   const hits = removes.filter((re) => re.test(flat)).length;
-  check("L4 清理摘除五监听", hits, 5);
+  check("L4 清理摘除五监听 + scroll 监听（共 6）", hits, 6);
 }
 
 // L5 visit:start 使旧 guard 失效
@@ -119,21 +130,30 @@ check(
   );
 }
 
-// L6 挂载点：content:scroll 非 hash 分支内、复位之后、comment 早退之后、仅 needsScrollWait
+// L6 挂载点：content:scroll 非 hash 分支内、复位之后、comment 早退之后、
+//    preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
 check(
-  "L6a 挂载语句存在（仅从非顶部出发的换页）",
-  /if \(needsScrollWait\) armLandingGuard\(\);/.test(flat),
+  "L6a 挂载语句含 preResetY 传参（仅从非顶部出发的换页）",
+  /if \(needsScrollWait\) armLandingGuard\(preResetY\);/.test(flat),
   true,
 );
 {
   const idxCommentEarly = flat.indexOf(
     'hash.replace(/^#/, "").indexOf("comment") === 0',
   );
+  const idxPreReset = flat.indexOf("const preResetY = window.scrollY;");
   const idxLockstep = flat.indexOf("lockstepScrollToTop();");
   const idxSmart = flat.indexOf("smartScrollTo(0);");
-  const idxArm = flat.indexOf("if (needsScrollWait) armLandingGuard();");
+  const idxArm = flat.indexOf(
+    "if (needsScrollWait) armLandingGuard(preResetY);",
+  );
   check(
-    "L6b 挂载在复位调用（锁步/智能回顶）之后",
+    "L6b preResetY 读取于复位调用之前",
+    idxPreReset > 0 && idxPreReset < idxLockstep && idxPreReset < idxSmart,
+    true,
+  );
+  check(
+    "L6c 挂载在复位调用（锁步/智能回顶）之后",
     idxArm > idxLockstep &&
       idxArm > idxSmart &&
       idxLockstep > 0 &&
@@ -141,83 +161,132 @@ check(
     true,
   );
   check(
-    "L6c 挂载在 comment 早退之后（锚点路径不挂 guard）",
+    "L6d 挂载在 comment 早退之后（锚点路径不挂 guard）",
     idxArm > idxCommentEarly && idxCommentEarly > 0,
     true,
   );
 }
 
-// L7 运行语义仿真（与源码判据同构，防手改语义）
+// L7 instantPath 分流：判据 + 事件仅瞬时路径挂
+check(
+  "L7a 瞬时路径判据 preResetY > 1.5 屏",
+  /const instantPath = preResetY > \(window\.innerHeight \|\| 800\) \* 1\.5;/.test(
+    flat,
+  ),
+  true,
+);
+check(
+  "L7b scroll 事件即时纠正仅瞬时路径挂载",
+  /if \(instantPath\) \{ window\.addEventListener\("scroll", onScroll, \{ passive: true \}\); \}/.test(
+    flat,
+  ),
+  true,
+);
+check(
+  "L7c 档表按 instantPath 分流",
+  /for \(const delay of instantPath \? LANDING_GUARD_DELAYS_INSTANT : LANDING_GUARD_DELAYS_ANIMATED\) \{/.test(
+    flat,
+  ),
+  true,
+);
+
+// L8 运行语义仿真（与源码判据同构，防手改语义）
 {
-  const PASSES = [900, 1800, 3000, 4500];
+  const PASSES = [120, 300, 600, 1200, 2000, 3200, 4500];
+  /**
+   * @param {{scrollY:number,token:number,current:number,userTookOver:boolean,writes:number}} s
+   */
+  const guardTick = (s) => {
+    if (s.token !== s.current || s.userTookOver) return s;
+    if (s.scrollY > 2) {
+      s.scrollY = 0;
+      s.writes++;
+    }
+    return s;
+  };
   // 仿真 1：正常路径（复位已归零）——各档都是空操作
   {
-    let scrollY = 0;
-    const token = 1,
-      current = 1,
-      userTookOver = false,
-      changing = false;
-    let writes = 0;
-    for (const _ of PASSES) {
-      if (token !== current || userTookOver) continue;
-      if (changing) continue;
-      if (scrollY > 2) {
-        scrollY = 0;
-        writes++;
-      }
-    }
-    check("L7a 仿真：正常路径零写回", writes, 0);
+    const s = {
+      scrollY: 0,
+      token: 1,
+      current: 1,
+      userTookOver: false,
+      writes: 0,
+    };
+    for (const _ of PASSES) guardTick(s);
+    check("L8a 仿真：正常路径零写回", s.writes, 0);
   }
   // 仿真 2：被拽走 → 首个有效档写回顶，后续档静默（一次收敛）
   {
-    let scrollY = 9448;
-    const token = 1,
-      current = 1,
-      userTookOver = false,
-      changing = false;
-    let writes = 0;
-    for (const _ of PASSES) {
-      if (token !== current || userTookOver) continue;
-      if (changing) continue;
-      if (scrollY > 2) {
-        scrollY = 0;
-        writes++;
-      }
-    }
-    check("L7b 仿真：被拽走一次收敛到顶", `${writes}:${scrollY}`, "1:0");
+    const s = {
+      scrollY: 9448,
+      token: 1,
+      current: 1,
+      userTookOver: false,
+      writes: 0,
+    };
+    for (const _ of PASSES) guardTick(s);
+    check("L8b 仿真：被拽走一次收敛到顶", `${s.writes}:${s.scrollY}`, "1:0");
   }
   // 仿真 3：用户接管 → 全部跳过（不与用户抢滚动）
   {
-    let scrollY = 9448;
-    const token = 1,
-      current = 1,
-      userTookOver = true,
-      changing = false;
-    let writes = 0;
-    for (const _ of PASSES) {
-      if (token !== current || userTookOver) continue;
-      if (changing) continue;
-      if (scrollY > 2) {
-        scrollY = 0;
-        writes++;
-      }
-    }
-    check("L7c 仿真：用户接管后 guard 让位（不写回）", writes, 0);
+    const s = {
+      scrollY: 9448,
+      token: 1,
+      current: 1,
+      userTookOver: true,
+      writes: 0,
+    };
+    for (const _ of PASSES) guardTick(s);
+    check("L8c 仿真：用户接管后 guard 让位（不写回）", s.writes, 0);
   }
   // 仿真 4：新换页（token 递增）使旧 guard 失效
   {
-    let scrollY = 9448;
-    const token = 1;
-    let current = 1;
-    current += 1; // visit:start
-    let writes = 0;
-    if (token !== current) {
-      /* 过期，跳过 */
-    } else if (scrollY > 2) {
-      scrollY = 0;
-      writes++;
-    }
-    check("L7d 仿真：旧 guard 在新换页后失效", writes, 0);
+    const s = {
+      scrollY: 9448,
+      token: 1,
+      current: 1,
+      userTookOver: false,
+      writes: 0,
+    };
+    s.current += 1; // visit:start
+    guardTick(s);
+    check("L8d 仿真：旧 guard 在新换页后失效", s.writes, 0);
+  }
+  // 仿真 5：即时纠正——外部写者拽走后由 scroll 事件立即收回（不等档位）
+  {
+    const s = {
+      scrollY: 0,
+      token: 1,
+      current: 1,
+      userTookOver: false,
+      writes: 0,
+    };
+    s.scrollY = 4000; // 外部写者（触发 scroll 事件）
+    guardTick(s); // 事件回调（下一帧）
+    check(
+      "L8e 仿真：拽走后事件即时收回（0 档位等待）",
+      `${s.writes}:${s.scrollY}`,
+      "1:0",
+    );
+  }
+  // 仿真 6：即时纠正不抢用户——用户输入（release）之后的写入不被干预
+  {
+    const s = {
+      scrollY: 0,
+      token: 1,
+      current: 1,
+      userTookOver: false,
+      writes: 0,
+    };
+    s.userTookOver = true; // wheel/touch 先到
+    s.scrollY = 4000; // 用户滚到的位置
+    guardTick(s);
+    check(
+      "L8f 仿真：用户接管后事件回调不动作",
+      `${s.writes}:${s.scrollY}`,
+      "0:4000",
+    );
   }
 }
 

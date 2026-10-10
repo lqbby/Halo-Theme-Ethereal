@@ -65,41 +65,59 @@ window.addEventListener(
 // 直接落在文章页最底」（2026-10-10 CDP 实测：复位后 ~60ms 被写回 top=原位置）。
 let navResetStamp = 0;
 
-// ── 落点兜底（1.7.15）──
+// ── 落点兜底（1.7.15；1.7.16 即时化）──
 // iOS Safari 上，点击换页在复位之后仍可能被「外部写者」把滚动位置拽走
-// （scroll anchoring 持续重锚 / 地址栏收展 / 惯性余量 / 懒加载高度变化），
-// 真机实测：点列表最后几张卡片 → 位置原地上下拉扯几轮后停在页底。
-// 对「点击换页 + 原位置较深（瞬时复位场景）」做有限次落点复核：复位后按
-// 固定延迟各查一次，只要没有用户输入且位置明显偏离顶部（>2px）就再瞬时
-// 回顶；用户任何滚动/按键/指针按下立即令本次 guard 失效（不与用户抢滚动，
-// pointerdown 覆盖桌面拖滚动条这类不派发 wheel 的操作）；
-// 新一轮换页（visit:start）同样使旧 guard 失效（token 递增）。
-// 正常路径下复位已使 scrollY=0 ⇒ 所有复核都是空操作，零感知。
+// ——真机实测：点列表最后几张卡片 → 位置原地拉扯几轮后才归位（v1.7.15
+// 兜底生效但「拉回」延迟大，用户仍可感知拉扯）。
+// ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring，此现象与
+//    「重锚」无关；外部写者的具体来源尚未在真机定位（本地 WebKit 复刻
+//    不出），故按「任何非用户输入的位置偏离都即时纠正」处理。
+// 对「点击换页」做落点复核：复位后按固定延迟各查一次，只要没有用户输入
+// 且位置明显偏离顶部（>2px）就再瞬时回顶；用户任何滚动/按键/指针按下
+// 立即令本次 guard 失效（不与用户抢滚动，pointerdown 覆盖桌面拖滚动条
+// 这类不派发 wheel 的操作）；新一轮换页（visit:start）同样使旧 guard
+// 失效（token 递增）。正常路径下复位已使 scrollY=0 ⇒ 所有复核都是空
+// 操作，零感知。
 // ⚠️ 只在 non-popstate / non-hash 的点击换页路径挂（见 content:scroll 处）；
 // #comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
-// 首档 900ms 才复核：复位滚动（锁步插值 / 原生平滑）的窗口是 --dur-banner
-// （默认 700ms），窗口内位置尚未到顶属正常进行中——900ms 起查可避免把
-// 「动画还没播完」误判成「被拽走」而中途打断复位动画
-const LANDING_GUARD_DELAYS = [900, 1800, 3000, 4500];
+// 两种档位表（按复位前位置分流，1.7.16）：
+//   · 瞬时路径（preResetY > 1.5 屏）：锁步回顶与智能滚动在此距离都瞬时
+//     到位，位置应即稳于 0 —— 额外挂 scroll 事件即时纠正（外部写者一写
+//     就于下一帧收回，把「拉扯」压到不可见），配密集档位兜底（防
+//     scroll 事件在个别场景缺失）。用户场景（页底点卡片）走这条。
+//   · 动画路径（≤ 1.5 屏）：复位走 700ms 动画（--dur-banner），首档须
+//     晚于动画窗口，避免把「动画没播完」误判成「被拽走」而打断动画。
+const LANDING_GUARD_DELAYS_INSTANT = [120, 300, 600, 1200, 2000, 3200, 4500];
+const LANDING_GUARD_DELAYS_ANIMATED = [900, 1800, 3000, 4500];
 const LANDING_GUARD_CLEANUP_MS = 4700;
 let landingGuardToken = 0;
-function armLandingGuard(): void {
+function armLandingGuard(preResetY: number): void {
   const token = ++landingGuardToken;
   let userTookOver = false;
   const release = () => {
     userTookOver = true;
+  };
+  const enforce = (): void => {
+    if (token !== landingGuardToken || userTookOver) return;
+    if (window.scrollY > 2) window.scrollTo({ top: 0, behavior: "auto" });
   };
   window.addEventListener("wheel", release, { passive: true });
   window.addEventListener("touchstart", release, { passive: true });
   window.addEventListener("touchmove", release, { passive: true });
   window.addEventListener("pointerdown", release, { passive: true });
   window.addEventListener("keydown", release);
-  for (const delay of LANDING_GUARD_DELAYS) {
-    setTimeout(() => {
-      if (token !== landingGuardToken || userTookOver) return;
-      if (document.documentElement.classList.contains("is-changing")) return;
-      if (window.scrollY > 2) window.scrollTo({ top: 0, behavior: "auto" });
-    }, delay);
+  // 瞬时路径：位置应即稳于 0，任何 scroll 事件（外部写者所致）即时纠正
+  const instantPath = preResetY > (window.innerHeight || 800) * 1.5;
+  const onScroll = () => {
+    enforce();
+  };
+  if (instantPath) {
+    window.addEventListener("scroll", onScroll, { passive: true });
+  }
+  for (const delay of instantPath
+    ? LANDING_GUARD_DELAYS_INSTANT
+    : LANDING_GUARD_DELAYS_ANIMATED) {
+    setTimeout(enforce, delay);
   }
   setTimeout(() => {
     window.removeEventListener("wheel", release);
@@ -107,6 +125,7 @@ function armLandingGuard(): void {
     window.removeEventListener("touchmove", release);
     window.removeEventListener("pointerdown", release);
     window.removeEventListener("keydown", release);
+    window.removeEventListener("scroll", onScroll);
   }, LANDING_GUARD_CLEANUP_MS);
 }
 
@@ -1119,6 +1138,10 @@ function setupSwup() {
             // 回顶复位执行：递增复位纪元——此刻任何「挂载后恢复滚动位置」的 rAF
             // 都必须放弃（其捕获的旧位置属于上一页面，写回会把用户拽到深处）
             navResetStamp += 1;
+            // 复位前位置：供落点兜底判「瞬时路径」（>1.5 屏，见 armLandingGuard）。
+            // 读在复位调用之前——lockstepScrollToTop / smartScrollTo 内部也
+            // 同步读 window.scrollY 做同一距离判据，两者口径一致
+            const preResetY = window.scrollY;
             // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
             // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
             // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
@@ -1131,11 +1154,12 @@ function setupSwup() {
               // 变成同款长距离拉扯（与 lockstepScrollToTop 的阈值标准保持一致）
               smartScrollTo(0);
             }
-            // 落点兜底（1.7.15）：复位之后位置仍可能被外部写者（iOS scroll anchoring
-            // 持续重锚、地址栏收展等）再次拽走——真机：点列表最后几张卡片换页 →
-            // 拉扯几轮后停在页底。挂有限次落点复核（见 armLandingGuard）。
-            // 仅「从非顶部出发」（needsScrollWait）的换页需要：从顶部出发本就在顶部
-            if (needsScrollWait) armLandingGuard();
+            // 落点兜底（1.7.15；1.7.16 即时化）：复位之后位置仍可能被外部
+            // 写者再次拽走——真机：点列表最后几张卡片换页 → 拉扯几轮后
+            // 才归位。挂落点复核（见 armLandingGuard），瞬时路径附
+            // scroll 事件即时纠正。仅「从非顶部出发」（needsScrollWait）的
+            // 换页需要：从顶部出发本就在顶部
+            if (needsScrollWait) armLandingGuard(preResetY);
           }),
         );
         return;
