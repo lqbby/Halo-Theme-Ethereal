@@ -115,7 +115,17 @@
 
   window.__etherealFilterSeg = { init: init, refresh: refresh };
 
-  window.addEventListener("resize", refresh);
+  // 🔴 resize 合并：拖窗口时 resize 连发，而 refresh 要逐个 seg 组读 offsetWidth/
+  // offsetLeft 再写 style（读写混排）。同一帧只跑一次 ⇒ 工作量随帧率而非事件数增长
+  // （校正本就是「无动画瞬时」，晚一帧落位无感）。
+  var resizeFrame = 0;
+  window.addEventListener("resize", function () {
+    if (resizeFrame) return;
+    resizeFrame = window.requestAnimationFrame(function () {
+      resizeFrame = 0;
+      refresh();
+    });
+  });
   if (document.fonts && document.fonts.ready && document.fonts.ready.then) {
     document.fonts.ready.then(refresh);
   }

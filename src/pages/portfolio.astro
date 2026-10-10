@@ -278,8 +278,15 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
       } else {
         bind();
       }
+      // 🔴 resize 合并：拖窗口时 resize 连发，placeAll 要逐个 seg 组读 offsetWidth/
+      // offsetLeft 再写 style。同一帧只跑一次（校正本就是无动画瞬时，晚一帧无感）。
+      var resizeFrame = 0;
       window.addEventListener("resize", function () {
-        placeAll(false);
+        if (resizeFrame) return;
+        resizeFrame = window.requestAnimationFrame(function () {
+          resizeFrame = 0;
+          placeAll(false);
+        });
       });
       window.addEventListener("load", function () {
         placeAll(false);

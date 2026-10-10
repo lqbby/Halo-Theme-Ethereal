@@ -364,8 +364,15 @@ import PageHeader from "../components/control/PageHeader.astro";
             }, 0);
           }
         });
+        // 🔴 resize 合并：拖窗口时 resize 连发，place 要读 offsetWidth/offsetLeft 再
+        // 写 style。同一帧只跑一次（校正本就是无动画瞬时，晚一帧无感）。
+        var resizeFrame = 0;
         window.addEventListener("resize", function () {
-          place(false);
+          if (resizeFrame) return;
+          resizeFrame = window.requestAnimationFrame(function () {
+            resizeFrame = 0;
+            place(false);
+          });
         });
         window.addEventListener("load", function () {
           place(false);

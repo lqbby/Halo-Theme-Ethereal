@@ -267,6 +267,9 @@ export function isolatePhotoInfoEvents(infoPanel: HTMLElement) {
     event.stopPropagation();
   };
 
-  infoPanel.addEventListener("wheel", stopPropagation);
-  infoPanel.addEventListener("touchmove", stopPropagation);
+  // passive: 这两个监听只 stopPropagation、不 preventDefault ⇒ 声明 passive 后浏览器
+  // 不必在滚动/触摸移动派发前等 JS 返回（否则在信息面板上手滚会发涩，移动端更明显）。
+  // stopPropagation 仍照常生效，隔离手势的语义不变。
+  infoPanel.addEventListener("wheel", stopPropagation, { passive: true });
+  infoPanel.addEventListener("touchmove", stopPropagation, { passive: true });
 }
