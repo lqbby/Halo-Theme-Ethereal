@@ -97,9 +97,12 @@ function armLandingGuard(preResetY: number): void {
   const release = () => {
     userTookOver = true;
   };
-  const enforce = (): void => {
+  const enforce = (src: "event" | "timer"): void => {
     if (token !== landingGuardToken || userTookOver) return;
-    if (window.scrollY > 2) window.scrollTo({ top: 0, behavior: "auto" });
+    if (window.scrollY > 2) {
+      spNoteDrag(src, window.scrollY);
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
   };
   window.addEventListener("wheel", release, { passive: true });
   window.addEventListener("touchstart", release, { passive: true });
@@ -108,8 +111,9 @@ function armLandingGuard(preResetY: number): void {
   window.addEventListener("keydown", release);
   // 瞬时路径：位置应即稳于 0，任何 scroll 事件（外部写者所致）即时纠正
   const instantPath = preResetY > (window.innerHeight || 800) * 1.5;
+  spGuardArmed(instantPath ? "instant" : "animated", preResetY);
   const onScroll = () => {
-    enforce();
+    enforce("event");
   };
   if (instantPath) {
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -117,7 +121,7 @@ function armLandingGuard(preResetY: number): void {
   for (const delay of instantPath
     ? LANDING_GUARD_DELAYS_INSTANT
     : LANDING_GUARD_DELAYS_ANIMATED) {
-    setTimeout(enforce, delay);
+    setTimeout(() => enforce("timer"), delay);
   }
   setTimeout(() => {
     window.removeEventListener("wheel", release);
@@ -126,7 +130,335 @@ function armLandingGuard(preResetY: number): void {
     window.removeEventListener("pointerdown", release);
     window.removeEventListener("keydown", release);
     window.removeEventListener("scroll", onScroll);
+    spGuardEnded();
   }, LANDING_GUARD_CLEANUP_MS);
+}
+
+// ── 自动诊断探针（1.7.17）──
+// 背景：真机「换页复位后被外部写者拽走」的写者始终未抓到——本地 Playwright
+// WebKit 是 Linux 构建、没有 iOS 的 UIKit/WKWebView 层，此问题无法本地复刻；
+// 静态审计已排除全部可查 JS（详见日志 2026-10-10）。本探针驻留「诊断设备」
+// （站点管理员设备，用户零操作）抓现场，证据回传自建 umami（数据落自有库）：
+//   ① 包装全部滚动写入 API（window/Element scrollTo、window scrollBy、
+//      scrollIntoView、页面级 scrollTop setter），记录调用栈；
+//   ② y 轨迹（scroll 变化采样）+ 生命周期 marks（换页/复位/撑高/scrollend/
+//      地址栏 visualViewport），每条自动附类状态快照（c=is-changing a=is-animating
+//      h=is-home t=toc-not-ready）——「非 JS 写者」判据：拽走发生但写入缓冲无记录；
+//   ③ 落点兜底检出「拽走」（enforce 检出非用户输入的位置偏离 >2px）即抓现场快照
+//      （前 8 条写入 + 前 1.5s 轨迹 + marks）回传事件 sp_drag（30s 节流）；
+//      每次换页 guard 结束回传落点统计 sp_ok（drag 计数/来源/最大深度/时刻分布）。
+// 激活（三选一）：① URL ?sp=1（持久化 localStorage）；② 管理员登录自动探测
+// （roles 含 super-role，仅自有域名 + 未被 ?sp=0 显式关闭）；③ ?sp=0 关闭。
+// 普通访客永不激活、零开销（未激活时全部函数首行 return）。
+const SP_ENDPOINT = "https://umami.lqbby.com:1443/api/send";
+const SP_WEBSITE = "07575ebc-0b8e-46b6-8ab6-7c1acd5109c2";
+let spActive = false;
+let spInstalled = false;
+let spSessionSent = 0;
+let spLastDragSentAt = 0;
+interface SpWrite {
+  t: number;
+  fn: string;
+  args: string;
+  y: number;
+  stack: string;
+}
+interface SpMark {
+  t: number;
+  name: string;
+  info: string;
+  cls: string;
+}
+const spWrites: SpWrite[] = [];
+const spMarks: SpMark[] = [];
+const spYtrace: Array<[number, number]> = [];
+const spStats = {
+  armed: false,
+  path: "",
+  preResetY: 0,
+  startT: 0,
+  dragCount: 0,
+  dragEvent: 0,
+  dragTimer: 0,
+  maxDragY: 0,
+  firstDragT: -1,
+  lastDragT: -1,
+};
+function spNow(): number {
+  return Math.round(performance.now());
+}
+function spPush<T>(arr: T[], item: T, cap: number, trim: number): void {
+  arr.push(item);
+  if (arr.length > cap) arr.splice(0, trim);
+}
+function spStack(): string {
+  try {
+    return (new Error().stack || "")
+      .split("\n")
+      .slice(3, 8)
+      .map((s) =>
+        s
+          .trim()
+          .replace(/^at\s+/, "")
+          .split("?")[0]
+          .replace(/https?:\/\/[^/]+/, ""),
+      )
+      .join(" < ");
+  } catch (_) {
+    return "";
+  }
+}
+function spSend(name: string, data: Record<string, string | number>): void {
+  if (!spActive || spSessionSent >= 80) return;
+  spSessionSent += 1;
+  try {
+    fetch(SP_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        type: "event",
+        payload: {
+          website: SP_WEBSITE,
+          hostname: location.hostname,
+          url: location.pathname + location.hash,
+          title: (document.title || "").slice(0, 60),
+          name,
+          data,
+        },
+      }),
+    }).catch(() => {});
+  } catch (_) {}
+}
+function spCls(): string {
+  const de = document.documentElement;
+  return (
+    (de.classList.contains("is-changing") ? "c" : "") +
+      (de.classList.contains("is-animating") ? "a" : "") +
+      (document.body.classList.contains("is-home") ? "h" : "") +
+      (de.classList.contains("toc-not-ready") ? "t" : "") || "-"
+  );
+}
+function spMark(name: string, info: string = ""): void {
+  if (!spActive) return;
+  spPush(spMarks, { t: spNow(), name, info, cls: spCls() }, 200, 100);
+}
+/** 落点兜底检出「拽走」时调用（抓现场快照回传，30s 节流） */
+function spNoteDrag(src: "event" | "timer", y: number): void {
+  if (!spActive) return;
+  const t = spNow();
+  spStats.dragCount += 1;
+  if (src === "event") spStats.dragEvent += 1;
+  else spStats.dragTimer += 1;
+  if (y > spStats.maxDragY) spStats.maxDragY = y;
+  if (spStats.firstDragT < 0) spStats.firstDragT = t;
+  spStats.lastDragT = t;
+  // 快照回传（30s 节流；⚠️ spLastDragSentAt 初始 0，须以 ">0" 区分「从未发送」
+  // 与「30s 内已发送」——否则页面加载后 30s 内的首次拽走会被误节流吞掉）
+  if (spLastDragSentAt > 0 && t - spLastDragSentAt < 30000) return;
+  spLastDragSentAt = t;
+  const data: Record<string, string | number> = {
+    path: spStats.path,
+    pre: Math.round(spStats.preResetY),
+    y: Math.round(y),
+    dt: spStats.startT ? t - spStats.startT : -1,
+    src,
+    drags: spStats.dragCount,
+  };
+  const ws = spWrites.slice(-8);
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i];
+    data["w" + i] =
+      `${w.t}ms ${w.fn} ${w.args.slice(0, 40)} y=${w.y} | ${w.stack.slice(0, 180)}`;
+  }
+  const tr = spYtrace.filter(([tt]) => tt > t - 1500).slice(-10);
+  for (let i = 0; i < tr.length; i++)
+    data["y" + i] = `${tr[i][0]}ms ${tr[i][1]}`;
+  const ms = spMarks.slice(-3);
+  for (let i = 0; i < ms.length; i++)
+    data["m" + i] = `${ms[i].t}ms ${ms[i].name} ${ms[i].info} [${ms[i].cls}]`;
+  spSend("sp_drag", data);
+}
+/** guard 挂载：初始化本轮落点统计 */
+function spGuardArmed(path: "instant" | "animated", preResetY: number): void {
+  if (!spActive) return;
+  spStats.armed = true;
+  spStats.path = path;
+  spStats.preResetY = preResetY;
+  spStats.startT = spNow();
+  spStats.dragCount = 0;
+  spStats.dragEvent = 0;
+  spStats.dragTimer = 0;
+  spStats.maxDragY = 0;
+  spStats.firstDragT = -1;
+  spStats.lastDragT = -1;
+}
+/** guard 结束（4.7s 清理时）：回传本轮落点统计 */
+function spGuardEnded(): void {
+  if (!spActive || !spStats.armed) return;
+  spStats.armed = false;
+  const t = spNow();
+  const data: Record<string, string | number> = {
+    path: spStats.path,
+    pre: Math.round(spStats.preResetY),
+    drags: spStats.dragCount,
+    ev: spStats.dragEvent,
+    tm: spStats.dragTimer,
+    maxy: Math.round(spStats.maxDragY),
+    first: spStats.firstDragT >= 0 ? spStats.firstDragT - spStats.startT : -1,
+    last: spStats.lastDragT >= 0 ? spStats.lastDragT - spStats.startT : -1,
+    endy: Math.round(window.scrollY),
+    dur: t - spStats.startT,
+  };
+  const ws = spWrites.slice(-15);
+  for (let i = 0; i < ws.length; i++) {
+    const w = ws[i];
+    data["w" + i] =
+      `${w.t}ms ${w.fn} ${w.args.slice(0, 40)} y=${w.y} | ${w.stack.slice(0, 160)}`;
+  }
+  const ms = spMarks.slice(-6);
+  for (let i = 0; i < ms.length; i++)
+    data["m" + i] = `${ms[i].t}ms ${ms[i].name} ${ms[i].info} [${ms[i].cls}]`;
+  spSend("sp_ok", data);
+}
+/** 安装采集器（幂等；仅激活时安装，普通访客零开销） */
+function spInstall(): void {
+  if (spInstalled || !spActive) return;
+  spInstalled = true;
+  const rec = (fn: string, args: unknown[], stack: string): void => {
+    try {
+      spPush(
+        spWrites,
+        {
+          t: spNow(),
+          fn,
+          args: JSON.stringify(args).slice(0, 120),
+          y: Math.round(window.scrollY),
+          stack,
+        },
+        300,
+        150,
+      );
+    } catch (_) {}
+  };
+  const oTo = window.scrollTo.bind(window);
+  window.scrollTo = function (...a: unknown[]) {
+    rec("W.scrollTo", a, spStack());
+    return (oTo as (...x: unknown[]) => void)(...a);
+  };
+  const oBy = window.scrollBy.bind(window);
+  window.scrollBy = function (...a: unknown[]) {
+    rec("W.scrollBy", a, spStack());
+    return (oBy as (...x: unknown[]) => void)(...a);
+  };
+  const oETo = Element.prototype.scrollTo;
+  Element.prototype.scrollTo = function (...a: unknown[]) {
+    rec(
+      "E.scrollTo[" +
+        ((this as Element).id ||
+          (this as Element).className ||
+          (this as Element).tagName) +
+        "]",
+      a,
+      spStack(),
+    );
+    return (oETo as (...x: unknown[]) => void).apply(this, a);
+  };
+  const oSiv = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function (...a: unknown[]) {
+    rec(
+      "SIV[" +
+        ((this as Element).id ||
+          (this as Element).className ||
+          (this as Element).tagName) +
+        "]",
+      a,
+      spStack(),
+    );
+    return (oSiv as (...x: unknown[]) => void).apply(this, a);
+  };
+  const dEl = document.documentElement;
+  const proto = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop");
+  if (proto && proto.set) {
+    const nativeSet = proto.set;
+    Object.defineProperty(Element.prototype, "scrollTop", {
+      get: proto.get,
+      set(v: number) {
+        if (
+          this === dEl ||
+          this === document.body ||
+          this === document.scrollingElement
+        )
+          rec("setST", [v], spStack());
+        return nativeSet.call(this, v);
+      },
+      configurable: true,
+    });
+  }
+  window.addEventListener(
+    "scroll",
+    () => {
+      const y = Math.round(window.scrollY);
+      const last = spYtrace[spYtrace.length - 1];
+      if (!last || last[1] !== y) spPush(spYtrace, [spNow(), y], 800, 400);
+    },
+    { passive: true },
+  );
+  try {
+    window.visualViewport?.addEventListener("resize", () => {
+      spMark("vv", `h=${Math.round(window.visualViewport?.height || 0)}`);
+    });
+  } catch (_) {}
+  spMark("install", `vh=${window.innerHeight}`);
+}
+/** 激活决策：?sp=1 / ?sp=0 / localStorage 留存 / 管理员登录自动探测 */
+function initScrollProbe(): void {
+  try {
+    const qs = new URLSearchParams(location.search);
+    const sp = qs.get("sp");
+    if (sp === "1") {
+      try {
+        localStorage.setItem("__et_sp", "1");
+      } catch (_) {}
+      spActive = true;
+    } else if (sp === "0") {
+      try {
+        localStorage.setItem("__et_sp", "0");
+      } catch (_) {}
+      spActive = false;
+    } else if (localStorage.getItem("__et_sp") === "1") {
+      spActive = true;
+    }
+  } catch (_) {}
+  if (spActive) {
+    spInstall();
+    return;
+  }
+  // 管理员自动探测：仅在自有域名 + 未被 ?sp=0 显式关闭时（普通访客 401 即止）
+  let manuallyOff = false;
+  try {
+    manuallyOff = localStorage.getItem("__et_sp") === "0";
+  } catch (_) {}
+  if (manuallyOff || !/(^|\.)lqbby\.com$/.test(location.hostname)) return;
+  fetch("/apis/api.console.halo.run/v1alpha1/users/-", {
+    credentials: "same-origin",
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((u) => {
+      if (!u) return;
+      const raw: Array<{ metadata?: { name?: string } } | string> =
+        Array.isArray(u.roles) ? u.roles : [];
+      const roles: string[] = raw.map((x) =>
+        typeof x === "string" ? x : x?.metadata?.name || "",
+      );
+      if (!roles.includes("super-role")) return;
+      spActive = true;
+      try {
+        localStorage.setItem("__et_sp", "1");
+      } catch (_) {}
+      spInstall();
+    })
+    .catch(() => {});
 }
 
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
@@ -961,9 +1293,11 @@ function setupSwup() {
   // 钳制到新文档底（移动端实测偶尔定格在「文章页最底」），撑高让旧位置在新文档里
   // 依然有效，回顶后再收起。
   function showPageHeightExtend(): void {
+    spMark("phe", "show");
     document.getElementById("page-height-extend")?.classList.remove("hidden");
   }
   function hidePageHeightExtend(): void {
+    spMark("phe", "hide");
     document.getElementById("page-height-extend")?.classList.add("hidden");
   }
   window.swup.hooks.on(
@@ -1061,6 +1395,7 @@ function setupSwup() {
     if (needsScrollWait) releaseTocNotReady();
   });
   window.addEventListener("scrollend", () => {
+    spMark("scrollend", `y=${Math.round(window.scrollY)}`);
     if (needsScrollWait) releaseTocNotReady();
     hidePageHeightExtendWhenAtTop();
   });
@@ -1073,6 +1408,7 @@ function setupSwup() {
       history?: { popstate?: boolean };
     }) => {
       restoreOriginalHistoryStateHandlers();
+      spMark("visit:start", visit?.to?.hash ? "hash" : "plain");
       // 换页开始：递增复位纪元（OverlayScrollbars 挂载后的位置恢复据此放弃过期恢复）
       navResetStamp += 1;
       // 上一轮换页的落点兜底同样即刻失效（新换页有自己的复位与兜底）
@@ -1142,6 +1478,7 @@ function setupSwup() {
             // 读在复位调用之前——lockstepScrollToTop / smartScrollTo 内部也
             // 同步读 window.scrollY 做同一距离判据，两者口径一致
             const preResetY = window.scrollY;
+            spMark("reset", "pre=" + Math.round(preResetY));
             // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
             // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
             // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
@@ -1369,6 +1706,9 @@ if (!(window as any).__etherealScrollDown) {
   (window as any).__etherealScrollDown = scrollDownToContent;
 }
 
+// 诊断探针：尽早决策激活（?sp=1 / 管理员登录自动探测）并包装滚动写入 API，
+// 保证「换页窗口内的写入」全部在案（普通访客未激活时零开销）
+initScrollProbe();
 init();
 armLazyLightbox();
 void initPhotosGallery();

@@ -74,10 +74,10 @@ check(
   true,
 );
 
-// L2 enforce 三判据
+// L2 enforce 三判据（1.7.17 起带来源标记 src，并接诊断探针 spNoteDrag）
 check(
-  "L2a enforce 函数抽取存在",
-  /const enforce = \(\): void => \{/.test(flat),
+  "L2a enforce 函数抽取存在（带 event/timer 来源标记）",
+  /const enforce = \(src: "event" \| "timer"\): void => \{/.test(flat),
   true,
 );
 check(
@@ -86,8 +86,8 @@ check(
   true,
 );
 check(
-  "L2c 位置偏离（>2px）才瞬时回顶",
-  /if \(window\.scrollY > 2\) window\.scrollTo\(\{ top: 0, behavior: "auto" \}\);/.test(
+  "L2c 位置偏离（>2px）才瞬时回顶（且先报探针）",
+  /if \(window\.scrollY > 2\) \{ spNoteDrag\(src, window\.scrollY\); window\.scrollTo\(\{ top: 0, behavior: "auto" \}\); \}/.test(
     flat,
   ),
   true,
@@ -288,6 +288,104 @@ check(
       "0:4000",
     );
   }
+}
+
+// P. 自动诊断探针（1.7.17）接线判据——证据回传链路完整性
+check(
+  "P1 上报端点与 website 常量",
+  /const SP_ENDPOINT = "https:\/\/umami\.lqbby\.com:1443\/api\/send";/.test(
+    flat,
+  ) && /const SP_WEBSITE = "07575ebc-0b8e-46b6-8ab6-7c1acd5109c2";/.test(flat),
+  true,
+);
+check(
+  "P2 激活决策：?sp=1 / ?sp=0 / localStorage 留存",
+  /qs\.get\("sp"\)/.test(flat) &&
+    /localStorage\.setItem\("__et_sp", "1"\)/.test(flat) &&
+    /localStorage\.setItem\("__et_sp", "0"\)/.test(flat),
+  true,
+);
+check(
+  "P3 管理员自动探测：super-role + 仅自有域名",
+  /roles\.includes\("super-role"\)/.test(flat) && /lqbby\\\.com\$/.test(flat),
+  true,
+);
+check(
+  "P4 激活时安装采集器（幂等守卫）",
+  /function spInstall\(\): void \{ if \(spInstalled \|\| !spActive\) return;/.test(
+    flat,
+  ),
+  true,
+);
+{
+  const hooks = [
+    /rec\("W\.scrollTo", a, spStack\(\)\)/,
+    /rec\("W\.scrollBy", a, spStack\(\)\)/,
+    /"E\.scrollTo\["/,
+    /"SIV\["/,
+    /rec\("setST", \[v\], spStack\(\)\)/,
+  ];
+  const hits = hooks.filter((re) => re.test(flat)).length;
+  check("P5 写入包装五件套（含 scrollIntoView 与页面级 setST）", hits, 5);
+}
+check(
+  "P6 guard 三接线（Armed / NoteDrag / Ended）",
+  /spGuardArmed\(instantPath \? "instant" : "animated", preResetY\);/.test(
+    flat,
+  ) &&
+    /spNoteDrag\(src, window\.scrollY\);/.test(flat) &&
+    /spGuardEnded\(\);/.test(flat),
+  true,
+);
+{
+  const marks = [
+    /spMark\("visit:start"/,
+    /spMark\("reset"/,
+    /spMark\("phe", "show"\)/,
+    /spMark\("phe", "hide"\)/,
+    /spMark\("scrollend"/,
+    /spMark\("vv"/,
+  ];
+  const hits = marks.filter((re) => re.test(flat)).length;
+  check("P7 生命周期 marks 六处（visit/reset/phe×2/scrollend/vv）", hits, 6);
+}
+check(
+  "P8 双上报 + 30s 节流（sp_drag / sp_ok）",
+  /spLastDragSentAt > 0 && t - spLastDragSentAt < 30000/.test(flat) &&
+    /spSend\("sp_drag", data\)/.test(flat) &&
+    /spSend\("sp_ok", data\)/.test(flat),
+  true,
+);
+check(
+  "P9 上报 keepalive（卸载期间仍可送达）",
+  /keepalive: true/.test(flat),
+  true,
+);
+check(
+  "P10 顶层调用 initScrollProbe（于 init 之前）",
+  (() => {
+    const iProbe = flat.indexOf("initScrollProbe();");
+    const iInit = flat.indexOf("init(); armLazyLightbox();");
+    return iProbe > 0 && iInit > 0 && iProbe < iInit;
+  })(),
+  true,
+);
+{
+  // P11 运行语义仿真：未激活时全部探针函数首行短路（普通访客零行为）
+  const inert = [
+    "spMark(",
+    "spNoteDrag(",
+    "spGuardArmed(",
+    "spGuardEnded(",
+  ].map((fn) => {
+    const i = flat.indexOf("function " + fn);
+    return i >= 0 && /return;/.test(flat.slice(i, i + 140));
+  });
+  check(
+    "P11 探针函数未激活短路（spMark/spNoteDrag/spGuardArmed/spGuardEnded）",
+    inert.every(Boolean),
+    true,
+  );
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
