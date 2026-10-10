@@ -38,18 +38,25 @@ const argv = new Set(process.argv.slice(2));
 const APPLY = argv.has("--apply");
 const NO_STOP = argv.has("--no-stop");
 
-const SSH_HOST = process.env.HALO_SSH_HOST || "群晖";
-const PG_CONTAINER = "halo-postgres";
-const HALO_CONTAINER = "halo";
+// ── 拓扑（2026-10-11 更新：Halo 已随迁移运行在 VM101/1Panel）──
+// 旧值（NAS 时代）：SSH_HOST="群晖"（ssh config 别名）/ halo-postgres / halo / /usr/local/bin/docker
+// 新值：VM101 lq@192.168.5.11:10088（键 ~/.ssh/nas_root_ed25519）+ 1Panel 命名容器
+const SSH_ARGS = (
+  process.env.HALO_SSH_ARGS ||
+  `-i ${process.env.HOME}/.ssh/nas_root_ed25519 -p 10088 lq@192.168.5.11`
+).split(" ");
+const SSH_HOST = SSH_ARGS[SSH_ARGS.length - 1]; // 仅用于末尾提示文案
+const PG_CONTAINER = "1Panel-postgresql-VIXG";
+const HALO_CONTAINER = "1Panel-halo-4xQa";
 const CM_NAME = "/registry/configmaps/Ethereal-configMap";
-const DOCKER = "/usr/local/bin/docker";
+const DOCKER = "sudo docker";
 const PSQL = `${DOCKER} exec -i ${PG_CONTAINER} psql -U halo -d halo -A -t`;
 
 const NOISE =
   /post-quantum|store now, decrypt later|may need to be upgraded|^\*\*|^Warning: Permanently/;
 
 function ssh(cmd, input) {
-  const r = spawnSync("ssh", [SSH_HOST, cmd], {
+  const r = spawnSync("ssh", [...SSH_ARGS, cmd], {
     input,
     encoding: "utf8",
     maxBuffer: 128 * 1024 * 1024,
