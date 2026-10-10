@@ -769,7 +769,7 @@ function setupSwup() {
         "home-switch",
         "toc-not-ready",
       );
-      document.getElementById("page-height-extend")?.classList.add("hidden");
+      hidePageHeightExtend();
       // popstate（前进/后退）场景：浏览器已经走完这次遍历，直接真实加载目标即可
       if (visit.history?.popstate) {
         window.location.replace(target);
@@ -865,21 +865,45 @@ function setupSwup() {
   function isFullscreenMode(): boolean {
     return document.documentElement.dataset.bannerDisplay === "fullscreen";
   }
-  window.swup.hooks.on("animation:out:start", () => {
-    if (
-      !document.body.classList.contains("enable-banner") ||
-      !isFullscreenMode()
-    ) {
-      document.documentElement.classList.remove("home-switch");
-      return;
-    }
-    const nextIsHome = isHomePath();
-    const currentIsHome = document.body.classList.contains("is-home");
-    document.documentElement.classList.toggle(
-      "home-switch",
-      nextIsHome !== currentIsHome,
-    );
-  });
+  // is-home 是否会因本次换页而变化（URL 在 animation:out:start 前已由 Swup
+  // pushState 更新，用「路径 vs 当前 body 类」比对可预判；全屏模式已在
+  // content:replace 提前切换，此后调用恒为 false）。随上游 v2.0.0 b7e94d7 移植。
+  function isHomeSwitching(): boolean {
+    return isHomePath() !== document.body.classList.contains("is-home");
+  }
+  // ── 换页撑高（#page-height-extend）──
+  // 300vh 撑高恒渲染且在 Swup 容器外（跨页不替换）：显示/隐藏统一走这两个入口。
+  // 随上游 v2.0.0 b7e94d7 移植（此前主线沿用旧「跳过显示」逻辑，缺了这条修复）：
+  // 深层换页（如首页底部点文章）换入的文档比旧滚动位置短时，滚动位置会被浏览器
+  // 钳制到新文档底（移动端实测偶尔定格在「文章页最底」），撑高让旧位置在新文档里
+  // 依然有效，回顶后再收起。
+  function showPageHeightExtend(): void {
+    document.getElementById("page-height-extend")?.classList.remove("hidden");
+  }
+  function hidePageHeightExtend(): void {
+    document.getElementById("page-height-extend")?.classList.add("hidden");
+  }
+  window.swup.hooks.on(
+    "animation:out:start",
+    (visit: { to?: { hash?: string }; history?: { popstate?: boolean } }) => {
+      const bannerMoves = document.body.classList.contains("enable-banner");
+      const switching = isHomeSwitching();
+      if (!bannerMoves || !isFullscreenMode()) {
+        document.documentElement.classList.remove("home-switch");
+      } else {
+        document.documentElement.classList.toggle("home-switch", switching);
+      }
+      // 点击换页（非 popstate / 非 hash）且 is-home 会变、从非顶部出发时显示
+      // 300vh 撑高：位移期间文档高度持续变化，深层换页的滚动位置可能超出新
+      // 文档可滚动上限被浏览器钳制（内容先下坠再上升的抖动来源之一）。收起见
+      // hidePageHeightExtendWhenAtTop（等回顶再收，避免骤降反被钳制）；
+      // 从顶部换页无需撑高，popstate / hash 场景沿用 visit:start 的设置
+      if (!visit?.history?.popstate && !visit?.to?.hash && bannerMoves) {
+        if (switching && window.scrollY > 0) showPageHeightExtend();
+        else hidePageHeightExtend();
+      }
+    },
+  );
   // 旧内容已淡出、新内容未换入的空档切换 is-home（仅全屏模式：横幅/网格/波浪
   // 的 700ms 位移发生在不可见阶段，跳过动画的换页维持原 page:view 同步）。
   // 横幅模式不提前切换——新内容以旧 is-home 定位换入，page:view 后再整体滑动，
@@ -941,11 +965,21 @@ function setupSwup() {
   const releaseTocNotReady = () => {
     document.documentElement.classList.remove("toc-not-ready");
   };
+  // 撑高（#page-height-extend）的收起：必须等滚动回顶后再隐藏——横幅模式
+  // visit:end（约 200ms）远早于锁步回顶结束（--dur-banner），提前收起会让
+  // 文档高度骤降、滚动位置被浏览器钳制（移动端「落在文章页最底」的来源）。
+  // 回顶信号：锁步结束 / 原生平滑结束都会派发 scrollend（幂等；不支持的
+  // 浏览器走 visit:end 的 2s 兜底）。随上游 v2.0.0 b7e94d7 移植。
+  const hidePageHeightExtendWhenAtTop = () => {
+    if (window.scrollY > 0) return;
+    hidePageHeightExtend();
+  };
   window.swup.hooks.on("scroll:end", () => {
     if (needsScrollWait) releaseTocNotReady();
   });
   window.addEventListener("scrollend", () => {
     if (needsScrollWait) releaseTocNotReady();
+    hidePageHeightExtendWhenAtTop();
   });
 
   window.swup.hooks.on(
@@ -972,14 +1006,11 @@ function setupSwup() {
       // popstate / 带 hash 场景仍交由插件默认处理，不覆盖
       if (!visit?.history?.popstate && !visit?.to?.hash && visit?.scroll) {
         visit.scroll.animate = false;
-        // 原生滚动目标恒为 0，300vh 撑高防跳动无意义；且 visit:end
-        // 隐藏撑高时文档高度骤降 300vh 会触发整页大重排（换页完成后卡顿
-        // 来源）。跳过显示，visit:end 的隐藏随之变为无害 no-op
-        document.getElementById("page-height-extend")?.classList.add("hidden");
+        // 默认隐藏撑高；确需显示的条件（is-home 会变 + 从非顶部出发）在
+        // animation:out:start 判定，那里才知道是否会切换（随上游 b7e94d7）
+        hidePageHeightExtend();
       } else {
-        document
-          .getElementById("page-height-extend")
-          ?.classList.remove("hidden");
+        showPageHeightExtend();
       }
     },
   );
@@ -1038,15 +1069,23 @@ function setupSwup() {
   );
   window.swup.hooks.on("visit:end", () => {
     setTimeout(() => {
-      document.getElementById("page-height-extend")?.classList.add("hidden");
-      // 未接管回顶滚动（hash/popstate/从顶部换页）直接移除；
-      // 原生平滑长文回顶由 scrollend 驱动（见上），此处跳过
-      if (!needsScrollWait) releaseTocNotReady();
+      // needsScrollWait（从非顶部点击换页）时回顶可能远晚于 visit:end（横幅
+      // 模式尤其），交给 hidePageHeightExtendWhenAtTop 等回顶收起（原因见其
+      // 注释）；其余场景（从顶部换页 / popstate / hash）立即收起
+      if (needsScrollWait) {
+        hidePageHeightExtendWhenAtTop();
+      } else {
+        hidePageHeightExtend();
+        releaseTocNotReady();
+      }
     }, SWUP_VISIT_END_DELAY);
-    // 兜底：滚动结束信号异常缺失（极端场景）时 2s 后强制恢复目录，
-    // 避免永久隐藏（幂等，正常路径 scrollend/scroll:end 已先行移除）
+    // 兜底：滚动结束信号异常缺失（极端场景）时 2s 后强制恢复目录并收起撑高，
+    // 避免目录永久隐藏 / 页面残留 300vh 空白（幂等，正常路径已先行处理）
     if (needsScrollWait) {
-      setTimeout(releaseTocNotReady, 2000);
+      setTimeout(() => {
+        releaseTocNotReady();
+        hidePageHeightExtend();
+      }, 2000);
     }
   });
 }
