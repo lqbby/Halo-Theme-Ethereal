@@ -147,20 +147,40 @@ import { fetchWithTimeout } from "../../utils/fetch-timeout";
       origX = card.offsetLeft;
       origY = card.offsetTop;
 
+      // 起手缓存画布与卡片的可用上限：拖拽期间它们都不变（只改 left/top），
+      // 逐事件读 clientWidth/offsetWidth 是白付布局成本（高回报率鼠标可达数百 Hz）。
+      var maxLeft = Math.max(body.clientWidth - card.offsetWidth, 0);
+      var maxTop = Math.max(body.clientHeight - card.offsetHeight, 0);
+      // 位移写入合并到 rAF：每帧最多写一次 left/top（与逐事件写等价，但写入量随帧率而非
+      // 事件数增长）；pendingX 为 null 表示没有待写值。
+      var pendingX = null;
+      var pendingY = null;
+      var moveFrame = 0;
+      function flushMove() {
+        moveFrame = 0;
+        if (pendingX === null) return;
+        card.style.left = pendingX + "px";
+        card.style.top = pendingY + "px";
+        pendingX = null;
+      }
+
       function onMove(ev) {
         if (!dragging) return;
         var nx = origX + ev.clientX - startX;
         var ny = origY + ev.clientY - startY;
-        var maxLeft = Math.max(body.clientWidth - card.offsetWidth, 0);
-        var maxTop = Math.max(body.clientHeight - card.offsetHeight, 0);
-        nx = Math.max(0, Math.min(maxLeft, nx));
-        ny = Math.max(0, Math.min(maxTop, ny));
-        card.style.left = nx + "px";
-        card.style.top = ny + "px";
+        pendingX = Math.max(0, Math.min(maxLeft, nx));
+        pendingY = Math.max(0, Math.min(maxTop, ny));
+        if (!moveFrame) moveFrame = window.requestAnimationFrame(flushMove);
       }
       function onUp() {
         dragging = false;
         card.classList.remove("dragging");
+        // 松手时把最后一帧的位移落定（取消挂起的 rAF，否则可能丢掉最后一次移动）
+        if (moveFrame) {
+          window.cancelAnimationFrame(moveFrame);
+          moveFrame = 0;
+        }
+        flushMove();
         document.removeEventListener("mousemove", onMove);
         document.removeEventListener("mouseup", onUp);
       }

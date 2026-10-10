@@ -248,7 +248,12 @@
   z-index: 40;
   max-width: 98%;
   width: 98%;
-  transition: all 0.3s ease;
+  /* 只列真正会变的属性：focus-within 的底色/光环 + 暗色主题的底色/描边。
+     原 `all` 还会把媒体查询里的 bottom/padding/gap 也做成 0.3s 过渡（改窗口时整条栏会慢慢挪）。 */
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease;
 }
 .wish-input-bar:focus-within {
   background: rgba(255, 255, 255, 0.75);
@@ -319,7 +324,12 @@
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
-  transition: all 0.2s;
+  /* 只列会变的三项（hover/.active：opacity + border-color + transform；圆点的
+     background 由 data-wish-color 决定且 JS 从不在拖拽中改它 ⇒ 不需要过渡） */
+  transition:
+    opacity 0.2s,
+    border-color 0.2s,
+    transform 0.2s;
   opacity: 0.65;
   flex-shrink: 0;
 }
@@ -364,7 +374,11 @@
   font-weight: 500;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: all 0.2s;
+  /* 只列会变的属性：hover 底色 + 暗色主题的底色/文字/描边 */
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
 }
 .wish-bar-type:hover {
   background: rgba(255, 255, 255, 0.7);
@@ -389,7 +403,14 @@
   color: #fff;
   background: var(--primary);
   backdrop-filter: blur(6px);
-  transition: all 0.25s ease;
+  /* 只列按钮各状态会变的属性：hover（底色/位移/阴影）、暗色（文字色）、
+     :disabled（透明度/位移）、.polish（底色/文字/阴影） */
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease,
+    opacity 0.25s ease;
   box-shadow: 0 2px 8px color-mix(in oklab, var(--primary) 40%, transparent);
   white-space: nowrap;
   flex-shrink: 0;
@@ -436,7 +457,10 @@
   font-size: 13px;
   z-index: 20000;
   opacity: 0;
-  transition: all 0.35s;
+  /* .show 只切 opacity 与 transform（translateY 10px → 0） */
+  transition:
+    opacity 0.35s,
+    transform 0.35s;
   pointer-events: none;
   font-family: inherit;
 }

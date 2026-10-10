@@ -345,7 +345,17 @@ export function openRandomPostCarousel(opts) {
   }
   paintRing();
   paintTitle(null);
-  window.addEventListener("resize", onResize);
+  // rAF 合并：拖窗口时 resize 连发，而 onResize 要读一次尺寸再写 N 张脸的 transform
+  // （与 paintRing 叠加）。同一帧只跑一次即可（转盘在 overlay 内，晚一帧无感）。
+  var resizeFrame = 0;
+  function scheduleResize() {
+    if (resizeFrame) return;
+    resizeFrame = requestAnimationFrame(function () {
+      resizeFrame = 0;
+      onResize();
+    });
+  }
+  window.addEventListener("resize", scheduleResize);
   window.addEventListener("keydown", onKey);
   rafMotion = requestAnimationFrame(tick);
   rafImages = requestAnimationFrame(loadNext);

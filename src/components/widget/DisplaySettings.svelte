@@ -384,7 +384,7 @@
         <div class="flex flex-row gap-2 mb-3 items-center justify-between">
           <div class="section-title">
             {t("theme.color", "主题色相")}
-            <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md  active:scale-90 will-change-transform"
+            <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md  active:scale-90"
                     class:opacity-0={hue === defaultHue} class:pointer-events-none={hue === defaultHue} on:click={resetHue}>
               <div class="text-(--btn-content)">
                 <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -410,7 +410,7 @@
       {#if showLayout}
         <div class="section-title mb-3">
           {t("display.layout", "文章布局")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyLayout} class:pointer-events-none={!dirtyLayout} on:click={resetLayout}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -435,7 +435,7 @@
       {#if showCardStyle}
         <div class="section-title mb-3">
           {t("display.cardStyle", "卡片样式")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyCard} class:pointer-events-none={!dirtyCard} on:click={resetCard}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -491,7 +491,7 @@
       {#if showWallpaperMode}
         <div class="section-title mb-3">
           {t("display.wallpaperMode", "壁纸模式")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyWallpaperMode} class:pointer-events-none={!dirtyWallpaperMode} on:click={resetWallpaperModeBtn}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -514,7 +514,7 @@
       {#if showFullscreenLayout}
         <div class="section-title mb-3">
           {t("display.fullscreenLayout", "全屏布局")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyFullscreenLayout} class:pointer-events-none={!dirtyFullscreenLayout} on:click={resetFullscreenLayoutBtn}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -536,7 +536,7 @@
       {#if showWallpaperSettings && (wallpaperMode === "banner" || wallpaperMode === "fullscreen")}
         <div class="section-title mb-3">
           {t("display.wallpaperSettings", "壁纸设置")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyWallpaperSettings} class:pointer-events-none={!dirtyWallpaperSettings} on:click={resetWallpaperSettingsBtn}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
@@ -563,7 +563,7 @@
       {#if showWallpaper}
         <div class="section-title mb-3">
           {t("display.wallpaper", "透明设置")}
-          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90 will-change-transform"
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
                   class:opacity-0={!dirtyWallpaper} class:pointer-events-none={!dirtyWallpaper} on:click={resetWallpaper}>
             <div class="text-(--btn-content)">
               <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
