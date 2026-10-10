@@ -100,8 +100,10 @@ check(
   true,
 );
 check(
-  "F2b visit:start 设置门控（needsScrollWait && !reduceMotion）",
-  /gateRevealForReset = needsScrollWait && !reduceMotion;/.test(flatApp),
+  "F2b visit:start 设置门控（needsScrollWait && !reduceMotion && !coarseMobile）",
+  /gateRevealForReset = needsScrollWait && !reduceMotion && !coarseMobile;/.test(
+    flatApp,
+  ),
   true,
 );
 check(

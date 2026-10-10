@@ -1288,6 +1288,15 @@ function setupSwup() {
   function isHomeSwitching(): boolean {
     return isHomePath() !== document.body.classList.contains("is-home");
   }
+  // 移动端（粗指针）判定：复刻 1.5.65 的原生平滑滚动换页（用户点名的老手感）。
+  // iOS Safari 原生 smooth 全合成器驱动、系统级手感；1.7.x 的「拉扯/停底部/
+  // 一卡一卡/打架」都出现在锁步+撑高+门控机制引入之后——移动端整条链路回退到
+  // 「page:view 翻转 is-home + content:scroll 双 rAF 原生 smooth + 不门控不兜底」。
+  function isCoarsePointer(): boolean {
+    return !!(
+      window.matchMedia && window.matchMedia("(pointer: coarse)").matches
+    );
+  }
   // ── 换页撑高（#page-height-extend）──
   // 300vh 撑高恒渲染且在 Swup 容器外（跨页不替换）：显示/隐藏统一走这两个入口。
   // 随上游 v2.0.0 b7e94d7 移植（此前主线沿用旧「跳过显示」逻辑，缺了这条修复）：
@@ -1316,8 +1325,16 @@ function setupSwup() {
       // 300vh 撑高：位移期间文档高度持续变化，深层换页的滚动位置可能超出新
       // 文档可滚动上限被浏览器钳制（内容先下坠再上升的抖动来源之一）。收起见
       // hidePageHeightExtendWhenAtTop（等回顶再收，避免骤降反被钳制）；
-      // 从顶部换页无需撑高，popstate / hash 场景沿用 visit:start 的设置
-      if (!visit?.history?.popstate && !visit?.to?.hash && bannerMoves) {
+      // 从顶部换页无需撑高，popstate / hash 场景沿用 visit:start 的设置。
+      // ⚠️ 移动端（粗指针）不放撑高：1.5.65 复刻（点击换页恒 hidden），且
+      // 实测撑高在移动端换页窗口引起 ~2k~7k px 的中间滚动跳变（文档高度
+      // 变化触发钳制/锚定调整），是「打架」观感的来源之一
+      if (
+        !visit?.history?.popstate &&
+        !visit?.to?.hash &&
+        bannerMoves &&
+        !isCoarsePointer()
+      ) {
         if (switching && window.scrollY > 0) showPageHeightExtend();
         else hidePageHeightExtend();
       }
@@ -1465,12 +1482,17 @@ function setupSwup() {
         window.matchMedia &&
         window.matchMedia("(prefers-reduced-motion: reduce)").matches
       );
-      gateRevealForReset = needsScrollWait && !reduceMotion;
+      // 移动端（粗指针）走 1.5.65 原生平滑路径：不门控、不推迟翻转、
+      // 不挂落点兜底（原生 smooth 期间兜底复核会误判「被拽走」而瞬移打断）
+      const coarseMobile = isCoarsePointer();
+      gateRevealForReset = needsScrollWait && !reduceMotion && !coarseMobile;
       // 是否推迟 is-home 翻转（见 deferHomeClassForFollow 声明注释）：
       // 横幅模式（全屏在 content:replace 已提前切，无推迟语义）+ 非 reduce
+      // + 非移动端（移动端 1.5.65 复刻：page:view 原时序翻转）
       deferHomeClassForFollow =
         needsScrollWait &&
         !reduceMotion &&
+        !coarseMobile &&
         document.body.classList.contains("enable-banner") &&
         !isFullscreenMode();
       // SwupScrollPlugin 在 before("visit:start")（priority -1）设置
@@ -1532,6 +1554,7 @@ function setupSwup() {
             const gated = gateRevealForReset;
             gateRevealForReset = false;
             let resetInstant: boolean;
+            let armGuard = true;
             if (gated) {
               // 揭示门控路径（v1.7.20）：不可见窗口内瞬时归顶；is-home 切换
               // 同帧翻转（其 CSS 过渡在随后淡入期播放，横幅滑动观感保留——
@@ -1548,6 +1571,22 @@ function setupSwup() {
               // 重算前完成 ⇒ 揭示首帧即顶部位置。
               document.documentElement.classList.remove("nav-resetting");
               resetInstant = true;
+            } else if (isCoarsePointer()) {
+              // 移动端（粗指针）＝ 1.5.65 复刻：原生平滑滚动回顶（合成器
+              // 驱动、iOS 系统手感），is-home 已在 page:view 原时序翻转，
+              // 不门控不兜底——原生 smooth 期间落点兜底误判「被拽走」的
+              // 瞬移纠正会与平滑滚动打架（「像打架一样」的来源之一）
+              deferHomeClassForFollow = false;
+              const reduceNow = !!(
+                window.matchMedia &&
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              );
+              window.scrollTo({
+                top: 0,
+                behavior: reduceNow ? "auto" : "smooth",
+              });
+              resetInstant = false;
+              armGuard = false;
             } else if (document.body.classList.contains("enable-banner")) {
               // 非门控 = reduce 访问：lockstep 内部瞬时归顶
               deferHomeClassForFollow = false;
@@ -1569,8 +1608,10 @@ function setupSwup() {
             // 写者再次拽走——真机：点列表最后几张卡片换页 → 拉扯几轮后
             // 才归位。挂落点复核（见 armLandingGuard），瞬时路径附
             // scroll 事件即时纠正。仅「从非顶部出发」（needsScrollWait）的
-            // 换页需要：从顶部出发本就在顶部
-            if (needsScrollWait) armLandingGuard(preResetY, resetInstant);
+            // 换页需要：从顶部出发本就在顶部；移动端原生 smooth 路径不挂
+            // （armGuard=false，1.5.65 复刻）
+            if (needsScrollWait && armGuard)
+              armLandingGuard(preResetY, resetInstant);
           }),
         );
         return;

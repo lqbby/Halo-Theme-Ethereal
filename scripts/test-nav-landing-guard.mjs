@@ -138,8 +138,8 @@ check(
 // L6 挂载点：content:scroll 非 hash 分支内、复位之后、comment 早退之后、
 //    preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
 check(
-  "L6a 挂载语句含 preResetY + resetInstant 传参（仅从非顶部出发的换页）",
-  /if \(needsScrollWait\) armLandingGuard\(preResetY, resetInstant\);/.test(
+  "L6a 挂载语句含 armGuard 条件（移动端原生 smooth 路径不挂）",
+  /if \(needsScrollWait && armGuard\) armLandingGuard\(preResetY, resetInstant\);/.test(
     flat,
   ),
   true,
@@ -152,7 +152,7 @@ check(
   const idxGatedScroll = flat.indexOf("window.scrollTo(0, 0);");
   const idxSmart = flat.indexOf("smartScrollTo(0);");
   const idxArm = flat.indexOf(
-    "if (needsScrollWait) armLandingGuard(preResetY, resetInstant);",
+    "if (needsScrollWait && armGuard) armLandingGuard(preResetY, resetInstant);",
   );
   check(
     "L6b preResetY 读取于复位调用之前",
