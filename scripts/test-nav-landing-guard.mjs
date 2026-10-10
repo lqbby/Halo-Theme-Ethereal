@@ -10,6 +10,9 @@
 //   保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
 //   v1.7.20：门控揭示改造（复位恒瞬时或显式可知）⇒ instantPath 不再
 //   自行推断，由调用方按复位实况显式传入（resetInstant）。
+//   v1.7.22 定稿：全设备 1.5.65 原生 smooth 回顶 ⇒ 复位路径不再挂载
+//   落点兜底（原生平滑进行中复核会误判「被拽走」而瞬移打断）。函数本体
+//   与探针接线保留（L1~L5/L7/L8 语义判据仍锁定其正确性），供未来复启用。
 //
 // ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring——此现象
 //    与「重锚」无关；外部写者来源未在真机定位（本地 WebKit 复刻不出）。
@@ -22,8 +25,8 @@
 //      已由档位时序负责）
 //   L3 用户输入五监听（含 pointerdown）；L4 清理摘除全五 + scroll 监听
 //   L5 visit:start 递增 landingGuardToken（旧 guard 失效）
-//   L6 挂载点：content:scroll 非 hash 分支、复位调用之后、comment 早退
-//      之后、preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
+//   L6 挂载状态（v1.7.22）：复位路径不含挂载；复位 = 原生 smooth
+//      （spMark reset → scrollTo smooth），smartScrollTo(0) 未接入
 //   L7 instantPath 分流：判据 = resetInstant（v1.7.20 起调用方按复位实况
 //      显式传入）；scroll 事件仅瞬时路径挂
 //   L8 运行语义仿真：正常零写回 / 被拽走一次收敛 / 用户接管跳过 /
@@ -135,41 +138,37 @@ check(
   );
 }
 
-// L6 挂载点：content:scroll 非 hash 分支内、复位之后、comment 早退之后、
-//    preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
+// L6 挂载状态（v1.7.22 定稿）：复位路径已不含兜底挂载——全设备 1.5.65
+//    原生 smooth 回顶（原生平滑进行中挂载复核会误判「被拽走」而瞬移打断）。
+//    函数本体与探针接线保留（L1~L5/L7/L8 语义判据仍有效），供未来复启用。
 check(
-  "L6a 挂载语句含 armGuard 条件（移动端原生 smooth 路径不挂）",
-  /if \(needsScrollWait && armGuard\) armLandingGuard\(preResetY, resetInstant\);/.test(
-    flat,
-  ),
+  "L6a 复位路径不含 armLandingGuard 挂载（v1.7.22 退役）",
+  flat.indexOf("armLandingGuard(preResetY, resetInstant)") < 0 &&
+    flat.indexOf("armGuard") < 0,
   true,
 );
 {
   const idxCommentEarly = flat.indexOf(
     'hash.replace(/^#/, "").indexOf("comment") === 0',
   );
-  const idxPreReset = flat.indexOf("const preResetY = window.scrollY;");
-  const idxGatedScroll = flat.indexOf("window.scrollTo(0, 0);");
+  const idxReset = flat.indexOf('spMark("reset"');
+  const idxSmooth = flat.indexOf('behavior: reduceNow ? "auto" : "smooth"');
   const idxSmart = flat.indexOf("smartScrollTo(0);");
-  const idxArm = flat.indexOf(
-    "if (needsScrollWait && armGuard) armLandingGuard(preResetY, resetInstant);",
-  );
   check(
-    "L6b preResetY 读取于复位调用之前",
-    idxPreReset > 0 && idxPreReset < idxGatedScroll && idxPreReset < idxSmart,
+    "L6b 复位路径 = 原生 smooth（spMark reset 在 scrollTo 之前）",
+    idxReset > 0 && idxSmooth > idxReset && idxCommentEarly > 0,
     true,
   );
   check(
-    "L6c 挂载在复位调用（门控瞬时/智能回顶）之后",
-    idxArm > idxGatedScroll &&
-      idxArm > idxSmart &&
-      idxGatedScroll > 0 &&
-      idxSmart > 0,
+    "L6c 复位不再走 smartScrollTo(0)（v1.7.22 起未接入）",
+    idxSmart < 0,
     true,
   );
   check(
-    "L6d 挂载在 comment 早退之后（锚点路径不挂 guard）",
-    idxArm > idxCommentEarly && idxCommentEarly > 0,
+    "L6d 函数本体仍在（供复启用）",
+    /function armLandingGuard\(preResetY: number, resetInstant: boolean\): void \{/.test(
+      flat,
+    ),
     true,
   );
 }

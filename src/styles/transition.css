@@ -13,15 +13,6 @@ html.is-animating .transition-swup-fade {
   @apply translate-y-4 opacity-0;
 }
 
-/* 换页揭示门控（v1.7.20）：从非顶部点击换页时，新内容换入后先保持不可见，
-   瞬时归顶 + is-home 翻转在不可见窗口内完成（app.ts content:scroll），
-   摘除后才揭示。可见运动只剩合成器驱动的淡入与横幅滑动——JS 逐帧扫动
-   （弱 GPU 掉帧的「一卡一卡」根因）与「先看到深处新页再被瞬移」的裸跳
-   （1.7.17 瞬时路径缺陷）同时消除。abort / visit:end 有兜底摘除。 */
-html.nav-resetting #swup-container {
-  opacity: 0 !important;
-}
-
 /* 右侧边栏：作为 swup 容器以更新 TOC，但完全禁用过渡动画。
    swup-visited：首次换页（visit:start）起永久挂在 <html> 上——换页换入的新
    aside 虽带静态 onload-animation 类（首刷消闪烁所需），此规则令其动画永不

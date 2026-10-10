@@ -33,7 +33,8 @@ import {
 import {
   scrollDownToContent,
   scrollFunction,
-  lockstepScrollToTop,
+  // lockstepScrollToTop 保留在 scroll-manager（v1.7.22 起换页复位不再调用：
+  // 全设备 1.5.65 原生 smooth；函数保留供未来复启用）
   smartScrollTo,
 } from "../utils/scroll-manager";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
@@ -78,8 +79,11 @@ let navResetStamp = 0;
 // 这类不派发 wheel 的操作）；新一轮换页（visit:start）同样使旧 guard
 // 失效（token 递增）。正常路径下复位已使 scrollY=0 ⇒ 所有复核都是空
 // 操作，零感知。
-// ⚠️ 只在 non-popstate / non-hash 的点击换页路径挂（见 content:scroll 处）；
-// #comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
+// ⚠️ v1.7.22 起**不再从换页复位路径挂载**（用户定稿 1.5.65 复刻：全设备原生
+// smooth 回顶；原生平滑进行中挂载复核会误判「被拽走」而瞬移打断）。函数与
+// 探针接线整体保留：若真机再现「复位后被外部写者拽走」，可低成本复启用。
+// 历史（挂载期）只在 non-popstate / non-hash 的点击换页路径挂（见原 content:scroll
+// 处）；#comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
 // 两种档位表（按「复位是否瞬时完成」分流；v1.7.20 起由调用方显式传入）：
 //   · 瞬时路径：复位瞬时到位（揭示门控路径 / reduce / 非横幅 >1.5 屏），
 //     位置应即稳于 0 —— 额外挂 scroll 事件即时纠正（外部写者一写就于
@@ -1183,9 +1187,7 @@ function setupSwup() {
         "is-rendering",
         "home-switch",
         "toc-not-ready",
-        "nav-resetting",
       );
-      gateRevealForReset = false;
       hidePageHeightExtend();
       // popstate（前进/后退）场景：浏览器已经走完这次遍历，直接真实加载目标即可
       if (visit.history?.popstate) {
@@ -1288,21 +1290,13 @@ function setupSwup() {
   function isHomeSwitching(): boolean {
     return isHomePath() !== document.body.classList.contains("is-home");
   }
-  // 移动端（粗指针）判定：复刻 1.5.65 的原生平滑滚动换页（用户点名的老手感）。
-  // iOS Safari 原生 smooth 全合成器驱动、系统级手感；1.7.x 的「拉扯/停底部/
-  // 一卡一卡/打架」都出现在锁步+撑高+门控机制引入之后——移动端整条链路回退到
-  // 「page:view 翻转 is-home + content:scroll 双 rAF 原生 smooth + 不门控不兜底」。
-  function isCoarsePointer(): boolean {
-    return !!(
-      window.matchMedia && window.matchMedia("(pointer: coarse)").matches
-    );
-  }
   // ── 换页撑高（#page-height-extend）──
   // 300vh 撑高恒渲染且在 Swup 容器外（跨页不替换）：显示/隐藏统一走这两个入口。
-  // 随上游 v2.0.0 b7e94d7 移植（此前主线沿用旧「跳过显示」逻辑，缺了这条修复）：
-  // 深层换页（如首页底部点文章）换入的文档比旧滚动位置短时，滚动位置会被浏览器
-  // 钳制到新文档底（移动端实测偶尔定格在「文章页最底」），撑高让旧位置在新文档里
-  // 依然有效，回顶后再收起。
+  // v1.7.22（用户定稿 1.5.65 复刻）起：点击换页恒不展示（visit:start 的 hide
+  // 之后不再有展示点）——撑高是锁步/瞬时路径时代的产物（防深层换页被钳制定格
+  // 在文章页最底），原生 smooth 回顶不依赖它，且实测它在换页窗口引起
+  // ~2k~7k px 的中间滚动跳变（文档高度变化触发钳制调整）。popstate / hash
+  // 场景沿用 visit:start 的展示（与 1.5.65 相同）。
   function showPageHeightExtend(): void {
     spMark("phe", "show");
     document.getElementById("page-height-extend")?.classList.remove("hidden");
@@ -1311,35 +1305,15 @@ function setupSwup() {
     spMark("phe", "hide");
     document.getElementById("page-height-extend")?.classList.add("hidden");
   }
-  window.swup.hooks.on(
-    "animation:out:start",
-    (visit: { to?: { hash?: string }; history?: { popstate?: boolean } }) => {
-      const bannerMoves = document.body.classList.contains("enable-banner");
-      const switching = isHomeSwitching();
-      if (!bannerMoves || !isFullscreenMode()) {
-        document.documentElement.classList.remove("home-switch");
-      } else {
-        document.documentElement.classList.toggle("home-switch", switching);
-      }
-      // 点击换页（非 popstate / 非 hash）且 is-home 会变、从非顶部出发时显示
-      // 300vh 撑高：位移期间文档高度持续变化，深层换页的滚动位置可能超出新
-      // 文档可滚动上限被浏览器钳制（内容先下坠再上升的抖动来源之一）。收起见
-      // hidePageHeightExtendWhenAtTop（等回顶再收，避免骤降反被钳制）；
-      // 从顶部换页无需撑高，popstate / hash 场景沿用 visit:start 的设置。
-      // ⚠️ 移动端（粗指针）不放撑高：1.5.65 复刻（点击换页恒 hidden），且
-      // 实测撑高在移动端换页窗口引起 ~2k~7k px 的中间滚动跳变（文档高度
-      // 变化触发钳制/锚定调整），是「打架」观感的来源之一
-      if (
-        !visit?.history?.popstate &&
-        !visit?.to?.hash &&
-        bannerMoves &&
-        !isCoarsePointer()
-      ) {
-        if (switching && window.scrollY > 0) showPageHeightExtend();
-        else hidePageHeightExtend();
-      }
-    },
-  );
+  window.swup.hooks.on("animation:out:start", () => {
+    const bannerMoves = document.body.classList.contains("enable-banner");
+    const switching = isHomeSwitching();
+    if (!bannerMoves || !isFullscreenMode()) {
+      document.documentElement.classList.remove("home-switch");
+    } else {
+      document.documentElement.classList.toggle("home-switch", switching);
+    }
+  });
   // 旧内容已淡出、新内容未换入的空档切换 is-home（仅全屏模式：横幅/网格/波浪
   // 的 700ms 位移发生在不可见阶段，跳过动画的换页维持原 page:view 同步）。
   // 横幅模式不提前切换——新内容以旧 is-home 定位换入，page:view 后再整体滑动，
@@ -1352,13 +1326,6 @@ function setupSwup() {
         isFullscreenMode()
       ) {
         syncHomeClass();
-      }
-      // 揭示门控（v1.7.20）：新内容换入即刻挂门控类保持不可见（同任务内、
-      // 首帧绘制前生效），瞬时归顶完成后再由 content:scroll 摘除揭示。
-      // 挂得早 + 摘得晚之间用户看到的是淡出后的空白/页底背景，不会先看到
-      // 深处位置的新页（1.7.17 裸跳的根因就是揭示早于复位）。
-      if (gateRevealForReset) {
-        document.documentElement.classList.add("nav-resetting");
       }
     },
     { before: true },
@@ -1384,20 +1351,7 @@ function setupSwup() {
     // 首刷走 DOMContentLoaded，换页走这里——缺了它 callout 短代码（7 种）
     // 在换页后不转译、显示成原始 GitHub Alert 样式。
     initContentEnhance();
-    // is-home 将切换且已推迟：不在此翻转（等 content:scroll 与锁步同帧翻转，
-    // 消除「位移先动 37ms」的反向段前窗）；不切换（文章→文章等）照常同步
-    // （幂等）。安全兜底：content:scroll 异常不触发时 1200ms 后仍翻转。
-    if (deferHomeClassForFollow && isHomeSwitching()) {
-      setTimeout(() => {
-        if (deferHomeClassForFollow && isHomeSwitching()) {
-          deferHomeClassForFollow = false;
-          syncHomeClass();
-        }
-      }, 1200);
-    } else {
-      deferHomeClassForFollow = false;
-      syncHomeClass();
-    }
+    syncHomeClass();
     syncBannerOverlay();
     armLazyLightbox();
     void initPhotosGallery();
@@ -1407,9 +1361,8 @@ function setupSwup() {
     initExternalLinkRedirect();
     initCommentLazyLoad();
   });
-  // 跨页回顶滚动统一走 scroll-manager：有 is-home 位移的（横幅/全屏）走锁步插值
-  // （v1.7.18 起任意距离都动画；见 content:scroll 钩子），无位移的模式走
-  // smartScrollTo 距离门控（长距离瞬时、短距离平滑）。
+  // 跨页回顶滚动（v1.7.22 定稿：全设备 1.5.65 复刻）：content:scroll 双 rAF 后
+  // 原生平滑回顶（见 content:scroll 钩子），无锁步 / 无门控 / 无距离门控分支。
   // 同页锚点（目录点击）由 TableOfContents.handleAnchorClick 接管 + 距离门控
   // （astro.config.mjs 已关 Swup 的 samePageWithHash）。
   // TOC 恢复显示绑定「滚动真正结束」：长文从底部回顶的原生平滑可持续数百
@@ -1419,27 +1372,15 @@ function setupSwup() {
   // needsScrollWait 仅对「从非顶部换页回顶」的场景置真；从顶部换页（零距离
   // 短路无滚动结束信号）与 popstate 由 visit:end 直接移除
   let needsScrollWait = false;
-  // 换页揭示门控（v1.7.20）：从非顶部点击换页（非 reduce）时，新内容在复位
-  // 完成前保持不可见（content:replace 时挂 nav-resetting，transition.css），
-  // 瞬时归顶 + is-home 翻转藏在不可见窗口内，随后揭开——可见运动只剩合成器
-  // 驱动的淡入与横幅滑动（主线程冻结/弱 GPU 也不掉帧），JS 逐帧扫动退役。
-  // 这根治：①「一卡一卡」（rAF 逐帧 scrollTo 的掉帧）；②1.7.17 瞬时路径的
-  // 裸跳（当年复位在淡入完成后才发生，用户先在深处看到新页再被瞬移）。
-  let gateRevealForReset = false;
-  // is-home 翻转推迟到锁步启动（v1.7.19）：横幅模式「从非顶部换页且 is-home
-  // 将切换」时 page:view 不立即 syncHomeClass——位移 transition 先启动而锁步
-  // 回顶晚 ~37ms 启动，会形成「位移先走、滚动后追」的反向段（上下抖动）；
-  // 推迟后由 content:scroll 在锁步启动同帧翻转，滚动跟随 translate 实时进度
-  // （lockstepScrollToTop 的 follow 模式），合成运动严格单调。
-  let deferHomeClassForFollow = false;
   const releaseTocNotReady = () => {
     document.documentElement.classList.remove("toc-not-ready");
   };
-  // 撑高（#page-height-extend）的收起：必须等滚动回顶后再隐藏——横幅模式
-  // visit:end（约 200ms）远早于锁步回顶结束（--dur-banner），提前收起会让
-  // 文档高度骤降、滚动位置被浏览器钳制（移动端「落在文章页最底」的来源）。
-  // 回顶信号：锁步结束 / 原生平滑结束都会派发 scrollend（幂等；不支持的
-  // 浏览器走 visit:end 的 2s 兜底）。随上游 v2.0.0 b7e94d7 移植。
+  // 撑高（#page-height-extend）的收起：必须等滚动回顶后再隐藏——visit:end
+  // （约 200ms）远早于原生平滑回顶结束，提前收起会让文档高度骤降、滚动位置
+  // 被浏览器钳制（移动端「落在文章页最底」的来源）。回顶信号：原生平滑结束
+  // 会派发 scrollend（幂等；不支持的浏览器走 visit:end 的 2s 兜底）。
+  // 随上游 v2.0.0 b7e94d7 移植（v1.7.22 起点击换页不展示撑高，此收起逻辑
+  // 只对 popstate / hash 场景仍展示的撑高生效）。
   const hidePageHeightExtendWhenAtTop = () => {
     if (window.scrollY > 0) return;
     hidePageHeightExtend();
@@ -1476,41 +1417,24 @@ function setupSwup() {
       document.documentElement.classList.add("toc-not-ready");
       needsScrollWait =
         !visit?.history?.popstate && !visit?.to?.hash && window.scrollY > 0;
-      // 揭示门控与 is-home 翻转推迟的适用条件（reduce 不推迟不门控——
-      // reduce 下复位瞬时、无跟随/扫动，保持 page:view 原行为）
-      const reduceMotion = !!(
-        window.matchMedia &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches
-      );
-      // 移动端（粗指针）走 1.5.65 原生平滑路径：不门控、不推迟翻转、
-      // 不挂落点兜底（原生 smooth 期间兜底复核会误判「被拽走」而瞬移打断）
-      const coarseMobile = isCoarsePointer();
-      gateRevealForReset = needsScrollWait && !reduceMotion && !coarseMobile;
-      // 是否推迟 is-home 翻转（见 deferHomeClassForFollow 声明注释）：
-      // 横幅模式（全屏在 content:replace 已提前切，无推迟语义）+ 非 reduce
-      // + 非移动端（移动端 1.5.65 复刻：page:view 原时序翻转）
-      deferHomeClassForFollow =
-        needsScrollWait &&
-        !reduceMotion &&
-        !coarseMobile &&
-        document.body.classList.contains("enable-banner") &&
-        !isFullscreenMode();
       // SwupScrollPlugin 在 before("visit:start")（priority -1）设置
       // visit.scroll.animate，此处（默认 priority 0）在接管回顶滚动时覆盖为
       // false，早于其 content:scroll 的 doScrollingBetweenPages 消费点。
       // popstate / 带 hash 场景仍交由插件默认处理，不覆盖
       if (!visit?.history?.popstate && !visit?.to?.hash && visit?.scroll) {
         visit.scroll.animate = false;
-        // 默认隐藏撑高；确需显示的条件（is-home 会变 + 从非顶部出发）在
-        // animation:out:start 判定，那里才知道是否会切换（随上游 b7e94d7）
+        // 点击换页恒隐藏撑高（1.5.65 复刻；展示点已移除，见 showPageHeightExtend 注释）
         hidePageHeightExtend();
       } else {
         showPageHeightExtend();
       }
     },
   );
-  // 跨页回顶滚动接管 content:scroll，统一改用浏览器原生平滑滚动（behavior:
-  // "smooth"，合成器驱动不占主线程，无 scrl 引擎的每帧 JS 测量卡顿）：
+  // 跨页回顶滚动接管 content:scroll（v1.7.22 定稿：全设备 1.5.65 复刻）：
+  // 双 rAF 后浏览器原生平滑滚动（behavior:"smooth"，合成器驱动不占主线程，
+  // 无 scrl 引擎的每帧 JS 测量卡顿）——与 1.5.65 的实现逐字节同构：无锁步、
+  // 无揭示门控、无距离门控、无落点兜底（原生平滑进行中兜底复核会误判
+  // 「被拽走」而瞬移打断）。
   // content:replace 换入新内容后布局仍 dirty，立即滚动会派发 scroll 事件
   // → OverlayScrollbars 同步测量 → 强制整页重排（实测单帧 900ms）。延迟
   // 双 rAF 让浏览器先完成新内容首次布局，滚动时测量命中缓存不触发重排。
@@ -1546,72 +1470,22 @@ function setupSwup() {
             // 回顶复位执行：递增复位纪元——此刻任何「挂载后恢复滚动位置」的 rAF
             // 都必须放弃（其捕获的旧位置属于上一页面，写回会把用户拽到深处）
             navResetStamp += 1;
-            // 复位前位置：供落点兜底判「复位是否瞬时完成」（见 armLandingGuard）。
-            // 读在复位调用之前——lockstepScrollToTop / smartScrollTo 内部也
-            // 同步读 window.scrollY 做各自判据，两者口径一致
-            const preResetY = window.scrollY;
-            spMark("reset", "pre=" + Math.round(preResetY));
-            const gated = gateRevealForReset;
-            gateRevealForReset = false;
-            let resetInstant: boolean;
-            let armGuard = true;
-            if (gated) {
-              // 揭示门控路径（v1.7.20）：不可见窗口内瞬时归顶；is-home 切换
-              // 同帧翻转（其 CSS 过渡在随后淡入期播放，横幅滑动观感保留——
-              // transform/opacity 皆合成器驱动，弱 GPU 不掉帧）。JS 逐帧扫动
-              // （rAF scrollTo）已退役：弱设备掉帧的「一卡一卡」根因。
-              if (deferHomeClassForFollow && isHomeSwitching()) {
-                deferHomeClassForFollow = false;
-                syncHomeClass();
-              }
-              window.scrollTo(0, 0);
-              // 摘除门控揭示：此时 is-animating 通常仍在（in 动画 200ms 未到
-              // in:end），主题自身的淡入继续完成；若已结束则由门控期间的
-              // is-changing 过渡收尾。scrollTo 先触发、摘类后于同帧样式
-              // 重算前完成 ⇒ 揭示首帧即顶部位置。
-              document.documentElement.classList.remove("nav-resetting");
-              resetInstant = true;
-            } else if (isCoarsePointer()) {
-              // 移动端（粗指针）＝ 1.5.65 复刻：原生平滑滚动回顶（合成器
-              // 驱动、iOS 系统手感），is-home 已在 page:view 原时序翻转，
-              // 不门控不兜底——原生 smooth 期间落点兜底误判「被拽走」的
-              // 瞬移纠正会与平滑滚动打架（「像打架一样」的来源之一）
-              deferHomeClassForFollow = false;
-              const reduceNow = !!(
-                window.matchMedia &&
-                window.matchMedia("(prefers-reduced-motion: reduce)").matches
-              );
-              window.scrollTo({
-                top: 0,
-                behavior: reduceNow ? "auto" : "smooth",
-              });
-              resetInstant = false;
-              armGuard = false;
-            } else if (document.body.classList.contains("enable-banner")) {
-              // 非门控 = reduce 访问：lockstep 内部瞬时归顶
-              deferHomeClassForFollow = false;
-              lockstepScrollToTop();
-              resetInstant = true;
-            } else {
-              // 纯色 / 全屏透明（非门控 = reduce）：smartScrollTo 距离门控
-              // （reduce 恒瞬时；>1.5 屏瞬时；否则原生 smooth 动画）
-              deferHomeClassForFollow = false;
-              const reduceNow = !!(
-                window.matchMedia &&
-                window.matchMedia("(prefers-reduced-motion: reduce)").matches
-              );
-              resetInstant =
-                reduceNow || preResetY > (window.innerHeight || 800) * 1.5;
-              smartScrollTo(0);
-            }
-            // 落点兜底（1.7.15；1.7.16 即时化）：复位之后位置仍可能被外部
-            // 写者再次拽走——真机：点列表最后几张卡片换页 → 拉扯几轮后
-            // 才归位。挂落点复核（见 armLandingGuard），瞬时路径附
-            // scroll 事件即时纠正。仅「从非顶部出发」（needsScrollWait）的
-            // 换页需要：从顶部出发本就在顶部；移动端原生 smooth 路径不挂
-            // （armGuard=false，1.5.65 复刻）
-            if (needsScrollWait && armGuard)
-              armLandingGuard(preResetY, resetInstant);
+            spMark("reset", "pre=" + Math.round(window.scrollY));
+            // v1.7.22 定稿（用户拍板「都用 1.5.65 这样的」）：全设备统一原生
+            // 平滑滚动回顶——与 1.5.65 该处实现逐条同构（含双 rAF 时序）。
+            // 此前的锁步插值 / 揭示门控 / 距离门控 / 落点兜底全部退役：
+            // 弱 GPU 上 rAF 逐帧 scrollTo 必掉帧（「一卡一卡」），门控在移动端
+            // 多运动叠加（「像打架」），而原生 smooth 由合成器驱动、系统级
+            // 手感——当年的所有派生机型（锁步/兜底/撑高）都建立在它之上。
+            // prefers-reduced-motion 保持瞬时（与 smartScrollTo 口径一致）。
+            const reduceNow = !!(
+              window.matchMedia &&
+              window.matchMedia("(prefers-reduced-motion: reduce)").matches
+            );
+            window.scrollTo({
+              top: 0,
+              behavior: reduceNow ? "auto" : "smooth",
+            });
           }),
         );
         return;
@@ -1620,10 +1494,6 @@ function setupSwup() {
     },
   );
   window.swup.hooks.on("visit:end", () => {
-    // 门控兜底清理：正常路径在 content:scroll 复位时已摘除；content:scroll
-    // 异常不触发时防止容器永久不可见
-    gateRevealForReset = false;
-    document.documentElement.classList.remove("nav-resetting");
     setTimeout(() => {
       // needsScrollWait（从非顶部点击换页）时回顶可能远晚于 visit:end（横幅
       // 模式尤其），交给 hidePageHeightExtendWhenAtTop 等回顶收起（原因见其

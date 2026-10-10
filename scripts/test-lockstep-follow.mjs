@@ -1,23 +1,21 @@
 // @ts-check
-// 换页「上下抖动 / 一卡一卡」修复桩测（2026-10-10，v1.7.19 → v1.7.20）
+// 换页「上下抖动 / 一卡一卡」修复桩测（2026-10-10，v1.7.19 → v1.7.22 定稿）
 //
 // v1.7.19（跟随模式）：is-home 翻转推迟到锁步同帧 + 滚动跟随 translate
 //   实时进度 ⇒ 反向段 25px→2px（本文件 F1/F3 仍锁定该能力，保留于
 //   scroll-manager 作为备用路径）。
-// v1.7.20（揭示门控，现役路径）：JS 逐帧扫动整体退役——弱 GPU 设备上
-//   rAF 逐帧 scrollTo 必然掉帧（「一卡一卡」），改为：新内容换入后挂
-//   nav-resetting 保持不可见 → 不可见窗口内瞬时归顶 + is-home 翻转 →
-//   摘除门控揭示。可见运动只剩合成器驱动的淡入与横幅滑动，主线程冻结
-//   不掉帧（移动端关键）；同时消除 1.7.17 瞬时路径「淡入完成才复位」
-//   的裸跳。
+// v1.7.20（揭示门控）：新内容挂 nav-resetting 不可见 → 瞬移归顶 → 揭示。
+// v1.7.22 定稿（用户拍板「都用 1.5.65 这样的」）：全设备统一原生 smooth
+//   回顶——与 1.5.65 逐条同构（双 rAF + scrollTo smooth）。锁步 / 门控 /
+//   距离门控 / 落点兜底全部退役：弱 GPU 上 rAF 逐帧 scrollTo 必掉帧
+//   （「一卡一卡」），多运动叠加在移动端「像打架」，原生 smooth 由合成器
+//   驱动、系统级手感。
 //
 // 判据（源码级）：
 //   F1 scroll-manager：follow 能力保留（备用路径，判据同 v1.7.19）
-//   F2 app.ts 门控接线：gateRevealForReset 声明 / visit:start 设置
-//      （needsScrollWait && !reduceMotion）/ content:replace 挂
-//      nav-resetting / content:scroll 门控分支（翻转→scrollTo(0,0)→
-//      摘类→resetInstant=true）/ visit:end + abort 兜底清理 /
-//      transition.css 门控规则 / defer 翻转机制保留（横幅滑动观感）
+//   F2 app.ts 现役接线（v1.7.22）：门控/推迟机制整体移除；content:scroll
+//      复位 = 双 rAF 原生 smooth（reduce→auto）；page:view 无条件
+//      syncHomeClass；点击换页恒隐藏撑高；out:start 无撑高展示分支
 //   F3 运行语义仿真：含 CSS 启动延迟的 tr 序列 ⇒ 跟随合成位置单调
 //      （能力保留判据）+ ease 自走对照组必出反向段
 import { readFileSync } from "node:fs";
@@ -92,65 +90,62 @@ check(
   true,
 );
 
-// ── F2 app.ts 门控接线（v1.7.20 现役路径）──
+// ── F2 app.ts 现役接线（v1.7.22 定稿：全设备 1.5.65 原生 smooth）──
 check(
-  "F2a deferHomeClassForFollow 与 gateRevealForReset 标志声明",
-  /let deferHomeClassForFollow = false;/.test(flatApp) &&
-    /let gateRevealForReset = false;/.test(flatApp),
+  "F2a 门控/推迟机制已整体移除（无 gateRevealForReset / deferHomeClassForFollow / nav-resetting / isCoarsePointer）",
+  /gateRevealForReset/.test(flatApp) === false &&
+    /deferHomeClassForFollow/.test(flatApp) === false &&
+    /nav-resetting/.test(flatApp) === false &&
+    /isCoarsePointer/.test(flatApp) === false,
   true,
 );
 check(
-  "F2b visit:start 设置门控（needsScrollWait && !reduceMotion && !coarseMobile）",
-  /gateRevealForReset = needsScrollWait && !reduceMotion && !coarseMobile;/.test(
-    flatApp,
-  ),
-  true,
-);
-check(
-  "F2c content:replace 挂 nav-resetting（首帧绘制前）",
-  /if \(gateRevealForReset\) \{ document\.documentElement\.classList\.add\("nav-resetting"\); \}/.test(
-    flatApp,
-  ),
-  true,
-);
-check(
-  "F2d content:scroll 门控分支：翻转→瞬时归顶→摘类→resetInstant",
+  "F2b content:scroll 复位 = 双 rAF → 原生 smooth（含 reduce 分支）",
   (() => {
-    const i = flatApp.indexOf("const gated = gateRevealForReset;");
+    const i = flatApp.indexOf('spMark("reset", "pre="');
     if (i < 0) return false;
-    const seg = flatApp.slice(i, i + 700);
-    const flip = seg.indexOf("syncHomeClass();");
-    const scroll = seg.indexOf("window.scrollTo(0, 0);");
-    const reveal = seg.indexOf('classList.remove("nav-resetting")');
-    const instant = seg.indexOf("resetInstant = true;");
-    return flip > 0 && scroll > flip && reveal > scroll && instant > reveal;
+    const seg = flatApp.slice(i, i + 1200);
+    const smoothIdx = seg.indexOf('behavior: reduceNow ? "auto" : "smooth"');
+    const rafChain = flatApp.indexOf(
+      "requestAnimationFrame(() => requestAnimationFrame(() =>",
+    );
+    return (
+      smoothIdx > 0 && rafChain > 0 && flatApp.indexOf("smartScrollTo(0)") < 0
+    );
   })(),
   true,
 );
 check(
-  "F2e visit:end + abort 兜底摘除 nav-resetting",
-  (() => {
-    const visitEnd =
-      /gateRevealForReset = false; document\.documentElement\.classList\.remove\("nav-resetting"\);/.test(
-        flatApp,
-      );
-    const abort = flatApp.indexOf('"nav-resetting",') >= 0;
-    return visitEnd && abort;
-  })(),
-  true,
-);
-check(
-  "F2f transition.css 门控规则（!important 压 is-animating 淡入）",
-  /html\.nav-resetting #swup-container \{\s*opacity: 0 !important;/.test(
-    readFileSync(TRANSITION, "utf8"),
+  "F2c page:view 无条件 syncHomeClass（无推迟/兜底分支）",
+  /initContentEnhance\(\); syncHomeClass\(\); syncBannerOverlay\(\);/.test(
+    flatApp,
   ),
   true,
 );
 check(
-  "F2g page:view 推迟翻转 + 1200ms 安全兜底保留（横幅滑动观感）",
-  /if \(deferHomeClassForFollow && isHomeSwitching\(\)\) \{ setTimeout\(\(\) => \{/.test(
-    flatApp,
-  ) && /\}, 1200\);/.test(flatApp),
+  "F2d visit:start 点击换页恒隐藏撑高、无展示点（1.5.65 复刻）",
+  (() => {
+    const visitStart = flatApp.indexOf('hooks.on( "visit:start"');
+    const seg = flatApp.slice(visitStart, visitStart + 1800);
+    const hide = seg.indexOf("hidePageHeightExtend();");
+    const show = seg.indexOf("showPageHeightExtend();");
+    // 点击路径 hide；else（popstate/hash）show —— show 只出现在 else 分支
+    return visitStart > 0 && hide > 0 && show > hide;
+  })(),
+  true,
+);
+check(
+  "F2e animation:out:start 不再有撑高展示分支（仅 home-switch 切换）",
+  (() => {
+    const i = flatApp.indexOf('"animation:out:start"');
+    const seg = flatApp.slice(i, i + 600);
+    return seg.indexOf("showPageHeightExtend") < 0;
+  })(),
+  true,
+);
+check(
+  "F2f transition.css 门控规则已移除",
+  /nav-resetting/.test(readFileSync(TRANSITION, "utf8")) === false,
   true,
 );
 
