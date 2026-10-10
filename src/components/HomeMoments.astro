@@ -589,6 +589,27 @@
     .home-moments-hint {
       transition: none;
     }
+    /* 🔴 减少动态偏好下的可访问性缺口修复（随 up2 d97601d/6f11929 移植）：
+       动画被关掉后，容器仍是 overflow:hidden 且**没有任何滚动入口** ⇒ 带内
+       除前几条之外的条目永远看不到（等于内容丢失）。改为可手动横向滚动。
+       ⚠️ 必须用 ID 选择器：Tailwind 的 .overflow-hidden 同为 (0,1,0)，靠顺序
+       决胜不可靠；#id 是 (1,0,0)，稳胜。
+       ⚠️ 配套 JS：该偏好下不再克隆补屏（见 setupMarquee 的 reduceMotion 分支）——
+       否则副本会让手动滚动时看到成对重复的条目。
+       ⚠️ 滚动条**完全隐藏**（LQ 反馈「滑动条太难看」）：本偏好下跑道静止、没有
+       持续运动的暗示，露出轨道反而像页面破了个口；仍可用滚轮 / 触控 / 键盘
+       （跑道内是可聚焦链接）横向滚。 */
+    #home-moments-marquee,
+    #home-projects-marquee {
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* 旧 Edge/IE */
+    }
+    #home-moments-marquee::-webkit-scrollbar,
+    #home-projects-marquee::-webkit-scrollbar {
+      display: none; /* Chromium / WebKit */
+    }
   }
 </style>
 
@@ -628,11 +649,24 @@
       var group = trackEl.querySelector(".home-moments-group");
       if (!group) return;
 
+      // 减少动态偏好：整条跑道不参与补屏与动画（容器改由 CSS 提供手动横滚）。
+      // 用 matchMedia 而非 CSS 类判断，是为了同时影响「补屏」这个 JS 行为。
+      var reduceMotion =
+        typeof window.matchMedia === "function" &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
       var apply = function () {
         var setWidth = group.scrollWidth;
         var boxWidth = marqueeEl.clientWidth;
         // 隐藏的跑道（移动端的项目栏）两者都是 0，自然跳过
-        if (!setWidth || !boxWidth) return;
+        if (!setWidth || !boxWidth) return false;
+
+        // 🔴 减少动态偏好：不克隆、不加动画类。
+        // 动画由 CSS 在该偏好下置为 none，这里再补屏只会让容器变长 —— 而该偏好下
+        // 跑道改成了可手动横滚（见 <style> 的 prefers-reduced-motion 块），
+        // 克隆出来的副本会让用户手动滚动时看到成对重复的条目。
+        // 返回 true 表示「本跑道已处理完毕」，交由调度方停止重试。
+        if (reduceMotion) return true;
 
         // ① 补足「一屏」：半幅至少要和跑道一样宽，滚动过程中视窗才不会露空
         var k = Math.max(1, Math.ceil(boxWidth / setWidth));
@@ -668,18 +702,44 @@
         // ≥500px，故 6s 实际几乎不会触发，触发时也只是内容极少时的保护。
         var duration = Math.max(6, Math.round((k * setWidth) / speed));
         trackEl.style.setProperty("--home-moments-duration", duration + "s");
+        return true;
       };
 
-      // 延迟到字体加载 + 布局稳定后再测量宽度：否则字体未就绪时 scrollWidth
-      // 偏小，会把「一屏」判少（全屏模式下首屏 banner 占满、字体加载更晚，
-      // 此问题更明显）。
+      // 排程：等字体加载 + 布局稳定后再测量宽度（否则字体未就绪时 scrollWidth
+      // 偏小，会把「一屏」判少；全屏模式下首屏 banner 占满、字体加载更晚，此问题
+      // 更明显）。
+      //
+      // 🔴🔴 随 up2 f625870 移植的兜底（上游 2026-10-08 补）：
+      // 原实现**只**挂在 `document.fonts.ready` 上，一旦该 promise 不 settle
+      // （外链字体请求被网络策略 / DNS 分流挂住、浏览器实现差异等），apply()
+      // 永不执行 ⇒ 走马灯静止、无任何报错、全站复现，且与 1.5.66 逐字相同的代码
+      // 也会突然失效（1.5.66 上 fonts.ready 恰好会 settle，故未暴露）。
+      // 现改为「字体就绪 / 硬超时 / window.load」三条路取最先到达者，并在测量为 0
+      // 时做有限重试（最多约 5s，等布局稳定）。
+      var done = false;
+      var tried = 0;
+      var scheduled = false;
+      var runApply = function () {
+        if (done) return;
+        tried++;
+        done = apply();
+        if (!done && tried < 20) {
+          window.setTimeout(runApply, 250);
+        }
+      };
+      var schedule = function () {
+        if (done || scheduled) return;
+        scheduled = true;
+        window.requestAnimationFrame(runApply);
+      };
       if (document.fonts && document.fonts.ready) {
-        document.fonts.ready.then(function () {
-          requestAnimationFrame(apply);
-        });
+        document.fonts.ready.then(schedule, schedule);
+        // 硬超时兜底：fonts.ready 不 settle 时仍能初始化
+        window.setTimeout(schedule, 1200);
       } else {
-        setTimeout(apply, 200);
+        window.setTimeout(schedule, 200);
       }
+      window.addEventListener("load", schedule);
     }
 
     /* 拖动改变了跑道宽度后，原先按旧宽度补的「一屏」可能不够 → 会露白。
