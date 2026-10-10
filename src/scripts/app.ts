@@ -65,6 +65,51 @@ window.addEventListener(
 // 直接落在文章页最底」（2026-10-10 CDP 实测：复位后 ~60ms 被写回 top=原位置）。
 let navResetStamp = 0;
 
+// ── 落点兜底（1.7.15）──
+// iOS Safari 上，点击换页在复位之后仍可能被「外部写者」把滚动位置拽走
+// （scroll anchoring 持续重锚 / 地址栏收展 / 惯性余量 / 懒加载高度变化），
+// 真机实测：点列表最后几张卡片 → 位置原地上下拉扯几轮后停在页底。
+// 对「点击换页 + 原位置较深（瞬时复位场景）」做有限次落点复核：复位后按
+// 固定延迟各查一次，只要没有用户输入且位置明显偏离顶部（>2px）就再瞬时
+// 回顶；用户任何滚动/按键/指针按下立即令本次 guard 失效（不与用户抢滚动，
+// pointerdown 覆盖桌面拖滚动条这类不派发 wheel 的操作）；
+// 新一轮换页（visit:start）同样使旧 guard 失效（token 递增）。
+// 正常路径下复位已使 scrollY=0 ⇒ 所有复核都是空操作，零感知。
+// ⚠️ 只在 non-popstate / non-hash 的点击换页路径挂（见 content:scroll 处）；
+// #comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
+// 首档 900ms 才复核：复位滚动（锁步插值 / 原生平滑）的窗口是 --dur-banner
+// （默认 700ms），窗口内位置尚未到顶属正常进行中——900ms 起查可避免把
+// 「动画还没播完」误判成「被拽走」而中途打断复位动画
+const LANDING_GUARD_DELAYS = [900, 1800, 3000, 4500];
+const LANDING_GUARD_CLEANUP_MS = 4700;
+let landingGuardToken = 0;
+function armLandingGuard(): void {
+  const token = ++landingGuardToken;
+  let userTookOver = false;
+  const release = () => {
+    userTookOver = true;
+  };
+  window.addEventListener("wheel", release, { passive: true });
+  window.addEventListener("touchstart", release, { passive: true });
+  window.addEventListener("touchmove", release, { passive: true });
+  window.addEventListener("pointerdown", release, { passive: true });
+  window.addEventListener("keydown", release);
+  for (const delay of LANDING_GUARD_DELAYS) {
+    setTimeout(() => {
+      if (token !== landingGuardToken || userTookOver) return;
+      if (document.documentElement.classList.contains("is-changing")) return;
+      if (window.scrollY > 2) window.scrollTo({ top: 0, behavior: "auto" });
+    }, delay);
+  }
+  setTimeout(() => {
+    window.removeEventListener("wheel", release);
+    window.removeEventListener("touchstart", release);
+    window.removeEventListener("touchmove", release);
+    window.removeEventListener("pointerdown", release);
+    window.removeEventListener("keydown", release);
+  }, LANDING_GUARD_CLEANUP_MS);
+}
+
 // ── 自定义滚动条（懒加载，等入场动画结束后初始化） ──
 let scrollbarInitialized = false;
 function initCustomScrollbar() {
@@ -1011,6 +1056,8 @@ function setupSwup() {
       restoreOriginalHistoryStateHandlers();
       // 换页开始：递增复位纪元（OverlayScrollbars 挂载后的位置恢复据此放弃过期恢复）
       navResetStamp += 1;
+      // 上一轮换页的落点兜底同样即刻失效（新换页有自己的复位与兜底）
+      landingGuardToken += 1;
       // 标记会话内已发生换页（<html> 不被 Swup 替换，标记永久有效）：
       // #right-sidebar 是 swup 容器，换页会换入带静态 onload-animation 类的新
       // aside，transition.css 据此标记永久抑制其入场动画（首刷动画不受影响）。
@@ -1084,6 +1131,11 @@ function setupSwup() {
               // 变成同款长距离拉扯（与 lockstepScrollToTop 的阈值标准保持一致）
               smartScrollTo(0);
             }
+            // 落点兜底（1.7.15）：复位之后位置仍可能被外部写者（iOS scroll anchoring
+            // 持续重锚、地址栏收展等）再次拽走——真机：点列表最后几张卡片换页 →
+            // 拉扯几轮后停在页底。挂有限次落点复核（见 armLandingGuard）。
+            // 仅「从非顶部出发」（needsScrollWait）的换页需要：从顶部出发本就在顶部
+            if (needsScrollWait) armLandingGuard();
           }),
         );
         return;
