@@ -80,19 +80,18 @@ let navResetStamp = 0;
 // 操作，零感知。
 // ⚠️ 只在 non-popstate / non-hash 的点击换页路径挂（见 content:scroll 处）；
 // #comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
-// 两种档位表（按「复位是否瞬时完成」分流；v1.7.18 起判据随锁步改造变更）：
-//   · 瞬时路径：复位瞬时到位（仅 prefers-reduced-motion，或非横幅模式下
-//     smartScrollTo 的距离门控 >1.5 屏），位置应即稳于 0 —— 额外挂
-//     scroll 事件即时纠正（外部写者一写就于下一帧收回，把「拉扯」压到
-//     不可见），配密集档位兜底（防 scroll 事件在个别场景缺失）。
-//   · 动画路径：复位走 700ms 动画（--dur-banner）——横幅模式锁步自
-//     v1.7.18 起任意距离都动画（用户场景「页底点卡片」走这条），首档须
-//     晚于动画窗口，避免把「动画没播完」误判成「被拽走」而打断动画。
+// 两种档位表（按「复位是否瞬时完成」分流；v1.7.20 起由调用方显式传入）：
+//   · 瞬时路径：复位瞬时到位（揭示门控路径 / reduce / 非横幅 >1.5 屏），
+//     位置应即稳于 0 —— 额外挂 scroll 事件即时纠正（外部写者一写就于
+//     下一帧收回，把「拉扯」压到不可见），配密集档位兜底（防 scroll
+//     事件在个别场景缺失）。
+//   · 动画路径：复位仍有进行中的动画（非横幅 smartScrollTo 原生 smooth），
+//     首档须晚于动画窗口，避免把「动画没播完」误判成「被拽走」而打断动画。
 const LANDING_GUARD_DELAYS_INSTANT = [120, 300, 600, 1200, 2000, 3200, 4500];
 const LANDING_GUARD_DELAYS_ANIMATED = [900, 1800, 3000, 4500];
 const LANDING_GUARD_CLEANUP_MS = 4700;
 let landingGuardToken = 0;
-function armLandingGuard(preResetY: number): void {
+function armLandingGuard(preResetY: number, resetInstant: boolean): void {
   const token = ++landingGuardToken;
   let userTookOver = false;
   const release = () => {
@@ -110,17 +109,8 @@ function armLandingGuard(preResetY: number): void {
   window.addEventListener("touchmove", release, { passive: true });
   window.addEventListener("pointerdown", release, { passive: true });
   window.addEventListener("keydown", release);
-  // 本次复位是否会瞬时完成：横幅模式锁步回顶自 v1.7.18 起任意距离都走
-  // 动画（仅 prefers-reduced-motion 瞬时）；非横幅模式走 smartScrollTo
-  // 距离门控（>1.5 屏瞬时）。瞬时完成的路径位置应即稳于 0，任何 scroll
-  // 事件（外部写者所致）即时纠正；动画路径只能靠晚于动画窗口的档位复核。
-  const spReduce =
-    window.matchMedia &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const instantPath =
-    spReduce ||
-    (!document.body.classList.contains("enable-banner") &&
-      preResetY > (window.innerHeight || 800) * 1.5);
+  // 瞬时完成的路径位置应即稳于 0，任何 scroll 事件（外部写者所致）即时纠正
+  const instantPath = resetInstant;
   spGuardArmed(instantPath ? "instant" : "animated", preResetY);
   const onScroll = () => {
     enforce("event");
@@ -1193,7 +1183,9 @@ function setupSwup() {
         "is-rendering",
         "home-switch",
         "toc-not-ready",
+        "nav-resetting",
       );
+      gateRevealForReset = false;
       hidePageHeightExtend();
       // popstate（前进/后退）场景：浏览器已经走完这次遍历，直接真实加载目标即可
       if (visit.history?.popstate) {
@@ -1344,6 +1336,13 @@ function setupSwup() {
       ) {
         syncHomeClass();
       }
+      // 揭示门控（v1.7.20）：新内容换入即刻挂门控类保持不可见（同任务内、
+      // 首帧绘制前生效），瞬时归顶完成后再由 content:scroll 摘除揭示。
+      // 挂得早 + 摘得晚之间用户看到的是淡出后的空白/页底背景，不会先看到
+      // 深处位置的新页（1.7.17 裸跳的根因就是揭示早于复位）。
+      if (gateRevealForReset) {
+        document.documentElement.classList.add("nav-resetting");
+      }
     },
     { before: true },
   );
@@ -1403,6 +1402,13 @@ function setupSwup() {
   // needsScrollWait 仅对「从非顶部换页回顶」的场景置真；从顶部换页（零距离
   // 短路无滚动结束信号）与 popstate 由 visit:end 直接移除
   let needsScrollWait = false;
+  // 换页揭示门控（v1.7.20）：从非顶部点击换页（非 reduce）时，新内容在复位
+  // 完成前保持不可见（content:replace 时挂 nav-resetting，transition.css），
+  // 瞬时归顶 + is-home 翻转藏在不可见窗口内，随后揭开——可见运动只剩合成器
+  // 驱动的淡入与横幅滑动（主线程冻结/弱 GPU 也不掉帧），JS 逐帧扫动退役。
+  // 这根治：①「一卡一卡」（rAF 逐帧 scrollTo 的掉帧）；②1.7.17 瞬时路径的
+  // 裸跳（当年复位在淡入完成后才发生，用户先在深处看到新页再被瞬移）。
+  let gateRevealForReset = false;
   // is-home 翻转推迟到锁步启动（v1.7.19）：横幅模式「从非顶部换页且 is-home
   // 将切换」时 page:view 不立即 syncHomeClass——位移 transition 先启动而锁步
   // 回顶晚 ~37ms 启动，会形成「位移先走、滚动后追」的反向段（上下抖动）；
@@ -1453,17 +1459,20 @@ function setupSwup() {
       document.documentElement.classList.add("toc-not-ready");
       needsScrollWait =
         !visit?.history?.popstate && !visit?.to?.hash && window.scrollY > 0;
+      // 揭示门控与 is-home 翻转推迟的适用条件（reduce 不推迟不门控——
+      // reduce 下复位瞬时、无跟随/扫动，保持 page:view 原行为）
+      const reduceMotion = !!(
+        window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      );
+      gateRevealForReset = needsScrollWait && !reduceMotion;
       // 是否推迟 is-home 翻转（见 deferHomeClassForFollow 声明注释）：
       // 横幅模式（全屏在 content:replace 已提前切，无推迟语义）+ 非 reduce
-      // （reduce 锁步瞬时，无跟随循环，保持 page:view 原行为）
       deferHomeClassForFollow =
         needsScrollWait &&
+        !reduceMotion &&
         document.body.classList.contains("enable-banner") &&
-        !isFullscreenMode() &&
-        !(
-          window.matchMedia &&
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        );
+        !isFullscreenMode();
       // SwupScrollPlugin 在 before("visit:start")（priority -1）设置
       // visit.scroll.animate，此处（默认 priority 0）在接管回顶滚动时覆盖为
       // false，早于其 content:scroll 的 doScrollingBetweenPages 消费点。
@@ -1520,27 +1529,40 @@ function setupSwup() {
             // 同步读 window.scrollY 做各自判据，两者口径一致
             const preResetY = window.scrollY;
             spMark("reset", "pre=" + Math.round(preResetY));
-            // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
-            // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
-            // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
-            // 恢复单调（随上游 v2.0.0 commit b7e94d7 移植；v1.7.18 起任意距离都
-            // 走锁步动画，取消 >1.5 屏瞬时截断——窄屏页底点卡片不再一帧裸跳）。
-            // 纯色 / 全屏透明无 enable-banner、无位移 ⇒ 保持原生平滑（合成器驱动）
-            if (document.body.classList.contains("enable-banner")) {
+            const gated = gateRevealForReset;
+            gateRevealForReset = false;
+            let resetInstant: boolean;
+            if (gated) {
+              // 揭示门控路径（v1.7.20）：不可见窗口内瞬时归顶；is-home 切换
+              // 同帧翻转（其 CSS 过渡在随后淡入期播放，横幅滑动观感保留——
+              // transform/opacity 皆合成器驱动，弱 GPU 不掉帧）。JS 逐帧扫动
+              // （rAF scrollTo）已退役：弱设备掉帧的「一卡一卡」根因。
               if (deferHomeClassForFollow && isHomeSwitching()) {
-                // is-home 切换：锁步启动同帧翻转（消除位移先动的前窗），滚动
-                // 跟随 #main-grid 的 translate 实时进度（同相 ⇒ 合成单调）
                 deferHomeClassForFollow = false;
                 syncHomeClass();
-                lockstepScrollToTop(document.getElementById("main-grid"));
-              } else {
-                // 文章→文章等无位移场景：ease 自走即单调
-                deferHomeClassForFollow = false;
-                lockstepScrollToTop();
               }
+              window.scrollTo(0, 0);
+              // 摘除门控揭示：此时 is-animating 通常仍在（in 动画 200ms 未到
+              // in:end），主题自身的淡入继续完成；若已结束则由门控期间的
+              // is-changing 过渡收尾。scrollTo 先触发、摘类后于同帧样式
+              // 重算前完成 ⇒ 揭示首帧即顶部位置。
+              document.documentElement.classList.remove("nav-resetting");
+              resetInstant = true;
+            } else if (document.body.classList.contains("enable-banner")) {
+              // 非门控 = reduce 访问：lockstep 内部瞬时归顶
+              deferHomeClassForFollow = false;
+              lockstepScrollToTop();
+              resetInstant = true;
             } else {
-              // 非锁步分支同样走距离门控：原先直接 smooth 会让「从文章深处进入下一页」
-              // 变成长距离拉扯（原生 smooth 时长随距离缩放）
+              // 纯色 / 全屏透明（非门控 = reduce）：smartScrollTo 距离门控
+              // （reduce 恒瞬时；>1.5 屏瞬时；否则原生 smooth 动画）
+              deferHomeClassForFollow = false;
+              const reduceNow = !!(
+                window.matchMedia &&
+                window.matchMedia("(prefers-reduced-motion: reduce)").matches
+              );
+              resetInstant =
+                reduceNow || preResetY > (window.innerHeight || 800) * 1.5;
               smartScrollTo(0);
             }
             // 落点兜底（1.7.15；1.7.16 即时化）：复位之后位置仍可能被外部
@@ -1548,7 +1570,7 @@ function setupSwup() {
             // 才归位。挂落点复核（见 armLandingGuard），瞬时路径附
             // scroll 事件即时纠正。仅「从非顶部出发」（needsScrollWait）的
             // 换页需要：从顶部出发本就在顶部
-            if (needsScrollWait) armLandingGuard(preResetY);
+            if (needsScrollWait) armLandingGuard(preResetY, resetInstant);
           }),
         );
         return;
@@ -1557,6 +1579,10 @@ function setupSwup() {
     },
   );
   window.swup.hooks.on("visit:end", () => {
+    // 门控兜底清理：正常路径在 content:scroll 复位时已摘除；content:scroll
+    // 异常不触发时防止容器永久不可见
+    gateRevealForReset = false;
+    document.documentElement.classList.remove("nav-resetting");
     setTimeout(() => {
       // needsScrollWait（从非顶部点击换页）时回顶可能远晚于 visit:end（横幅
       // 模式尤其），交给 hidePageHeightExtendWhenAtTop 等回顶收起（原因见其

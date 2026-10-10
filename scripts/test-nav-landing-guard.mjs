@@ -8,9 +8,8 @@
 //   v1.7.16 即时化：瞬时路径（复位瞬时完成的场景）额外挂 scroll 事件
 //   即时纠正（外部写者一写就于下一帧收回）+ 密集档位兜底；动画路径
 //   保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
-//   v1.7.18：锁步回顶取消 >1.5 屏瞬时截断（任意距离动画）⇒ instantPath
-//   判据从「preResetY > 1.5 屏」改为「复位是否瞬时完成」= reduce 或
-//   （非横幅模式且 preResetY > 1.5 屏）。
+//   v1.7.20：门控揭示改造（复位恒瞬时或显式可知）⇒ instantPath 不再
+//   自行推断，由调用方按复位实况显式传入（resetInstant）。
 //
 // ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring——此现象
 //    与「重锚」无关；外部写者来源未在真机定位（本地 WebKit 复刻不出）。
@@ -25,9 +24,8 @@
 //   L5 visit:start 递增 landingGuardToken（旧 guard 失效）
 //   L6 挂载点：content:scroll 非 hash 分支、复位调用之后、comment 早退
 //      之后、preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
-//   L7 instantPath 分流：判据「复位是否瞬时完成」（reduce，或非横幅且
-//      preResetY > 1.5 屏；v1.7.18 起锁步任意距离动画）；scroll 事件仅
-//      瞬时路径挂
+//   L7 instantPath 分流：判据 = resetInstant（v1.7.20 起调用方按复位实况
+//      显式传入）；scroll 事件仅瞬时路径挂
 //   L8 运行语义仿真：正常零写回 / 被拽走一次收敛 / 用户接管跳过 /
 //      换页失效 / **即时纠正（事件驱动，不等档位）**
 import { readFileSync } from "node:fs";
@@ -57,8 +55,10 @@ const flat = src.replace(/\s+/g, " ");
 
 // L1 双档位表 + 清理
 check(
-  "L1a armLandingGuard 函数存在（含 preResetY 传参）",
-  /function armLandingGuard\(preResetY: number\): void \{/.test(flat),
+  "L1a armLandingGuard 函数存在（preResetY + resetInstant 传参）",
+  /function armLandingGuard\(preResetY: number, resetInstant: boolean\): void \{/.test(
+    flat,
+  ),
   true,
 );
 check(
@@ -138,8 +138,10 @@ check(
 // L6 挂载点：content:scroll 非 hash 分支内、复位之后、comment 早退之后、
 //    preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
 check(
-  "L6a 挂载语句含 preResetY 传参（仅从非顶部出发的换页）",
-  /if \(needsScrollWait\) armLandingGuard\(preResetY\);/.test(flat),
+  "L6a 挂载语句含 preResetY + resetInstant 传参（仅从非顶部出发的换页）",
+  /if \(needsScrollWait\) armLandingGuard\(preResetY, resetInstant\);/.test(
+    flat,
+  ),
   true,
 );
 {
@@ -147,21 +149,21 @@ check(
     'hash.replace(/^#/, "").indexOf("comment") === 0',
   );
   const idxPreReset = flat.indexOf("const preResetY = window.scrollY;");
-  const idxLockstep = flat.indexOf("lockstepScrollToTop();");
+  const idxGatedScroll = flat.indexOf("window.scrollTo(0, 0);");
   const idxSmart = flat.indexOf("smartScrollTo(0);");
   const idxArm = flat.indexOf(
-    "if (needsScrollWait) armLandingGuard(preResetY);",
+    "if (needsScrollWait) armLandingGuard(preResetY, resetInstant);",
   );
   check(
     "L6b preResetY 读取于复位调用之前",
-    idxPreReset > 0 && idxPreReset < idxLockstep && idxPreReset < idxSmart,
+    idxPreReset > 0 && idxPreReset < idxGatedScroll && idxPreReset < idxSmart,
     true,
   );
   check(
-    "L6c 挂载在复位调用（锁步/智能回顶）之后",
-    idxArm > idxLockstep &&
+    "L6c 挂载在复位调用（门控瞬时/智能回顶）之后",
+    idxArm > idxGatedScroll &&
       idxArm > idxSmart &&
-      idxLockstep > 0 &&
+      idxGatedScroll > 0 &&
       idxSmart > 0,
     true,
   );
@@ -172,12 +174,10 @@ check(
   );
 }
 
-// L7 instantPath 分流：判据 + 事件仅瞬时路径挂
+// L7 instantPath 分流：v1.7.20 起由调用方按复位实况显式传入
 check(
-  "L7a 瞬时路径判据 = reduce 或（非横幅且 preResetY > 1.5 屏）（v1.7.18）",
-  /const instantPath = spReduce \|\| \(!document\.body\.classList\.contains\("enable-banner"\) && preResetY > \(window\.innerHeight \|\| 800\) \* 1\.5\);/.test(
-    flat,
-  ),
+  "L7a 瞬时路径判据 = resetInstant（v1.7.20，调用方按复位实况传入）",
+  /const instantPath = resetInstant;/.test(flat),
   true,
 );
 check(

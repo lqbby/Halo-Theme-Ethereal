@@ -1,27 +1,25 @@
 // @ts-check
-// 换页「上下抖动」修复桩测（2026-10-10，v1.7.19）
+// 换页「上下抖动 / 一卡一卡」修复桩测（2026-10-10，v1.7.19 → v1.7.20）
 //
-// 背景：首页↔文章页换页时，is-home 位移（CSS transition，700ms）与锁步回顶
-// （JS rAF）互相超前滞后形成反向段（先上后下/先下后上 = 上下抖动）：
-//   · page:view 翻转 is-home 比 content:scroll 的锁步启动早 ~37ms
-//     ⇒ 位移先走、滚动后追 ⇒ 反向段 ~25px（A/B 实测中位）；
-//   · 「同帧翻转 + ease 自走」（v1.7.18 第一版，已回滚）⇒ CSS transition
-//     有 1~2 帧启动延迟，滚动反超 ⇒ 反向段换向且更大（49~83px）。
-// 修复：① is-home 翻转推迟到锁步启动同帧（deferHomeClassForFollow）；
-//       ② 滚动跟随 #main-grid translate 的实时进度（getComputedStyle 每帧
-//       读当前值），合成位置 = f(tr) 单调函数，与 CSS 启动延迟/曲线解耦。
+// v1.7.19（跟随模式）：is-home 翻转推迟到锁步同帧 + 滚动跟随 translate
+//   实时进度 ⇒ 反向段 25px→2px（本文件 F1/F3 仍锁定该能力，保留于
+//   scroll-manager 作为备用路径）。
+// v1.7.20（揭示门控，现役路径）：JS 逐帧扫动整体退役——弱 GPU 设备上
+//   rAF 逐帧 scrollTo 必然掉帧（「一卡一卡」），改为：新内容换入后挂
+//   nav-resetting 保持不可见 → 不可见窗口内瞬时归顶 + is-home 翻转 →
+//   摘除门控揭示。可见运动只剩合成器驱动的淡入与横幅滑动，主线程冻结
+//   不掉帧（移动端关键）；同时消除 1.7.17 瞬时路径「淡入完成才复位」
+//   的裸跳。
 //
 // 判据（源码级）：
-//   F1 scroll-manager：follow 模式全套（syncEl 形参 / extendPx 读
-//      --banner-height-extend / readTr 读 computed translate / leavingHome
-//      方向 / 超时兜底 duration+250 且终点 scrollTo(0,0) / ease 自走保留为
-//      回退路径）
-//   F2 app.ts：defer 标志声明；visit:start 设置（needsScrollWait &&
-//      enable-banner && !isFullscreenMode && !reduce）；page:view 条件翻转
-//      + 1200ms 安全兜底；content:scroll 同帧 flip→lockstepScrollToTop(
-//      getElementById("main-grid"))，非切换场景 lockstepScrollToTop() 无参
-//   F3 运行语义仿真：tr 序列（模拟 CSS transition 采样，含 2 帧启动延迟）
-//      ⇒ 滚动写入使合成位置（-y + tr）全程单调
+//   F1 scroll-manager：follow 能力保留（备用路径，判据同 v1.7.19）
+//   F2 app.ts 门控接线：gateRevealForReset 声明 / visit:start 设置
+//      （needsScrollWait && !reduceMotion）/ content:replace 挂
+//      nav-resetting / content:scroll 门控分支（翻转→scrollTo(0,0)→
+//      摘类→resetInstant=true）/ visit:end + abort 兜底清理 /
+//      transition.css 门控规则 / defer 翻转机制保留（横幅滑动观感）
+//   F3 运行语义仿真：含 CSS 启动延迟的 tr 序列 ⇒ 跟随合成位置单调
+//      （能力保留判据）+ ease 自走对照组必出反向段
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -29,6 +27,7 @@ import { dirname, join } from "node:path";
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SCROLL = join(ROOT, "src/utils/scroll-manager.ts");
 const APP = join(ROOT, "src/scripts/app.ts");
+const TRANSITION = join(ROOT, "src/styles/transition.css");
 
 let failures = 0;
 /**
@@ -93,38 +92,63 @@ check(
   true,
 );
 
-// ── F2 app.ts 推迟翻转接线 ──
+// ── F2 app.ts 门控接线（v1.7.20 现役路径）──
 check(
-  "F2a deferHomeClassForFollow 标志声明",
-  /let deferHomeClassForFollow = false;/.test(flatApp),
+  "F2a deferHomeClassForFollow 与 gateRevealForReset 标志声明",
+  /let deferHomeClassForFollow = false;/.test(flatApp) &&
+    /let gateRevealForReset = false;/.test(flatApp),
   true,
 );
 check(
-  "F2b visit:start 设置：needsScrollWait && enable-banner && !全屏 && !reduce",
-  /deferHomeClassForFollow = needsScrollWait && document\.body\.classList\.contains\("enable-banner"\) && !isFullscreenMode\(\) && !\(/.test(
+  "F2b visit:start 设置门控（needsScrollWait && !reduceMotion）",
+  /gateRevealForReset = needsScrollWait && !reduceMotion;/.test(flatApp),
+  true,
+);
+check(
+  "F2c content:replace 挂 nav-resetting（首帧绘制前）",
+  /if \(gateRevealForReset\) \{ document\.documentElement\.classList\.add\("nav-resetting"\); \}/.test(
     flatApp,
   ),
   true,
 );
 check(
-  "F2c page:view 条件翻转 + 1200ms 安全兜底",
-  /if \(deferHomeClassForFollow && isHomeSwitching\(\)\) \{ setTimeout\(\(\) => \{/.test(
-    flatApp,
-  ) && /\}, 1200\);/.test(flatApp),
-  true,
-);
-check(
-  "F2d content:scroll 同帧 flip→follow（先 syncHomeClass 后传 grid）",
+  "F2d content:scroll 门控分支：翻转→瞬时归顶→摘类→resetInstant",
   (() => {
-    const marker =
-      'syncHomeClass(); lockstepScrollToTop(document.getElementById("main-grid"));';
-    return flatApp.indexOf(marker) >= 0;
+    const i = flatApp.indexOf("const gated = gateRevealForReset;");
+    if (i < 0) return false;
+    const seg = flatApp.slice(i, i + 700);
+    const flip = seg.indexOf("syncHomeClass();");
+    const scroll = seg.indexOf("window.scrollTo(0, 0);");
+    const reveal = seg.indexOf('classList.remove("nav-resetting")');
+    const instant = seg.indexOf("resetInstant = true;");
+    return flip > 0 && scroll > flip && reveal > scroll && instant > reveal;
   })(),
   true,
 );
 check(
-  "F2e 非切换场景保留无参 lockstepScrollToTop()（ease 自走）",
-  /lockstepScrollToTop\(\);/.test(flatApp),
+  "F2e visit:end + abort 兜底摘除 nav-resetting",
+  (() => {
+    const visitEnd =
+      /gateRevealForReset = false; document\.documentElement\.classList\.remove\("nav-resetting"\);/.test(
+        flatApp,
+      );
+    const abort = flatApp.indexOf('"nav-resetting",') >= 0;
+    return visitEnd && abort;
+  })(),
+  true,
+);
+check(
+  "F2f transition.css 门控规则（!important 压 is-animating 淡入）",
+  /html\.nav-resetting #swup-container \{\s*opacity: 0 !important;/.test(
+    readFileSync(TRANSITION, "utf8"),
+  ),
+  true,
+);
+check(
+  "F2g page:view 推迟翻转 + 1200ms 安全兜底保留（横幅滑动观感）",
+  /if \(deferHomeClassForFollow && isHomeSwitching\(\)\) \{ setTimeout\(\(\) => \{/.test(
+    flatApp,
+  ) && /\}, 1200\);/.test(flatApp),
   true,
 );
 
