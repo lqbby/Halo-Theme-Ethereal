@@ -135,7 +135,10 @@ export function scrollDownToContent(): void {
 /** 距离门控滚动（全站统一范式）：长距离（>1.5 屏）瞬时到位，短距离保留平滑。
  *  长距离平滑滚动是明显的「拉扯感」（实测 1836px 平滑拉回耗时 ~2.2s），而短距离
  *  平滑（如侧边格切换、小段滚动）才是用户期待的顺滑。阈值与 lockstepScrollToTop 一致。
- *  ⚠️ prefer-reduced-motion 时一律瞬时。 */
+ *  ⚠️ prefer-reduced-motion 时一律瞬时。
+ *  ⚠️ 改阈值/判据时三处需同步：BackToTop.astro / comment-locate.ts 的内联
+ *     __smartScrollTo（is:inline / 独立 bundle 无法 import，故各手抄一份，
+ *     同步由 scripts/test-smart-scroll.mjs 锁死）。 */
 export function smartScrollTo(top: number): void {
   const reduce =
     window.matchMedia &&

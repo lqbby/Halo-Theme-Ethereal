@@ -98,10 +98,20 @@ import { onPageView, onceBound } from "../../utils/once";
       var vh = window.innerHeight || document.documentElement.clientHeight;
       return r.top < vh && r.bottom > 0;
     }
+    // rAF 合并（scroll-manager 同范式）：scroll 事件每帧派发且 window/document 双挂
+    // （同一次滚动处理两次），原先每个事件裸读 getBoundingClientRect() = 滚动期每帧
+    // 两次强制布局读；压到每帧一次，且 finish 后（settled）不再读。
+    var scrollTicking = false;
     function onScroll() {
-      if (Date.now() - t0 > MAX_WAIT) return finish();
-      if (idleTimer) clearTimeout(idleTimer);
-      if (inView()) idleTimer = setTimeout(finish, IDLE);
+      if (scrollTicking) return;
+      scrollTicking = true;
+      requestAnimationFrame(function () {
+        scrollTicking = false;
+        if (settled) return;
+        if (Date.now() - t0 > MAX_WAIT) return finish();
+        if (idleTimer) clearTimeout(idleTimer);
+        if (inView()) idleTimer = setTimeout(finish, IDLE);
+      });
     }
     window.addEventListener("scrollend", finish, { passive: true });
     document.addEventListener("scrollend", finish, { passive: true });
@@ -120,6 +130,23 @@ import { onPageView, onceBound } from "../../utils/once";
       window.matchMedia &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
     );
+  }
+
+  // smartScrollTo 同逻辑（本脚本是独立 assets bundle，import scroll-manager 会把它的
+  // 顶层 scroll 监听重复注册一份，故内联；改阈值/判据时三处需同步：
+  // scroll-manager.ts 的 smartScrollTo / BackToTop.astro 的 __smartScrollTo）。
+  // 长距离（>1.5 屏）瞬时、短距离平滑、reduce-motion 一律瞬时。
+  // 返回实际采用的行为（"auto"/"smooth"），供调用方决定等待策略（三处中仅此处有返回值，
+  // 判定逻辑保持全等）。
+  function __smartScrollTo(top) {
+    var reduce =
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var dist = Math.abs(top - window.scrollY);
+    var threshold = (window.innerHeight || 800) * 1.5;
+    var behavior = dist > threshold || reduce ? "auto" : "smooth";
+    window.scrollTo({ top: top, behavior: behavior });
+    return behavior;
   }
 
   // 目标滚动位置：元素中心对齐视口中心（顶部偏移 = (视口高 - 元素高) / 2）；
@@ -161,11 +188,17 @@ import { onPageView, onceBound } from "../../utils/once";
         scrolled = true;
         var target = commentScrollTop(el);
         if (Math.abs(target - window.scrollY) > 20) {
-          scrollEndOnce(resolve, 1500);
-          window.scrollTo({
-            top: target,
-            behavior: reduceMotion() ? "auto" : "smooth",
-          });
+          // 距离门控（C1 同范式）：原先无条件 smooth，同页从长文顶部跳深处评论
+          // 就是 1s+ 拉扯；长距离瞬时、短距离保留平滑（reduce-motion 瞬时）。
+          if (__smartScrollTo(target) === "auto") {
+            // 瞬时到位无滚动过程：无 scrollend 的浏览器不必干等兜底计时，
+            // 下一帧即可高亮（scroll anchoring/布局已同步落定）
+            requestAnimationFrame(function () {
+              resolve();
+            });
+          } else {
+            scrollEndOnce(resolve, 1500);
+          }
         } else {
           resolve();
         }

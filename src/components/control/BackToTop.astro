@@ -361,7 +361,8 @@ import { Icon } from "astro-icon/components";
 <script is:raw is:inline>
   // 距离门控滚动：长距离（>1.5 屏）瞬时、短距离平滑 —— 与 scroll-manager.ts 的
   // smartScrollTo 同逻辑（本脚本 is:raw is:inline，无法 import，故内联一份；
-  // 改阈值/判据时两处需同步：scroll-manager.ts 的 smartScrollTo）。
+  // 改阈值/判据时三处需同步：scroll-manager.ts 的 smartScrollTo /
+  // comment-locate.ts 的 __smartScrollTo）。
   function __smartScrollTo(top) {
     var reduce =
       window.matchMedia &&
