@@ -5,9 +5,12 @@
 // 无 hash）换页后，复位回顶仍会被「外部写者」把滚动位置拽走。
 //   v1.7.15 兜底（固定档位复核）生效但「拉回」延迟大——用户仍可感知
 //   「先拉扯一会儿，然后回复到顶部」。
-//   v1.7.16 即时化：瞬时路径（复位前位置 >1.5 屏）额外挂 scroll 事件
+//   v1.7.16 即时化：瞬时路径（复位瞬时完成的场景）额外挂 scroll 事件
 //   即时纠正（外部写者一写就于下一帧收回）+ 密集档位兜底；动画路径
-//   （≤1.5 屏）保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
+//   保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
+//   v1.7.18：锁步回顶取消 >1.5 屏瞬时截断（任意距离动画）⇒ instantPath
+//   判据从「preResetY > 1.5 屏」改为「复位是否瞬时完成」= reduce 或
+//   （非横幅模式且 preResetY > 1.5 屏）。
 //
 // ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring——此现象
 //    与「重锚」无关；外部写者来源未在真机定位（本地 WebKit 复刻不出）。
@@ -22,7 +25,9 @@
 //   L5 visit:start 递增 landingGuardToken（旧 guard 失效）
 //   L6 挂载点：content:scroll 非 hash 分支、复位调用之后、comment 早退
 //      之后、preResetY 读取于复位调用之前、仅 needsScrollWait 时挂
-//   L7 instantPath 分流：判据 preResetY > 1.5 屏；scroll 事件仅瞬时路径挂
+//   L7 instantPath 分流：判据「复位是否瞬时完成」（reduce，或非横幅且
+//      preResetY > 1.5 屏；v1.7.18 起锁步任意距离动画）；scroll 事件仅
+//      瞬时路径挂
 //   L8 运行语义仿真：正常零写回 / 被拽走一次收敛 / 用户接管跳过 /
 //      换页失效 / **即时纠正（事件驱动，不等档位）**
 import { readFileSync } from "node:fs";
@@ -169,8 +174,8 @@ check(
 
 // L7 instantPath 分流：判据 + 事件仅瞬时路径挂
 check(
-  "L7a 瞬时路径判据 preResetY > 1.5 屏",
-  /const instantPath = preResetY > \(window\.innerHeight \|\| 800\) \* 1\.5;/.test(
+  "L7a 瞬时路径判据 = reduce 或（非横幅且 preResetY > 1.5 屏）（v1.7.18）",
+  /const instantPath = spReduce \|\| \(!document\.body\.classList\.contains\("enable-banner"\) && preResetY > \(window\.innerHeight \|\| 800\) \* 1\.5\);/.test(
     flat,
   ),
   true,

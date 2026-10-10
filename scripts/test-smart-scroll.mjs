@@ -215,21 +215,17 @@ check(
   "auto",
 );
 
-// SS-7 锁步大位移短路（源码级判据）
+// SS-7 锁步：v1.7.18 取消大位移瞬时截断（任意距离锁步动画，仅 reduce 瞬时）
 {
   const src = readFileSync(SCROLL, "utf8");
   check(
-    "SS-7a 锁步短路常量存在",
-    src.indexOf(
-      "const LOCKSTEP_MAX_SMOOTH = (window.innerHeight || 800) * 1.5;",
-    ) >= 0,
-    true,
+    "SS-7a 锁步不再有大位移瞬时截断常量",
+    src.indexOf("LOCKSTEP_MAX_SMOOTH") >= 0,
+    false,
   );
   check(
-    "SS-7b 锁步短路早退分支存在",
-    /if \(startY > LOCKSTEP_MAX_SMOOTH\) \{\s*window\.scrollTo\(0, 0\);\s*return;/.test(
-      src,
-    ),
+    "SS-7b 锁步 prefers-reduced-motion 瞬时分支存在",
+    /if \(reduce\) \{\s*window\.scrollTo\(0, 0\);\s*return;/.test(src),
     true,
   );
 }

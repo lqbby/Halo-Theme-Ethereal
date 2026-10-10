@@ -80,12 +80,13 @@ let navResetStamp = 0;
 // 操作，零感知。
 // ⚠️ 只在 non-popstate / non-hash 的点击换页路径挂（见 content:scroll 处）；
 // #comment 等锚点路径有自己的落位接管（comment-locate），不能被拉回顶部。
-// 两种档位表（按复位前位置分流，1.7.16）：
-//   · 瞬时路径（preResetY > 1.5 屏）：锁步回顶与智能滚动在此距离都瞬时
-//     到位，位置应即稳于 0 —— 额外挂 scroll 事件即时纠正（外部写者一写
-//     就于下一帧收回，把「拉扯」压到不可见），配密集档位兜底（防
-//     scroll 事件在个别场景缺失）。用户场景（页底点卡片）走这条。
-//   · 动画路径（≤ 1.5 屏）：复位走 700ms 动画（--dur-banner），首档须
+// 两种档位表（按「复位是否瞬时完成」分流；v1.7.18 起判据随锁步改造变更）：
+//   · 瞬时路径：复位瞬时到位（仅 prefers-reduced-motion，或非横幅模式下
+//     smartScrollTo 的距离门控 >1.5 屏），位置应即稳于 0 —— 额外挂
+//     scroll 事件即时纠正（外部写者一写就于下一帧收回，把「拉扯」压到
+//     不可见），配密集档位兜底（防 scroll 事件在个别场景缺失）。
+//   · 动画路径：复位走 700ms 动画（--dur-banner）——横幅模式锁步自
+//     v1.7.18 起任意距离都动画（用户场景「页底点卡片」走这条），首档须
 //     晚于动画窗口，避免把「动画没播完」误判成「被拽走」而打断动画。
 const LANDING_GUARD_DELAYS_INSTANT = [120, 300, 600, 1200, 2000, 3200, 4500];
 const LANDING_GUARD_DELAYS_ANIMATED = [900, 1800, 3000, 4500];
@@ -109,8 +110,17 @@ function armLandingGuard(preResetY: number): void {
   window.addEventListener("touchmove", release, { passive: true });
   window.addEventListener("pointerdown", release, { passive: true });
   window.addEventListener("keydown", release);
-  // 瞬时路径：位置应即稳于 0，任何 scroll 事件（外部写者所致）即时纠正
-  const instantPath = preResetY > (window.innerHeight || 800) * 1.5;
+  // 本次复位是否会瞬时完成：横幅模式锁步回顶自 v1.7.18 起任意距离都走
+  // 动画（仅 prefers-reduced-motion 瞬时）；非横幅模式走 smartScrollTo
+  // 距离门控（>1.5 屏瞬时）。瞬时完成的路径位置应即稳于 0，任何 scroll
+  // 事件（外部写者所致）即时纠正；动画路径只能靠晚于动画窗口的档位复核。
+  const spReduce =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const instantPath =
+    spReduce ||
+    (!document.body.classList.contains("enable-banner") &&
+      preResetY > (window.innerHeight || 800) * 1.5);
   spGuardArmed(instantPath ? "instant" : "animated", preResetY);
   const onScroll = () => {
     enforce("event");
@@ -1368,8 +1378,9 @@ function setupSwup() {
     initExternalLinkRedirect();
     initCommentLazyLoad();
   });
-  // 跨页回顶滚动统一走距离门控（scroll-manager 的 smartScrollTo / lockstepScrollToTop）：
-  // 长距离瞬时、短距离平滑；有 is-home 位移的走锁步插值（见 content:scroll 钩子）。
+  // 跨页回顶滚动统一走 scroll-manager：有 is-home 位移的（横幅/全屏）走锁步插值
+  // （v1.7.18 起任意距离都动画；见 content:scroll 钩子），无位移的模式走
+  // smartScrollTo 距离门控（长距离瞬时、短距离平滑）。
   // 同页锚点（目录点击）由 TableOfContents.handleAnchorClick 接管 + 距离门控
   // （astro.config.mjs 已关 Swup 的 samePageWithHash）。
   // TOC 恢复显示绑定「滚动真正结束」：长文从底部回顶的原生平滑可持续数百
@@ -1474,21 +1485,22 @@ function setupSwup() {
             // 回顶复位执行：递增复位纪元——此刻任何「挂载后恢复滚动位置」的 rAF
             // 都必须放弃（其捕获的旧位置属于上一页面，写回会把用户拽到深处）
             navResetStamp += 1;
-            // 复位前位置：供落点兜底判「瞬时路径」（>1.5 屏，见 armLandingGuard）。
+            // 复位前位置：供落点兜底判「复位是否瞬时完成」（见 armLandingGuard）。
             // 读在复位调用之前——lockstepScrollToTop / smartScrollTo 内部也
-            // 同步读 window.scrollY 做同一距离判据，两者口径一致
+            // 同步读 window.scrollY 做各自判据，两者口径一致
             const preResetY = window.scrollY;
             spMark("reset", "pre=" + Math.round(preResetY));
             // 有 is-home 位移的模式（横幅 / 全屏）：改「锁步回顶」——原生平滑滚动的
             // 时长/曲线不可控，与内容位移异步叠加会形成「先下后上」往复；锁步用 rAF
             // 逐帧插值、与位移同曲线（0.4,0,0.2,1）同时长（--dur-banner），合成位移
-            // 恢复单调（随上游 v2.0.0 commit b7e94d7 移植）。
+            // 恢复单调（随上游 v2.0.0 commit b7e94d7 移植；v1.7.18 起任意距离都
+            // 走锁步动画，取消 >1.5 屏瞬时截断——窄屏页底点卡片不再一帧裸跳）。
             // 纯色 / 全屏透明无 enable-banner、无位移 ⇒ 保持原生平滑（合成器驱动）
             if (document.body.classList.contains("enable-banner")) {
               lockstepScrollToTop();
             } else {
               // 非锁步分支同样走距离门控：原先直接 smooth 会让「从文章深处进入下一页」
-              // 变成同款长距离拉扯（与 lockstepScrollToTop 的阈值标准保持一致）
+              // 变成长距离拉扯（原生 smooth 时长随距离缩放）
               smartScrollTo(0);
             }
             // 落点兜底（1.7.15；1.7.16 即时化）：复位之后位置仍可能被外部

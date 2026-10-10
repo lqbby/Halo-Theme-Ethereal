@@ -195,12 +195,17 @@ const PAGE_SWITCH_EASE = createBezierEasing(0.4, 0, 0.2, 1);
 export function lockstepScrollToTop(): void {
   const startY = window.scrollY;
   if (startY <= 0) return;
-  // 🔴 长距离（>1.5 屏，如从首页底部点文章）直接瞬时到顶：锁步的意义是「与 is-home
-  //    位移动画同曲线」（banner 滑入/滑出），那只在小位移时才有观感价值；大位移时
-  //    平滑拉回是明显的「上下拉扯感」（CDP 实测 1836px 拉回 ~2.2s），而用户预期是
-  //    「直接到新页顶部」。阈值与 smartScrollTo 一致。
-  const LOCKSTEP_MAX_SMOOTH = (window.innerHeight || 800) * 1.5;
-  if (startY > LOCKSTEP_MAX_SMOOTH) {
+  // v1.7.18：取消「>1.5 屏瞬时截断」，任意距离统一走锁步动画——非宽屏下首页
+  //    单列堆叠、页底距顶常达 5000+px（>1.5 屏），瞬时截断让「拉到底部点卡片」
+  //    变成一帧瞬移数千 px 的裸跳（无过渡遮罩，用户感知为「瞬间跳转 bug」）；
+  //    锁步动画时长恒为 --dur-banner（与距离无关），长距离只是扫过更快，运动
+  //    仍连续单调，各屏幕尺寸观感一致。瞬时路径时代的「1836px 平滑 ~2.2s 拉扯」
+  //    针对的是浏览器原生 smooth（时长随距离缩放），锁步固定时长不受此限。
+  // prefers-reduced-motion 保持瞬时到位（与 smartScrollTo 口径一致）。
+  const reduce =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduce) {
     window.scrollTo(0, 0);
     return;
   }
