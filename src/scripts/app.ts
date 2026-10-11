@@ -1722,3 +1722,34 @@ initExternalLinkRedirect();
 initProfileStatus();
 // 窗口尺寸变化（横竖屏切换/拉宽拉窄）后重算目录按钮显隐与弹窗锚定
 window.addEventListener("resize", updateTocBtnVisibility);
+
+// ── 刷新自恢复：滚动位置记录（v1.7.30）──
+// 以 500ms 限频把「当前路径 → 滚动位置」写入 sessionStorage（pagehide 补终值），
+// 供 Layout.astro 的 reload-restoring 内联脚本在下次载入时「先藏、就位、再显」，
+// 消除「底部刷新先画顶部（Banner 链接胶囊闪现）」的原生恢复时序问题。
+// 仅记录非顶部位置；异常（隐私模式禁用 storage 等）静默降级。
+let scrollStoreTimer = 0;
+function storeScrollY(): void {
+  try {
+    const y = Math.round(window.scrollY);
+    if (y <= 0) return;
+    sessionStorage.setItem(
+      "ethereal-scroll:" + location.pathname,
+      JSON.stringify({ y, t: Date.now() }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+window.addEventListener(
+  "scroll",
+  () => {
+    if (scrollStoreTimer) return;
+    scrollStoreTimer = window.setTimeout(() => {
+      scrollStoreTimer = 0;
+      storeScrollY();
+    }, 500);
+  },
+  { passive: true },
+);
+window.addEventListener("pagehide", storeScrollY);

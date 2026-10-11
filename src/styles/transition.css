@@ -225,3 +225,14 @@ html[data-speed="snappy"] .onload-animation {
 html.home-switch.is-rendering .transition-swup-fade {
   transition-duration: var(--dur-banner, 700ms);
 }
+
+/* ── 刷新自恢复的隐藏门（v1.7.30）──
+   底部刷新时浏览器原生恢复发生在首帧之后（实测先画 ~200ms 的页面顶部，
+   首页即 Banner 标题与链接胶囊闪现）。Layout.astro / pages/layout.astro 的
+   内联脚本命中同路径保存值时给 <html> 挂 reload-restoring，把「顶部区域」
+   藏到滚动就位后再显形（摘类即恢复，无过渡——#banner-wrapper 属 is-home
+   位移族，严禁给它附加任何 transition/opacity 过渡，只做硬切换）。 */
+html.reload-restoring #main-grid,
+html.reload-restoring #banner-wrapper {
+  opacity: 0;
+}
