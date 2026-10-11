@@ -7,10 +7,12 @@
 // v1.7.20（揭示门控）：新内容挂 nav-resetting 不可见 → 瞬移归顶 → 揭示。
 // v1.7.22 定稿（用户拍板「都用 1.5.65 这样的」）：全设备统一原生 smooth
 //   回顶——与 1.5.65 逐条同构（双 rAF + scrollTo smooth）。
-// v1.7.26（「2.0 式距离分档」）：移植上游原版 2.0 的距离分档设计并
-//   适配本线——长距离（>1.5 屏）/reduce ⇒ 瞬时（藏淡入窗口）；短距离 +
-//   is-home 位移场景 ⇒ 锁步（follow 模式，无反向段）；短距离其它 ⇒ 原生
-//   平滑。锁步能力因此重新被 app.ts 引用（不再 tree-shake）。
+// v1.7.23/24（换页重执行减负）：themeLazyInit 批量测量 + ignore 名单。
+// v1.7.26（「2.0 式距离分档」试行）：长距瞬时/短距锁步/其它平滑三档。
+// v1.7.27 定稿（用户实机否决瞬时档 + 主流调研）：三档全部退役，回归单档
+//   原生平滑（= 1.5.65 = 1.7.22 定稿行为；1.7.25 全原生平滑已实跑 8 小时
+//   零抱怨）。锁步能力保留在 scroll-manager 源码中但不再被 app.ts 引用
+//   （tree-shake 出产物；复启用需恢复 import）。
 //
 // 判据（源码级）：
 //   F1 scroll-manager：follow 能力保留（备用路径，判据同 v1.7.19）
@@ -101,31 +103,19 @@ check(
   true,
 );
 check(
-  "F2b content:scroll = 三档距离分档（v1.7.26 2.0 式）：瞬时 / 锁步 / 平滑",
+  "F2b content:scroll = 单档原生平滑（v1.7.27：瞬时/锁步/距离门控全退役）",
   (() => {
     const i = flatApp.indexOf('spMark("reset", "pre="');
     if (i < 0) return false;
-    const seg = flatApp.slice(i, i + 1600);
-    const threshold = seg.indexOf(
-      "const threshold = (window.innerHeight || 800) * 1.5;",
-    );
-    const instant = seg.indexOf("window.scrollTo(0, 0);");
-    const lockstepMark = seg.indexOf('"reset-mode", "lockstep"');
-    const lockstepCall = seg.indexOf("lockstepScrollToTop(");
-    const mainGrid = seg.indexOf('document.getElementById("main-grid")');
-    const smooth = seg.indexOf("smartScrollTo(0);");
+    const seg = flatApp.slice(i, i + 2400);
+    const smooth = seg.indexOf('behavior: reduceNow ? "auto" : "smooth"');
     const rafChain = flatApp.indexOf(
       "requestAnimationFrame(() => requestAnimationFrame(() =>",
     );
-    return (
-      threshold > 0 &&
-      instant > 0 &&
-      lockstepMark > 0 &&
-      lockstepCall > 0 &&
-      mainGrid > 0 &&
-      smooth > 0 &&
-      rafChain > 0
-    );
+    const noLockstep = seg.indexOf("lockstepScrollToTop(") < 0;
+    const noThreshold = seg.indexOf("* 1.5;") < 0;
+    const noSmart = seg.indexOf("smartScrollTo(0)") < 0;
+    return smooth > 0 && rafChain > 0 && noLockstep && noThreshold && noSmart;
   })(),
   true,
 );
@@ -149,13 +139,13 @@ check(
   true,
 );
 check(
-  "F2e animation:out:start 无撑高展示 + 判定 lockstepSceneForReset（2.0 场景标记）",
+  "F2e animation:out:start 无撑高展示、无档位场景标记（v1.7.27 全退役）",
   (() => {
     const i = flatApp.indexOf('"animation:out:start"');
     const seg = flatApp.slice(i, i + 900);
     return (
       seg.indexOf("showPageHeightExtend") < 0 &&
-      seg.indexOf("lockstepSceneForReset =") > 0
+      seg.indexOf("lockstepSceneForReset") < 0
     );
   })(),
   true,
