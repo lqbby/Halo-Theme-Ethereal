@@ -33,8 +33,9 @@ import {
 import {
   scrollDownToContent,
   scrollFunction,
-  // lockstepScrollToTop 保留在 scroll-manager（v1.7.22 起换页复位不再调用：
-  // 全设备 1.5.65 原生 smooth；函数保留供未来复启用）
+  // lockstepScrollToTop（v1.7.26 重新启用）：短距离 + is-home 位移场景
+  // （横幅/全屏，≤1.5 屏）用与位移锁步的回顶（2.0 式距离分档，见 content:scroll）
+  lockstepScrollToTop,
   smartScrollTo,
 } from "../utils/scroll-manager";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
@@ -1308,6 +1309,13 @@ function setupSwup() {
   window.swup.hooks.on("animation:out:start", () => {
     const bannerMoves = document.body.classList.contains("enable-banner");
     const switching = isHomeSwitching();
+    // v1.7.26（2.0 式距离分档）：本访问若为「is-home 位移场景」的换页
+    // （横幅/全屏模式 + 会切换 + 从非顶部出发），短距离回顶走锁步动画
+    // （见 content:scroll 三档判定）。URL 此刻已由 Swup pushState 更新，
+    // 「路径 vs body 类」预判可靠（同下 home-switch 判定）；needsScrollWait
+    // 在 visit:start 已算好。
+    lockstepSceneForReset =
+      needsScrollWait && switching && (bannerMoves || isFullscreenMode());
     if (!bannerMoves || !isFullscreenMode()) {
       document.documentElement.classList.remove("home-switch");
     } else {
@@ -1372,6 +1380,10 @@ function setupSwup() {
   // needsScrollWait 仅对「从非顶部换页回顶」的场景置真；从顶部换页（零距离
   // 短路无滚动结束信号）与 popstate 由 visit:end 直接移除
   let needsScrollWait = false;
+  // v1.7.26（2.0 式距离分档）：本次换页是否「is-home 位移场景」（横幅/全屏 +
+  // 会切换 is-home + 从非顶部出发）——animation:out:start 判定、content:scroll
+  // 消费：短距离（≤1.5 屏）时回顶走与位移锁步的动画（见 content:scroll 三档）
+  let lockstepSceneForReset = false;
   const releaseTocNotReady = () => {
     document.documentElement.classList.remove("toc-not-ready");
   };
@@ -1430,11 +1442,17 @@ function setupSwup() {
       }
     },
   );
-  // 跨页回顶滚动接管 content:scroll（v1.7.22 定稿：全设备 1.5.65 复刻）：
-  // 双 rAF 后浏览器原生平滑滚动（behavior:"smooth"，合成器驱动不占主线程，
-  // 无 scrl 引擎的每帧 JS 测量卡顿）——与 1.5.65 的实现逐字节同构：无锁步、
-  // 无揭示门控、无距离门控、无落点兜底（原生平滑进行中兜底复核会误判
-  // 「被拽走」而瞬移打断）。
+  // 跨页回顶滚动接管 content:scroll（v1.7.26：2.0 式距离分档，适配本线）：
+  // 双 rAF 后按「距离 × 场景」三档复位（用户拍板移植上游原版 2.0 的设计）：
+  //   ① 长距离（>1.5 屏）或 reduce ⇒ 瞬时到顶——长距离的平滑缓动是「上下
+  //      拉扯感」的来源（原版 2.0 设计注释：1836px 原生平滑 ~2.2s）；瞬时
+  //      复位发生在 is-animating 淡入窗口内，用户不可见。
+  //   ② 短距离 + is-home 位移场景（横幅/全屏，内容随 is-home 滑动）⇒
+  //      锁步动画（与位移同曲线同时长；本线用 1.7.19 follow 模式跟随
+  //      translate 实时进度，杀掉原版 ~25px 反向段——「优化适配本线」处）。
+  //   ③ 短距离其它 ⇒ smartScrollTo（原生平滑，合成器驱动）。
+  // 瞬时档挂落点兜底（瞬时到位后仍可能被外部写者拽走）；动画档不挂（复核
+  // 会把进行中的动画误判成「被拽走」）。评论区锚点仍由 comment-locate 接管。
   // content:replace 换入新内容后布局仍 dirty，立即滚动会派发 scroll 事件
   // → OverlayScrollbars 同步测量 → 强制整页重排（实测单帧 900ms）。延迟
   // 双 rAF 让浏览器先完成新内容首次布局，滚动时测量命中缓存不触发重排。
@@ -1470,22 +1488,39 @@ function setupSwup() {
             // 回顶复位执行：递增复位纪元——此刻任何「挂载后恢复滚动位置」的 rAF
             // 都必须放弃（其捕获的旧位置属于上一页面，写回会把用户拽到深处）
             navResetStamp += 1;
-            spMark("reset", "pre=" + Math.round(window.scrollY));
-            // v1.7.22 定稿（用户拍板「都用 1.5.65 这样的」）：全设备统一原生
-            // 平滑滚动回顶——与 1.5.65 该处实现逐条同构（含双 rAF 时序）。
-            // 此前的锁步插值 / 揭示门控 / 距离门控 / 落点兜底全部退役：
-            // 弱 GPU 上 rAF 逐帧 scrollTo 必掉帧（「一卡一卡」），门控在移动端
-            // 多运动叠加（「像打架」），而原生 smooth 由合成器驱动、系统级
-            // 手感——当年的所有派生机型（锁步/兜底/撑高）都建立在它之上。
-            // prefers-reduced-motion 保持瞬时（与 smartScrollTo 口径一致）。
+            const startY = window.scrollY;
+            spMark("reset", "pre=" + Math.round(startY));
+            if (startY <= 0) {
+              lockstepSceneForReset = false;
+              return;
+            }
             const reduceNow = !!(
               window.matchMedia &&
               window.matchMedia("(prefers-reduced-motion: reduce)").matches
             );
-            window.scrollTo({
-              top: 0,
-              behavior: reduceNow ? "auto" : "smooth",
-            });
+            const threshold = (window.innerHeight || 800) * 1.5;
+            if (reduceNow || startY > threshold) {
+              // ① 瞬时档（长距离 / reduce）：长缓动=上下拉扯感，且此刻
+              // is-animating 淡入窗口未结束 ⇒ 复位不可见（原版 2.0 设计）
+              window.scrollTo(0, 0);
+              spMark(
+                "reset-mode",
+                reduceNow ? "instant-reduce" : "instant-far",
+              );
+              // 瞬时到位后仍可能被外部写者拽走（1.7.15 真机机型）⇒ 挂兜底
+              if (needsScrollWait) armLandingGuard(startY, true);
+            } else if (lockstepSceneForReset) {
+              // ② 短距离 + is-home 位移场景：与位移锁步（follow 模式读
+              // #main-grid translate 实时进度，合成位置单调、无反向段）
+              spMark("reset-mode", "lockstep");
+              lockstepScrollToTop(document.getElementById("main-grid"));
+            } else {
+              // ③ 短距离其它：原生平滑（smartScrollTo 自带距离/reduce 门控，
+              // 此处距离已 ≤ 阈值 ⇒ 平滑）
+              spMark("reset-mode", "smooth");
+              smartScrollTo(0);
+            }
+            lockstepSceneForReset = false;
           }),
         );
         return;

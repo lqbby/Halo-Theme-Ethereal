@@ -6,10 +6,11 @@
 //   scroll-manager 作为备用路径）。
 // v1.7.20（揭示门控）：新内容挂 nav-resetting 不可见 → 瞬移归顶 → 揭示。
 // v1.7.22 定稿（用户拍板「都用 1.5.65 这样的」）：全设备统一原生 smooth
-//   回顶——与 1.5.65 逐条同构（双 rAF + scrollTo smooth）。锁步 / 门控 /
-//   距离门控 / 落点兜底全部退役：弱 GPU 上 rAF 逐帧 scrollTo 必掉帧
-//   （「一卡一卡」），多运动叠加在移动端「像打架」，原生 smooth 由合成器
-//   驱动、系统级手感。
+//   回顶——与 1.5.65 逐条同构（双 rAF + scrollTo smooth）。
+// v1.7.26（「2.0 式距离分档」）：移植上游原版 2.0 的距离分档设计并
+//   适配本线——长距离（>1.5 屏）/reduce ⇒ 瞬时（藏淡入窗口）；短距离 +
+//   is-home 位移场景 ⇒ 锁步（follow 模式，无反向段）；短距离其它 ⇒ 原生
+//   平滑。锁步能力因此重新被 app.ts 引用（不再 tree-shake）。
 //
 // 判据（源码级）：
 //   F1 scroll-manager：follow 能力保留（备用路径，判据同 v1.7.19）
@@ -100,17 +101,30 @@ check(
   true,
 );
 check(
-  "F2b content:scroll 复位 = 双 rAF → 原生 smooth（含 reduce 分支）",
+  "F2b content:scroll = 三档距离分档（v1.7.26 2.0 式）：瞬时 / 锁步 / 平滑",
   (() => {
     const i = flatApp.indexOf('spMark("reset", "pre="');
     if (i < 0) return false;
-    const seg = flatApp.slice(i, i + 1200);
-    const smoothIdx = seg.indexOf('behavior: reduceNow ? "auto" : "smooth"');
+    const seg = flatApp.slice(i, i + 1600);
+    const threshold = seg.indexOf(
+      "const threshold = (window.innerHeight || 800) * 1.5;",
+    );
+    const instant = seg.indexOf("window.scrollTo(0, 0);");
+    const lockstepMark = seg.indexOf('"reset-mode", "lockstep"');
+    const lockstepCall = seg.indexOf("lockstepScrollToTop(");
+    const mainGrid = seg.indexOf('document.getElementById("main-grid")');
+    const smooth = seg.indexOf("smartScrollTo(0);");
     const rafChain = flatApp.indexOf(
       "requestAnimationFrame(() => requestAnimationFrame(() =>",
     );
     return (
-      smoothIdx > 0 && rafChain > 0 && flatApp.indexOf("smartScrollTo(0)") < 0
+      threshold > 0 &&
+      instant > 0 &&
+      lockstepMark > 0 &&
+      lockstepCall > 0 &&
+      mainGrid > 0 &&
+      smooth > 0 &&
+      rafChain > 0
     );
   })(),
   true,
@@ -135,11 +149,14 @@ check(
   true,
 );
 check(
-  "F2e animation:out:start 不再有撑高展示分支（仅 home-switch 切换）",
+  "F2e animation:out:start 无撑高展示 + 判定 lockstepSceneForReset（2.0 场景标记）",
   (() => {
     const i = flatApp.indexOf('"animation:out:start"');
-    const seg = flatApp.slice(i, i + 600);
-    return seg.indexOf("showPageHeightExtend") < 0;
+    const seg = flatApp.slice(i, i + 900);
+    return (
+      seg.indexOf("showPageHeightExtend") < 0 &&
+      seg.indexOf("lockstepSceneForReset =") > 0
+    );
   })(),
   true,
 );

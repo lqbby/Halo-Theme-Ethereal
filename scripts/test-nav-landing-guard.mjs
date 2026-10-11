@@ -10,9 +10,9 @@
 //   保持 900 起档（晚于 700ms 复位动画窗口，不打断动画）。
 //   v1.7.20：门控揭示改造（复位恒瞬时或显式可知）⇒ instantPath 不再
 //   自行推断，由调用方按复位实况显式传入（resetInstant）。
-//   v1.7.22 定稿：全设备 1.5.65 原生 smooth 回顶 ⇒ 复位路径不再挂载
-//   落点兜底（原生平滑进行中复核会误判「被拽走」而瞬移打断）。函数本体
-//   与探针接线保留（L1~L5/L7/L8 语义判据仍锁定其正确性），供未来复启用。
+//   v1.7.22：全设备 1.5.65 原生 smooth 回顶 ⇒ 复位路径一度不挂载落点兜底。
+//   v1.7.26（2.0 式距离分档）：兜底**仅瞬时档重新挂载**——长距离/reduce 瞬时
+//   至顶后位置仍可能被外部写者拽走（1.7.15 真机机型）；锁步/原生平滑档不挂。
 //
 // ⚠️ 归因修正：Safari 27（2026-09）前不支持 scroll anchoring——此现象
 //    与「重锚」无关；外部写者来源未在真机定位（本地 WebKit 复刻不出）。
@@ -138,13 +138,12 @@ check(
   );
 }
 
-// L6 挂载状态（v1.7.22 定稿）：复位路径已不含兜底挂载——全设备 1.5.65
-//    原生 smooth 回顶（原生平滑进行中挂载复核会误判「被拽走」而瞬移打断）。
-//    函数本体与探针接线保留（L1~L5/L7/L8 语义判据仍有效），供未来复启用。
+// L6 挂载状态（v1.7.26，2.0 式距离分档）：兜底**仅瞬时档挂载**——
+//    长距离/reduce 瞬时至顶后位置仍可能被外部写者拽走（1.7.15 真机机型）；
+//    锁步/原生平滑档不挂（复核会把进行中的动画误判成「被拽走」而打断）。
 check(
-  "L6a 复位路径不含 armLandingGuard 挂载（v1.7.22 退役）",
-  flat.indexOf("armLandingGuard(preResetY, resetInstant)") < 0 &&
-    flat.indexOf("armGuard") < 0,
+  "L6a 瞬时档挂载存在（needsScrollWait + resetInstant=true）",
+  /if \(needsScrollWait\) armLandingGuard\(startY, true\);/.test(flat),
   true,
 );
 {
@@ -152,20 +151,27 @@ check(
     'hash.replace(/^#/, "").indexOf("comment") === 0',
   );
   const idxReset = flat.indexOf('spMark("reset"');
-  const idxSmooth = flat.indexOf('behavior: reduceNow ? "auto" : "smooth"');
+  const idxInstant = flat.indexOf("window.scrollTo(0, 0);");
+  const idxArm = flat.indexOf(
+    "if (needsScrollWait) armLandingGuard(startY, true);",
+  );
   const idxSmart = flat.indexOf("smartScrollTo(0);");
   check(
-    "L6b 复位路径 = 原生 smooth（spMark reset 在 scrollTo 之前）",
-    idxReset > 0 && idxSmooth > idxReset && idxCommentEarly > 0,
+    "L6b 挂载在瞬时档复位调用之后、comment 早退之后",
+    idxReset > 0 &&
+      idxInstant > idxReset &&
+      idxArm > idxInstant &&
+      idxArm > idxCommentEarly &&
+      idxCommentEarly > 0,
     true,
   );
   check(
-    "L6c 复位不再走 smartScrollTo(0)（v1.7.22 起未接入）",
-    idxSmart < 0,
+    "L6c 短距其它档走 smartScrollTo(0)（v1.7.26 接入，不挂兜底）",
+    idxSmart > idxArm,
     true,
   );
   check(
-    "L6d 函数本体仍在（供复启用）",
+    "L6d 函数本体仍在",
     /function armLandingGuard\(preResetY: number, resetInstant: boolean\): void \{/.test(
       flat,
     ),
