@@ -99,6 +99,13 @@ check(
     true,
   );
 }
+check(
+  "R4c 瞬间条（#home-moments-wrap）在门内——visibility 隐藏（避开其 700ms 通用过渡）",
+  /html\.reload-restoring #home-moments-wrap \{ visibility: hidden; \}/.test(
+    cssFlat,
+  ),
+  true,
+);
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);

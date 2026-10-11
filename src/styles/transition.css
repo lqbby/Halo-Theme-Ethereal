@@ -226,13 +226,25 @@ html.home-switch.is-rendering .transition-swup-fade {
   transition-duration: var(--dur-banner, 700ms);
 }
 
-/* ── 刷新自恢复的隐藏门（v1.7.30）──
+/* ── 刷新自恢复的隐藏门（v1.7.30 / v1.7.31 补瞬间条）──
    底部刷新时浏览器原生恢复发生在首帧之后（实测先画 ~200ms 的页面顶部，
-   首页即 Banner 标题与链接胶囊闪现）。Layout.astro / pages/layout.astro 的
-   内联脚本命中同路径保存值时给 <html> 挂 reload-restoring，把「顶部区域」
-   藏到滚动就位后再显形（摘类即恢复，无过渡——#banner-wrapper 属 is-home
-   位移族，严禁给它附加任何 transition/opacity 过渡，只做硬切换）。 */
+   首页即 Banner 标题、链接胶囊与「瞬间」走马灯条）。Layout.astro /
+   pages/layout.astro 的内联脚本命中同路径保存值时给 <html> 挂
+   reload-restoring，把「顶部区域」藏到滚动就位后再显形（摘类即恢复，
+   无过渡——#banner-wrapper 与 .moment-marquee-anchor 均属 is-home 位移族，
+   严禁给它附加任何 transition/opacity 过渡，只做硬切换）。
+
+   v1.7.31：#home-moments-wrap（瞬间条）在 #main-grid 之上、门内漏网
+   （全站持久元素，实测 y=0 时位于首屏 527px 处 ⇒ 刷新同样会闪）。
+   与上两者不同，它带 Tailwind 通用 `transition`（属性表含 opacity、时长
+   var(--dur-banner)）——用 opacity 会有 700ms 渐隐渐显，故改用
+   visibility 绕开过渡系统（不在过渡属性表内 ⇒ 摘挂皆即时，且不触碰
+   其 translate 过渡链）。 */
 html.reload-restoring #main-grid,
 html.reload-restoring #banner-wrapper {
   opacity: 0;
+}
+
+html.reload-restoring #home-moments-wrap {
+  visibility: hidden;
 }
