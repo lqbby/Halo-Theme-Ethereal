@@ -59,15 +59,37 @@ const EASING_DURATION: Record<ThemeAnimEasingId, number> = {
 };
 
 /**
- * 动画速度三档：按 <html data-speed> 逐缓动曲线覆盖时长（ms）。
- * 由 settings.yaml styleSwitches.speedTier 注入。
- * relaxed / balanced 不写 → 走 EASING_DURATION 原值（均衡=当前原值，零回归）；
+ * 动画速度档位：按 <html data-speed> 逐缓动曲线覆盖时长（ms）。
+ * 由 settings.yaml style.animationSpeed.speedTier 注入。
+ * balanced / custom 不写 → 走 EASING_DURATION 原值（均衡=当前原值，零回归）；
+ * relaxed 整体拉长约 +22%（「保留完整错峰演出」——主题切换也是演出的一部分）；
+ * optimal 整体收缩约 -40%（「轻快、内容近立即可见」）；二者与 speed.css 的
+ * 档位语义对齐（v1.7.28 补全——此前仅 snappy 覆盖，relaxed/optimal 档下
+ * 主题切换仍走原值，与档位语感不符）。
  * snappy 最短但回弹（back-out）保留呼吸空间。
  */
 const SPEED_TIER_DURATION: Record<
   string,
   Partial<Record<ThemeAnimEasingId, number>>
 > = {
+  relaxed: {
+    default: 1100,
+    linear: 1100,
+    "ease-in": 850,
+    "ease-out": 850,
+    "ease-in-out": 1050,
+    "expo-out": 1150,
+    "back-out": 1350,
+  },
+  optimal: {
+    default: 550,
+    linear: 550,
+    "ease-in": 420,
+    "ease-out": 420,
+    "ease-in-out": 510,
+    "expo-out": 570,
+    "back-out": 660,
+  },
   snappy: {
     default: 250,
     linear: 250,
