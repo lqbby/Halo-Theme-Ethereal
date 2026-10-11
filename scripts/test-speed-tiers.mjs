@@ -1,5 +1,5 @@
 // @ts-check
-// 动画速度档位系统「三处同步」桩测（2026-10-11，v1.7.28）
+// 动画速度档位系统「三处同步」桩测（2026-10-11，v1.7.28 建立 / v1.7.29 扩展）
 //
 // 背景：档位系统有三处必须保持数值一致的来源（源码注释里的 ⚠️ 警告）：
 //   ① src/styles/speed.css 的 balanced 块（:root 默认变量）
@@ -126,10 +126,59 @@ for (const [k, v] of Object.entries(defaults)) {
     drift13.push(`${k}: yaml=${yamlDefaults[k]} style=${v}`);
 }
 check(
-  "T3 settings.yaml speedCustom ≡ SPEED_CUSTOM_DEFAULTS（10 项）",
+  "T3 settings.yaml speedCustom ≡ SPEED_CUSTOM_DEFAULTS（11 项）",
   drift13.length === 0 ? "一致" : drift13.join("; "),
   "一致",
 );
+
+// ── T5 prefer-reduced-motion 全局阻尼块（v1.7.29） ──
+{
+  const css = readFileSync(SPEED_CSS, "utf8");
+  const i = css.indexOf("@media (prefers-reduced-motion: reduce)");
+  const seg = i >= 0 ? css.slice(i, i + 900) : "";
+  const damped = [
+    "dur-swup",
+    "dur-entry",
+    "dur-entry-step",
+    "dur-entry-max",
+    "content-delay",
+    "dur-scroll",
+    "dur-float",
+    "dur-banner",
+    "dur-banner-transition",
+  ];
+  const missing = damped.filter(
+    (v) => !new RegExp(`--${v}: [\\d.]+ms !important`).test(seg),
+  );
+  check(
+    "T5a reduce 阻尼块含全部 9 个核心变量（!important）",
+    i >= 0 && missing.length === 0 ? "齐全" : `缺 ${missing.join(",")}`,
+    "齐全",
+  );
+  check(
+    "T5b 阻尼选择器须覆盖 :root 与 html[data-speed]（自定义档内联需 !important 压制）",
+    /:root,\s*\n?\s*html\[data-speed\] \{/.test(seg),
+    true,
+  );
+}
+
+// ── T6 自定义档的「主题切换」接入（v1.7.29） ──
+{
+  const styleTs2 = readFileSync(SPEED_STYLE, "utf8");
+  const tt2 = readFileSync(THEME_TRANSITION, "utf8");
+  check(
+    "T6a ThExpr 输出 --theme-switch-base",
+    /'--theme-switch-base:' \+ \(sc\.themeSwitch \?:/.test(styleTs2),
+    true,
+  );
+  check(
+    "T6b theme-transition 有 custom 分支（EASING_BASE 比例缩放）",
+    /if \(tier === "custom"\) \{/.test(tt2) &&
+      /const EASING_BASE = EASING_DURATION\.default;/.test(tt2) &&
+      /getPropertyValue\("--theme-switch-base"\)/.test(tt2),
+    true,
+  );
+}
 
 // ── T4 theme-transition SPEED_TIER_DURATION 覆盖三档 + 单调关系 ──
 const tt = readFileSync(THEME_TRANSITION, "utf8");

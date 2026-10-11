@@ -101,9 +101,24 @@ const SPEED_TIER_DURATION: Record<
   },
 };
 
-/** 读取当前速度档位对应的缓动时长（缺省回退原值） */
+/** 基准档（balanced）「默认」曲线的时长：自定义档以 --theme-switch-base 按此比例缩放 */
+const EASING_BASE = EASING_DURATION.default;
+
+/** 读取当前速度档位对应的缓动时长（缺省回退原值）。
+ *  自定义档（v1.7.29）：读 speed-style 经 html 内联注入的 --theme-switch-base
+ *  （基准 = 「默认」曲线时长），其余曲线按 EASING_DURATION 原表比例缩放
+ *  （回弹曲线相对更长等差异自动保留）；读不到/非法值回退原表。 */
 function resolveEasingDuration(easing: ThemeAnimEasingId): number {
-  const tier = document.documentElement.dataset.speed || "balanced";
+  const root = document.documentElement;
+  const tier = root.dataset.speed || "balanced";
+  if (tier === "custom") {
+    const base = parseFloat(
+      getComputedStyle(root).getPropertyValue("--theme-switch-base"),
+    );
+    if (Number.isFinite(base) && base >= 0) {
+      return Math.round((EASING_DURATION[easing] * base) / EASING_BASE);
+    }
+  }
   return SPEED_TIER_DURATION[tier]?.[easing] ?? EASING_DURATION[easing];
 }
 

@@ -1026,7 +1026,7 @@ spec:
               id: speedTier
               label: 速度档位
               value: balanced
-              help: "舒缓：保留完整错峰入场演出；均衡：当前主题原值；最优：轻快、内容近立即可见；疾速：入场只做轻微位移、内容立即可见（换页时长随之缩短）；自定义：手动逐项设置各动画时长（不涉及主题切换动画，其仍随缓动曲线匹配）"
+              help: "舒缓：保留完整错峰入场演出（主题切换动画一并拉长）；均衡：当前主题原值；最优：轻快、内容近立即可见（主题切换动画同步缩短）；疾速：入场只做轻微位移、内容立即可见（换页时长随之缩短）；自定义：手动逐项设置各动画时长（含主题切换）。系统「减少动态效果」开启时全部压至瞬时，与本设置无关"
               options:
                 - label: 舒缓
                   value: relaxed
@@ -1054,6 +1054,7 @@ spec:
                 banner: 700
                 carouselTransition: 700
                 marqueeSpeed: 48
+                themeSwitch: 900
               children:
                 - $formkit: number
                   name: swup
@@ -1135,6 +1136,14 @@ spec:
                   step: 4
                   value: 48
                   help: "首页「瞬间」走马灯滚动速度（像素/秒），数值越大滚动越快，默认 48；随动画速度档位变化"
+                - $formkit: number
+                  name: themeSwitch
+                  label: 主题切换（ms）
+                  min: 0
+                  max: 2000
+                  step: 10
+                  value: 900
+                  help: "明暗主题切换动画的基准时长（对应「默认」缓动曲线；其余曲线按原表比例缩放，回弹曲线略留余量）。0 = 瞬时。v1.7.29 起纳入自定义档"
         - $formkit: group
           name: externalFont
           label: 外部字体

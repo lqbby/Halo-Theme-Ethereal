@@ -62,3 +62,31 @@ html[data-speed="snappy"] {
   --dur-banner-transition: 400ms;
   --marquee-speed: 80; /* 走马灯最快 */
 }
+
+/* prefers-reduced-motion 全局阻尼（v1.7.29「全档位优化」）：
+   系统开启「减少动态效果」时，把速度系统核心时长整体压到「瞬时」。
+   此前主题仅在组件级零散处理（轮播/走马灯/状态徽标/模态等），而换页退场、
+   入场错峰、is-home 位移族、导航隐藏、浮动按钮这些主体在 reduce 下仍完整播放
+   ——对前庭敏感用户是最扎眼的一批动效，必须一起关。
+   · 1ms 而非 0：保留 transitionend/animationend 事件——Swup 换页等待退场
+     结束、.onload-animation 靠 animationend 摘类，0ms 动画可能被跳过不派发。
+   · !important：自定义档的时长经 html 内联样式注入，样式表普通声明赢不了内联
+     （重要声明 > 内联普通声明），故此处必须 !important。
+   · 选择器 :root / html[data-speed]：与四档块同/高特异性且位于文件尾部，
+     普通档由「后出现」取胜，自定义档由 !important 取胜。
+   · --marquee-speed 不动：HomeMoments 自身已在 reduce 下 animation:none；
+     主题切换动画（View Transitions）由 theme-transition.ts 自行检测 reduce。 */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  html[data-speed] {
+    --dur-swup: 1ms !important;
+    --dur-entry: 1ms !important;
+    --dur-entry-step: 0ms !important;
+    --dur-entry-max: 0ms !important;
+    --content-delay: 0ms !important;
+    --dur-scroll: 1ms !important;
+    --dur-float: 1ms !important;
+    --dur-banner: 1ms !important;
+    --dur-banner-transition: 1ms !important;
+  }
+}

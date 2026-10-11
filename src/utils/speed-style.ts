@@ -14,7 +14,9 @@
  */
 
 /** 自定义档各动画时长默认值（ms），唯一来源。
- *  marqueeSpeed 例外：走马灯滚动速度（px/s），无单位，仅 JS 读取。 */
+ *  marqueeSpeed 例外：走马灯滚动速度（px/s），无单位，仅 JS 读取。
+ *  themeSwitch（v1.7.29 新增）：主题切换动画基准时长（对应「默认」缓动曲线，
+ *  其余曲线在 theme-transition.ts 按原表比例缩放），经 --theme-switch-base 下发。 */
 export const SPEED_CUSTOM_DEFAULTS = {
   swup: 200,
   entry: 300,
@@ -26,6 +28,7 @@ export const SPEED_CUSTOM_DEFAULTS = {
   banner: 700,
   carouselTransition: 700,
   marqueeSpeed: 48,
+  themeSwitch: 900,
 } as const;
 
 /**
@@ -59,6 +62,7 @@ export function speedCustomStyleThExpr(): string {
     banner,
     carouselTransition,
     marqueeSpeed,
+    themeSwitch,
   } = SPEED_CUSTOM_DEFAULTS;
   return (
     "${isCustom ? " +
@@ -91,7 +95,10 @@ export function speedCustomStyleThExpr(): string {
     ") + 'ms;' + " +
     "'--marquee-speed:' + (sc.marqueeSpeed ?: " +
     marqueeSpeed +
-    ") " +
+    ") + ';' + " +
+    "'--theme-switch-base:' + (sc.themeSwitch ?: " +
+    themeSwitch +
+    ") + 'ms' " +
     ": ''}"
   );
 }
