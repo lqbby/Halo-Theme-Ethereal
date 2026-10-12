@@ -1,5 +1,4 @@
 ---
-import { Icon } from "astro-icon/components";
 import WidgetLayout from "./WidgetLayout.astro";
 
 /*
@@ -118,11 +117,9 @@ const layoutId = `${widgetId}-layout`;
           <div
             class="relative z-10 flex h-full w-full items-center justify-center overflow-hidden rounded-full border-2 border-white bg-(--primary)/10 shadow-lg dark:border-neutral-700"
           >
-            <Icon
-              name="material-symbols:music-note-rounded"
-              class="absolute text-2xl text-(--primary) opacity-40"
-              aria-hidden="true"
-            />
+            <span
+              class="icon-[material-symbols--music-note-rounded] absolute text-2xl text-(--primary) opacity-40"
+              aria-hidden="true"></span>
             <img
               class="music-cover animate-spin-slow relative z-10 h-full w-full object-cover opacity-0 transition-opacity duration-300"
               alt=""
@@ -146,16 +143,12 @@ const layoutId = `${widgetId}-layout`;
               type="button"
               aria-label="Lyrics"
             >
-              <Icon
-                name="material-symbols:subtitles-off-outline-rounded"
-                class="icon-lrc-off text-xl"
-                aria-hidden="true"
-              />
-              <Icon
-                name="material-symbols:subtitles-outline-rounded"
-                class="icon-lrc-on hidden text-xl"
-                aria-hidden="true"
-              />
+              <span
+                class="icon-[material-symbols--subtitles-off-outline-rounded] icon-lrc-off text-xl"
+                aria-hidden="true"></span>
+              <span
+                class="icon-[material-symbols--subtitles-outline-rounded] icon-lrc-on hidden text-xl"
+                aria-hidden="true"></span>
             </button>
           </div>
 
@@ -183,16 +176,12 @@ const layoutId = `${widgetId}-layout`;
                 type="button"
                 aria-label="Volume"
               >
-                <Icon
-                  name="material-symbols:volume-up-rounded"
-                  class="icon-vol-high text-lg"
-                  aria-hidden="true"
-                />
-                <Icon
-                  name="material-symbols:volume-off-rounded"
-                  class="icon-vol-mute hidden text-lg"
-                  aria-hidden="true"
-                />
+                <span
+                  class="icon-[material-symbols--volume-up-rounded] icon-vol-high text-lg"
+                  aria-hidden="true"></span>
+                <span
+                  class="icon-[material-symbols--volume-off-rounded] icon-vol-mute hidden text-lg"
+                  aria-hidden="true"></span>
               </button>
               <div
                 class="flex w-16 items-center transition-all duration-300 ease-out"
@@ -249,21 +238,15 @@ const layoutId = `${widgetId}-layout`;
           type="button"
           aria-label="Play mode"
         >
-          <Icon
-            name="material-symbols:repeat-rounded"
-            class="icon-repeat text-xl"
-            aria-hidden="true"
-          />
-          <Icon
-            name="material-symbols:repeat-one-rounded"
-            class="icon-repeat-one hidden text-xl"
-            aria-hidden="true"
-          />
-          <Icon
-            name="material-symbols:shuffle-rounded"
-            class="icon-shuffle hidden text-xl"
-            aria-hidden="true"
-          />
+          <span
+            class="icon-[material-symbols--repeat-rounded] icon-repeat text-xl"
+            aria-hidden="true"></span>
+          <span
+            class="icon-[material-symbols--repeat-one-rounded] icon-repeat-one hidden text-xl"
+            aria-hidden="true"></span>
+          <span
+            class="icon-[material-symbols--shuffle-rounded] icon-shuffle hidden text-xl"
+            aria-hidden="true"></span>
         </button>
 
         <button
@@ -271,11 +254,9 @@ const layoutId = `${widgetId}-layout`;
           type="button"
           aria-label="Previous"
         >
-          <Icon
-            name="material-symbols:skip-previous-rounded"
-            class="text-3xl"
-            aria-hidden="true"
-          />
+          <span
+            class="icon-[material-symbols--skip-previous-rounded] text-3xl"
+            aria-hidden="true"></span>
         </button>
 
         <button
@@ -283,16 +264,12 @@ const layoutId = `${widgetId}-layout`;
           type="button"
           aria-label="Play"
         >
-          <Icon
-            name="material-symbols:play-arrow-rounded"
-            class="icon-play ml-0.5 text-3xl"
-            aria-hidden="true"
-          />
-          <Icon
-            name="material-symbols:pause-rounded"
-            class="icon-pause hidden text-3xl"
-            aria-hidden="true"
-          />
+          <span
+            class="icon-[material-symbols--play-arrow-rounded] icon-play ml-0.5 text-3xl"
+            aria-hidden="true"></span>
+          <span
+            class="icon-[material-symbols--pause-rounded] icon-pause hidden text-3xl"
+            aria-hidden="true"></span>
         </button>
 
         <button
@@ -300,11 +277,9 @@ const layoutId = `${widgetId}-layout`;
           type="button"
           aria-label="Next"
         >
-          <Icon
-            name="material-symbols:skip-next-rounded"
-            class="text-3xl"
-            aria-hidden="true"
-          />
+          <span
+            class="icon-[material-symbols--skip-next-rounded] text-3xl"
+            aria-hidden="true"></span>
         </button>
 
         <button
@@ -312,7 +287,8 @@ const layoutId = `${widgetId}-layout`;
           type="button"
           aria-label="Playlist"
         >
-          <Icon name="mdi:playlist-music" class="text-xl" aria-hidden="true" />
+          <span class="icon-[mdi--playlist-music] text-xl" aria-hidden="true"
+          ></span>
         </button>
       </div>
 
@@ -359,11 +335,9 @@ const layoutId = `${widgetId}-layout`;
         aria-hidden="true"
       >
         <div class="h-8 w-8 animate-spin text-(--primary)">
-          <Icon
-            name="material-symbols:sync-rounded"
-            class="text-3xl"
-            aria-hidden="true"
-          />
+          <span
+            class="icon-[material-symbols--sync-rounded] text-3xl"
+            aria-hidden="true"></span>
         </div>
       </div>
     </div>
@@ -383,10 +357,9 @@ const layoutId = `${widgetId}-layout`;
           <div
             class="item-active-overlay absolute inset-0 hidden items-center justify-center bg-(--primary)/20"
           >
-            <Icon
-              name="material-symbols:graphic-eq-rounded"
-              class="text-sm text-(--primary)"
-            />
+            <span
+              class="icon-[material-symbols--graphic-eq-rounded] text-sm text-(--primary)"
+            ></span>
           </div>
         </div>
         <div class="min-w-0 flex-1">
