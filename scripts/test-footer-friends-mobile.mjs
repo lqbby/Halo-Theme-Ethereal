@@ -1,15 +1,14 @@
 // @ts-check
-// 页脚友链「移动端默认折叠」桩测（2026-10-12，v1.7.33）
+// 页脚友链「移动端不显示」桩测（2026-10-12，v1.7.34，取代 v1.7.33 的折叠方案）
 //
-// 需求：「设置页脚友情链接在移动端默认关闭」——新增设置项（缺省视为开启），
-// 移动端（<768px）折叠胶囊列表、标题行右侧箭头展开/收起；桌面端零影响。
+// 需求：「移动端默认页脚没有任何友情链接相关的东西」——<768px 整块不输出
+// （标题/数量/申请按钮/胶囊列表全不出现），桌面端零影响。
 // 判据：
-//   F1 settings.yaml：friendLinks 组有 mobile_collapsed（key/默认 true/help 说明缺省开启）
-//   F2 组件根元素：classappend 含 hbf-mobile-collapsed（`!= false` 缺省开启口径）
-//   F3 组件标题行：有 .hbf-toggle 按钮（aria-expanded 初值 false + 词条 aria-label）
-//   F4 CSS：移动端三条规则（箭头显隐 / 折叠隐藏 / 展开恢复 display:flex）+ 箭头旋转
-//   F5 脚本：单例守卫（两份页脚只绑一次）+ closest(".hbf-root") 实例作用域 + hbf-open 切换
-//   F6 i18n 三语并集：footer.friendLinks.toggleAria 存在于 default/zh_CN/zh_TW
+//   G1 settings.yaml：friendLinks 组有 mobile_hidden（key/默认 true/缺省视为开启）
+//   G2 组件根元素：classappend 含 hbf-mobile-hidden（`!= false` 缺省开启口径）
+//   G3 CSS：@media (max-width:767.98px) 下 .hbf-root.hbf-mobile-hidden display:none
+//   G4 无折叠方案残留：无 .hbf-toggle / hbf-open / hbf-mobile-collapsed / 绑定脚本
+//   G5 i18n：toggleAria 已移除（不留死词条，三语）
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -35,59 +34,42 @@ function check(name, actual, expected) {
 
 const settings = readFileSync(SETTINGS, "utf8").replace(/\r/g, "");
 const comp = readFileSync(COMP, "utf8");
-
-check(
-  "F1a settings.yaml 有 mobile_collapsed（key + 默认 true + 缺省开启说明）",
-  /name: mobile_collapsed/.test(settings) &&
-    /key: friend_links_mobile_collapsed/.test(settings) &&
-    /label: 移动端默认折叠/.test(settings) &&
-    /缺省视为开启/.test(settings) &&
-    /key: friend_links_mobile_collapsed[\s\S]{0,200}?value: true/.test(
-      settings,
-    ),
-  true,
-);
-
-check(
-  "F2 根元素 classappend 含 hbf-mobile-collapsed（!= false 口径）",
-  /mobile_collapsed != false \? ' hbf-mobile-collapsed' : ''/.test(comp),
-  true,
-);
-
-check(
-  "F3 标题行有 .hbf-toggle（aria-expanded=false + toggleAria 词条）",
-  /class="hbf-toggle"[\s\S]{0,200}?aria-expanded="false"/.test(comp) &&
-    /footer\.friendLinks\.toggleAria/.test(comp),
-  true,
-);
-
 const cssFlat = comp.replace(/\s+/g, " ");
+
 check(
-  "F4 CSS 移动端三条规则 + 展开旋转",
-  [
-    ".hbf-root.hbf-mobile-collapsed .hbf-toggle { display: inline-flex; }",
-    ".hbf-root.hbf-mobile-collapsed .hbf-list { display: none; }",
-    ".hbf-root.hbf-mobile-collapsed.hbf-open .hbf-list { display: flex; }",
-    ".hbf-root.hbf-open .hbf-toggle svg { transform: rotate(180deg); }",
-  ].every((r) => cssFlat.includes(r)),
+  "G1 settings.yaml 有 mobile_hidden（key + 默认 true + 缺省开启说明）",
+  /name: mobile_hidden/.test(settings) &&
+    /key: friend_links_mobile_hidden/.test(settings) &&
+    /label: 移动端不显示/.test(settings) &&
+    /缺省视为开启/.test(settings) &&
+    /key: friend_links_mobile_hidden[\s\S]{0,200}?value: true/.test(settings),
   true,
 );
 
 check(
-  "F5 脚本：单例守卫 + closest 作用域 + hbf-open 切换 + aria 同步",
-  comp.includes("if (window.__hbfToggleBound) return;") &&
-    comp.includes('btn.closest(".hbf-root")') &&
-    comp.includes('classList.toggle("hbf-open")') &&
-    comp.includes('setAttribute("aria-expanded"'),
+  "G2 根元素 classappend 含 hbf-mobile-hidden（!= false 口径）",
+  /mobile_hidden != false \? ' hbf-mobile-hidden' : ''/.test(comp),
+  true,
+);
+
+check(
+  "G3 CSS：移动端下整块 display:none",
+  cssFlat.includes(".hbf-root.hbf-mobile-hidden { display: none; }"),
+  true,
+);
+
+check(
+  "G4 无折叠方案残留（无 toggle / hbf-open / 绑定脚本）",
+  !/hbf-toggle|hbf-open|hbf-mobile-collapsed|__hbfToggleBound/.test(comp),
   true,
 );
 
 for (const f of ["default", "zh_CN", "zh_TW"]) {
   const s = readFileSync(join(I18N, `${f}.properties`), "utf8");
   check(
-    `F6 ${f} 有 footer.friendLinks.toggleAria`,
-    /^footer\.friendLinks\.toggleAria=.+$/m.test(s.replace(/\r/g, "")),
-    true,
+    `G5 ${f} 已移除 footer.friendLinks.toggleAria（不留死词条）`,
+    /footer\.friendLinks\.toggleAria/.test(s),
+    false,
   );
 }
 

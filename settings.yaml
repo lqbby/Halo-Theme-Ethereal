@@ -3523,13 +3523,13 @@ spec:
               label: 随机展示条数
               help: "每次从全部友链里随机挑这么多条展示（洗牌在「Ethereal 配套」插件服务端完成，每次进页/换页都会换一批）；总数超出时会显示下拉箭头跳转到完整友链页。填 0 表示用插件侧配置的默认条数"
             - $formkit: switch
-              name: mobile_collapsed
+              name: mobile_hidden
               if: "$get(friend_links_enable).value"
-              key: friend_links_mobile_collapsed
+              key: friend_links_mobile_hidden
               preserve: true
               value: true
-              label: 移动端默认折叠
-              help: "开启后移动端（<768px）页脚的友链列表默认收起，只留标题行与右侧展开箭头，点箭头展开/收起；桌面端不受影响。缺省视为开启（旧配置无需重新保存）"
+              label: 移动端不显示
+              help: "开启后移动端（<768px）页脚完全不输出友情链接块——标题、数量、申请按钮与胶囊列表都不出现；桌面端不受影响。缺省视为开启（缺字段的旧配置无需重新保存即生效）"
     - group: links
       label: 友情链接
       formSchema:
