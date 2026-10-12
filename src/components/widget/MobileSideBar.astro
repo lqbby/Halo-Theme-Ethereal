@@ -16,7 +16,16 @@
  * 挂载被推迟到解析结束，移动端会先闪一下左右两栏。
  * 位置放在两个 aside 之后：小部件可同时配在桌面列表与移动端列表（各脚本按实例作用域取元素），
  * DOM 位置只决定视觉顺序。
+ *
+ * v1.7.35：个人简介 / 公告在桌面上**不是小部件列表项**——它们由左右侧栏按各自设置
+ * 直出的「定位卡」（SideBar/RightSideBar 首部，见 settings 的「个人简介小组件」组）。
+ * 移动端侧栏替代两栏后若只渲染 mobileWidgets，这两块会整块消失（用户报「移动端
+ * 个人简介不显示，这个应该是默认就有的」）。故这里默认在首位按同语义渲染；
+ * 若列表里已含同名条目（上游旧配置可能会）则跳过，避免重复。
  */
+import Announcement from "./Announcement.astro";
+import Profile from "./Profile.astro";
+
 const widgetSwitchReplace = "~{::widgetSwitch(${widget}, ${widgetStat.index})}";
 ---
 
@@ -36,6 +45,21 @@ const widgetSwitchReplace = "~{::widgetSwitch(${widget}, ${widgetStat.index})}";
 
     <template id="mobile-sidebar-template">
       <div class="mb-4 flex w-full flex-col gap-4">
+        <!-- 个人简介：与桌面同语义（按「个人简介小组件」设置在首位直出，不参与
+             列表排序）；列表已含 profile 条目时跳过防重复（见文件头 v1.7.35 说明） -->
+        <div
+          th:if="${theme.config?.sidebar?.profile?.enable_profile != false and #lists.isEmpty(mobileWidgets.?[value == 'profile'])}"
+          class="contents"
+        >
+          <Profile class="onload-animation" />
+        </div>
+        <!-- 公告：同上（「! = false」= 缺省视为开启，与 SideBar.astro 口径一致） -->
+        <div
+          th:if="${theme.config?.sidebar?.announcement?.enable != false and #lists.isEmpty(mobileWidgets.?[value == 'announcement'])}"
+          class="contents"
+        >
+          <Announcement class="onload-animation" />
+        </div>
         <div class="contents" th:each="widget, widgetStat : ${mobileWidgets}">
           <div th:replace={widgetSwitchReplace}></div>
         </div>
