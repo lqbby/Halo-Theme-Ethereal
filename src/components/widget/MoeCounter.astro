@@ -121,6 +121,14 @@ const style = Astro.props.style || undefined;
 
 <script is:inline th:inline="none">
   (function () {
+    // 实例作用域（v1.7.32）：脚本 is:inline、每个实例各跑一份；同一小组件可同时配在
+    // 桌面两栏与移动端列表 ⇒ 文档里存在多份同 id 元素。getElementById 与
+    // __themeLazyInit(字符串键) 永远命中文档第一个（桌面那份；移动端其隐藏 ⇒ IO 永不
+    // 触发、内容永远停在「加载中」）。用 currentScript 取本实例所在条目容器后再在容器内
+    // 查元素，多实例各归各（currentScript 对经典内联脚本有效，缺失时退化为 document）。
+    var widgetRoot =
+      (document.currentScript && document.currentScript.parentElement) ||
+      document;
     var SESSION_PREFIX = "moe-cnt-session-";
     var LAST_PREFIX = "moe-cnt-last-";
 
@@ -158,7 +166,7 @@ const style = Astro.props.style || undefined;
     }
 
     function showError(root) {
-      var err = document.getElementById("moe-counter-error");
+      var err = widgetRoot.querySelector("#moe-counter-error");
       if (err) err.hidden = false;
       root.setAttribute("data-state", "error");
     }
@@ -406,10 +414,10 @@ const style = Astro.props.style || undefined;
     }
 
     function initMoeCounter() {
-      var root = document.getElementById("moe-counter-root");
+      var root = widgetRoot.querySelector("#moe-counter-root");
       if (!root) return;
-      var imgEl = document.getElementById("moe-counter-img");
-      var digitsEl = document.getElementById("moe-counter-digits");
+      var imgEl = widgetRoot.querySelector("#moe-counter-img");
+      var digitsEl = widgetRoot.querySelector("#moe-counter-digits");
       if (!digitsEl) return;
 
       // 归一化服务地址：兼容旧配置里「带 /get/@id?theme=... 后缀」的写法。
@@ -441,7 +449,7 @@ const style = Astro.props.style || undefined;
       }
 
       // counter_source = site（num 有值）⇒ 走贴片精灵，顺带把「每次导航重拉主题图」彻底去掉
-      var spriteEl = document.getElementById("moe-counter-sprite");
+      var spriteEl = widgetRoot.querySelector("#moe-counter-sprite");
       if (num && spriteEl) {
         initSpriteMode(
           root,
@@ -481,7 +489,10 @@ const style = Astro.props.style || undefined;
         (num ? "&num=" + num : "");
     }
 
-    window.__themeLazyInit("moe-counter-root", initMoeCounter);
+    window.__themeLazyInit(
+      widgetRoot.querySelector("#moe-counter-root"),
+      initMoeCounter,
+    );
   })();
 </script>
 

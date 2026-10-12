@@ -32,6 +32,14 @@ const COLLAPSED_HEIGHT = "7.5rem";
 
 <script is:inline th:inline="none">
   (function () {
+    // 实例作用域（v1.7.32）：脚本 is:inline、每个实例各跑一份；同一小组件可同时配在
+    // 桌面两栏与移动端列表 ⇒ 文档里存在多份同 id 元素。getElementById 与
+    // __themeLazyInit(字符串键) 永远命中文档第一个（桌面那份；移动端其隐藏 ⇒ IO 永不
+    // 触发、内容永远停在「加载中」）。用 currentScript 取本实例所在条目容器后再在容器内
+    // 查元素，多实例各归各（currentScript 对经典内联脚本有效，缺失时退化为 document）。
+    var widgetRoot =
+      (document.currentScript && document.currentScript.parentElement) ||
+      document;
     var LIMIT = 5;
     // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复请求。
     // 30 秒：侧栏只需「准实时」，但 5 分钟太久——新评论/新审核的评论最多挂 5 分钟才现身，
@@ -55,7 +63,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
       LIMIT;
     var POSTS_API =
       "/apis/api.content.halo.run/v1alpha1/posts?size=20&sort=metadata.creationTimestamp,desc";
-    var listEl = document.getElementById("recent-comments-list");
+    var listEl = widgetRoot.querySelector("#recent-comments-list");
     if (!listEl) return;
 
     function safeFetch(url, opts, timeout) {
@@ -629,6 +637,6 @@ const COLLAPSED_HEIGHT = "7.5rem";
     }
 
     // 视口懒加载：评论列表进入可视区才拉数据（首屏不再无条件瀑布请求）
-    window.__themeLazyInit("recent-comments-list", load);
+    window.__themeLazyInit(listEl, load);
   })();
 </script>

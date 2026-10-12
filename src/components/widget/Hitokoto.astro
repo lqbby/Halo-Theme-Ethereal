@@ -132,6 +132,14 @@ const className = Astro.props.class;
 
 <script is:inline>
   (function () {
+    // 实例作用域（v1.7.32）：脚本 is:inline、每个实例各跑一份；同一小组件可同时配在
+    // 桌面两栏与移动端列表 ⇒ 文档里存在多份同 id 元素。getElementById 与
+    // __themeLazyInit(字符串键) 永远命中文档第一个（桌面那份；移动端其隐藏 ⇒ IO 永不
+    // 触发、内容永远停在「加载中」）。用 currentScript 取本实例所在条目容器后再在容器内
+    // 查元素，多实例各归各（currentScript 对经典内联脚本有效，缺失时退化为 document）。
+    var widgetRoot =
+      (document.currentScript && document.currentScript.parentElement) ||
+      document;
     var hitokotoBound = false;
 
     function getCachedData(key) {
@@ -149,12 +157,12 @@ const className = Astro.props.class;
     }
 
     function initHitokoto() {
-      var card = document.getElementById("hitokotoCard");
+      var card = widgetRoot.querySelector("#hitokotoCard");
       if (!card) return;
 
-      var textEl = document.getElementById("hitokotoText");
-      var authorEl = document.getElementById("hitokotoAuthor");
-      var refreshBtn = document.getElementById("hitokotoRefresh");
+      var textEl = widgetRoot.querySelector("#hitokotoText");
+      var authorEl = widgetRoot.querySelector("#hitokotoAuthor");
+      var refreshBtn = widgetRoot.querySelector("#hitokotoRefresh");
 
       // 读取后台配置：留空则使用内置默认
       var API = card.getAttribute("data-api") || "https://v1.hitokoto.cn/";
@@ -256,7 +264,10 @@ const className = Astro.props.class;
     }
 
     // 视口懒加载：卡片进入可视区才初始化（首屏不再无条件发一言请求）
-    window.__themeLazyInit("hitokotoCard", initHitokoto);
+    window.__themeLazyInit(
+      widgetRoot.querySelector("#hitokotoCard"),
+      initHitokoto,
+    );
 
     // 换页后重新初始化：由 SwupScriptsPlugin 重执行本脚本时自动覆盖；
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。

@@ -35,7 +35,15 @@ const MAX_POSTS = 5;
 
 <script is:inline define:vars={{ MAX_POSTS }}>
   (function () {
-    var container = document.getElementById("popular-posts-list");
+    // 实例作用域（v1.7.32）：脚本 is:inline、每个实例各跑一份；同一小组件可同时配在
+    // 桌面两栏与移动端列表 ⇒ 文档里存在多份同 id 元素。getElementById 与
+    // __themeLazyInit(字符串键) 永远命中文档第一个（桌面那份；移动端其隐藏 ⇒ IO 永不
+    // 触发、内容永远停在「加载中」）。用 currentScript 取本实例所在条目容器后再在容器内
+    // 查元素，多实例各归各（currentScript 对经典内联脚本有效，缺失时退化为 document）。
+    var widgetRoot =
+      (document.currentScript && document.currentScript.parentElement) ||
+      document;
+    var container = widgetRoot.querySelector("#popular-posts-list");
     if (!container) return;
 
     // 客户端 i18n：复用 Layout.astro 注入的全局助手（缺失时退化为回退文案）
@@ -220,6 +228,6 @@ const MAX_POSTS = 5;
 
     // 视口懒加载：与 Weather/Hitokoto/RecentComments/SiteStats 一致，容器进入
     // 可视区（提前 300px）才发列表请求，首屏外不再无条件拉取。
-    window.__themeLazyInit("popular-posts-list", loadPopularPosts);
+    window.__themeLazyInit(container, loadPopularPosts);
   })();
 </script>

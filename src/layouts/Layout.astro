@@ -458,7 +458,17 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
             var cs = window.getComputedStyle(item.el);
             if (cs.display === "none" || cs.visibility === "hidden") continue;
             var rect = item.el.getBoundingClientRect();
-            if (rect.top < vh + 300 && rect.bottom > -300) run.push(item);
+            // 零尺寸 = 实际不可见（自身或被祖先 display:none 隐藏——后代自身的
+            // computed display 仍是原值，上面那条判据看不出来）：隐藏实例同样
+            // 不该初始化，否则移动端双实例（桌面份 + 移动端克隆）会重复发请求。
+            // 交给 IO 等待真正可见时再执行（v1.7.32）。
+            if (
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.top < vh + 300 &&
+              rect.bottom > -300
+            )
+              run.push(item);
             else item.observe();
           }
           // 第二遍：批量执行 init（可能改 DOM，不再测量）
