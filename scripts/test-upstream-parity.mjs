@@ -116,5 +116,63 @@ for (const name of ["widgets", "mobileWidgets", "rightWidgets"]) {
   );
 }
 
+// ── P5 th:* 属性值里禁写注释（2026-10-13 线上事故的永久守卫）──
+// th:with 的 assignation sequence 解析器遇到非 `name=expr` 片段直接抛
+// TemplateProcessingException ⇒ 响应流截断、页面转圈（不是报错页）。
+// 做法：先剥掉 `${...}` 表达式（含嵌套），再在 th:*="…" 值里找 `/*`；
+//       并顺带检查 `${...}` 内部也不应出现 SpEL 不支持的 `/* */` 注释。
+{
+  /** 剥离 ${...}（支持一层嵌套） */
+  function stripExpr(s) {
+    let out = "";
+    let i = 0;
+    while (i < s.length) {
+      if (s[i] === "$" && s[i + 1] === "{") {
+        let depth = 0;
+        let j = i + 1;
+        for (; j < s.length; j++) {
+          if (s[j] === "{") depth++;
+          else if (s[j] === "}") {
+            depth--;
+            if (depth === 0) break;
+          }
+        }
+        out += "§";
+        i = j + 1;
+      } else {
+        out += s[i++];
+      }
+    }
+    return out;
+  }
+  const files = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith(".astro") || e.name.endsWith(".html"))
+        files.push(p);
+    }
+  })(join(ROOT, "src"));
+  const offenders = [];
+  for (const f of files) {
+    const raw = readFileSync(f, "utf8");
+    const stripped = stripExpr(raw);
+    const re = /\bth:[A-Za-z-]+="([^"]*)"/g;
+    let m;
+    while ((m = re.exec(stripped))) {
+      if (m[1].includes("/*"))
+        offenders.push(`${f.replace(ROOT, "")} → ${m[1].slice(0, 60)}…`);
+    }
+  }
+  check(
+    `P5 th:* 属性值内无 C 风格注释（${offenders.length} 处）`,
+    offenders.length,
+    0,
+  );
+  if (offenders.length)
+    for (const o of offenders.slice(0, 5)) console.log("    ", o);
+}
+
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
 process.exit(failures === 0 ? 0 : 1);

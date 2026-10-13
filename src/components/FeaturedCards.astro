@@ -67,6 +67,12 @@ const TILE_COPIES = 3;
 const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
 ---
 
+<!-- ⚠️ th:with / 任何 th:* 属性值里**不能写注释**（连 `/* */` 也不行）：
+     Thymeleaf 的 assignation sequence 解析器遇到非 `name=expr` 片段直接抛
+     TemplateProcessingException（表现为响应流截断、页面转圈，不是报错页）。
+     需要说明就写在外面的 HTML 注释里 —— 这里就是 2026-10-13 的教训。
+     本行两个旗标（缺省视为开启）关闭即 <768px 隐藏对应卡片；移动端两卡本就
+     上下堆叠各占整行 ⇒ 隐藏一张后另一张天然占满，无需改列宽；都关则整行隐藏。 -->
 <div
   id="featured-cards"
   class="featured-row onload-animation"
@@ -74,9 +80,6 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     fcItems=${posts.items},
     fcSource=${theme.config?.layout?.postList?.featuredSource ?: 'recent'},
     fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom},
-    /* 移动端显示开关（v1.7.37，缺省视为开启）：关闭即 <768px 隐藏对应卡片。
-       移动端两卡本就上下堆叠、各占整行 ⇒ CSS 隐藏一张后另一张天然占满，无需改列宽。
-       两张都关时整行隐藏（.fc-hide-random-mobile.fc-hide-post-mobile）。 */
     fcHideRandomMobile=${theme.config?.layout?.postList?.featuredRandomMobile == false},
     fcHidePostMobile=${theme.config?.layout?.postList?.featuredPostMobile == false}"
   th:classappend="${(fcRandom ? '' : ' no-random') + (fcHideRandomMobile ? ' fc-hide-random-mobile' : '') + (fcHidePostMobile ? ' fc-hide-post-mobile' : '')}"
