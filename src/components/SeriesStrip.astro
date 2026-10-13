@@ -72,6 +72,7 @@ const MAX_POSTS_PER_SERIES = 30;
       class="series-strip onload-animation"
       style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
       th:if="${not #lists.isEmpty(seriesList)}"
+      th:classappend="${theme.config?.layout?.postList?.seriesMobile == false ? ' ss-hide-mobile' : ''}"
     >
       <!-- 段头：图标 + 标题（左）／系列切换（中）／‹ › 箭头（右）
            ⚠️ tabs 从「独立一行」并入本行：原来段头 30px + 6px 间距 + tabs 28px + 6px 间距
@@ -601,6 +602,15 @@ const MAX_POSTS_PER_SERIES = 30;
     .series-strip-card:hover,
     .series-strip-card:focus-visible {
       transform: none !important;
+    }
+  }
+
+  /* ---------- 移动端显示开关（v1.7.37）----------
+     设置里「系列」卡片条 →「移动端显示」关闭时（section 带 .ss-hide-mobile），
+     <768px 整块不输出；桌面端不受影响。缺省视为开启，旧配置无需重存。 */
+  @media (max-width: 767.98px) {
+    .series-strip.ss-hide-mobile {
+      display: none;
     }
   }
 </style>

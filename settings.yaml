@@ -227,6 +227,15 @@ spec:
                 - label: 热门文章
                   value: popular
             - $formkit: switch
+              name: featuredPostMobile
+              id: postList_featuredPostMobile
+              key: postList_featuredPostMobile
+              if: "$get(postList_featuredEnable).value === true"
+              preserve: true
+              value: true
+              label: 右侧文章卡片移动端显示
+              help: "右侧卡（热门/最近文章）在移动端（<768px）是否显示；关闭后移动端只保留系列条与列表。缺省视为开启"
+            - $formkit: switch
               name: featuredRandom
               id: postList_featuredRandom
               key: postList_featuredRandom
@@ -234,6 +243,15 @@ spec:
               label: 显示「随机一篇文章」卡片
               value: true
               help: "关闭后只显示右侧那张文章卡（占满整行）"
+            - $formkit: switch
+              name: featuredRandomMobile
+              id: postList_featuredRandomMobile
+              key: postList_featuredRandomMobile
+              if: "$get(postList_featuredRandom).value === true"
+              preserve: true
+              value: true
+              label: 「随机一篇文章」移动端显示
+              help: "关闭后移动端（<768px）不显示左侧随机卡；桌面端不受影响。缺省视为开启（缺字段的旧配置无需重新保存即生效）"
             - $formkit: switch
               name: seriesEnable
               id: postList_seriesEnable
@@ -252,6 +270,15 @@ spec:
               value: 4
               validation: "min:1|max:24"
               help: "最多显示几个系列（按各系列最近更新时间倒序取），每个系列对应顶部一个切换按钮；每个系列的文章在同一排内横向滚动查看。上限 24"
+            - $formkit: switch
+              name: seriesMobile
+              id: postList_seriesMobile
+              key: postList_seriesMobile
+              if: "$get(postList_seriesEnable).value === true"
+              preserve: true
+              value: true
+              label: 「系列」卡片条移动端显示
+              help: "系列卡片条在移动端（<768px）是否显示；关闭后移动端首页不出现系列条。缺省视为开启"
             - $formkit: select
               name: coverPosition
               id: postList_coverPosition
@@ -1551,6 +1578,8 @@ spec:
                       value: schedule
                     - label: Steam 游戏状态
                       value: steam
+                    - label: 最近评论
+                      value: recent-comments
                     - label: 自定义HTML
                       value: html
                 - $formkit: checkbox

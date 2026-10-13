@@ -73,8 +73,13 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   th:with="
     fcItems=${posts.items},
     fcSource=${theme.config?.layout?.postList?.featuredSource ?: 'recent'},
-    fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom}"
-  th:classappend="${fcRandom ? '' : ' no-random'}"
+    fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom},
+    /* 移动端显示开关（v1.7.37，缺省视为开启）：关闭即 <768px 隐藏对应卡片。
+       移动端两卡本就上下堆叠、各占整行 ⇒ CSS 隐藏一张后另一张天然占满，无需改列宽。
+       两张都关时整行隐藏（.fc-hide-random-mobile.fc-hide-post-mobile）。 */
+    fcHideRandomMobile=${theme.config?.layout?.postList?.featuredRandomMobile == false},
+    fcHidePostMobile=${theme.config?.layout?.postList?.featuredPostMobile == false}"
+  th:classappend="${(fcRandom ? '' : ' no-random') + (fcHideRandomMobile ? ' fc-hide-random-mobile' : '') + (fcHidePostMobile ? ' fc-hide-post-mobile' : '')}"
   th:attr="
     data-source=${fcSource},
     data-img-provider=${theme.config?.performance?.imageProcessing?.provider ?: 'none'},
@@ -1126,6 +1131,17 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
 
   /* ---------- 移动端：左右两卡上下堆叠，右卡改成上图下文 ---------- */
   @media (max-width: 767.98px) {
+    /* 移动端显示开关（v1.7.37）：关闭后在 <768px 隐藏对应卡片；
+       两卡都关时整行一起隐藏（不留空行/空动画）。桌面端完全不受影响。 */
+    .featured-row.fc-hide-random-mobile .featured-card--random {
+      display: none;
+    }
+    .featured-row.fc-hide-post-mobile .featured-card--post {
+      display: none;
+    }
+    .featured-row.fc-hide-random-mobile.fc-hide-post-mobile {
+      display: none;
+    }
     .featured-row,
     .featured-row.no-random {
       grid-template-columns: minmax(0, 1fr);
