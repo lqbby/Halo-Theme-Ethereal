@@ -152,7 +152,7 @@ spec:
               step: 0.05
               value: 0.8
               validation: "min:0.3|max:1"
-              help: "壁纸整体不透明度（0.3~1，默认 0.8），调低后露出页面底色。⚠️ 1.5.66 起「全屏透明」模式不再铺整屏壁纸，本项暂不生效（设置与值都保留，恢复壁纸时自动续用；恢复方法见主题包 components.css 里该模式的块注释）"
+              help: "壁纸整体不透明度（0.3~1，默认 0.8），调低后露出页面底色。⚠️ 仅「全屏透明」模式生效（v1.7.43 起该模式恢复铺整屏壁纸，本项重新生效）；「横幅/全屏」的横幅壁纸不受本项影响"
             - $formkit: number
               name: wallpaperBlur
               id: banner_transparent_wallpaperBlur
@@ -164,7 +164,7 @@ spec:
               step: 1
               value: 10
               validation: "min:0|max:24"
-              help: "壁纸背景模糊强度（0~24 px，默认 10），值越大越柔和；导航栏与悬浮按钮糊到的内容随之改变。⚠️ 1.5.66 起「全屏透明」模式不再铺整屏壁纸，本项暂不生效（设置与值都保留，恢复壁纸时自动续用）"
+              help: "壁纸背景模糊强度（0~24 px，默认 10），值越大越柔和；导航栏与悬浮按钮糊到的内容随之改变。⚠️ 生效范围：「全屏透明」模式的整屏壁纸，以及「全屏 + hero 布局」的滚动模糊（0→本值）；「横幅」模式的横幅壁纸不模糊，故该项不生效"
             - $formkit: number
               name: cardOpacity
               id: banner_transparent_cardOpacity

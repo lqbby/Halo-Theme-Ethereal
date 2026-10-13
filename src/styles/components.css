@@ -143,8 +143,9 @@
           都是平面底 ⇒ 混合模式实测与固定色视觉等同（|ΔL| 均值：亮 22.4 vs 21.4、
           暗 60.4 vs 58.2），只剩一层全屏混合合成开销，故退回固定色。
 
-      🔴🔴 生效范围（1.5.66）：只在「关闭/纯色」(disabled) 与「全屏透明」(transparent)
-      两种 Banner 布局下铺。横幅/全屏模式顶部有整幅壁纸横幅，底纹与之交界显脏 ⇒ 不显示。
+      🔴🔴 生效范围（v1.7.43）：只在「关闭/纯色」(disabled) 一种 Banner 布局下铺。
+      横幅/全屏/全屏透明三种模式都铺壁纸（透明模式自 v1.7.43 恢复），底纹与壁纸
+      交界显脏 ⇒ 一律不显示。
       模式一律读 <html data-banner-display>（服务端 th:data-banner-display 渲染，访客
       切换模式时由 JS 改写），与主题其余模式分支同源，不用 body class。 */
   @media (min-width: 768px) {
@@ -176,22 +177,18 @@
       background-color: #889aae;
     }
 
-    /* 两个生效模式：清掉 body 自身底色（要点 3），并把浓度拉到目标值。
-       ⚠️ 两模式**浓度一致** —— 1.5.66 早期曾在透明模式下再乘 0.6「折减」，那是为
-       照片壁纸调淡用的；壁纸去掉后两模式同为平面底，再折减只会让切模式时深浅一跳。 */
-    :root.mods-page-pattern[data-banner-display="disabled"] body,
-    :root.mods-page-pattern[data-banner-display="transparent"] body {
+    /* 唯一生效模式：关闭/纯色（清掉 body 自身底色，见要点 3，并把浓度拉到目标值）。
+       ⚠️ v1.7.43 起 transparent 移出本组：该模式恢复铺整屏壁纸后，底纹与壁纸交界
+       会显脏（与横幅/全屏同样的理由），故回到「壁纸处不铺底纹」。 */
+    :root.mods-page-pattern[data-banner-display="disabled"] body {
       background-color: transparent;
     }
 
-    :root.mods-page-pattern[data-banner-display="disabled"] body::before,
-    :root.mods-page-pattern[data-banner-display="transparent"] body::before {
+    :root.mods-page-pattern[data-banner-display="disabled"] body::before {
       opacity: calc(var(--page-pattern-strength, 0.42) * 0.38);
     }
 
-    :root.dark.mods-page-pattern[data-banner-display="disabled"] body::before,
-    :root.dark.mods-page-pattern[data-banner-display="transparent"]
-      body::before {
+    :root.dark.mods-page-pattern[data-banner-display="disabled"] body::before {
       opacity: var(--page-pattern-strength, 0.42);
     }
   }
@@ -904,8 +901,9 @@
   /* ── 全屏透明模式（displayMode == 'transparent'）──
      布局等同「关闭」（无 enable-banner：内容区贴顶、无波浪/横幅文字）。
 
-     🔴🔴 1.5.66 起：本模式**不再铺整屏壁纸**（页面底纹成为这一模式的页面背景，
-     壁纸压在上面只会互相打架）。做法是几何全留着、只把不透明度压成 0：
+     🔴🔴 v1.7.43：本模式**恢复铺整屏壁纸**（1.5.66–1.7.42 曾压成 opacity: 0，
+     导致「壁纸透明度 / 背景模糊度」空转、整页发白）。几何一直是全留着的，恢复
+     只是把不透明度写回 --transparent-wallpaper-opacity：
        · 保留 position/inset/height/z-index ⇒ 从「透明」切到「横幅/全屏」时媒体层仍
          从正确的几何位置出发，配合 html.banner-mode-transitioning 的位移动画不跳；
        · ⚠️ **不要改成 `display:none`** —— display 不可过渡，会让切模式时壁纸「啪」
@@ -913,18 +911,23 @@
        · 「高级材质」（navbar-blur-enabled）那套仍然有效：卡片改走
          --transparent-card-alpha 的半透明底，只是底下从「模糊壁纸」换成了
          「页面底色 + 页面底纹」⇒ 线条会透过卡片隐约可见（约卡片外的 4 成）。
-     🔴 想恢复整屏壁纸：把下面那行 `opacity: 0` 换回
-        `opacity: var(--transparent-wallpaper-opacity, 0.8)` 即可，其余一行都不用动。
-     ⚠️ 连带后果：后台「壁纸透明度」「背景模糊度」两项随之空转（help 已注明），
-        「卡片透明度」不受影响。 */
+     🔴 反向操作（想重新停用壁纸）：把下面那行 `opacity: var(--transparent-wallpaper-opacity, 0.8)`
+        换回 `opacity: 0`，并把页面底纹的生效模式加回 transparent。
+     ⭐ 副产品：恢复壁纸后「壁纸透明度」「背景模糊度」两项重新生效；
+        「卡片透明度」始终只在本模式 +「高级材质」下生效。 */
   html[data-banner-display="transparent"] #banner-wrapper {
     position: fixed !important;
     inset: 0 !important;
     height: 100vh !important;
     height: 100lvh !important;
     z-index: 0 !important;
-    /* 1.5.66：整屏壁纸停用；恢复方法见上方块注释 */
-    opacity: 0 !important;
+    /* v1.7.43 起**恢复整屏壁纸**（1.5.66–1.7.42 期间曾压成 opacity: 0）。
+       原因：本模式的定位就是「整屏壁纸作页面背景 + 卡片半透明磨砂透出壁纸」，
+       压掉壁纸会让「壁纸透明度 / 背景模糊度」两个参数全场景空转、整页发白
+       （用户实报「透明显示不正常」）。
+       ⚠️ 想重新停用：把本行换回 `opacity: 0 !important;`，并把页面底纹的生效模式
+       加回 transparent（见上方底纹「生效范围」注释）。 */
+    opacity: var(--transparent-wallpaper-opacity, 0.8) !important;
   }
 
   html[data-banner-display="transparent"] #banner,
