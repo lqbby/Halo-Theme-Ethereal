@@ -9,6 +9,7 @@ import swup from "@swup/astro";
 import { stripHtmlCommentsInDir } from "./scripts/strip-html-comments.mjs";
 import { minifyInlineScriptsInDir } from "./scripts/minify-inline-scripts.mjs";
 import { ensureIconMaskPrefixInDir } from "./scripts/ensure-icon-mask-prefix.mjs";
+import { ensureBackdropFilterPairInDir } from "./scripts/ensure-backdrop-filter-pair.mjs";
 import {
   compileAssets,
   copyVendorAssets,
@@ -51,6 +52,15 @@ const stripHtmlComments = {
 // （缺前缀会让 Chromium<120 —— OPPO/一加 HeyTap、老微信内置内核等 —— 把图标按遮罩
 //  固有尺寸左上贴合绘制再被方框裁掉，表现为图标显示不全；详见脚本内注释与 issue #83）
 /** @type {import("astro").AstroIntegration} */
+const ensureBackdropFilterPair = {
+  name: "ensure-backdrop-filter-pair",
+  hooks: {
+    "astro:build:done": async ({ dir }) => {
+      await ensureBackdropFilterPairInDir(fileURLToPath(dir));
+    },
+  },
+};
+
 const ensureIconMaskPrefix = {
   name: "ensure-icon-mask-prefix",
   hooks: {
@@ -105,6 +115,7 @@ export default defineConfig({
     stripHtmlComments,
     buildAssets,
     ensureIconMaskPrefix,
+    ensureBackdropFilterPair,
     swup({
       theme: false,
       animationClass: "transition-swup-", // see https://swup.js.org/options/#animationselector

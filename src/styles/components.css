@@ -1854,8 +1854,8 @@ body.pswp-transition #photo-detail-image {
   align-items: center;
   justify-content: center;
   background: color-mix(in oklab, var(--page-bg) 72%, transparent);
-  backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  backdrop-filter: blur(8px) saturate(1.1);
   opacity: 0;
   transition: opacity 0.35s ease;
 }
@@ -3018,8 +3018,8 @@ body.banner-title-disabled #banner-links,
   background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
   transition:
     background-color 0.25s ease,
     color 0.25s ease,

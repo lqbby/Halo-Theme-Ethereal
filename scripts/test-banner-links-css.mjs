@@ -12,6 +12,7 @@
 //   C3 .banner-link svg 固定 1.25rem + fill:currentColor
 //   C4 .banner-link-text 胶囊（width:auto / padding 0 1rem / gap 0.5rem / 0.9rem）
 //   C5 banner-title-enter 入场含 #banner-links（210ms 档，容器/胶囊同步）
+//   C7 磨砂前缀成对：源码「前缀在前、标准在后」+ 构建期守卫兜底（Chromium 只认无前缀）
 //   C6 磨砂安全：容器不得 animate opacity（祖先 Backdrop Root 会让磨砂迟到），
 //      位移与淡入拆开（banner-links-rise 仅 translate / banner-link-fade 仅 opacity）
 import { readFileSync } from "node:fs";
@@ -119,6 +120,50 @@ check(
       /@keyframes banner-link-fade \{[^@]*?opacity: 0;[^@]*?opacity: 1;[^@]*?\}/.test(
         tr,
       ),
+    true,
+  );
+}
+
+// C7 磨砂前缀成对（v1.7.42）：lightningcss 会把「标准在前、前缀在后」的重复声明去重成前缀版，
+// 而 Chromium 只认无前缀 ⇒ Chrome/Edge/Android 磨砂失效。源码必须「前缀在前、标准在后」，
+// 并挂构建期守卫 ensure-backdrop-filter-pair 兜底。
+{
+  const flatAll = css.replace(/\s+/g, " ").replace(/;/g, "; ");
+  const base = [...flatAll.matchAll(/\.banner-link \{([^}]*)\}/g)].find((m) =>
+    m[1].includes("2.75rem"),
+  );
+  check(
+    "C7a .banner-link 源码里 -webkit-backdrop-filter 在 backdrop-filter 之前",
+    !!base &&
+      /-webkit-backdrop-filter: blur\(8px\);\s*backdrop-filter: blur\(8px\)/.test(
+        base[1],
+      ),
+    true,
+  );
+  const cfg = readFileSync(join(ROOT, "astro.config.mjs"), "utf8");
+  check(
+    "C7b 构建期守卫 ensure-backdrop-filter-pair 已挂 astro:build:done",
+    /ensureBackdropFilterPairInDir/.test(cfg) &&
+      /ensureBackdropFilterPair,/.test(cfg),
+    true,
+  );
+  const { patchBackdropFilterPairs } =
+    await import("../scripts/ensure-backdrop-filter-pair.mjs");
+  const r1 = patchBackdropFilterPairs(
+    ".x{color:red;-webkit-backdrop-filter:blur(8px);background:#fff}",
+  );
+  const r2 = patchBackdropFilterPairs(
+    ".y{color:red;backdrop-filter:blur(8px);background:#fff}",
+  );
+  check(
+    "C7c 守卫双向补齐（缺标准版补标准版 / 缺 -webkit- 补 -webkit-；已成对不动）",
+    r1.patched === 1 &&
+      /[^-]backdrop-filter:blur\(8px\)/.test(r1.content) &&
+      r2.patched === 1 &&
+      /-webkit-backdrop-filter:blur\(8px\)/.test(r2.content) &&
+      patchBackdropFilterPairs(
+        ".z{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}",
+      ).patched === 0,
     true,
   );
 }
