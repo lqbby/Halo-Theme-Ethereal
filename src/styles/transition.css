@@ -42,6 +42,31 @@ html.swup-visited .bangumi-page.onload-animation {
   translate: none !important;
 }
 
+/* Banner 链接胶囊入场（v1.7.41）：位移与淡入**必须拆开**——
+   容器只做 translate、淡入落在每个胶囊自己身上。原因是 backdrop-filter 的
+   Backdrop Root 规则：祖先 opacity<1 会形成 Backdrop Root，胶囊的磨砂就采样
+   不到壁纸，表现为「磨砂迟到、动画结束才出现」；元素**自身** opacity<1 不经
+   祖先、不影响自己的 backdrop-filter（同 .floating-btn / .toc-popup-card）。 */
+@keyframes banner-links-rise {
+  0% {
+    translate: 0 2rem;
+  }
+
+  100% {
+    translate: 0 0;
+  }
+}
+
+@keyframes banner-link-fade {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
 @keyframes fade-in-up {
   0% {
     translate: 0 2rem;

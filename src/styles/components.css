@@ -840,12 +840,26 @@
 
   /* 壁纸标题开关重新开启时的入场动画（fade-in-up，与首载一致） */
   .banner-title-enter #banner-title,
-  .banner-title-enter #banner-subtitle-wrapper,
-  .banner-title-enter #banner-links {
+  .banner-title-enter #banner-subtitle-wrapper {
     animation-name: fade-in-up;
     animation-duration: var(--dur-entry, 300ms);
     animation-timing-function: ease;
     animation-fill-mode: forwards;
+  }
+  /* 链接行：容器**只做位移**，淡入交给每个胶囊自己（见 transition.css 的
+     banner-links-rise 注释）。若给本容器 animate opacity，祖先 Backdrop Root 会
+     让胶囊的 backdrop-filter 采样不到壁纸 ⇒ 磨砂迟到到动画结束才出现（用户报）。 */
+  .banner-title-enter #banner-links {
+    animation-name: banner-links-rise;
+    animation-duration: var(--dur-entry, 300ms);
+    animation-timing-function: ease;
+    animation-fill-mode: both;
+  }
+  .banner-title-enter #banner-links > .banner-link {
+    animation-name: banner-link-fade;
+    animation-duration: var(--dur-entry, 300ms);
+    animation-timing-function: ease;
+    animation-fill-mode: backwards;
   }
   .banner-title-enter #banner-title {
     animation-delay: min(50ms, var(--dur-entry-max, 400ms));
@@ -853,7 +867,8 @@
   .banner-title-enter #banner-subtitle-wrapper {
     animation-delay: min(130ms, var(--dur-entry-max, 400ms));
   }
-  .banner-title-enter #banner-links {
+  .banner-title-enter #banner-links,
+  .banner-title-enter #banner-links > .banner-link {
     animation-delay: min(210ms, var(--dur-entry-max, 400ms));
   }
 
