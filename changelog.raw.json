@@ -9,6 +9,947 @@
   "days": {
     "items": [
       {
+        "date": "2026.10.13",
+        "version": "v1.7.43",
+        "title": "恢复「全屏透明」模式的整屏壁纸",
+        "summary": "起壁纸层被压成 opacity:0，导致「壁纸透明度/背景模糊度」两参数全场景空转、整页发白（用户实报「透明参数异常」）；改回 var(--transparent-wallpaper-opacity, 0.8)，并把页面底纹从该模式移出（回到「壁纸处不铺底纹」）；两处 help 同步生效范围；桩测…",
+        "tags": "主题\n透明模式\n修复"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.42",
+        "title": "backdrop-filter 前缀成对守卫",
+        "summary": "压缩链把「标准在前、前缀在后」的去重成前缀版 ⇒ Chromium 上 .banner-link/.random-fish-overlay 磨砂直接失效；源码统一「前缀在前」，并新增 ensure-backdrop-filter-pair 构建期双向补齐（本次全站补 63 条/7 文件）；桩测 +C…",
+        "tags": "主题\n构建\n修复"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.41",
+        "title": "链接胶囊磨砂迟到",
+        "summary": "入场动画原为容器 fade-in-up（含 opacity），祖先 opacity<1 形成 Backdrop Root 使 backdrop-filter 采样不到壁纸 ⇒ 磨砂到动画结束才出现；改为容器只做位移（banner-links-rise）、淡入下沉到胶囊自身（banner-link-f…",
+        "tags": "主题\nBanner\n修复"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.40",
+        "title": "三模块「全局+移动端」合并为四选一下拉",
+        "summary": "系列条/随机卡/右侧文章卡各一个「显示范围」（桌面+移动端 / 仅桌面端 / 仅移动端 / 关闭），写法对齐既有三选开关范式；读取端保留旧开关兜底 + 新增 ≥768px 隐藏与双关整行隐藏；桩测更新",
+        "tags": "主题\n设置\n功能"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.39",
+        "title": "整理后台「文章卡片布局」设置",
+        "summary": "① 重排为「布局/外观 → 顶部精选卡片 → 系列卡片条」三段（name 路径不变，不动已存配置）；② 与卡片布局无关的「瞬间条」两个字段移出为独立分组 layout.homeMoments（读取点保留旧路径兜底）；桩测 test-settings-tidy",
+        "tags": "主题\n设置\n重构"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.38",
+        "title": "移除 th:with 内的 C 风格注释（v1.7.38，修 1.7.37 首页截断）",
+        "summary": "Thymeleaf assignation sequence 解析器遇非 name=expr 片段直接抛 TemplateProcessingException（表现为响应流截断/页面转圈）；说明移出属性值、并新增 P5 永久守卫（th:* 属性值内禁写注释）",
+        "tags": "主题\n首页\n修复"
+      },
+      {
+        "date": "2026.10.13",
+        "version": "v1.7.37",
+        "title": "首页三模块移动端显示开关 + 移动端小组件补「最近评论」",
+        "summary": "① 系列卡片条/随机一篇卡/右侧文章卡各加「移动端显示」开关（缺省开启，<768px 隐藏，两卡都关时整行隐藏）；② 移动端小组件选项补 recent-comments（右栏有、移动端缺）；桩测 test-mobile-modules",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.10.12",
+        "version": "v1.7.36",
+        "title": "上游对齐三项",
+        "summary": "① 移动端列表 FormKit key 改 mobile_widget_*（原与左栏同名，preserve 下互相覆盖丢设置）+ select id 去重；② 三条列表补 itemLabels；③ MusicPlayer 弃 astro-icon <Icon>（sprite 仅首次使用处输出 sym…",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.10.12",
+        "version": "v1.7.35",
+        "title": "移动端侧栏默认直出个人简介/公告",
+        "summary": "它们不是小部件列表项、而是侧栏按各自设置直出的定位卡；移动侧栏替代两栏后只渲染 mobileWidgets ⇒ 个人简介整块消失（用户报「应该是默认就有的」）。现按同语义在首位渲染，带「列表已含同名条目则跳过」去重守卫",
+        "tags": "主题\n侧栏\n修复"
+      },
+      {
+        "date": "2026.10.12",
+        "version": "v1.7.34",
+        "title": "改为「移动端整块不显示」（v1.7.34，修正 1.7.33 的折叠方案）",
+        "summary": "用户要的是移动端页脚没有任何友链相关内容：设置改名 mobile_hidden（缺省视为开启），<768px 整块 display:none（标题/数量/申请按钮/列表全不出现）；移除折叠按钮与脚本、清 i18n 死词条；桩测改判据 G1~G5",
+        "tags": "主题\n页脚\n修复"
+      },
+      {
+        "date": "2026.10.12",
+        "version": "v1.7.33",
+        "title": "页脚友链移动端默认折叠",
+        "summary": "新增设置「移动端默认折叠」（缺省视为开启）：<768px 胶囊列表收起、标题行箭头展开/收起（事件委托+closest 实例作用域、单例守卫）；桌面端零影响；i18n 三语补词条；桩测 test-footer-friends-mobile",
+        "tags": "主题\n页脚\n功能"
+      },
+      {
+        "date": "2026.10.12",
+        "version": "v1.7.32",
+        "title": "小组件实例作用域",
+        "summary": "修复「移动端小组件配置后显示不正常」：6 组件原用 getElementById(固定 id)+__themeLazyInit(字符串键)，同组件配在桌面与移动端列表时永远命中隐藏的桌面实例（IO 不触发 → 永远「加载中」）；改用 currentScript 取本实例容器再查元素；懒加载批处理补「…",
+        "tags": "主题\n小组件\n修复"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.31",
+        "title": "瞬间条补入刷新隐藏门",
+        "summary": "#home-moments-wrap 在 #main-grid 之上属门外漏网（实测 y=0 时位于首屏 527px）；因其带通用 transition(含 opacity) 改用 visibility 隐藏；桩测 R4c",
+        "tags": "主题\n刷新\n修复"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.30",
+        "title": "修复底部刷新「首帧画顶部」闪现",
+        "summary": "浏览器原生滚动恢复晚于首帧（实测 ~200ms），Banner 胶囊闪出；改为「先藏、就位、再显」：内联恢复脚本（双外壳一致+双保险守卫）+ app.ts 位置记录器（sessionStorage 限频）+ CSS 隐藏门；正向/负向双验证通过",
+        "tags": "主题\n刷新\n修复"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.29",
+        "title": "全档位系统优化",
+        "summary": "① reduce-motion 全局阻尼（9 核心变量 1ms + !important 压内联）② 自定义档新增「主题切换」字段（--theme-switch-base → theme-transition 比例缩放）③ 文案/帮助同步；桩测 +T5/T6",
+        "tags": "主题\n动效\n功能"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.28",
+        "title": "动画速度档位补全主题切换覆盖",
+        "summary": "SPEED_TIER_DURATION 补 relaxed/optimal 两表（此前仅 snappy，与档位语义不符）；新增 test-speed-tiers 桩测锁死三处同步（speed.css≡speed-style≡settings.yaml）+ 逐曲线单调关系",
+        "tags": "主题\n动效\n功能"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.27",
+        "title": "换页复位收敛为单档原生平滑",
+        "summary": "用户否决瞬时档（实机遮蔽不可靠：换页冻结把双 rAF 复位推迟到淡入结束之后，出现整页刷新感）+ 锁步档一并退役；主流调研：主流框架为瞬时+过渡遮蔽，用户不要瞬时则平台原生 smooth 为正统单档",
+        "tags": "主题\n换页\n重构"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.26",
+        "title": "2.0 式距离分档换页",
+        "summary": "长距(>1.5屏)/reduce 瞬时（藏淡入窗口）+ 短距 is-home 场景锁步（follow 模式无反向段）+ 短距其它原生平滑；锁步能力重新接线；瞬时档挂落点兜底",
+        "tags": "主题\n换页\n功能"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.25",
+        "title": "补齐 Banner 链接胶囊缺失规则",
+        "summary": "banner-link-text/hover/active/svg 尺寸+banner-title-enter #banner-links 自上游 v2.0.0 移植；修复填名称条目挤在 44px 圆钮内重叠溢出的显示错误",
+        "tags": "主题\nBanner\n修复"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.24",
+        "title": "换页重执行豁免名单",
+        "summary": "navbar/sakura/banner-carousel/banner-media/banner-theme-switch/random-fish + 2 内联（整段守卫=重跑空转）加 data-swup-ignore-script；导航矩阵 5 路径零错误；附判定规则与对照桩测",
+        "tags": "主题\n换页\n性能"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.23",
+        "title": "换页冻结减负",
+        "summary": "themeLazyInit 批量测量（7 次级联强制布局→1 次）+ i18n/lazyInit 定义脚本 data-swup-ignore-script 豁免重执行克隆；CDP Profiler 归因实证",
+        "tags": "主题\n换页\n性能"
+      },
+      {
+        "date": "2026.10.11",
+        "version": "v1.7.22",
+        "title": "换页复位全设备统一 1.5.65 原生平滑",
+        "summary": "锁步/揭示门控/距离门控/落点兜底/撑高展示全部退役，content:scroll 双 rAF 原生 smooth（reduce→auto）；附带 tree-shake 减重 ~5KB",
+        "tags": "主题\n换页\n重构"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.21",
+        "title": "移动端换页复刻 1.5.65 原生平滑滚动",
+        "summary": "粗指针设备走原生 smooth 回顶（合成器驱动），不门控/不推迟翻转/不挂兜底/不放撑高；桌面保留揭示门控",
+        "tags": "主题\n移动端\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.20",
+        "title": "换页改揭示门控",
+        "summary": "JS 逐帧扫动退役，新内容挂 nav-resetting 保持不可见，瞬时归顶+is-home 翻转藏在不可见窗口后揭示；可见运动只剩合成器驱动的淡入与横幅滑动（弱 GPU 不掉帧），根治「一卡一卡」并消除瞬时路径裸跳",
+        "tags": "主题\n滚动\n功能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.19",
+        "title": "换页回顶跟随 is-home 位移实时进度",
+        "summary": "根治首页↔文章换页上下抖动：is-home 翻转推迟到锁步同帧 + 滚动按 translate 实测进度随行，反向段 25px→2px（取整容差）",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.18",
+        "title": "锁步回顶取消 1.5 屏瞬时截断",
+        "summary": "窄屏页底点卡片不再一帧裸跳数千 px，任意距离统一 700ms 锁步动画；落点兜底 instantPath 判据改为「复位是否瞬时完成」",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.17",
+        "title": "自动诊断探针",
+        "summary": "真机「拽走」零操作现场回传",
+        "tags": "主题\n诊断\n功能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.16",
+        "title": "换页落点兜底即时化",
+        "summary": "瞬时路径挂 scroll 事件即时纠正，把「先拉扯一会儿」压到一帧级",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.15",
+        "title": "换页落点兜底",
+        "summary": "复位后被外部写者拽走时有限次复核归位",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.14",
+        "title": "修「点底部文章/最近评论落在页底」",
+        "summary": "裸 #comment 换页路径禁用长距 smooth（Safari/WKWebView 下 scroll anchoring 过冲页底后 smooth 被取消/丢失，视口留在页底），改「瞬时贴靠 + settleAndScrollOnce 精落位」（WebKit 实测 9458→6349、评论区顶边…",
+        "tags": "主题\n评论\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.13",
+        "title": "补瞬间条 translate 基值",
+        "summary": "与网格/banner 同列显式 translate: 0 0 + 首帧 page-ready 门，修换页时瞬间条与分类栏滑动失步（非首页侧 none↔长度不可插值，WebKit 上离散跳变：线上「瞬间条从菜单栏下面钻出来」），附基值守卫桩测 v1.7.13",
+        "tags": "主题\n瞬间条\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.12",
+        "title": "修「换页落在文章页最底」真凶",
+        "summary": "OverlayScrollbars 挂载恢复与回顶复位竞态（CDP 实证 60ms 后写回旧位置）：挂载推迟含换页窗口 + 捕获/恢复纪元守卫，附回归桩测 v1.7.12",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.11",
+        "title": "补移植上游 b7e94d7 的另一半",
+        "summary": "换页撑高生命周期（深层换页防钳制：is-home 变化+非顶部时显示 300vh、回顶后收起），修移动端偶尔「首页底部点文章→落在文章页最底」v1.7.11",
+        "tags": "主题\n滚动\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.10",
+        "title": "移植 up2 走马灯出场兜底三连",
+        "summary": "fonts.ready 硬超时/三路排程+有限重试（f625870）+ 减少动态偏好可手动横滚（d97601d/6f11929）与免克隆分支 v1.7.10",
+        "tags": "主题\n瞬间条\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.9",
+        "title": "侧栏评论跳转套用移植手法",
+        "summary": "comment-locate 落位滚动接距离门控（第三处 __smartScrollTo，瞬时分支 rAF 即高亮）+ flashWhenSettled 滚动监听 rAF 合并，桩测扩三实现 v1.7.9",
+        "tags": "主题\n评论\n性能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.8",
+        "title": "移植完整性审计收尾",
+        "summary": "补 wishes 筛选重播三趟批量回流（C2 漏项 A4②）+ 补回 bangumi-page 动画抑制钩子 + 清死代码（bangumi.css 整文件/24 词条/friends-source-link/孤儿注释）v1.7.8",
+        "tags": "主题\n审计\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.7",
+        "title": "包C4",
+        "summary": "补齐 .round-triangle/–svg 圆角三角定义（修友链页折叠指示器看不见）+ 打字机光标改 CSS 动画 v1.7.7",
+        "tags": "主题\n样式\n修复"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.6",
+        "title": "包D2 收尾",
+        "summary": "wishes 拖拽 rAF 合并 + 7 处常挂 will-change 清理 + 剩余 transition:all 六处收窄 v1.7.6",
+        "tags": "主题\n性能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.5",
+        "title": "包D1 魔改侧反查",
+        "summary": "画廊信息面板补 passive + seg 指示器 resize 改 rAF 合并（3 处）v1.7.5",
+        "tags": "主题\n性能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.4",
+        "title": "包C2 重排与监听",
+        "summary": "Masonry 三趟+rAF 合并 / 四处批量回流 / passive·条件 will-change·observer 收窄 / 清孤儿测试 v1.7.4",
+        "tags": "主题\n性能"
+      },
+      {
+        "date": "2026.10.10",
+        "version": "v1.7.3",
+        "title": "包C1 滚动门控",
+        "summary": "smartScrollTo 距离门控统一范式（含目录锚点接管/关 Swup 插值）+ 锁步大位移短路 + OverlayScrollbars 滚动期守卫，附同步桩测 v1.7.3",
+        "tags": "主题\n滚动\n性能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.7.2",
+        "title": "亮色刷新闪暗色壁纸",
+        "summary": "解析期主题对齐（亮色移除暗色 source）+ 揭示就绪判定推迟一任务，附回归桩测 v1.7.2",
+        "tags": "主题\nBanner\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.7.1",
+        "title": "包B 完成",
+        "summary": "图片分档 srcset 阶梯（全图床适配 + 查询串剥离）+ 首屏揭示改内联（等首帧，不等主 bundle）v1.7.1",
+        "tags": "主题\nBanner\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.7.0",
+        "title": "包A 完成",
+        "summary": "Banner 链接图标行 + 字号首帧定档（CSS 变量+媒体查询，删运行期写字号）v1.7.0",
+        "tags": "主题\nBanner\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.9",
+        "title": "移植上游「锁步回顶」（rAF 逐帧插值 + JS 贝塞尔，与 is-home 位移同曲线同时长）",
+        "summary": "包3 完工 v1.6.9",
+        "tags": "主题\n滚动\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.8",
+        "title": "补写守卫",
+        "summary": "值未变时跳过 setProperty（修移动端地址栏滑动时壁纸抽搐）v1.6.8",
+        "tags": "主题\nBanner\n性能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.7",
+        "title": "访客面板控件区（全屏布局选择 + 沉浸下露出壁纸参数 + 三语词条）",
+        "summary": "包1 完工 v1.6.7",
+        "tags": "主题\n全屏布局\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.6",
+        "title": "访客面板机制（载体属性 + visitorFullscreenLayout 开关 + 首帧覆盖 + Fu…",
+        "tags": "主题\n全屏布局\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.5",
+        "title": "按门控令牌全量选规则（23 条 317 行）",
+        "summary": "补回被漏掉的 hero 核心规则（钉住视口等）v1.6.5",
+        "tags": "主题\n全屏布局\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.4",
+        "title": "重做 hero CSS 段（按选择器指纹+括号配对整条提取，13 条核心规则 99 行）",
+        "tags": "主题\n全屏布局\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.3",
+        "title": "修材质规则被写坏（块8 替换把新增行插进 rgb() 内）+ 重做4处安全修改",
+        "tags": "主题\n材质\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.2",
+        "title": "撤掉 hero/导航栏 CSS 段",
+        "summary": "修「顶部菜单变透明」（提取缺陷致选择器被切断、声明错挂 <html>）v1.6.2",
+        "tags": "主题\n全屏布局\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.1",
+        "title": "包1-步骤4 套用上游改既有规则的 6 块（波浪透明度隐去 / 磨砂去 brightness / 壁纸过…",
+        "tags": "主题\n全屏布局\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.6.0",
+        "title": "包1-步骤3 沉浸 hero + 导航栏玻璃 CSS 段（249 行）+ 变量（10 行）",
+        "tags": "主题\n全屏布局\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.99",
+        "title": "作品集两维筛选池改胶囊池（内联滑块 + 筛选脚本补 seg-active/refresh）",
+        "summary": "胶囊池全站统一 v1.5.99",
+        "tags": "主题\n胶囊池\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.98",
+        "title": "修归档滑块不动",
+        "summary": "PJAX 后切 seg-active 并调 __etherealFilterSeg.refresh() 重定位浮块 v1.5.98",
+        "tags": "主题\n归档\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.97",
+        "title": "归档页筛选胶囊改滑动胶囊池（保留未分类同轨道 + 本地列表 PJAX）",
+        "tags": "主题\n胶囊池\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.96",
+        "title": "挑移上游「图片扩展名白名单」（避免给 gif/svg 乱加 CDN 参数），保留本地阅读时长回填",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.95",
+        "title": "技能/时间轴/照片详情/瞬间详情 四页整页同步上游（+补 photo-exif 工具）",
+        "tags": "主题\n上游同步\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.94",
+        "title": "补漏移植的 .title-icon 样式 + 补 page.links.searchClear 三语词条…",
+        "tags": "主题\n审计\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.93",
+        "title": "补移植瞬间卡片样式段（.moment-card/.moment-action/水印）",
+        "summary": "修点赞/评论/更多无胶囊与小闪电异常 v1.5.93",
+        "tags": "主题\n瞬间\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.92",
+        "title": "撤销「图库」「瞬间」模板注册（二者是插件路由自带模板，注册反而会让人误绑到自定义页面）",
+        "tags": "主题\n回退"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.91",
+        "title": "注册「图库」「瞬间」自定义模板（此前未注册 ⇒ 后台选不到、页面落到默认单页模板）",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.90",
+        "title": "心愿墙+友情链接整页同步上游；PageHeader 补 HeaderStat.key/data-stat…",
+        "tags": "主题\n上游同步\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.89",
+        "title": "批B 装备/瞬间两页整页同步上游（+新增 MomentCard.astro / moment-copy.…",
+        "tags": "主题\n上游同步\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.88",
+        "title": "批A 三页整页同步上游（schedule-calendar / schedule-calendar-ca…",
+        "tags": "主题\n上游同步\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.87",
+        "title": "心愿墙筛选池改胶囊池（上移页头卡 + seg 标记 + 内联滑块 + 裁剪旧悬浮样式）",
+        "tags": "主题\n胶囊池\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.86",
+        "title": "图库补相册统计片+去 noSwup/清理；友情链接池换胶囊池并挂 filter-seg.js",
+        "tags": "主题\n胶囊池\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.85",
+        "title": "图库页改滑动胶囊池（池进页头卡 + filter-seg.js，弃就地筛选 region）",
+        "tags": "主题\n胶囊池\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.84",
+        "title": "categories/tags 适配仪表条（CATEGORIES 分类数+文章数 / TAGS 标签数）…",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.83",
+        "title": "去掉「已筛选」胶囊（组件+7 页）+ archives 适配仪表条（ARCHIVES 眉题+文章数）",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.82",
+        "title": "批3 收尾",
+        "summary": "页迁仪表条（reward/wishes/series/steam/statistics）+ 删孤儿脚本 bangumi-filter + 移除旧契约回退 + 清 16×3 废弃词条 v1.5.82",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.81",
+        "title": "批2 迁移 4 页到仪表条（portfolio/skills/timeline/schedule-cal…",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.80",
+        "title": "修整页 500",
+        "summary": "links 统计表达式补 ${} 包裹；links/equipments 的 stats 补 null 保护（旧版靠 th:if 短路）v1.5.80",
+        "tags": "主题\n友链\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.79",
+        "title": "4 页页头改独占 .page-head-card（水印定位/氛围渐变/内边距不再叠加）",
+        "summary": "修友情链接页异常 v1.5.79",
+        "tags": "主题\n页头\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.78",
+        "title": "追番+朋友圈整页照上游（朋友圈：上游时间轴+JS+CSS；追番：服务端分页+胶囊池，FilterTabs…",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.77",
+        "title": "批1-b 迁移 5 页到仪表条（moments/photos/links/bangumis/equipm…",
+        "tags": "主题\n页头\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.76",
+        "title": "补齐目录限额的 CSS 一半",
+        "summary": "撤服务端 index<2 裁剪（换页残留 bug）+ :has() 门控/限高/第3个起隐藏 + 左栏 showToc + toc.position 字段 v1.5.76",
+        "tags": "主题\n侧栏\n修复"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.75",
+        "title": "两栏「右栏模式」CSS + rightSidebarMode 字段",
+        "tags": "主题\n侧栏\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.74",
+        "title": "侧栏重构包1b",
+        "summary": "两栏改「不吸顶区+吸顶区」+片段化 + 移动端专用列表 v1.5.74",
+        "tags": "主题\n侧栏\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.73",
+        "title": "摘上游 v2.0.0 打赏页面模板（+打赏弹窗跳转按钮）",
+        "tags": "主题\n上游移植\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.72",
+        "title": "访客样式切换全量对齐上游标签页化（外观/壁纸/特效）+ 卡片悬浮改仅后台控制",
+        "tags": "主题\n上游移植\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.71",
+        "title": "摘上游 v2.0.0 樱花特效（后台默认值 + 访客面板开关，未跟标签页化）",
+        "tags": "主题\n上游移植\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.70",
+        "title": "摘上游",
+        "summary": "非主题页 Swup 豁免(#82) + 归档时间轴列宽对齐 v1.5.70",
+        "tags": "主题\n上游移植\n功能"
+      },
+      {
+        "date": "2026.10.09",
+        "version": "v1.5.69",
+        "title": "摘上游 v2.0.0 修复批",
+        "summary": "图标遮罩 -webkit- 兜底(#83) / 人机验证图标排除(#84) / 无障碍 aria+h2 v1.5.69",
+        "tags": "主题\n上游移植\n功能"
+      },
+      {
+        "date": "2026.10.08",
+        "version": "v1.5.68",
+        "title": "换页进评论区瞬时贴靠消过冲 + 落位漂移值守",
+        "tags": "主题\n评论\n修复"
+      },
+      {
+        "date": "2026.10.08",
+        "version": "v1.5.67",
+        "title": "侧栏最近评论同页直跳 + 修饰键放行 + 防连点",
+        "tags": "主题\n小组件\n功能"
+      },
+      {
+        "date": "2026.09.22",
+        "version": "v1.5.66",
+        "title": "底纹仅在「关闭/纯色」与「全屏透明」两模式生效 + 透明模式撤掉整屏壁纸",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.22",
+        "version": "v1.5.65",
+        "title": "新增整页底纹层（Telegram 风格线稿图案）",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.64",
+        "title": "标题字号随卡内容宽自适应",
+        "tags": "主题\n文章列表\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.63",
+        "title": "列表模式保留右栏 + 封面随卡宽缩 + eyebrow 恒单行",
+        "tags": "主题\n文章列表\n修复"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.62",
+        "title": "列表模式按参考稿重构",
+        "summary": "≥1280 侧封面行+收起右栏、<1280 封面在上 v1.5.62",
+        "tags": "主题\n文章列表\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.61",
+        "title": "列表模式封面满幅贴边",
+        "summary": "文本内距收窄、无封面按钮贴边 v1.5.61",
+        "tags": "主题\n文章卡片\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.60",
+        "title": "分类栏性能档",
+        "summary": "图层隔离、scaleX 滑块、移动/平板降档 v1.5.60",
+        "tags": "主题\n分类栏\n性能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.59",
+        "title": "分类栏改真玻璃外壳",
+        "summary": "磨砂挂栏自身、收紧内距圆角 v1.5.59",
+        "tags": "主题\n分类栏\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.58",
+        "title": "底栏跨卡换行修复",
+        "summary": "去字数、容器查询双档、3 标签+双 +N v1.5.58",
+        "tags": "主题\n文章卡片\n修复"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.57",
+        "title": "卡片重排",
+        "summary": "meta 提到标题上、标签+统计合并底栏、系列角标与阅读时长",
+        "tags": "主题\n文章卡片\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.56",
+        "title": "走马灯改服务端剥标签、Banner 加字体预设、气象卡补加载占位",
+        "tags": "主题\n瞬间\nBanner\n修复"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.55",
+        "title": "悬停面板「飞机 + 副文案」等比放大 1.5×，飞机改 45° 斜置",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.54",
+        "title": "「摇一篇」卡片加悬停态",
+        "summary": "整卡翻成主色面板、文案切成副文案 v1.5.54",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.21",
+        "version": "v1.5.53",
+        "title": "系列栏新增默认选中的「全部」标签，按发布时间倒序展示所有系列文章",
+        "tags": "主题\n系列条\n功能"
+      },
+      {
+        "date": "2026.09.19",
+        "version": "v1.5.52",
+        "title": "撤掉「首页两块横带移到走马灯下」，回到 1.5.49 的布局",
+        "tags": "主题\n回退"
+      },
+      {
+        "date": "2026.09.19",
+        "version": "v1.5.51",
+        "title": "两块横带补上 banner 下推，修 1.5.50 首页布局错乱",
+        "tags": "主题\nBanner\n修复"
+      },
+      {
+        "date": "2026.09.19",
+        "version": "v1.5.50",
+        "title": "首页两块横带移到走马灯下",
+        "summary": "系列行 + 双卡行整页宽",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.19",
+        "version": "v1.5.49",
+        "title": "分页 UI 重构",
+        "summary": "一体化分段控件，修「卡包卡」",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.48",
+        "title": "修切换页面访问量重复计数",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.47",
+        "title": "侧栏缓存",
+        "summary": "最近评论 30s TTL + 发评论即刷，热门文章补 TTL",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.46",
+        "title": "排版优化",
+        "summary": "卡片视觉分层 + 系列条紧凑化",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.45",
+        "title": "修选中胶囊反色文字消失 + 让各页自绘卡片面跟随磨砂",
+        "tags": "主题\n透明模式\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.44",
+        "title": "磨砂模式下右卡三档叠层改为「只留前牌透光面 + 后牌描边幽灵薄片」",
+        "tags": "主题\n透明模式\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.43",
+        "title": "全屏透明+高级材质下首页精选两卡行补上磨砂半透明",
+        "tags": "主题\n透明模式\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.42",
+        "title": "首页翻页(/page/2,/page/3)保留系列条与精选两卡行",
+        "tags": "主题\n首页\n功能"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.41",
+        "title": "拆掉分组的 realNode 包装层，修复天气 Key 等客户端配置读不到",
+        "tags": "主题\n设置\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.40",
+        "title": "取 @demo 精灵图改用 <img> 探针，摘掉跨域策略依赖",
+        "tags": "主题\n计数器\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.39",
+        "title": "产物内联脚本构建期压缩 + 清理死代码，包体 -1.02 MB",
+        "tags": "主题\n构建\n性能"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.38",
+        "title": "封面空 src / 转盘焦点管理 / 假串行，共 6 处",
+        "tags": "主题\n精选卡\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.37",
+        "title": "焦点环裁剪 / 减动效被 CSS 吃掉 / ARIA 悬空引用等 7 处审查修复",
+        "tags": "主题\n系列条\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.36",
+        "title": "纹理包含块塌陷致整页铺纹理 + 系列切换并进段头行",
+        "tags": "主题\n系列条\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.35",
+        "title": "收紧间距 + 卡片/标签接入主题卡片体系（外壳描边·纹理）",
+        "tags": "主题\n系列条\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.34",
+        "title": "两卡行加高 148→200px（原高比上方系列卡还矮），图标带补高度补偿",
+        "tags": "主题\n精选卡\n修复"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.33",
+        "title": "系列条改为「切换系列 + 全部文章一排四个」，上移到两卡行之上",
+        "tags": "主题\n系列条\n功能"
+      },
+      {
+        "date": "2026.09.18",
+        "version": "v1.5.32",
+        "title": "首页「最新系列」卡片条（复刻参考站周刊行，v1.5.32）",
+        "tags": "主题\n系列条\n功能"
+      },
+      {
+        "date": "2026.09.17",
+        "version": "v1.5.31",
+        "title": "两卡行按参考站 daily.yybb.us 重做动效",
+        "tags": "主题"
+      },
+      {
+        "date": "2026.09.17",
+        "version": "v1.5.30",
+        "title": "按参考图复刻两卡效果",
+        "summary": "左卡彩色方块群+点击转圈、右卡错位叠层",
+        "tags": "主题\n精选卡\n功能"
+      },
+      {
+        "date": "2026.09.17",
+        "version": "v1.5.29",
+        "title": "首页顶部「随机一篇文章」+「热门/最近文章」两卡行（v1.5.29，从 1.5.27 重做）",
+        "tags": "主题\n文章列表\n功能"
+      },
+      {
+        "date": "2026.09.17",
+        "version": "v1.5.28",
+        "title": "置顶文章改为「精选宽卡」（对齐 AIOVTUE 的宽卡特写，视觉用本主题 token 重做）",
+        "tags": "主题\n文章列表\n功能"
+      },
+      {
+        "date": "2026.09.16",
+        "version": "v1.5.27",
+        "title": "取数补超时 + 修红了的类型门禁",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.09.16",
+        "version": "v1.5.26",
+        "title": "修 5 处真实缺陷 + 修正 th:with 求值语义注释",
+        "tags": "主题\n小组件\n修复"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.25",
+        "title": "访客计数补零到 7 位，对齐 Moe-Counter 服务端观感",
+        "tags": "主题\n小组件\n修复"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.19",
+        "title": "剔除 extendPages 全量注入，每页内联配置 92KB→~44KB",
+        "tags": "主题\n设置\n性能"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.18",
+        "title": "回访不再丢筛选；新增半截页面自救",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.17",
+        "title": "回访不再丢分页；筛选切换加缓存与预取",
+        "tags": "主题\n修复"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.16",
+        "title": "追番页对齐 Firefly 交互（搜索/排序/分页/详情弹窗/LQIP）",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.15",
+        "title": "卡片底栏新增「字数」（extra-api 插件按篇取，零请求）",
+        "tags": "主题"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.14",
+        "title": "文章卡片标题 1.35rem→1.15rem（箭头等比收小 2rem→1.75rem）",
+        "tags": "主题"
+      },
+      {
+        "date": "2026.09.15",
+        "version": "v1.5.13",
+        "title": "底栏统计去掉胶囊底，与标签 chip 拉开权重",
+        "tags": "主题\n文章卡片\n样式"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.12",
+        "title": "文章卡片信息设计改版",
+        "tags": "主题\n文章卡片\n功能"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.11",
+        "title": "更新日志页视觉改版对齐全站时间线语言",
+        "tags": "主题\n更新日志\n功能"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.10",
+        "title": "追番/装备/项目集/相册四页改为就地筛选（点击即刷新，不跳转）",
+        "tags": "主题\n功能"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.9",
+        "title": "友链页改为就地筛选（搜索框 + 分组胶囊，点击即刷新，不跳转）",
+        "tags": "主题\n友链\n功能"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.8",
+        "title": "归档页分类筛选改为覆盖全部分页",
+        "tags": "主题\n归档\n修复"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.7",
+        "title": "撤销标签小组件视觉优化，回到上游实现",
+        "tags": "主题\n标签\n回退"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.6",
+        "title": "侧边栏标签小组件视觉优化（配色/间距/圆角/阴影/悬停选态/动效，v1.5.6）",
+        "tags": "主题\n标签\n样式"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.5",
+        "title": "侧边栏标签小组件还原为上游实现",
+        "tags": "主题\n标签\n回退"
+      },
+      {
+        "date": "2026.09.14",
+        "version": "v1.5.4",
+        "title": "页脚友链改为随机（走配套插件 friends/random 端点，v1.5.4）",
+        "tags": "主题\n页脚\n功能"
+      },
+      {
         "date": "2026.09.14",
         "version": "v1.5.3",
         "title": "「关于我」页更新摘要改为自动同步更新日志",
