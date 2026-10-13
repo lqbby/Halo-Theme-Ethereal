@@ -85,13 +85,11 @@ const expectedOrder = [
   "descriptionLines",
   "grid",
   "featuredEnable",
+  "featuredPostDisplay",
   "featuredSource",
-  "featuredPostMobile",
-  "featuredRandom",
-  "featuredRandomMobile",
-  "seriesEnable",
+  "featuredRandomDisplay",
+  "seriesDisplay",
   "seriesCount",
-  "seriesMobile",
 ];
 check(
   "S1 postList 顺序 = 布局/外观 → 精选卡片 → 系列卡片条",

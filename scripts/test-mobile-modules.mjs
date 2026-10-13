@@ -1,13 +1,15 @@
 // @ts-check
-// 首页三模块「移动端显示开关」+ 移动端小组件补「最近评论」桩测（2026-10-13，v1.7.37）
+// 首页三模块「显示范围」+ 移动端小组件补「最近评论」桩测（2026-10-13，v1.7.40）
 //
-// 需求：① 给「系列 / 摇一篇（随机一篇）/ 热门文章（右侧卡）」三个模块加移动端显示开关；
-//       ② 修移动端小组件选项里缺「最近评论」。
+// 需求：① 三个模块（系列条 / 随机一篇卡 / 热门·最近文章卡）的「全局 + 移动端」
+//          两个开关统一换成四选一下拉（桌面+移动端 / 仅桌面端 / 仅移动端 / 关闭），
+//          写法对齐主题既有的三选开关范式（banner_wave）；
+//       ② 移动端小组件选项补「最近评论」（右栏有、移动端原缺）。
 // 判据：
-//   M1 settings：三个开关齐备（key / 默认 true / 挂在各自模块的启用开关下 / 说明缺省视为开启）
-//   M2 settings：移动端小组件列表含 recent-comments 选项（右栏有、原移动端缺）
-//   M3 FeaturedCards：th:with 两个移动端旗标（== false 口径）+ 行级两类名 + 移动端三条隐藏规则
-//   M4 SeriesStrip：section 带 ss-hide-mobile 类（== false 口径）+ 移动端隐藏规则
+//   M1 settings：三个显示范围下拉齐备（四选项 / 默认 all / key 正确）
+//   M2 settings：移动端小组件列表含 recent-comments；左栏未被误加
+//   M3 FeaturedCards：两种 mode 变量 + 五类隐藏类 + 三类 CSS（移动端/桌面端/两卡都关）
+//   M4 SeriesStrip：seriesMode 守卫 + 两种隐藏类 + 两个断点的 CSS
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -32,39 +34,46 @@ function check(name, actual, expected) {
 }
 
 const settings = readFileSync(SETTINGS, "utf8").replace(/\r/g, "");
+const lines = settings.split("\n");
 
-for (const [name, key, gate] of [
-  [
-    "featuredRandomMobile",
-    "postList_featuredRandomMobile",
-    "$get(postList_featuredRandom).value === true",
-  ],
-  [
-    "featuredPostMobile",
-    "postList_featuredPostMobile",
-    "$get(postList_featuredEnable).value === true",
-  ],
-  [
-    "seriesMobile",
-    "postList_seriesMobile",
-    "$get(postList_seriesEnable).value === true",
-  ],
+// M1：三个显示范围下拉——按 YAML 行缩进取字段块（不依赖跨行贪婪正则）
+/** 取 settings 里某个 `name: X` 字段的整块（到下一个同级 `- $formkit` 或更浅缩进为止） */
+function fieldBlock(name) {
+  const at = lines.findIndex((l) => l.trim() === `name: ${name}`);
+  if (at < 0) return "";
+  const indent = lines[at].search(/\S/);
+  const out = [];
+  for (let i = at; i < lines.length; i++) {
+    const l = lines[i];
+    if (i > at) {
+      const ind = l.search(/\S/);
+      if (l.trim() && ind >= 0 && ind < indent) break;
+      if (/^\s*-\s\$formkit:/.test(l) && ind <= indent - 2) break;
+    }
+    out.push(l);
+  }
+  return out.join("\n");
+}
+
+for (const [name, key] of [
+  ["featuredRandomDisplay", "postList_featuredRandomDisplay"],
+  ["featuredPostDisplay", "postList_featuredPostDisplay"],
+  ["seriesDisplay", "postList_seriesDisplay"],
 ]) {
-  const re = new RegExp(
-    `name: ${name}[\\s\\S]{0,220}?key: ${key}[\\s\\S]{0,220}?value: true`,
-  );
+  const body = fieldBlock(name);
+  const optValues = [
+    ...body.matchAll(/^\s+- label: .+\n\s+value: (\S+)$/gm),
+  ].map((m) => m[1]);
   check(
-    `M1 ${name} 开关齐备（key/默认 true/挂在模块开关下/缺省说明）`,
-    re.test(settings) &&
-      settings.includes(`if: "${gate}"`) &&
-      new RegExp(`name: ${name}[\\s\\S]{0,320}?缺省视为开启`).test(settings),
+    `M1 ${name} 四选一下拉（key / 默认 all / 四选项 all/desktop/mobile/off）`,
+    body.includes(`key: ${key}`) &&
+      /^\s+value: all$/m.test(body) &&
+      ["all", "desktop", "mobile", "off"].every((v) => optValues.includes(v)),
     true,
   );
 }
 
 {
-  // 移动端列表段内应出现 recent-comments 选项，且左栏段内不应出现
-  const lines = settings.split("\n");
   const at = (exact) => lines.findIndex((l) => l.trim() === exact);
   const iW = at("name: widgets");
   const iM = at("name: mobileWidgets");
@@ -85,29 +94,52 @@ for (const [name, key, gate] of [
 {
   const fc = readFileSync(FC, "utf8");
   check(
-    "M3a th:with 两个移动端旗标（== false 口径）",
-    /fcHideRandomMobile=\$\{theme\.config\?\.layout\?\.postList\?\.featuredRandomMobile == false\}/.test(
+    "M3a 两个显示范围变量（含旧开关兜底）",
+    /fcRandomMode=\$\{theme\.config\?\.layout\?\.postList\?\.featuredRandomDisplay \?: \(theme\.config\?\.layout\?\.postList\?\.featuredRandom == false \? 'off'/.test(
       fc,
     ) &&
-      /fcHidePostMobile=\$\{theme\.config\?\.layout\?\.postList\?\.featuredPostMobile == false\}/.test(
+      /fcPostMode=\$\{theme\.config\?\.layout\?\.postList\?\.featuredPostDisplay \?: \(theme\.config\?\.layout\?\.postList\?\.featuredPostMobile == false \? 'desktop'/.test(
         fc,
       ),
     true,
   );
   check(
-    "M3b 行级两类名",
-    /\(fcHideRandomMobile \? ' fc-hide-random-mobile' : ''\)/.test(fc) &&
-      /\(fcHidePostMobile \? ' fc-hide-post-mobile' : ''\)/.test(fc),
+    "M3b 五类隐藏类（随机/右卡 × 移动端/桌面端 + 两卡都关）",
+    [
+      "fc-hide-random-mobile",
+      "fc-hide-random-desktop",
+      "fc-hide-post-mobile",
+      "fc-hide-post-desktop",
+      "fc-both-off",
+    ].every((c) => fc.includes(`' ${c}'`)),
     true,
   );
   const flat = fc.replace(/\s+/g, " ");
   check(
-    "M3c 移动端三条隐藏规则（含两卡都关时整行隐藏）",
-    [
+    "M3c CSS：移动端隐藏 / 桌面端隐藏（≥768px）/ 两卡都关",
+    flat.includes(
       ".featured-row.fc-hide-random-mobile .featured-card--random { display: none; }",
-      ".featured-row.fc-hide-post-mobile .featured-card--post { display: none; }",
-      ".featured-row.fc-hide-random-mobile.fc-hide-post-mobile { display: none; }",
-    ].every((r) => flat.includes(r)),
+    ) &&
+      flat.includes(
+        ".featured-row.fc-hide-post-mobile .featured-pins { display: none; }",
+      ) &&
+      flat.includes(
+        ".featured-row.fc-hide-random-desktop .featured-card--random { display: none; }",
+      ) &&
+      flat.includes(
+        ".featured-row.fc-hide-post-desktop .featured-pins { display: none; }",
+      ) &&
+      flat.includes(".featured-row.fc-both-off { display: none; }") &&
+      /@media \(min-width: 768px\) \{[\s\S]{0,300}?fc-hide-random-desktop/.test(
+        fc,
+      ),
+    true,
+  );
+  check(
+    "M3d 右卡与随机卡各自按 mode 出/隐",
+    fc.includes(
+      "th:if=\"${fcItems != null and #lists.size(fcItems) > 0 and fcPostMode != 'off'}\"",
+    ) && fc.includes("th:if=\"${fcRandom and fcRandomMode != 'off'}\""),
     true,
   );
 }
@@ -115,11 +147,16 @@ for (const [name, key, gate] of [
 {
   const ss = readFileSync(SS, "utf8");
   check(
-    "M4 SeriesStrip 带 ss-hide-mobile 类 + 移动端隐藏规则",
-    /seriesMobile == false \? ' ss-hide-mobile' : ''/.test(ss) &&
+    "M4 SeriesStrip：守卫改读 seriesDisplay（旧 keys 兜底）+ 两种隐藏类 + 两断点 CSS",
+    /postList\?\.seriesDisplay[\s\S]{0,200}?seriesEnable == false \? 'off'[\s\S]{0,200}?seriesMobile == false \? 'desktop'/.test(
+      ss,
+    ) &&
+      ss.includes("(seriesMode == 'desktop' ? ' ss-hide-mobile' : '')") &&
+      ss.includes("(seriesMode == 'mobile' ? ' ss-hide-desktop' : '')") &&
       /\.series-strip\.ss-hide-mobile \{\s*display: none;/.test(
         ss.replace(/\s+/g, " "),
-      ),
+      ) &&
+      /@media \(min-width: 768px\) \{[\s\S]{0,120}?ss-hide-desktop/.test(ss),
     true,
   );
 }

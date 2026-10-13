@@ -184,12 +184,11 @@ spec:
             defaultMode: list
             coverPosition: right
             descriptionLines: 2
-            showHomeMoments: true
-            homeMomentsCount: 10
             featuredEnable: true
             featuredSource: recent
-            featuredRandom: true
-            seriesEnable: true
+            featuredPostDisplay: all
+            featuredRandomDisplay: all
+            seriesDisplay: all
             seriesCount: 4
             grid:
               masonry: false
@@ -265,10 +264,28 @@ spec:
               value: true
               help: "在首页列表最上方显示两张卡片（左「随机一篇文章」+ 右「热门/最近文章」）。仅在首页第一页显示"
             - $formkit: select
+              name: featuredPostDisplay
+              id: postList_featuredPostDisplay
+              key: postList_featuredPostDisplay
+              if: "$get(postList_featuredEnable).value === true"
+              preserve: true
+              label: 右侧文章卡片 · 显示范围
+              value: all
+              help: "右侧卡（热门/最近文章）在桌面端与移动端的显示范围，默认两端都显示"
+              options:
+                - label: 桌面 + 移动端
+                  value: all
+                - label: 仅桌面端
+                  value: desktop
+                - label: 仅移动端
+                  value: mobile
+                - label: 关闭
+                  value: off
+            - $formkit: select
               name: featuredSource
               id: postList_featuredSource
               key: postList_featuredSource
-              if: "$get(postList_featuredEnable).value === true"
+              if: "$get(postList_featuredPostDisplay).value !== 'off'"
               label: 右侧卡片来源
               value: recent
               help: "「最近文章」按发布时间取最新一篇；「热门文章」按站点统计的访问量取最高的一篇（与侧栏「热门文章」小组件同一口径）"
@@ -277,43 +294,46 @@ spec:
                   value: recent
                 - label: 热门文章
                   value: popular
-            - $formkit: switch
-              name: featuredPostMobile
-              id: postList_featuredPostMobile
-              key: postList_featuredPostMobile
+            - $formkit: select
+              name: featuredRandomDisplay
+              id: postList_featuredRandomDisplay
+              key: postList_featuredRandomDisplay
               if: "$get(postList_featuredEnable).value === true"
               preserve: true
-              value: true
-              label: 右侧文章卡片移动端显示
-              help: "右侧卡（热门/最近文章）在移动端（<768px）是否显示；关闭后移动端只保留系列条与列表。缺省视为开启"
-            - $formkit: switch
-              name: featuredRandom
-              id: postList_featuredRandom
-              key: postList_featuredRandom
-              if: "$get(postList_featuredEnable).value === true"
-              label: 显示「随机一篇文章」卡片
-              value: true
-              help: "关闭后只显示右侧那张文章卡（占满整行）"
-            - $formkit: switch
-              name: featuredRandomMobile
-              id: postList_featuredRandomMobile
-              key: postList_featuredRandomMobile
-              if: "$get(postList_featuredRandom).value === true"
+              label: 「随机一篇文章」卡片 · 显示范围
+              value: all
+              help: "随机卡的桌面端/移动端显示范围，默认两端都显示；两张卡都设「关闭」时整行不显示"
+              options:
+                - label: 桌面 + 移动端
+                  value: all
+                - label: 仅桌面端
+                  value: desktop
+                - label: 仅移动端
+                  value: mobile
+                - label: 关闭
+                  value: off
+            - $formkit: select
+              name: seriesDisplay
+              id: postList_seriesDisplay
+              key: postList_seriesDisplay
               preserve: true
-              value: true
-              label: 「随机一篇文章」移动端显示
-              help: "关闭后移动端（<768px）不显示左侧随机卡；桌面端不受影响。缺省视为开启（缺字段的旧配置无需重新保存即生效）"
-            - $formkit: switch
-              name: seriesEnable
-              id: postList_seriesEnable
-              label: 显示「系列」卡片条
-              value: true
-              help: "在首页精选卡片上方显示系列卡：每个系列展示其全部文章（一排 4 张，可点 ‹ › 右移），顶部按钮切换系列。仅首页第一页显示。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
+              label: 「系列」卡片条 · 显示范围
+              value: all
+              help: "系列卡片条在桌面端与移动端的显示范围；选「关闭」整块不输出。需安装 Ethereal 配套插件 1.1.0 及以上；插件版本偏低时本行自动隐藏，不会报错"
+              options:
+                - label: 桌面 + 移动端
+                  value: all
+                - label: 仅桌面端
+                  value: desktop
+                - label: 仅移动端
+                  value: mobile
+                - label: 关闭
+                  value: off
             - $formkit: number
               name: seriesCount
               id: postList_seriesCount
               key: postList_seriesCount
-              if: "$get(postList_seriesEnable).value === true"
+              if: "$get(postList_seriesDisplay).value !== 'off'"
               label: 系列数量（切换按钮）
               min: 1
               max: 24
@@ -321,15 +341,7 @@ spec:
               value: 4
               validation: "min:1|max:24"
               help: "最多显示几个系列（按各系列最近更新时间倒序取），每个系列对应顶部一个切换按钮；每个系列的文章在同一排内横向滚动查看。上限 24"
-            - $formkit: switch
-              name: seriesMobile
-              id: postList_seriesMobile
-              key: postList_seriesMobile
-              if: "$get(postList_seriesEnable).value === true"
-              preserve: true
-              value: true
-              label: 「系列」卡片条移动端显示
-              help: "系列卡片条在移动端（<768px）是否显示；关闭后移动端首页不出现系列条。缺省视为开启"
+
         - $formkit: group
           name: homeMoments
           label: 瞬间条

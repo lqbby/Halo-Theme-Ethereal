@@ -217,6 +217,12 @@ export interface PageLayout {
 }
 
 /** 文章卡片布局 */
+/**
+ * 模块显示范围（v1.7.40 起统一用下拉表达「全局 + 移动端」两个维度）：
+ * all 两端都显示（默认）/ desktop 仅桌面端 / mobile 仅移动端 / off 关闭
+ */
+export type DisplayRange = "all" | "desktop" | "mobile" | "off";
+
 export interface HomeMoments {
   /** 是否显示瞬间条（settings.yaml → layout.homeMoments.show）。缺省视为开启 */
   show?: boolean;
@@ -235,14 +241,26 @@ export interface PostList {
   showHomeMoments?: boolean;
   /** @deprecated v1.7.39 起迁到 layout.homeMoments.count（此路径仅作兼容回退） */
   homeMomentsCount?: number;
-  /** 首页顶部显示精选两卡行（开关在 settings.yaml 的 postList.featuredEnable） */
+  /** 首页顶部显示精选两卡行（整行开关；每张卡的范围见下面两个 Display 字段） */
   featuredEnable?: boolean;
   /** 精选右卡来源：recent 最近（默认）/ popular 热门。取值域与 settings.yaml 的 select 一致 */
   featuredSource?: "recent" | "popular";
-  /** 精选左卡显示「随机一篇文章」；false 时右卡占满整行 */
+  /** 右侧文章卡（热门/最近）显示范围（v1.7.40 起；缺省 all） */
+  featuredPostDisplay?: DisplayRange;
+  /** 「随机一篇文章」卡显示范围（v1.7.40 起；缺省 all） */
+  featuredRandomDisplay?: DisplayRange;
+  /** 「系列」卡片条显示范围（v1.7.40 起；缺省 all。另需配套插件 >=1.1.0） */
+  seriesDisplay?: DisplayRange;
+  /** @deprecated v1.7.40 起由 featuredRandomDisplay 取代（仅作兼容回退） */
   featuredRandom?: boolean;
-  /** 首页显示「系列」卡片条（SeriesStrip.astro 读；另需配套插件 >=1.1.0） */
+  /** @deprecated v1.7.40 起并入 featuredRandomDisplay（仅作兼容回退） */
+  featuredRandomMobile?: boolean;
+  /** @deprecated v1.7.40 起并入 featuredPostDisplay（仅作兼容回退） */
+  featuredPostMobile?: boolean;
+  /** @deprecated v1.7.40 起由 seriesDisplay 取代（仅作兼容回退） */
   seriesEnable?: boolean;
+  /** @deprecated v1.7.40 起并入 seriesDisplay（仅作兼容回退） */
+  seriesMobile?: boolean;
   /** 系列数量：卡片条顶部渲染几个系列切换按钮。settings.yaml 里限制 1~24，缺省 4 */
   seriesCount?: number;
   /** 网格设置 */

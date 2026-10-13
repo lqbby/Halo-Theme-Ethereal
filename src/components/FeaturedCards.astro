@@ -80,9 +80,9 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     fcItems=${posts.items},
     fcSource=${theme.config?.layout?.postList?.featuredSource ?: 'recent'},
     fcRandom=${theme.config?.layout?.postList?.featuredRandom == null or theme.config?.layout?.postList?.featuredRandom},
-    fcHideRandomMobile=${theme.config?.layout?.postList?.featuredRandomMobile == false},
-    fcHidePostMobile=${theme.config?.layout?.postList?.featuredPostMobile == false}"
-  th:classappend="${(fcRandom ? '' : ' no-random') + (fcHideRandomMobile ? ' fc-hide-random-mobile' : '') + (fcHidePostMobile ? ' fc-hide-post-mobile' : '')}"
+    fcRandomMode=${theme.config?.layout?.postList?.featuredRandomDisplay ?: (theme.config?.layout?.postList?.featuredRandom == false ? 'off' : (theme.config?.layout?.postList?.featuredRandomMobile == false ? 'desktop' : 'all'))},
+    fcPostMode=${theme.config?.layout?.postList?.featuredPostDisplay ?: (theme.config?.layout?.postList?.featuredPostMobile == false ? 'desktop' : 'all')}"
+  th:classappend="${(fcRandom ? '' : ' no-random') + (fcRandomMode == 'desktop' ? ' fc-hide-random-mobile' : '') + (fcRandomMode == 'mobile' ? ' fc-hide-random-desktop' : '') + (fcPostMode == 'desktop' ? ' fc-hide-post-mobile' : '') + (fcPostMode == 'mobile' ? ' fc-hide-post-desktop' : '') + (fcRandomMode == 'off' and fcPostMode == 'off' ? ' fc-both-off' : '')}"
   th:attr="
     data-source=${fcSource},
     data-img-provider=${theme.config?.performance?.imageProcessing?.provider ?: 'none'},
@@ -108,7 +108,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     type="button"
     id="featured-random"
     class="featured-card featured-card--random"
-    th:if="${fcRandom}"
+    th:if="${fcRandom and fcRandomMode != 'off'}"
     th:aria-label="#{featured.random.title}"
     th:title="#{featured.random.title}"
   >
@@ -177,7 +177,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   <div
     class="featured-pins"
     data-featured-pins
-    th:if="${fcItems != null and #lists.size(fcItems) > 0}"
+    th:if="${fcItems != null and #lists.size(fcItems) > 0 and fcPostMode != 'off'}"
   >
     <div class="featured-stack">
       <a
@@ -1132,17 +1132,27 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
     }
   }
 
+  /* ---------- 显示范围：仅移动端（≥768px 隐藏）与两卡都关（任何断点隐藏整行） ---------- */
+  @media (min-width: 768px) {
+    .featured-row.fc-hide-random-desktop .featured-card--random {
+      display: none;
+    }
+    .featured-row.fc-hide-post-desktop .featured-pins {
+      display: none;
+    }
+  }
+  .featured-row.fc-both-off {
+    display: none;
+  }
+
   /* ---------- 移动端：左右两卡上下堆叠，右卡改成上图下文 ---------- */
   @media (max-width: 767.98px) {
-    /* 移动端显示开关（v1.7.37）：关闭后在 <768px 隐藏对应卡片；
-       两卡都关时整行一起隐藏（不留空行/空动画）。桌面端完全不受影响。 */
+    /* 显示范围 = 仅桌面端（v1.7.40 起由「显示范围」下拉控制）：
+       <768px 隐藏对应卡片；两张卡都关时整行隐藏（.fc-both-off，任何断点）。 */
     .featured-row.fc-hide-random-mobile .featured-card--random {
       display: none;
     }
-    .featured-row.fc-hide-post-mobile .featured-card--post {
-      display: none;
-    }
-    .featured-row.fc-hide-random-mobile.fc-hide-post-mobile {
+    .featured-row.fc-hide-post-mobile .featured-pins {
       display: none;
     }
     .featured-row,

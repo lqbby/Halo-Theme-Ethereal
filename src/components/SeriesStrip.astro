@@ -57,12 +57,13 @@ const MAX_POSTS_PER_SERIES = 30;
   th:remove="tag"
   th:if="${pluginFinder != null
     and pluginFinder.available('ethereal-companion', '>=1.1.0')
-    and (theme.config?.layout?.postList?.seriesEnable == null or theme.config?.layout?.postList?.seriesEnable)
+    and (theme.config?.layout?.postList?.seriesDisplay
+      ?: (theme.config?.layout?.postList?.seriesEnable == false ? 'off' : (theme.config?.layout?.postList?.seriesMobile == false ? 'desktop' : 'all'))) != 'off'
     and posts != null and posts.page == 1}"
 >
   <div
     th:remove="tag"
-    th:with="seriesLimit=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesList=${recentCommentsSeriesFinder.listLatest(seriesLimit)}"
+    th:with="seriesMode=${theme.config?.layout?.postList?.seriesDisplay ?: (theme.config?.layout?.postList?.seriesEnable == false ? 'off' : (theme.config?.layout?.postList?.seriesMobile == false ? 'desktop' : 'all'))}, seriesLimit=${theme.config?.layout?.postList?.seriesCount != null ? #conversions.convert(theme.config?.layout?.postList?.seriesCount, 'java.lang.Integer') : 4}, seriesList=${recentCommentsSeriesFinder.listLatest(seriesLimit)}"
   >
     <!-- ② 空态：连 <section> 本体一起不输出。
          若把判空写在 section 内层，一个系列都没有时会留下空的 <section>（带 margin-bottom 的
@@ -72,7 +73,7 @@ const MAX_POSTS_PER_SERIES = 30;
       class="series-strip onload-animation"
       style={`--series-visible-desktop:${VISIBLE_DESKTOP};--series-visible-tablet:${VISIBLE_TABLET};--series-visible-mobile:${VISIBLE_MOBILE};animation-delay:calc(var(--content-delay) + 60ms)`}
       th:if="${not #lists.isEmpty(seriesList)}"
-      th:classappend="${theme.config?.layout?.postList?.seriesMobile == false ? ' ss-hide-mobile' : ''}"
+      th:classappend="${(seriesMode == 'desktop' ? ' ss-hide-mobile' : '') + (seriesMode == 'mobile' ? ' ss-hide-desktop' : '')}"
     >
       <!-- 段头：图标 + 标题（左）／系列切换（中）／‹ › 箭头（右）
            ⚠️ tabs 从「独立一行」并入本行：原来段头 30px + 6px 间距 + tabs 28px + 6px 间距
@@ -606,10 +607,18 @@ const MAX_POSTS_PER_SERIES = 30;
   }
 
   /* ---------- 移动端显示开关（v1.7.37）----------
-     设置里「系列」卡片条 →「移动端显示」关闭时（section 带 .ss-hide-mobile），
-     <768px 整块不输出；桌面端不受影响。缺省视为开启，旧配置无需重存。 */
+     设置里「系列」卡片条 →「显示范围」（v1.7.40 起四选一下拉）：
+       · 仅桌面端 ⇒ section 带 .ss-hide-mobile，<768px 整块不输出
+       · 仅移动端 ⇒ section 带 .ss-hide-desktop，≥768px 整块不输出
+       · 关闭     ⇒ 外层守卫直接不渲染（此处 CSS 不参与）
+     缺省 all（两端都显示）；旧开关字段在模板块里已做兼容回退。 */
   @media (max-width: 767.98px) {
     .series-strip.ss-hide-mobile {
+      display: none;
+    }
+  }
+  @media (min-width: 768px) {
+    .series-strip.ss-hide-desktop {
       display: none;
     }
   }
