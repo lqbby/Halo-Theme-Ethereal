@@ -40,7 +40,8 @@
  * - 瞬间与项目都 SSR 渲染，JS 只负责：① 瞬间富文本 content.raw → 首行纯文本
  *   回填（隐藏 span 传值，避免 HTML 转义外露）；② 把内容补足到「一屏以上」再
  *   克隆成两半做无缝滚动；③ 标签胶囊提取去重计数。
- * - 开关：theme.config.layout.postList.showHomeMoments，数量：homeMomentsCount
+ * - 开关：theme.config.layout.homeMoments.show（v1.7.39 起；旧路径 postList.showHomeMoments 仍兼容），
+ *   数量：homeMoments.count（旧 postList.homeMomentsCount 兼容）
  * - Finder 用 ?. 空安全：插件未装时短路为 null，只显示空态，绝不崩页。
  */
 ---
@@ -48,8 +49,8 @@
 <section
   id="home-moments"
   class="card-base onload-animation relative mb-4 overflow-hidden px-4 py-4"
-  th:if="${theme.config?.layout?.postList?.showHomeMoments == null or theme.config?.layout?.postList?.showHomeMoments}"
-  th:with="homeMoments = ${momentFinder?.list({size: theme.config?.layout?.postList?.homeMomentsCount ?: 10})},
+  th:if="${(theme.config?.layout?.homeMoments?.show ?: theme.config?.layout?.postList?.showHomeMoments) == null or (theme.config?.layout?.homeMoments?.show ?: theme.config?.layout?.postList?.showHomeMoments)}"
+  th:with="homeMoments = ${momentFinder?.list({size: (theme.config?.layout?.homeMoments?.count ?: theme.config?.layout?.postList?.homeMomentsCount) ?: 10})},
            homeProjects = ${projectFinder?.listBy('', '', '', '', 1, 999)}"
 >
   <!-- 装饰性覆盖层：父级 home-moments-wrap 为 pointer-events-none，本层继承后

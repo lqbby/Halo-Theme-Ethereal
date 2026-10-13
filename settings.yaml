@@ -201,12 +201,63 @@ spec:
               id: postList_defaultMode
               label: 默认布局
               value: list
-              help: "列表：单列布局，封面显示在卡片侧边；网格：多列布局，封面显示在卡片顶部"
+              help: "文章卡片的默认形态；访客可在「显示设置」面板里随时切换。列表：单列，封面在卡片侧边；网格：多列，封面在卡片顶部"
               options:
                 - label: 列表
                   value: list
                 - label: 网格
                   value: grid
+            - $formkit: select
+              name: coverPosition
+              id: postList_coverPosition
+              key: postList_coverPosition
+              if: "$get(postList_defaultMode).value === 'list'"
+              label: 列表模式封面位置
+              value: right
+              help: "仅列表布局生效：封面显示在卡片右侧或左侧"
+              options:
+                - label: 右侧
+                  value: right
+                - label: 左侧
+                  value: left
+            - $formkit: number
+              name: descriptionLines
+              label: 简介显示行数
+              value: 2
+              min: 0
+              max: 6
+              step: 1
+              help: "文章简介显示行数，设为 0 则不截断"
+            - $formkit: group
+              name: grid
+              id: postList_grid
+              key: postList_grid
+              if: "$get(postList_defaultMode).value === 'grid'"
+              label: 网格设置
+              help: "以下设置仅网格布局生效"
+              children:
+                - $formkit: switch
+                  name: masonry
+                  id: postList_grid_masonry
+                  key: postList_grid_masonry
+                  label: 瀑布流
+                  value: false
+                  help: "开启后网格使用瀑布流（Masonry）布局：卡片高度参差不齐、错落排列，推荐有图无图混合时开启"
+                - $formkit: switch
+                  name: coverFullWidth
+                  key: postList_grid_coverFullWidth
+                  label: 封面贴边
+                  value: false
+                  help: "开启后封面撑满卡片顶部贴边（仅上两角圆角）；关闭则封面按内边距内缩，四角圆角"
+                # 注：瀑布流下该开关隐藏（if），隐藏字段不持久化——开启再关闭瀑布流后
+                # 会恢复为默认 true。瀑布流本就不参与等高，此重置无实际影响，可接受
+                - $formkit: switch
+                  name: coverAutoHeight
+                  key: postList_grid_coverAutoHeight
+                  if: "$get(postList_grid_masonry).value !== true"
+                  label: 封面高度自适应
+                  value: true
+                  help: "开启后封面自动拉伸填满卡片剩余高度，等高网格下同排卡片封面等高、摘要下方不留白；关闭后封面固定 2:1 高度，摘要下方留白（仅等高网格生效，瀑布流下自动隐藏）"
             - $formkit: switch
               name: featuredEnable
               id: postList_featuredEnable
@@ -279,75 +330,31 @@ spec:
               value: true
               label: 「系列」卡片条移动端显示
               help: "系列卡片条在移动端（<768px）是否显示；关闭后移动端首页不出现系列条。缺省视为开启"
-            - $formkit: select
-              name: coverPosition
-              id: postList_coverPosition
-              key: postList_coverPosition
-              if: "$get(postList_defaultMode).value === 'list'"
-              label: 列表模式封面位置
-              value: right
-              help: "仅列表布局生效：封面显示在卡片右侧或左侧"
-              options:
-                - label: 右侧
-                  value: right
-                - label: 左侧
-                  value: left
-            - $formkit: number
-              name: descriptionLines
-              label: 简介显示行数
-              value: 2
-              min: 0
-              max: 6
-              step: 1
-              help: "文章简介显示行数，设为 0 则不截断"
-            - $formkit: group
-              name: grid
-              id: postList_grid
-              key: postList_grid
-              if: "$get(postList_defaultMode).value === 'grid'"
-              label: 网格设置
-              help: "以下设置仅网格布局生效"
-              children:
-                - $formkit: switch
-                  name: masonry
-                  id: postList_grid_masonry
-                  key: postList_grid_masonry
-                  label: 瀑布流
-                  value: false
-                  help: "开启后网格使用瀑布流（Masonry）布局：卡片高度参差不齐、错落排列，推荐有图无图混合时开启"
-                - $formkit: switch
-                  name: coverFullWidth
-                  key: postList_grid_coverFullWidth
-                  label: 封面贴边
-                  value: false
-                  help: "开启后封面撑满卡片顶部贴边（仅上两角圆角）；关闭则封面按内边距内缩，四角圆角"
-                # 注：瀑布流下该开关隐藏（if），隐藏字段不持久化——开启再关闭瀑布流后
-                # 会恢复为默认 true。瀑布流本就不参与等高，此重置无实际影响，可接受
-                - $formkit: switch
-                  name: coverAutoHeight
-                  key: postList_grid_coverAutoHeight
-                  if: "$get(postList_grid_masonry).value !== true"
-                  label: 封面高度自适应
-                  value: true
-                  help: "开启后封面自动拉伸填满卡片剩余高度，等高网格下同排卡片封面等高、摘要下方不留白；关闭后封面固定 2:1 高度，摘要下方留白（仅等高网格生效，瀑布流下自动隐藏）"
-            # ===== 魔改：首页瞬间预览条（受总开关 mods.enable 控制，此处仅控制本项是否展示） =====
+        - $formkit: group
+          name: homeMoments
+          label: 瞬间条
+          value:
+            show: true
+            count: 10
+          children:
             - $formkit: switch
-              name: showHomeMoments
-              id: postList_showHomeMoments
-              key: postList_showHomeMoments
-              label: 首页显示瞬间预览条
+              name: show
+              id: homeMoments_show
+              key: homeMoments_show
+              label: 显示瞬间条
               value: true
-              help: "开启后首页文章列表顶部显示「瞬间」横向滚动预览（魔改功能）。关闭则隐藏。需总开关「启用魔改」开启才生效"
+              help: "全站在页面顶部显示「瞬间」横向滚动条（魔改功能，桌面与移动端一致）。关闭则整块隐藏；另需总开关「启用魔改」开启才生效"
             - $formkit: number
-              name: homeMomentsCount
-              id: postList_homeMomentsCount
-              key: postList_homeMomentsCount
-              label: 瞬间预览条数量
+              name: count
+              id: homeMoments_count
+              key: homeMoments_count
+              label: 瞬间条展示条数
               value: 10
               min: 1
               max: 50
               step: 1
-              help: "首页瞬间预览条最多展示的瞬间条数"
+              help: "瞬间条最多展示的条数（1~50）"
+
         - $formkit: group
           name: mobileMenu
           label: 菜单栏设置

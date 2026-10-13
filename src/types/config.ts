@@ -156,6 +156,8 @@ export interface Layout {
   pageLayout: PageLayout;
   /** 文章卡片布局 */
   postList?: PostList;
+  /** 瞬间条（v1.7.39 起独立分组；旧 postList.showHomeMoments/homeMomentsCount 兼容回退） */
+  homeMoments?: HomeMoments;
   /** 浮动导航按钮 */
   floatingButtons?: FloatingButtons;
   /** 欢迎弹窗 */
@@ -215,6 +217,13 @@ export interface PageLayout {
 }
 
 /** 文章卡片布局 */
+export interface HomeMoments {
+  /** 是否显示瞬间条（settings.yaml → layout.homeMoments.show）。缺省视为开启 */
+  show?: boolean;
+  /** 瞬间条展示条数，缺省 10 */
+  count?: number;
+}
+
 export interface PostList {
   /** 默认布局：list 列表（默认）/ grid 网格 */
   defaultMode?: "list" | "grid";
@@ -222,9 +231,9 @@ export interface PostList {
   coverPosition?: "right" | "left";
   /** 简介显示行数，设为 0 不截断 */
   descriptionLines?: number;
-  /** 首页显示「瞬间」卡片（HomeMoments.astro 读） */
+  /** @deprecated v1.7.39 起迁到 layout.homeMoments.show（此路径仅作兼容回退） */
   showHomeMoments?: boolean;
-  /** 瞬间卡片条数（HomeMoments.astro 读） */
+  /** @deprecated v1.7.39 起迁到 layout.homeMoments.count（此路径仅作兼容回退） */
   homeMomentsCount?: number;
   /** 首页顶部显示精选两卡行（开关在 settings.yaml 的 postList.featuredEnable） */
   featuredEnable?: boolean;
