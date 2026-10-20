@@ -11,7 +11,6 @@ import "../styles/theme-transition.css";
 import "../styles/components.css";
 import "../styles/statistics.css";
 import "../styles/markdown.css";
-import "../styles/portfolio-card.css";
 import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";

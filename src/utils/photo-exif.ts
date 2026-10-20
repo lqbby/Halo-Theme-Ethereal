@@ -89,10 +89,6 @@ export const exifItems: ExifItem[] = [
   },
 ];
 
-/** 单行 EXIF 的渲染条件（th:if 表达式） */
-export const exifItemExpr = (item: ExifItem): string =>
-  `\${${EXIF_NULL_GUARD} and ${item.condition}}`;
-
 /**
  * 整块 EXIF 是否真的有数据（th:if / th:unless 表达式）。
  * 任一字段有值即视为有数据：`photo.exif` 对象存在但字段全空时按无 EXIF 处理，

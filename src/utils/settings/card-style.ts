@@ -11,20 +11,10 @@ export function getDefaultNavbarBlur(): boolean {
   return carrierBool("navbarBlur", false);
 }
 
-/** 卡片悬浮效果：上游 v2.0.0 起改为**仅后台控制**（前台面板不再提供开关）⇒ 恒取后台默认 */
-export function getStoredCardHoverLift(): boolean {
-  return getDefaultCardHoverLift();
-}
-
 export function getStoredNavbarBlur(): boolean {
   if (!getVisitorSwitches().appearance) return getDefaultNavbarBlur();
   const stored = localStorage.getItem("navbarBlur");
   return stored == null ? getDefaultNavbarBlur() : stored === "true";
-}
-
-export function setCardHoverLift(enabled: boolean): void {
-  localStorage.setItem("cardHoverLift", String(enabled));
-  document.body.classList.toggle("card-hover-lift-enabled", enabled);
 }
 
 export function setNavbarBlur(enabled: boolean): void {
