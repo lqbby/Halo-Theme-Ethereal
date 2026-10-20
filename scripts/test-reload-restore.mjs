@@ -46,11 +46,25 @@ function extractRestoreScript(file) {
   return src.slice(start, end).replace(/\s+/g, " ").trim();
 }
 
-const s1 = extractRestoreScript(LAYOUT);
-const s2 = extractRestoreScript(PLUGIN_LAYOUT);
+// 2026-10-20（批 3）：脚本抽到共用组件 ReloadRestore.astro —— 不变式改为
+//   「组件里有脚本」+「两外壳都引用同一组件」+「两外壳不再各自内联一份」。
+const RESTORE = join(ROOT, "src/components/misc/ReloadRestore.astro");
+const s1 = extractRestoreScript(RESTORE);
+const shell1 = readFileSync(LAYOUT, "utf8");
+const shell2 = readFileSync(PLUGIN_LAYOUT, "utf8");
+const usesComponent = (t) =>
+  t.includes("<ReloadRestore />") &&
+  /import ReloadRestore from "\.\.\/components\/misc\/ReloadRestore\.astro";/.test(t);
 
-check("R1a Layout.astro 含恢复脚本", !!s1, true);
-check("R1b 两外壳脚本体逐字一致（归一化空白后）", s1 === s2 && !!s2, true);
+check("R1a 共用组件 ReloadRestore.astro 含恢复脚本", !!s1, true);
+check(
+  "R1b 两外壳都引用同一组件、且各自不再内联副本",
+  usesComponent(shell1) &&
+    usesComponent(shell2) &&
+    extractRestoreScript(LAYOUT) === null &&
+    extractRestoreScript(PLUGIN_LAYOUT) === null,
+  true,
+);
 
 const body = s1 || "";
 check(

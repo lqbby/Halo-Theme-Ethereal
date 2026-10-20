@@ -1,0 +1,61 @@
+---
+/** 刷新自恢复（v1.7.30/31）：先藏 → 浏览器原生滚动就位 → 再显。
+ *
+ * ⚠️ 必须保持 `<script is:inline data-swup-ignore-script>`：
+ *   · is:inline —— 解析期内联执行，早于首帧绘制（放到 bundle 里就晚了，会闪一下顶部）；
+ *   · data-swup-ignore-script —— 换页时 Swup 不得克隆重执行。
+ * 本组件被两套外壳共用（layouts/Layout.astro 与 pages/layout.astro），
+ * 原先两处逐字重复 1759 字符，抽此组件后产物字节不变。
+ */
+---
+<script is:inline data-swup-ignore-script>
+
+      (function () {
+        try {
+          /* 仅真实文档载入（首包解析期）执行：Swup 换页时 scripts-plugin 会克隆
+             重执行 head 内联脚本——那不是刷新，命中旧保存值会误挂隐藏门并与
+             换页复位打架。data-swup-ignore-script 已豁免重执行，此处 readyState
+             守卫为双保险（属性失效时的兜底）。 */
+          if (document.readyState !== "loading") return;
+          var raw = sessionStorage.getItem(
+            "ethereal-scroll:" + location.pathname,
+          );
+          if (!raw) return;
+          var saved = JSON.parse(raw);
+          if (!saved || typeof saved.y !== "number" || saved.y <= 0) return;
+          if (Date.now() - (saved.t || 0) > 6 * 3600 * 1000) return;
+          var root = document.documentElement;
+          var target = Math.round(saved.y);
+          if ("scrollRestoration" in history) {
+            history.scrollRestoration = "manual";
+          }
+          root.classList.add("reload-restoring");
+          var done = false;
+          function finish() {
+            if (done) return;
+            done = true;
+            root.classList.remove("reload-restoring");
+          }
+          var last = -1;
+          var stable = 0;
+          function attempt() {
+            if (done) return;
+            root.scrollTop = target;
+            var y = root.scrollTop;
+            if (Math.abs(y - target) < 2) return finish();
+            if (y === last) {
+              // 连续 8 帧不变（内容高度已定但不足目标 ⇒ 已尽量贴近）即收尾
+              stable += 1;
+              if (stable >= 8 && y > 0) return finish();
+            } else {
+              stable = 0;
+              last = y;
+            }
+            requestAnimationFrame(attempt);
+          }
+          requestAnimationFrame(attempt);
+          // 兜底：最多隐藏 1200ms，异常情况下不至于久留空白
+          setTimeout(finish, 1200);
+        } catch (e) {}
+      })();
+</script>
