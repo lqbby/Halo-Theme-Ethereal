@@ -16,8 +16,8 @@
 
 .custom-md a:not(.no-styling):not([class*="xhhao-com"]) {
   @apply relative z-0 -m-1 rounded-md bg-transparent p-1 font-medium text-(--primary) underline decoration-1 decoration-dashed underline-offset-4 transition;
-  box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
   text-decoration-color: var(--link-underline);
 }
 
@@ -745,8 +745,8 @@
   list-style: none;
 }
 .custom-md li.vditor-task input[type="checkbox"] {
-  appearance: none;
   -webkit-appearance: none;
+  appearance: none;
   width: 1.05em;
   height: 1.05em;
   margin-right: 0.5em;

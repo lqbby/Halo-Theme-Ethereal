@@ -1,4 +1,4 @@
-apiVersion: theme.halo.run/v1alpha1
+﻿apiVersion: theme.halo.run/v1alpha1
 kind: Theme
 metadata:
   name: Ethereal
@@ -46,7 +46,7 @@ spec:
         file: "reward.html"
   settingName: "Ethereal-setting"
   configMapName: "Ethereal-configMap"
-  version: "1.7.43"
+  version: "1.7.44"
   requires: ">=2.25.0"
   license:
     - name: "MIT"
