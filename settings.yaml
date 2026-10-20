@@ -2695,11 +2695,6 @@ spec:
               label: 显示随机钓鱼按钮
               value: true
               help: "在朋友圈页面标题右侧显示随机钓鱼按钮，点击随机跳转到一个朋友圈文章"
-            - $formkit: textarea
-              name: blacklist
-              label: 屏蔽列表
-              value: ""
-              help: "要屏蔽的博主名称，每行一个。匹配到的动态将不会在朋友圈显示"
         - $formkit: group
           name: timeline
           label: 时间轴页面
@@ -2892,11 +2887,6 @@ spec:
               label: Umami 流量统计
               value: true
               help: "访问量/访客数 + 近30分钟实时活动（需在插件后台配置 Umami）"
-            - $formkit: switch
-              name: uptimeKuma
-              label: Uptime Kuma 服务状态
-              value: true
-              help: "服务在线状态（需在插件后台配置状态页）"
             - $formkit: switch
               name: github
               label: GitHub 活跃度
@@ -3863,13 +3853,3 @@ spec:
     - group: auth
       label: 认证
       formSchema:
-        - $formkit: select
-          name: loginPage
-          id: login_page
-          label: 登录界面
-          value: halo
-          options:
-            - label: 主题认证界面
-              value: theme
-            - label: Halo 默认
-              value: halo
