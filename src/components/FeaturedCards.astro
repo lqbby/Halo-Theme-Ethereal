@@ -1277,7 +1277,8 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
   .random-post-overlay__ring {
     position: relative;
     transform-style: preserve-3d;
-    will-change: transform;
+    /* 不挂 will-change：ring 自身无动画/无过渡/无 JS 变换（3D 由子级 slot/face 承担），
+       常挂只会白占一个合成层。2026-10-20 审查移除 */
   }
   .random-post-overlay__slot {
     position: absolute;
