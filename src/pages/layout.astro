@@ -122,11 +122,13 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
   th:data-theme-anim-style="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == false ? 'none' : theme.config?.style?.colorScheme?.colorSchemeAnimation?.style}"
   th:data-theme-anim-easing="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.easing}"
   th:data-theme-anim-angle="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.angle}"
+  th:data-color-scheme="${(theme.config?.style?.colorScheme?.color_scheme ?: 'auto')}"
   th:data-speed="${theme.config?.style?.animationSpeed?.speedTier}"
   th:with={speedCustomStyleThWith()}
   th:style={speedCustomStyleThExpr()}
   th:fragment="html (head, content)"
   class="bg-(--page-bg) text-[14px] transition md:text-[16px]"
+  th:classappend="${' color-scheme-' + (theme.config?.style?.colorScheme?.color_scheme ?: 'auto')}"
 >
   <head>
     <meta charset="UTF-8" />
