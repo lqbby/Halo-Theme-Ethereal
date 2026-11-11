@@ -48,6 +48,7 @@ const VARS = [
 ];
 
 /** 解析 speed.css 某档块的变量表 */
+/** @param {string} tier */
 function parseCssTier(tier) {
   const css = readFileSync(SPEED_CSS, "utf8");
   const re = new RegExp(`html\\[data-speed="${tier}"\\]\\s*\\{([\\s\\S]*?)\\}`);
@@ -182,9 +183,8 @@ check(
 
 // ── T4 theme-transition SPEED_TIER_DURATION 覆盖三档 + 单调关系 ──
 const tt = readFileSync(THEME_TRANSITION, "utf8");
-const tierBlock = tt.match(
-  /SPEED_TIER_DURATION:[\s\S]*?= \{([\s\S]*?)\n\};/,
-)?.[1];
+const tierBlock =
+  tt.match(/SPEED_TIER_DURATION:[\s\S]*?= \{([\s\S]*?)\n\};/)?.[1] ?? "";
 const baseBlock = tt.match(/EASING_DURATION:[\s\S]*?= \{([\s\S]*?)\n\};/)?.[1];
 const EASINGS = [
   "default",

@@ -7,12 +7,17 @@
 // 未安装插件或主题未提供模板时，插件自动回退内置模板，不会影响本站。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import Canonical from "../components/misc/Canonical.astro";
 ---
 
 <MainGridLayout
   title="${title + ' - ' + site.title}"
   description="${title + ' - ' + site.title}"
 >
+  <Fragment slot="head">
+    <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
+    <Canonical path="/schedule-calendar" />
+  </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
   <!-- 头部卡：新版页头（modern，含图标水印）+ 周导航（题下按钮行 + 右区周范围）
        —— 与其它页「分组池」同位，见下方两处注释 -->

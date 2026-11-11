@@ -35,6 +35,12 @@ function check(name, actual, expected) {
 }
 
 /** 扫描一段 CSS 文本里的「前缀在后」违规，baseLine 用于把行号映射回源文件 */
+/**
+ * @param {string} text
+ * @param {string} label
+ * @param {string[]} out
+ * @param {number} [baseLine]
+ */
 function scanCssText(text, label, out, baseLine = 0) {
   for (const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const body = m[2];
@@ -51,8 +57,11 @@ function scanCssText(text, label, out, baseLine = 0) {
 
 /** 收集 src 下所有 css 文件 + .astro 内联 <style> 的「前缀在后」违规 */
 function scanReversed() {
+  /** @type {string[]} */
   const out = [];
+  /** @type {string[]} */
   const files = [];
+  /** @param {string} d */
   const walk = (d) => {
     for (const e of readdirSyncSafe(d)) {
       if (e.isDirectory()) walk(join(d, e.name));

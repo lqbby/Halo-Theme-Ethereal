@@ -42,6 +42,7 @@ const RULE = /([^{}]+)\{([^{}]*)\}/g;
 export function patchPrefixPairs(content, props = PREFIX_PAIR_PROPS) {
   let rules = 0;
   let patched = 0;
+  /** @type {string[]} */
   const added = [];
   const out = content.replace(RULE, (whole, selector, body) => {
     let newBody = body;
@@ -54,8 +55,10 @@ export function patchPrefixPairs(content, props = PREFIX_PAIR_PROPS) {
       if (!stdMatch && !preMatch) continue;
       if (stdMatch && preMatch) continue; // 已成对
       rules++;
-      const value = (stdMatch ? stdMatch[2] : preMatch[1]).trim();
-      const anchorMatch = preMatch ?? stdMatch;
+      const value = (stdMatch?.[2] ?? preMatch?.[1] ?? "").trim();
+      // stdMatch / preMatch 至少一个非空（上方的 continue 已排除双空），
+      // ?? 只是让类型检查器看得见这层保证。
+      const anchorMatch = /** @type {RegExpExecArray} */ (preMatch ?? stdMatch);
       const idx = newBody.indexOf(anchorMatch[0]) + anchorMatch[0].length;
       const decl = preMatch ? `${prop}:${value}` : `${pre}:${value}`;
       patched++;
@@ -68,6 +71,7 @@ export function patchPrefixPairs(content, props = PREFIX_PAIR_PROPS) {
 }
 
 /** 兼容旧名（历史调用点 / 桩测） */
+/** @param {string} content */
 export const patchBackdropFilterPairs = (content) =>
   patchPrefixPairs(content, ["backdrop-filter"]);
 
@@ -79,6 +83,7 @@ export async function ensureBackdropFilterPairInDir(dir) {
   const root = resolve(dir);
   let files = 0;
   let patchedTotal = 0;
+  /** @type {string[]} */
   const samples = [];
   /** @param {string} d */
   async function walk(d) {

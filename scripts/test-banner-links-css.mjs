@@ -96,16 +96,14 @@ check(
     join(ROOT, "src/styles/components.css"),
     "utf8",
   ).replace(/\s+/g, " ");
+  // .exec() 非空 ⟺ .test() 为真：先取一次匹配结果，避免对可能为 null 的返回值取 [0]。
+  const bannerLinksRule =
+    /\.banner-title-enter #banner-links \{ animation-name: banner-links-rise;[^}]*\}/.exec(
+      cssAll,
+    );
   check(
     "C6c 容器规则块内不含 opacity（祖先不得有透明度动画）",
-    /\.banner-title-enter #banner-links \{ animation-name: banner-links-rise;[^}]*\}/.test(
-      cssAll,
-    ) &&
-      !/opacity/.test(
-        /\.banner-title-enter #banner-links \{ animation-name: banner-links-rise;[^}]*\}/.exec(
-          cssAll,
-        )[0],
-      ),
+    bannerLinksRule !== null && !/opacity/.test(bannerLinksRule[0]),
     true,
   );
 }

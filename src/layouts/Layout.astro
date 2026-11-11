@@ -323,6 +323,17 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
          post.astro 用 post.status.permalink 输出（绝对 URL） -->
     <meta property="og:site_name" th:content="${site.title}" />
     <meta property="og:title" th:content={title} />
+    <!-- SEO：og:description 与 twitter 卡片——文章页由 post.astro 在 head 插槽
+         自行输出 og:description（避免重复），此处只补非文章页；各页 description
+         均由页面传入（见 src/pages/* 的 description prop），空串时不输出 -->
+    {!setOGTypeArticle && description && (
+      <meta property="og:description" th:content={description} />
+    )}
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" th:content={title} />
+    {description && (
+      <meta name="twitter:description" th:content={description} />
+    )}
     <!-- SEO：og:image 兜底——非文章页（post == null）用侧边栏头像，保证首页等
          分享有预览图；文章页由 post.astro 输出封面，避免重复 -->
     <meta

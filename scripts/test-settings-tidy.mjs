@@ -38,6 +38,7 @@ function check(name, actual, expected) {
 
 const lines = readFileSync(SETTINGS, "utf8").replace(/\r/g, "").split("\n");
 /** 取某 group 的 children 子项名序列（按出现顺序，只取直接子项） */
+/** @param {string} groupName */
 function childrenOf(groupName) {
   const at = lines.findIndex((l) => l.trim() === `name: ${groupName}`);
   if (at < 0) return null;

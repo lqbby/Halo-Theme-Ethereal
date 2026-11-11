@@ -3850,6 +3850,3 @@ spec:
               max: 512
               step: 32
               help: "头像图片的缩放宽度（px）。设为 0 则使用原图不压缩。建议值：512"
-    - group: auth
-      label: 认证
-      formSchema:

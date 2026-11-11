@@ -61,6 +61,7 @@ const ensureBackdropFilterPair = {
   },
 };
 
+/** @type {import("astro").AstroIntegration} */
 const ensureIconMaskPrefix = {
   name: "ensure-icon-mask-prefix",
   hooks: {

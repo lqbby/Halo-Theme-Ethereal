@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 let failures = 0;
+/** @type {string[]} */
 const problems = [];
 
 /**

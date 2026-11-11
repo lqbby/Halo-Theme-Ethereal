@@ -36,6 +36,7 @@ function check(name, actual, expected) {
 }
 
 /** 提取含 ethereal-scroll: 的内联脚本体（含 <script ...> 两标记之间部分） */
+/** @param {string} file */
 function extractRestoreScript(file) {
   const src = readFileSync(file, "utf8");
   const i = src.indexOf("ethereal-scroll:");
@@ -52,6 +53,7 @@ const RESTORE = join(ROOT, "src/components/misc/ReloadRestore.astro");
 const s1 = extractRestoreScript(RESTORE);
 const shell1 = readFileSync(LAYOUT, "utf8");
 const shell2 = readFileSync(PLUGIN_LAYOUT, "utf8");
+/** @param {string} t */
 const usesComponent = (t) =>
   t.includes("<ReloadRestore />") &&
   /import ReloadRestore from "\.\.\/components\/misc\/ReloadRestore\.astro";/.test(t);

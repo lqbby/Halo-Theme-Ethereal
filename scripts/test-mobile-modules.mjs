@@ -38,6 +38,7 @@ const lines = settings.split("\n");
 
 // M1：三个显示范围下拉——按 YAML 行缩进取字段块（不依赖跨行贪婪正则）
 /** 取 settings 里某个 `name: X` 字段的整块（到下一个同级 `- $formkit` 或更浅缩进为止） */
+/** @param {string} name */
 function fieldBlock(name) {
   const at = lines.findIndex((l) => l.trim() === `name: ${name}`);
   if (at < 0) return "";
@@ -74,10 +75,12 @@ for (const [name, key] of [
 }
 
 {
+  /** @param {string} exact */
   const at = (exact) => lines.findIndex((l) => l.trim() === exact);
   const iW = at("name: widgets");
   const iM = at("name: mobileWidgets");
   const iR = at("name: rightWidgets");
+  /** @param {number} a @param {number} b */
   const seg = (a, b) => lines.slice(a, b).join("\n");
   check(
     "M2a 移动端列表含「最近评论」选项",

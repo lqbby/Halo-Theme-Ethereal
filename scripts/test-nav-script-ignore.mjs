@@ -45,6 +45,7 @@ const navbar = readFileSync(NAVBAR, "utf8").replace(/\s+/g, " ");
 const layout = readFileSync(LAYOUT, "utf8").replace(/\s+/g, " ");
 
 /** 某脚本 src 的标签块内是否含豁免属性 */
+/** @param {string} src @param {string} file */
 function hasIgnore(src, file) {
   const i = file.indexOf(`/assets/${src}?v=`);
   if (i < 0) return false;

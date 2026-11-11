@@ -41,6 +41,7 @@ const iW = idx("name: widgets");
 const iM = idx("name: mobileWidgets");
 const iR = idx("name: rightWidgets");
 /** 段内所有 key: 值 */
+/** @param {number} a @param {number} b */
 function keysIn(a, b) {
   const out = new Set();
   for (const l of src.slice(a, b)) {
@@ -123,6 +124,7 @@ for (const name of ["widgets", "mobileWidgets", "rightWidgets"]) {
 //       并顺带检查 `${...}` 内部也不应出现 SpEL 不支持的 `/* */` 注释。
 {
   /** 剥离 ${...}（支持一层嵌套） */
+  /** @param {string} s */
   function stripExpr(s) {
     let out = "";
     let i = 0;

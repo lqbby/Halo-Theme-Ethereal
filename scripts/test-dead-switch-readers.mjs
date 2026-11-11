@@ -29,6 +29,7 @@ function check(name, actual, expected) {
 const lines = readFileSync(SETTINGS, "utf8").replace(/\r/g, "").split("\n");
 
 /** 在某个 group 的 children 段里找字段名（group 名 -> 是否含该字段） */
+/** @param {string} groupName @param {string} fieldName */
 function groupHasField(groupName, fieldName) {
   const at = lines.findIndex((l) => l.trim() === `name: ${groupName}`);
   if (at < 0) return false;
