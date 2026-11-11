@@ -570,14 +570,24 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           "(prefers-color-scheme: dark)",
         ).matches;
 
-        if (
+        var wantDark =
           storedTheme === DARK_MODE ||
-          (storedTheme === AUTO_MODE && preferredDark)
-        ) {
-          document.documentElement.classList.add("dark");
-        } else {
-          document.documentElement.classList.remove("dark");
-        }
+          (storedTheme === AUTO_MODE && preferredDark);
+        document.documentElement.classList.toggle("dark", wantDark);
+        // 插件配色：同步 data-color-scheme 与 color-scheme-* 类为解析后的实际模式。
+        // 否则 Shiki 等插件会因服务端渲染残留的 data-color-scheme="auto" 而跟随
+        // 系统偏好，与主题实际明暗脱节（代码块暗色不生效）。
+        document.documentElement.dataset.colorScheme = wantDark
+          ? "dark"
+          : "light";
+        document.documentElement.classList.remove(
+          "color-scheme-auto",
+          "color-scheme-light",
+          "color-scheme-dark",
+        );
+        document.documentElement.classList.add(
+          "color-scheme-" + (wantDark ? "dark" : "light"),
+        );
 
         const hue = fixedHue ? configHue : lsGet("hue") || configHue;
         document.documentElement.style.setProperty("--hue", hue);
@@ -1095,6 +1105,9 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           // 插件配色（上游 v2.0.1）：同步 color-scheme-* 标记类，供插件前台组件 hook
           document.documentElement.classList.remove("color-scheme-auto", "color-scheme-light", "color-scheme-dark");
           document.documentElement.classList.add("color-scheme-" + (wantDark ? "dark" : "light"));
+          // 插件配色：同步 data-color-scheme 为解析后的实际模式，否则 Shiki 等插件
+          // 会因 data-color-scheme="auto" 残留而跟随系统偏好，代码块暗色不生效。
+          document.documentElement.dataset.colorScheme = wantDark ? "dark" : "light";
               closePanels();
             });
           });

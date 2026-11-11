@@ -81,6 +81,17 @@ export function applyThemeToDocument(theme: LIGHT_DARK_MODE) {
   const wantDark = resolveSchemeDark(theme);
   // 始终同步 colorScheme（幂等赋值，开销可忽略），提示浏览器原生控件配色
   root.style.colorScheme = wantDark ? "dark" : "light";
+  // 插件配色：同步 data-color-scheme 与 color-scheme-* 类为解析后的实际模式。
+  // 否则 Shiki 等插件会因服务端渲染残留的 data-color-scheme="auto" 而跟随
+  // 系统偏好，与主题实际明暗脱节（代码块暗色不生效）。必须放在 early return
+  // 之前，确保即使 dark 类未变化时也同步。
+  root.dataset.colorScheme = wantDark ? "dark" : "light";
+  root.classList.remove(
+    "color-scheme-auto",
+    "color-scheme-light",
+    "color-scheme-dark",
+  );
+  root.classList.add("color-scheme-" + (wantDark ? "dark" : "light"));
   // 实际渲染主题未变化时直接返回：跳过强制 reflow 与过渡禁用，
   // 避免固定模式与系统主题间切换时（如系统为暗色时在"暗色"与"系统"间切换）
   // 的无效重载卡顿
