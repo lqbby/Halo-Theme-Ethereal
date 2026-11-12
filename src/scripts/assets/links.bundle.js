@@ -1,4 +1,9 @@
 import { guardOnce } from "../../utils/once";
+import {
+  lockPageScroll,
+  resetPageScrollLock,
+  unlockPageScroll,
+} from "../../utils/scroll-lock";
 import { copyText } from "../../utils/clipboard";
 // #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
 // 直接读 window.i18nResources，不依赖全局助手已注入）
@@ -330,7 +335,7 @@ import { t } from "../../utils/i18n";
     if (!modal || state.submitting) return;
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
-    document.body.style.overflow = "hidden";
+    lockPageScroll();
     clearMessage();
     // 仅在首次打开时自动加载验证码，之后打开保留上次验证码不刷新
     if (!state.captchaLoaded) refreshCaptcha();
@@ -347,7 +352,7 @@ import { t } from "../../utils/i18n";
     if (!modal || state.submitting) return;
     modal.classList.remove("is-open");
     modal.setAttribute("aria-hidden", "true");
-    document.body.style.overflow = "";
+    unlockPageScroll();
     // 保留验证码与挑战 ID：再次打开时直接沿用，不重新请求；点击图片刷新才更新
   }
 
@@ -488,7 +493,7 @@ import { t } from "../../utils/i18n";
     // 用 @swup/astro 文档化的 astro:after-swap（每次换页后分发）替代原
     // swup:contentReplaced 监听——那是 Swup v3 事件名，v4 分发 swup:{hook}，从未触发。
     document.addEventListener("astro:after-swap", function () {
-      document.body.style.overflow = "";
+      resetPageScrollLock();
       state.submitting = false;
       state.challengeId = null;
       // 页面切换后模态框 DOM 被重建（图片无 src），需重新加载验证码

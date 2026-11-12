@@ -1,6 +1,7 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
 import { onPageView, guardOnce } from "../../utils/once";
+import { lockPageScroll, unlockPageScroll } from "../../utils/scroll-lock";
 // 导航栏面板切换：document 级事件委托，替代原先按钮上的内联 onclick（CSP 友好）。
 // 移动端菜单支持两种模式（布局设置 → 菜单栏设置 → 菜单样式）：
 //  - drawer（抽屉）：右侧滑出圆角卡片，子菜单平铺；开关由 body.nav-menu-open 驱动
@@ -56,7 +57,7 @@ if (!guardOnce("navbar-panel-toggle")) {
     }
     document.body.classList.toggle("nav-menu-open", open);
     if (open) {
-      document.body.style.overflow = "hidden";
+      lockPageScroll();
       // 打开瞬间为菜单项设置递增 animation-delay，配合 CSS 渐入动画逐项浮现
       var panel = document.getElementById("nav-menu-panel");
       if (panel) {
@@ -66,7 +67,7 @@ if (!guardOnce("navbar-panel-toggle")) {
         });
       }
     } else {
-      document.body.style.overflow = "";
+      unlockPageScroll();
     }
   }
 
