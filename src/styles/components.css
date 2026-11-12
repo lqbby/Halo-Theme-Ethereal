@@ -3056,3 +3056,9 @@ body.banner-title-disabled #banner-links,
   gap: 0.5rem;
   font-size: 0.9rem;
 }
+
+/* 弹层滚动锁：锁 html 不锁 body（原因见 utils/scroll-lock.ts）；!important 用于压过
+   自定义滚动条写在 html 上的 overflow-y: var(--os-viewport-overflow-y)。 */
+html.modal-scroll-locked {
+  overflow: hidden !important;
+}

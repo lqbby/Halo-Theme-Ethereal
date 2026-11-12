@@ -1,6 +1,7 @@
 // 外链跳转提示（模态框方案）
 import { getThemeConfig } from "./theme-config";
 import { copyText } from "./clipboard";
+import { lockPageScroll, unlockPageScroll } from "./scroll-lock";
 // #7：i18n 统一到 src/utils/i18n（与 Layout 注入的 __etherealI18n 同源同义，
 // 直接读 window.i18nResources，不依赖全局助手已注入）
 import { t } from "./i18n";
@@ -350,7 +351,7 @@ function clearActiveTimer() {
 
 function closeModal(modal: HTMLElement) {
   clearActiveTimer();
-  document.body.style.overflow = "";
+  unlockPageScroll();
   const card = modal.querySelector<HTMLElement>("#ext-link-card");
   const backdrop = modal.querySelector<HTMLElement>("#ext-link-backdrop");
   if (card) {
@@ -387,7 +388,7 @@ function setupModalBehavior(
 
   // 显示模态框
   modal.style.display = "";
-  document.body.style.overflow = "hidden";
+  lockPageScroll();
 
   // 恢复 card/backdrop 透明度
   const card = modal.querySelector<HTMLElement>("#ext-link-card");
@@ -410,7 +411,7 @@ function setupModalBehavior(
       window.location.href = targetUrl;
     }
     modal.style.display = "none";
-    document.body.style.overflow = "";
+    unlockPageScroll();
   }
 
   // Bind continue button (may have been replaced by Swup)
