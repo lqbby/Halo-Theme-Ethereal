@@ -417,6 +417,35 @@ const { pagination = "posts", featured = false } = Astro.props;
     border-radius: var(--radius-large) var(--radius-large) 0 0 !important;
   }
 
+  /* ===== 设计型封面裁切（批次3-⑦，coverContainMode，默认关）=====
+     门控：.cover-contain 由 PostCard.astro 按
+     `theme.config?.layout?.postList?.coverContainMode == true` 挂在每张 .post-card 上，
+     模糊填充层 .post-card-cover-bg 也只在开启时才渲染 ⇒ 关 / 后台未配置该键时
+     类与层都不存在，下面规则全部不命中，列表与网格均为零变化。
+     覆盖范围：列表与网格共用同一套 .post-card-cover 结构，且本块不带模式类限定，
+     故侧封面（列表 ≥1280）/ 上封面（列表 <1280 与移动端）/ 网格顶部封面三态同时生效。
+     前景图改 contain 完整显示；填充层用同一张图（PostCard 内联 background-image，
+     与封面 <img> 同源同址、命中浏览器缓存）cover 铺满 + blur + scale 放大，
+     scale 是为了把 blur 的透明边缘推出封面框（框自带 overflow-hidden 裁剪）。 */
+  #post-list-container .post-card.cover-contain .post-card-cover-bg {
+    display: block;
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(18px) saturate(1.15);
+    transform: scale(1.18);
+    pointer-events: none;
+  }
+  /* 前景图：contain 完整显示，并抬到填充层之上（填充层是 absolute，
+     静态 <img> 不定位会被它盖住）；hover 遮罩（z-10）/ 角标（z-30）仍在更上层，不受影响 */
+  #post-list-container .post-card.cover-contain .post-card-cover-img {
+    position: relative;
+    z-index: 1;
+    object-fit: contain !important;
+  }
+
   /* 无封面占位封面：主题色渐变背景。
      默认隐藏，仅桌面端网格（非瀑布流）下显示（移动端/列表/瀑布流用主题色按钮） */
   #post-list-container .post-card-cover-placeholder {

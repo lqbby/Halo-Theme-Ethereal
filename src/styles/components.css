@@ -33,7 +33,6 @@
     will-change: transform;
   }
 
-
   .link {
     @apply relative z-0 -m-1 rounded-md p-1 transition before:absolute before:inset-0 before:-z-10 before:scale-[0.85] before:rounded-[inherit] before:transition before:ease-out hover:before:scale-100 hover:before:bg-(--btn-plain-bg-hover) active:bg-transparent active:before:bg-(--btn-plain-bg-active);
   }
@@ -3061,4 +3060,78 @@ body.banner-title-disabled #banner-links,
    自定义滚动条写在 html 上的 overflow-y: var(--os-viewport-overflow-y)。 */
 html.modal-scroll-locked {
   overflow: hidden !important;
+}
+
+/* ===== 批次3-⑧：小触控目标 44px 兜底（仅移动端 / 粗指针，桌面端零变化）=====
+   媒体查询写法对齐既有先例：CategoryBar.astro 的
+   `@media (width <= 767px), (hover: none) and (pointer: coarse)` 与全站移动断点
+   767.98px。手法统一用 min-width / min-height（不改原 height / width）：
+   与各元素既有的 h-8 / h-9 / 固定尺寸是不同属性、同时生效时由 min 值兜底，
+   不与 Tailwind 工具类互相覆盖。
+   覆盖清单（每个选择器都已在源码里逐个确认，均为可点击元素）：
+     · .announcement-close-btn —— widget/Announcement.astro，h-8 w-8（32px）关闭钮
+     · .welcome-close-btn —— control/WelcomePopup.astro，h-8 w-8（32px）关闭钮
+     · .moment-copy-btn —— MomentCard.astro，h-8 w-8（32px）复制钮
+     · #tags a.btn-regular —— widget/Tags.astro，h-8（32px）标签链接（#tags 是
+       WidgetLayout 给标签小组件内容区渲染的 id）
+     · .expand-btn > button —— widget/WidgetLayout.astro，h-9 w-full（36px 高）
+       小组件「展开更多」钮，宽度已整行、只兜高度
+     · .seg-item —— styles/components.css 本文件 .seg-item（height: 34px），
+       FilterTab segmented 模式的 <a>/<button> 条目，只兜高度
+     · #banner-play-btn / #banner-play-btn-mobile —— MainGridLayout.astro，
+       h-9 w-9（36px）视频暂停钮
+     · .pager-btn —— control/Pagination.astro 的分页链接；其基础尺寸在本文件
+       .pager-btn 已是 2.75rem（44px），此处仅作同口径兜底，实际无变化
+   ⚠️ 系列条（.series-strip__nav / .series-strip__tab）刻意不覆盖：它是横向滚动
+   条内的紧凑控件，强行放大到 44px 会撑乱条内布局（2026-11-13 上线实测翻车后移除）。
+   明确不覆盖纯展示元素：分类计数徽章（Categories.astro 的 h-7 span）、
+   最近评论头像 / 首字块（RecentComments.astro 的 h-8 w-8 span/img）、
+   音乐封面缩略图等不可点击元素一律不在此列。 */
+@media (max-width: 767.98px), (hover: none) and (pointer: coarse) {
+  .announcement-close-btn,
+  .welcome-close-btn,
+  .moment-copy-btn,
+  #banner-play-btn,
+  #banner-play-btn-mobile {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  #tags a.btn-regular,
+  .seg-item,
+  .pager-btn {
+    min-height: 44px;
+  }
+
+  .expand-btn > button {
+    min-height: 44px;
+  }
+}
+
+/* ===== 批次3-⑨：暗色模式图片压暗（仅 :root.dark，亮色零变化）=====
+   命中范围刻意收窄，绝不用裸 img 全局选择器：
+     · Banner 图 —— #banner-wrapper img（选择器与 MainGridLayout.astro 既有的
+       `#banner-wrapper img, #banner-wrapper video` 同源；单图 / 轮播 .banner-slide /
+       移动端 #banner-mobile 的图都在 #banner-wrapper 内，一并命中；video 不压暗）
+     · 文章卡封面图 —— #post-list-container .post-card-cover img（PostCard.astro
+       的封面 <img class="post-card-cover-img">；精选卡 / 系列条的图不在此容器内）
+   正文图片（markdown 内容区 img）不在以上两个容器选择器内，明确不动。
+   transition 挂在基础规则（亮暗两态都在）上，明暗切换时 filter 平滑过渡。 */
+#banner-wrapper img,
+#post-list-container .post-card-cover img {
+  transition: filter 0.35s ease;
+}
+
+:root.dark #banner-wrapper img,
+:root.dark #post-list-container .post-card-cover img {
+  filter: brightness(0.88);
+}
+
+/* 全屏透明模式的 banner 图在本文件 @layer 段已有 `filter: blur(...)`（壁纸磨砂），
+   上面那条暗色规则会把它整条覆盖掉 ⇒ 此处按同模式先例
+   （:root.dark[data-banner-display="transparent"]）补一条合并滤镜，blur 与压暗并存。
+   transform: scale(1.06) 是独立属性、仍由原规则提供，此处不重写。 */
+:root.dark[data-banner-display="transparent"] #banner img,
+:root.dark[data-banner-display="transparent"] #banner-mobile img {
+  filter: blur(var(--transparent-wallpaper-blur, 10px)) brightness(0.88);
 }

@@ -21,15 +21,104 @@ const MAX_POSTS = 5;
     style={style}
   >
     <div id="popular-posts-list" class="flex flex-col gap-1">
-      <div
-        class="flex items-center justify-center py-4 text-sm text-neutral-400"
+      {
+        /* 骨架屏（批次4 ⑩）：预置 5 行占位，行几何与 renderList 生成的真实行
+          完全一致（px-3 py-2 + h-6 排名徽章 ⇒ 每行 40px，5 行 + gap-1 = 216px），
+          数据到达前不再是单行「加载中…」(≈56px) 撑起的空白，避免高度跳动。
+          移除机制：renderList() 成功/空/失败三路都走 container.innerHTML 整体
+          替换，骨架天然被覆盖，无需脚本额外清理。 */
+      }
+      <span class="sr-only" th:text="#{widget.popularPosts.loading}"
+        >加载中...</span
       >
-        <span
-          class="icon-[material-symbols--hourglass-top] mr-2 animate-spin text-base"
-        ></span>
-        <span th:text="#{widget.popularPosts.loading}">加载中...</span>
+      <div
+        class="popular-posts-skeleton flex flex-col gap-1"
+        aria-hidden="true"
+      >
+        <div class="flex items-center gap-2.5 px-3 py-2">
+          <span
+            class="popular-posts-skeleton-bar ml-1 h-6 w-7 shrink-0 rounded-lg"
+          ></span>
+          <span class="min-w-0 flex-1"
+            ><span
+              class="popular-posts-skeleton-bar block h-3.5 rounded"
+              style="width: 78%"></span></span
+          >
+          <span class="popular-posts-skeleton-bar h-3 w-8 shrink-0 rounded"
+          ></span>
+        </div>
+        <div class="flex items-center gap-2.5 px-3 py-2">
+          <span
+            class="popular-posts-skeleton-bar ml-1 h-6 w-7 shrink-0 rounded-lg"
+          ></span>
+          <span class="min-w-0 flex-1"
+            ><span
+              class="popular-posts-skeleton-bar block h-3.5 rounded"
+              style="width: 64%"></span></span
+          >
+          <span class="popular-posts-skeleton-bar h-3 w-8 shrink-0 rounded"
+          ></span>
+        </div>
+        <div class="flex items-center gap-2.5 px-3 py-2">
+          <span
+            class="popular-posts-skeleton-bar ml-1 h-6 w-7 shrink-0 rounded-lg"
+          ></span>
+          <span class="min-w-0 flex-1"
+            ><span
+              class="popular-posts-skeleton-bar block h-3.5 rounded"
+              style="width: 88%"></span></span
+          >
+          <span class="popular-posts-skeleton-bar h-3 w-8 shrink-0 rounded"
+          ></span>
+        </div>
+        <div class="flex items-center gap-2.5 px-3 py-2">
+          <span
+            class="popular-posts-skeleton-bar ml-1 h-6 w-7 shrink-0 rounded-lg"
+          ></span>
+          <span class="min-w-0 flex-1"
+            ><span
+              class="popular-posts-skeleton-bar block h-3.5 rounded"
+              style="width: 57%"></span></span
+          >
+          <span class="popular-posts-skeleton-bar h-3 w-8 shrink-0 rounded"
+          ></span>
+        </div>
+        <div class="flex items-center gap-2.5 px-3 py-2">
+          <span
+            class="popular-posts-skeleton-bar ml-1 h-6 w-7 shrink-0 rounded-lg"
+          ></span>
+          <span class="min-w-0 flex-1"
+            ><span
+              class="popular-posts-skeleton-bar block h-3.5 rounded"
+              style="width: 71%"></span></span
+          >
+          <span class="popular-posts-skeleton-bar h-3 w-8 shrink-0 rounded"
+          ></span>
+        </div>
       </div>
     </div>
+    <style>
+      .popular-posts-skeleton-bar {
+        background: var(--btn-regular-bg-hover);
+        animation: popular-posts-skeleton-pulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes popular-posts-skeleton-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.55;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .popular-posts-skeleton-bar {
+          animation: none;
+        }
+      }
+    </style>
   </WidgetLayout>
 </div>
 

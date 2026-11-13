@@ -173,10 +173,14 @@ const style = Astro.props.style || undefined;
         </div>
         <!-- data-server-words：API 拓展包插件（app-di1jh8gd;extra-api ≥3.x）已安装时，
              服务端在此注入全站总字数，客户端直接展示、不再逐篇抓正文 -->
+        <!-- 骨架（批次4 ⑩）：本组件其余行均为 Thymeleaf 服务端直出、不做整卡
+             骨架；只有总字数/最后活动两个数值是客户端异步计算，故仅给这两个
+             数值位加 site-stats-skeleton-value 脉冲块（尺寸在行高之内、不改
+             行高 ⇒ 无 CLS）。填充/失败时由脚本摘掉该类、露出数值或原 "--"。 -->
         <span
           id="site-stats-total-words"
           th:attr="data-server-words=${serverTotalWords != null ? serverTotalWords : ''}"
-          class="text-base font-bold text-neutral-900 dark:text-neutral-100"
+          class="site-stats-skeleton-value text-base font-bold text-neutral-900 dark:text-neutral-100"
           >--</span
         >
       </div>
@@ -197,7 +201,7 @@ const style = Astro.props.style || undefined;
         </div>
         <span
           id="site-stats-last-activity"
-          class="text-base font-bold text-neutral-900 dark:text-neutral-100"
+          class="site-stats-skeleton-value text-base font-bold text-neutral-900 dark:text-neutral-100"
           >--</span
         >
       </div>
@@ -230,6 +234,39 @@ const style = Astro.props.style || undefined;
         </div>
       </div>
     </div>
+    <style>
+      /* 数值级骨架：仅覆盖异步的总字数/最后活动数值位。color:transparent 把
+         原有 "--" 兜底文字藏在色块下，脚本摘类后文字即恢复（无 JS/失败时
+         摘类路径也会露出 "--"，不会永久挂骨架）。 */
+      .site-stats-skeleton-value {
+        display: inline-block;
+        width: 3rem;
+        height: 1rem;
+        border-radius: 0.375rem;
+        background: var(--btn-regular-bg-hover);
+        color: transparent;
+        overflow: hidden;
+        vertical-align: middle;
+        user-select: none;
+        animation: site-stats-skeleton-pulse 1.6s ease-in-out infinite;
+      }
+
+      @keyframes site-stats-skeleton-pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.55;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .site-stats-skeleton-value {
+          animation: none;
+        }
+      }
+    </style>
   </WidgetLayout>
 </div>
 
@@ -342,6 +379,9 @@ const style = Astro.props.style || undefined;
     function applyStatsToDOM(stats) {
       var wordsEl = widgetRoot.querySelector("#site-stats-total-words");
       var activityEl = widgetRoot.querySelector("#site-stats-last-activity");
+      // 数值就绪（或本函数兜底）：先摘骨架类，下方分支未赋值时露出原 "--"
+      if (wordsEl) wordsEl.classList.remove("site-stats-skeleton-value");
+      if (activityEl) activityEl.classList.remove("site-stats-skeleton-value");
       // 插件已提供 data-server-words 时，服务端值优先（精确、零请求），仅做格式化
       if (wordsEl && wordsEl.getAttribute("data-server-words")) {
         wordsEl.textContent = formatNumber(
@@ -435,7 +475,21 @@ const style = Astro.props.style || undefined;
       }
 
       function processPosts(posts) {
-        if (posts.length === 0) return;
+        if (posts.length === 0) {
+          // 无数据/列表请求失败：摘掉两个数值位的骨架、露出原 "--" 占位，
+          // 避免骨架永久脉冲（其余统计行是服务端直出、不受影响）
+          var emptyWordsEl = widgetRoot.querySelector(
+            "#site-stats-total-words",
+          );
+          var emptyActivityEl = widgetRoot.querySelector(
+            "#site-stats-last-activity",
+          );
+          if (emptyWordsEl)
+            emptyWordsEl.classList.remove("site-stats-skeleton-value");
+          if (emptyActivityEl)
+            emptyActivityEl.classList.remove("site-stats-skeleton-value");
+          return;
+        }
 
         var latestDate = null;
         var totalWords = 0;

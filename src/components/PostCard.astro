@@ -50,7 +50,7 @@ const cardThWith: string =
 <article
   class="card-base post-card relative flex w-full flex-col-reverse rounded-(--radius-large) md:flex-col card-hover-lift overflow-hidden"
   th:with={cardThWith}
-  th:classappend="${(coverEmpty ? ' no-cover' : ' has-cover') + (post.spec.pinned == true ? ' is-pinned' : '')}"
+  th:classappend="${(coverEmpty ? ' no-cover' : ' has-cover') + (post.spec.pinned == true ? ' is-pinned' : '') + (theme.config?.layout?.postList?.coverContainMode == true ? ' cover-contain' : '')}"
 >
   <div
     class="post-card-content relative flex w-full flex-col pb-6 pl-6 pr-6 pt-6 md:pb-6 md:pl-9 md:pt-7"
@@ -222,6 +222,14 @@ const cardThWith: string =
     th:with={imageSuffixThWith("p?.card_cover_width ?: 400")}
     class="post-card-cover group relative mx-4 -mb-2 mt-4 w-[calc(100%-2rem)] max-h-[20vh] overflow-hidden rounded-xl active:scale-95 aspect-[16/9] md:aspect-auto md:absolute md:bottom-3 md:right-3 md:top-3 md:mx-0 md:mb-0 md:mt-0 md:max-h-none md:w-(--post-card-cover-width)"
   >
+    <!-- 设计型封面裁切（coverContainMode）的模糊填充层：仅开启时渲染（关时零 DOM 变化）。
+         背景图与下方封面 <img> 同源同址（含同一 suffix），浏览器命中缓存、不发额外请求；
+         样式（blur + scale + cover 填充）见 PostList.astro 的 .cover-contain 规则 -->
+    <span
+      class="post-card-cover-bg"
+      aria-hidden="true"
+      th:if="${theme.config?.layout?.postList?.coverContainMode == true}"
+      th:style="|background-image: url('${post.spec.cover}${suffix}')|"></span>
     <div
       class="pointer-events-none absolute z-10 h-full w-full transition group-hover:bg-black/30 group-active:bg-black/50"
     >
@@ -254,7 +262,7 @@ const cardThWith: string =
       th:alt="${post.spec.title}"
       th:attr="loading=${postStat.index == 0 ? 'eager' : 'lazy'},fetchpriority=${postStat.index == 0 ? 'high' : 'auto'}"
       decoding="async"
-      class="h-full w-full object-cover"
+      class="post-card-cover-img h-full w-full object-cover"
     />
   </a>
 

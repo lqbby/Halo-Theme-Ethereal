@@ -14,6 +14,93 @@ import Canonical from "../components/misc/Canonical.astro";
     <Canonical path="${category.status.permalink}" />
   </Fragment>
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->
+
+  <!-- 面包屑导航（批次1 ①）：首页 › 祖先分类… › 当前分类（末位纯文本、不可点）。
+       数据：categoryFinder.getBreadcrumbs(name)（Halo 2.17.0+ 官方 Finder API），
+       返回 List<CategoryVo>（含分类自身、末位即当前分类），节点字段 status.permalink /
+       spec.displayName；分隔与末位判定用迭代状态 last（官方示例同款）。
+       Finder 只在外层 th:with 里调用一次，循环内不调；首页链接 th:href="@{/}"
+       与 Navbar.astro 的站点首页链接同款。 -->
+  <div
+    th:remove="tag"
+    th:with="crumbs=${categoryFinder.getBreadcrumbs(category.metadata.name)}"
+  >
+    <nav
+      th:if="${not #lists.isEmpty(crumbs)}"
+      class="eth-breadcrumb onload-animation"
+      aria-label="breadcrumb"
+    >
+      <ol class="eth-breadcrumb-list">
+        <li class="eth-breadcrumb-item">
+          <a class="eth-breadcrumb-link" th:href="@{/}" th:text="#{nav.home}"
+            >首页</a
+          >
+        </li>
+        <li class="eth-breadcrumb-item" th:each="crumb, crumbStat : ${crumbs}">
+          <span class="eth-breadcrumb-sep" aria-hidden="true">›</span>
+          <a
+            th:unless="${crumbStat.last}"
+            class="eth-breadcrumb-link"
+            th:href="@{${crumb.status.permalink}}"
+            th:text="${crumb.spec.displayName}">分类</a
+          >
+          <span
+            th:if="${crumbStat.last}"
+            class="eth-breadcrumb-current-text"
+            aria-current="page"
+            th:text="${crumb.spec.displayName}">当前分类</span
+          >
+        </li>
+      </ol>
+    </nav>
+  </div>
+
+  <style is:global>
+    /* ── 面包屑导航（category 页，批次1 ①；post 页有同名一份，改一处需同步另一处）── */
+    .eth-breadcrumb {
+      margin-bottom: 0.75rem;
+      padding: 0 0.25rem;
+    }
+    .eth-breadcrumb-list {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+    .eth-breadcrumb-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+    .eth-breadcrumb-sep {
+      color: color-mix(in oklab, var(--deep-text) 40%, transparent);
+      user-select: none;
+    }
+    .eth-breadcrumb-link {
+      color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+      text-decoration: none;
+      white-space: nowrap;
+      transition: color 0.2s ease;
+    }
+    .eth-breadcrumb-link:hover {
+      color: var(--primary);
+    }
+    .eth-breadcrumb-current-text {
+      font-weight: 600;
+      color: color-mix(in oklab, var(--deep-text) 88%, transparent);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: min(52vw, 26rem);
+    }
+  </style>
+
   <TaxonomyHeader
     labelExpr="#{page.categories.title}"
     label="分类"

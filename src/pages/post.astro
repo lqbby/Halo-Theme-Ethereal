@@ -84,6 +84,100 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         id="post-excerpt-data"
         class="hidden"
         th:attr="data-text=${post.status.excerpt}"></span>
+
+      <!-- 面包屑导航（批次1 ①）：首页 › 祖先分类… › 当前分类 › 文章标题（当前页纯文本）。
+           数据：categoryFinder.getBreadcrumbs(name)（Halo 2.17.0+ 官方 Finder API，本站 2.27.2 可用），
+           返回 List<CategoryVo>（含分类自身、末位即当前分类），节点字段 status.permalink / spec.displayName。
+           分类取文章第一个分类：post.categories[0]（ListedPostVo 增强字段，与 PostMeta.astro /
+           FeaturedCards.astro 里 post.categories 的用法同源）；无分类的文章整条不渲染。
+           Finder 只在外层 th:with 里调用一次；nav 的 th:if 用外层变量 crumbCat（不依赖自身 th:with，
+           避 th:if 先于 th:with 的坑）。首页链接 th:href="@{/}" 与 Navbar.astro 的站点首页链接同款。 -->
+      <div
+        th:remove="tag"
+        th:with="crumbCat=${not #lists.isEmpty(post.categories) ? post.categories[0] : null}"
+      >
+        <nav
+          th:if="${crumbCat != null}"
+          th:with="crumbs=${categoryFinder.getBreadcrumbs(crumbCat.metadata.name)}"
+          class="eth-breadcrumb onload-animation"
+          aria-label="breadcrumb"
+        >
+          <ol class="eth-breadcrumb-list">
+            <li class="eth-breadcrumb-item">
+              <a
+                class="eth-breadcrumb-link"
+                th:href="@{/}"
+                th:text="#{nav.home}">首页</a
+              >
+            </li>
+            <li class="eth-breadcrumb-item" th:each="crumb : ${crumbs}">
+              <span class="eth-breadcrumb-sep" aria-hidden="true">›</span>
+              <a
+                class="eth-breadcrumb-link"
+                th:href="@{${crumb.status.permalink}}"
+                th:text="${crumb.spec.displayName}">分类</a
+              >
+            </li>
+            <li class="eth-breadcrumb-item eth-breadcrumb-current">
+              <span class="eth-breadcrumb-sep" aria-hidden="true">›</span>
+              <span
+                class="eth-breadcrumb-current-text"
+                aria-current="page"
+                th:text="${post.spec.title}">文章标题</span
+              >
+            </li>
+          </ol>
+        </nav>
+      </div>
+
+      <style is:global>
+        /* ── 面包屑导航（post 页，批次1 ①；category 页有同名一份，改一处需同步另一处）── */
+        .eth-breadcrumb {
+          margin-bottom: 0.9rem;
+        }
+        .eth-breadcrumb-list {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 0.35rem;
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          font-size: 0.85rem;
+          line-height: 1.5;
+        }
+        .eth-breadcrumb-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          min-width: 0;
+        }
+        .eth-breadcrumb-sep {
+          color: color-mix(in oklab, var(--deep-text) 40%, transparent);
+          user-select: none;
+        }
+        .eth-breadcrumb-link {
+          color: color-mix(in oklab, var(--deep-text) 62%, transparent);
+          text-decoration: none;
+          white-space: nowrap;
+          transition: color 0.2s ease;
+        }
+        .eth-breadcrumb-link:hover {
+          color: var(--primary);
+        }
+        .eth-breadcrumb-current {
+          overflow: hidden;
+        }
+        .eth-breadcrumb-current-text {
+          font-weight: 600;
+          color: color-mix(in oklab, var(--deep-text) 88%, transparent);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          max-width: min(52vw, 26rem);
+        }
+      </style>
+
       <div
         class="onload-animation mb-3 flex flex-row gap-5 text-black/50 transition dark:text-white/50"
         th:if="${post.stats != null}"
@@ -493,6 +587,265 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     </div>
   </article>
 
+  <!-- 相关推荐（批次1 ②）：同系列 > 同标签 > 同分类，合计 3 篇，去重且排除本文。
+       数据来源与口径：
+       · 同系列：复用上方系列导航同款链路——#annotations.get(post, 'series') +
+         recentCommentsSeriesFinder.get(name)（带 ethereal-companion 插件可用性守卫，
+         守卫写法与 PostCard.astro 的 Finder 内联短路同款）；series.posts 是插件的
+         SeriesPostView 列表，字段为 name / title / permalink / cover / publishTime（直挂，
+         与 SeriesStripCard.astro 的用法同源），与 ListedPostVo 的字段形状不同，故分开渲染。
+       · 同标签 / 同分类：官方 PostFinder 的 list({page, size, tagName / categoryName})
+         （Halo 2.19.0+，见官方 finder-apis/post.md；旧 listByTag/listByCategory 已过时不用），
+         分别取本文第一个标签（post.tags[0]）/ 第一个分类（post.categories[0]），各取 10 篇候选
+         留出去重余量；返回 ListResult<ListedPostVo>，文章列表取 .items。
+       · 去重与封顶：⚠️ 严禁用 .?[...] 选择谓词引用上下文变量——SpringEL 的选择/投影
+         内部无法解析 Thymeleaf 上下文变量（引用 post.* 会抛 EL1008E，整页渲染截断；
+         仓库内 archives.astro / reward.astro 早有此规矩，初版在此翻车已改）。现行写法：
+         th:with 只算各源的 permalink 投影（.![...] 内只走元素自身属性链）、本文在各源
+         中的下标（List.indexOf）与各级展示数/下标界（relShown/relBound），真正的排除
+         （本文 + 跨源重复）在 th:each 的 th:if 里逐条用 permalink 比较完成，循环内不调
+         任何 Finder。总数恒 ≤3，极端重叠时可能少补 1 篇（可接受）。
+       · section 的 th:if 用外层算好的 relTotal（不依赖自身 th:with，避 th:if 先于 th:with 的坑）。 -->
+  <div
+    th:remove="tag"
+    th:with="relSeriesName=${#annotations.get(post, 'series')},
+      relSeries=${pluginFinder != null and pluginFinder.available('ethereal-companion', '>=1.1.0') and not #strings.isEmpty(relSeriesName) ? recentCommentsSeriesFinder.get(relSeriesName) : null},
+      relSeriesPosts=${relSeries != null ? relSeries.posts : null},
+      relCurPermalink=${post.status.permalink},
+      relSeriesLinks=${relSeriesPosts == null ? null : relSeriesPosts.![permalink]},
+      relSeriesIdx=${relSeriesLinks == null ? -1 : relSeriesLinks.indexOf(relCurPermalink)},
+      relSeriesSize=${relSeriesPosts == null ? 0 : #lists.size(relSeriesPosts)},
+      relSeriesCount=${relSeriesSize - (relSeriesIdx >= 0 ? 1 : 0)},
+      relShownS=${relSeriesCount > 3 ? 3 : relSeriesCount},
+      relBoundS=${relShownS + ((relSeriesIdx >= 0 and relSeriesIdx < relShownS) ? 1 : 0)},
+      relRemain1=${3 - relShownS},
+      relTagName=${not #lists.isEmpty(post.tags) ? post.tags[0].metadata.name : null},
+      relTagRaw=${relTagName == null ? null : postFinder.list({page: 1, size: 10, tagName: relTagName}).items},
+      relTagLinks=${relTagRaw == null ? null : relTagRaw.![status.permalink]},
+      relTagIdx=${relTagLinks == null ? -1 : relTagLinks.indexOf(relCurPermalink)},
+      relTagSize=${relTagRaw == null ? 0 : #lists.size(relTagRaw)},
+      relTagCount=${relTagSize - (relTagIdx >= 0 ? 1 : 0)},
+      relShownT=${relTagCount > relRemain1 ? relRemain1 : relTagCount},
+      relBoundT=${relShownT + ((relTagIdx >= 0 and relTagIdx < relShownT) ? 1 : 0)},
+      relRemain2=${relRemain1 - relShownT},
+      relCatName=${not #lists.isEmpty(post.categories) ? post.categories[0].metadata.name : null},
+      relCatRaw=${relCatName == null ? null : postFinder.list({page: 1, size: 10, categoryName: relCatName}).items},
+      relCatLinks=${relCatRaw == null ? null : relCatRaw.![status.permalink]},
+      relCatIdx=${relCatLinks == null ? -1 : relCatLinks.indexOf(relCurPermalink)},
+      relCatSize=${relCatRaw == null ? 0 : #lists.size(relCatRaw)},
+      relCatCount=${relCatSize - (relCatIdx >= 0 ? 1 : 0)},
+      relShownC=${relCatCount > relRemain2 ? relRemain2 : relCatCount},
+      relBoundC=${relShownC + ((relCatIdx >= 0 and relCatIdx < relShownC) ? 1 : 0)},
+      relTotal=${relShownS + relShownT + relShownC}"
+  >
+    <section
+      th:if="${relTotal > 0}"
+      class="card-base onload-animation relative z-10 mb-4 w-full px-6 pb-5 pt-6 md:px-9"
+      th:aria-label="#{post.relatedTitle}"
+    >
+      <h2
+        class="mb-4 flex items-center gap-2 text-lg font-bold text-black/90 transition dark:text-white/90"
+      >
+        <span
+          class="icon-[mdi--book-open-page-variant-outline] text-(--primary)"
+          aria-hidden="true"></span>
+        <span th:text="#{post.relatedTitle}">相关推荐</span>
+      </h2>
+      <div class="related-posts-grid">
+        <!-- 同系列（SeriesPostView：title / permalink / cover / publishTime 直挂字段；
+             publishTime 是 ISO 字符串（series-strip.ts 用 Date.parse 消费），日期取前 10 位，
+             不走 #dates.format（那要求 Date/Instant 类型，字符串会抛错） -->
+        <a
+          th:each="rp, rpStat : ${relSeriesPosts}"
+          th:if="${rpStat.index < relBoundS and rp.permalink != relCurPermalink}"
+          class="related-card"
+          th:href="@{${rp.permalink}}"
+        >
+          <span class="related-card-cover" th:with={imageSuffixThWith("400")}>
+            <img
+              th:if="${not #strings.isEmpty(rp.cover)}"
+              th:src="|${rp.cover}${suffix}|"
+              alt=""
+              loading="lazy"
+              decoding="async"
+              class="related-card-img"
+            />
+            <span
+              th:if="${#strings.isEmpty(rp.cover)}"
+              class="related-card-placeholder"
+              aria-hidden="true"
+            >
+              <span
+                class="icon-[material-symbols--article-outline-rounded] text-3xl text-(--primary)"
+              ></span>
+            </span>
+          </span>
+          <span class="related-card-body">
+            <span class="related-card-title" th:text="${rp.title}"
+              >文章标题</span
+            >
+            <span
+              class="related-card-date"
+              th:text="${rp.publishTime == null ? '' : (#strings.length(rp.publishTime.toString()) > 10 ? #strings.substring(rp.publishTime.toString(), 0, 10) : rp.publishTime.toString())}"
+              >2026-01-01</span
+            >
+          </span>
+        </a>
+        <!-- 同标签（ListedPostVo：spec.title / spec.cover / spec.publishTime / status.permalink） -->
+        <a
+          th:each="rp, rpStat : ${relTagRaw}"
+          th:if="${rpStat.index < relBoundT and rp.status.permalink != relCurPermalink and (relSeriesLinks == null or not #lists.contains(relSeriesLinks, rp.status.permalink))}"
+          class="related-card"
+          th:href="@{${rp.status.permalink}}"
+        >
+          <span class="related-card-cover" th:with={imageSuffixThWith("400")}>
+            <img
+              th:if="${not #strings.isEmpty(rp.spec.cover)}"
+              th:src="|${rp.spec.cover}${suffix}|"
+              th:alt="${rp.spec.title}"
+              loading="lazy"
+              decoding="async"
+              class="related-card-img"
+            />
+            <span
+              th:if="${#strings.isEmpty(rp.spec.cover)}"
+              class="related-card-placeholder"
+              aria-hidden="true"
+            >
+              <span
+                class="icon-[material-symbols--article-outline-rounded] text-3xl text-(--primary)"
+              ></span>
+            </span>
+          </span>
+          <span class="related-card-body">
+            <span class="related-card-title" th:text="${rp.spec.title}"
+              >文章标题</span
+            >
+            <span
+              class="related-card-date"
+              th:text="${#dates.format(rp.spec.publishTime, 'yyyy-MM-dd')}"
+              >2026-01-01</span
+            >
+          </span>
+        </a>
+        <!-- 同分类（ListedPostVo，字段同上） -->
+        <a
+          th:each="rp, rpStat : ${relCatRaw}"
+          th:if="${rpStat.index < relBoundC and rp.status.permalink != relCurPermalink and (relSeriesLinks == null or not #lists.contains(relSeriesLinks, rp.status.permalink)) and (relTagLinks == null or not #lists.contains(relTagLinks, rp.status.permalink))}"
+          class="related-card"
+          th:href="@{${rp.status.permalink}}"
+        >
+          <span class="related-card-cover" th:with={imageSuffixThWith("400")}>
+            <img
+              th:if="${not #strings.isEmpty(rp.spec.cover)}"
+              th:src="|${rp.spec.cover}${suffix}|"
+              th:alt="${rp.spec.title}"
+              loading="lazy"
+              decoding="async"
+              class="related-card-img"
+            />
+            <span
+              th:if="${#strings.isEmpty(rp.spec.cover)}"
+              class="related-card-placeholder"
+              aria-hidden="true"
+            >
+              <span
+                class="icon-[material-symbols--article-outline-rounded] text-3xl text-(--primary)"
+              ></span>
+            </span>
+          </span>
+          <span class="related-card-body">
+            <span class="related-card-title" th:text="${rp.spec.title}"
+              >文章标题</span
+            >
+            <span
+              class="related-card-date"
+              th:text="${#dates.format(rp.spec.publishTime, 'yyyy-MM-dd')}"
+              >2026-01-01</span
+            >
+          </span>
+        </a>
+      </div>
+
+      <style is:global>
+        /* ── 相关推荐（post 页文末，批次1 ②）── */
+        .related-posts-grid {
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 0.75rem;
+        }
+        @media (min-width: 768px) {
+          .related-posts-grid {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+          }
+        }
+        .related-card {
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          border-radius: 0.75rem;
+          background: var(--btn-regular-bg);
+          border: 1px solid var(--line-color);
+          color: var(--btn-content);
+          text-decoration: none;
+          transition:
+            border-color 0.2s ease,
+            transform 0.2s ease;
+        }
+        .related-card:hover {
+          border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+        }
+        .related-card:active {
+          transform: scale(0.99);
+        }
+        .related-card-cover {
+          position: relative;
+          display: block;
+          aspect-ratio: 16 / 9;
+          overflow: hidden;
+          background: color-mix(in srgb, var(--primary) 8%, transparent);
+        }
+        .related-card-img {
+          display: block;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .related-card-placeholder {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          height: 100%;
+        }
+        .related-card-body {
+          display: flex;
+          flex-direction: column;
+          gap: 0.35rem;
+          padding: 0.75rem 0.9rem 0.9rem;
+        }
+        .related-card-title {
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          line-clamp: 2;
+          overflow: hidden;
+          font-size: 0.92rem;
+          font-weight: 600;
+          line-height: 1.45;
+        }
+        .related-card:hover .related-card-title {
+          color: var(--primary);
+        }
+        .related-card-date {
+          font-size: 0.78rem;
+          font-variant-numeric: tabular-nums;
+          color: color-mix(in oklab, var(--deep-text) 55%, transparent);
+        }
+      </style>
+    </section>
+  </div>
+
   <nav
     class="mb-4 flex w-full flex-col justify-between gap-4 overflow-hidden md:flex-row"
     th:with="postCursor = ${postFinder.cursor(post.metadata.name)}"
@@ -593,6 +946,11 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.reward != false}"
     src={`${basePath}/assets/post-reward.js?v=${ASSET_VERSION}`}
     defer></script>
+  <!-- 断点续读（批次1 ③）：经典脚本 src/scripts/assets/resume-reading.ts 编译产物。
+       仅文章页引用；脚本内部以 #post-container 存在性守卫，localStorage 按
+       pathname 记滚动进度，回访时在正文顶部显示续读小条。无后台开关，恒加载。 -->
+  <script src={`${basePath}/assets/resume-reading.js?v=${ASSET_VERSION}`} defer
+  ></script>
   <script
     is:inline
     th:if="${theme.config?.post?.summary == null or theme.config?.post?.summary?.summaryEffect == null or theme.config?.post?.summary?.summaryEffect == 'typewriter'}"

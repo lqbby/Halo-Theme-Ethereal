@@ -49,8 +49,13 @@ const i18nInlineScript = `<script th:inline="javascript">
   window.i18nResources = {
     "search.loading": \`[(#{search.loading})]\`,
     "search.noResults": \`[(#{search.noResults})]\`,
+    "search.noResultsFor": \`[(#{search.noResultsFor})]\`,
     "search.panel": \`[(#{search.panel})]\`,
     "search.placeholder": \`[(#{search.placeholder})]\`,
+    "search.popular": \`[(#{search.popular})]\`,
+    "search.recent": \`[(#{search.recent})]\`,
+    "search.clearRecent": \`[(#{search.clearRecent})]\`,
+    "search.shortcutHint": \`[(#{search.shortcutHint})]\`,
     "theme.color": \`[(#{theme.color})]\`,
     "theme.dark": \`[(#{theme.dark})]\`,
     "theme.light": \`[(#{theme.light})]\`,
@@ -155,6 +160,11 @@ const i18nInlineScript = `<script th:inline="javascript">
     "page.archives.subtitleCount": \`[(#{page.archives.subtitleCount})]\`,
     "page.archives.filterTab": \`[(#{page.archives.filterTab})]\`,
     "page.archives.uncategorized": \`[(#{page.archives.uncategorized})]\`,
+    "nav.home": \`[(#{nav.home})]\`,
+    "post.relatedTitle": \`[(#{post.relatedTitle})]\`,
+    "resume.label": \`[(#{resume.label})]\`,
+    "resume.progress": \`[(#{resume.progress})]\`,
+    "resume.continue": \`[(#{resume.continue})]\`,
   };
 </script>`;
 
@@ -296,12 +306,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
          先画 ~200ms 的「页面顶部」——首页即 Banner 与三枚链接胶囊的闪现）。
          本脚本改为「先藏、就位、再显」：命中本会话保存的同路径位置时，先给
          <html> 挂 reload-restoring（CSS 隐藏 #main-grid/#banner-wrapper），
-         rAF 逐帧尝试恢复 scrollTop，到位（或连续 8 帧稳定 / 1200ms 兜底）后
-         摘类显形。仅命中「同路径 + 有保存值 + 非顶部」时接管（并设
+         rAF 逐帧尝试恢复 scrollTop，到位（或文档 complete 且高度连续 30 帧
+         不再变化、确认目标不可达 / 5000ms 兜底）后摘类显形；恢复只在隐藏
+         期内进行、显形后不再写 scrollTop（防画面当面闪移）；恢复期间用户
+         主动滚动即让位。仅命中「同路径 + 有保存值 + 非顶部」时接管（并设
          scrollRestoration=manual 防浏览器再抢写）；其余情况完全走原生，零侵入。
          位置由 app.ts 以 500ms 限频写入 sessionStorage（pagehide 补终值）。
          ⚠️ 两外壳（本文件与 src/pages/layout.astro）必须保持一致。 -->
-<ReloadRestore />
+    <ReloadRestore />
     <!-- Guard against duplicate Custom Element registration during Swup page transitions -->
     <script data-swup-ignore-script>
       (function () {
@@ -326,14 +338,18 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
     <!-- SEO：og:description 与 twitter 卡片——文章页由 post.astro 在 head 插槽
          自行输出 og:description（避免重复），此处只补非文章页；各页 description
          均由页面传入（见 src/pages/* 的 description prop），空串时不输出 -->
-    {!setOGTypeArticle && description && (
-      <meta property="og:description" th:content={description} />
-    )}
+    {
+      !setOGTypeArticle && description && (
+        <meta property="og:description" th:content={description} />
+      )
+    }
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" th:content={title} />
-    {description && (
-      <meta name="twitter:description" th:content={description} />
-    )}
+    {
+      description && (
+        <meta name="twitter:description" th:content={description} />
+      )
+    }
     <!-- SEO：og:image 兜底——非文章页（post == null）用侧边栏头像，保证首页等
          分享有预览图；文章页由 post.astro 输出封面，避免重复 -->
     <meta
@@ -1102,12 +1118,20 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
                 ? "dark"
                 : "light";
               document.documentElement.classList.toggle("dark", wantDark);
-          // 插件配色（上游 v2.0.1）：同步 color-scheme-* 标记类，供插件前台组件 hook
-          document.documentElement.classList.remove("color-scheme-auto", "color-scheme-light", "color-scheme-dark");
-          document.documentElement.classList.add("color-scheme-" + (wantDark ? "dark" : "light"));
-          // 插件配色：同步 data-color-scheme 为解析后的实际模式，否则 Shiki 等插件
-          // 会因 data-color-scheme="auto" 残留而跟随系统偏好，代码块暗色不生效。
-          document.documentElement.dataset.colorScheme = wantDark ? "dark" : "light";
+              // 插件配色（上游 v2.0.1）：同步 color-scheme-* 标记类，供插件前台组件 hook
+              document.documentElement.classList.remove(
+                "color-scheme-auto",
+                "color-scheme-light",
+                "color-scheme-dark",
+              );
+              document.documentElement.classList.add(
+                "color-scheme-" + (wantDark ? "dark" : "light"),
+              );
+              // 插件配色：同步 data-color-scheme 为解析后的实际模式，否则 Shiki 等插件
+              // 会因 data-color-scheme="auto" 残留而跟随系统偏好，代码块暗色不生效。
+              document.documentElement.dataset.colorScheme = wantDark
+                ? "dark"
+                : "light";
               closePanels();
             });
           });

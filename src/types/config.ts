@@ -235,6 +235,8 @@ export interface PostList {
   defaultMode?: "list" | "grid";
   /** 列表模式封面位置：right 右侧（默认）/ left 左侧 */
   coverPosition?: "right" | "left";
+  /** 设计型封面裁切：开启后封面 contain 完整显示 + 同图模糊填充（列表/网格都生效）；缺省/未配置视为关 */
+  coverContainMode?: boolean;
   /** 简介显示行数，设为 0 不截断 */
   descriptionLines?: number;
   /** @deprecated v1.7.39 起迁到 layout.homeMoments.show（此路径仅作兼容回退） */

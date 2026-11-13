@@ -8,54 +8,111 @@
  * 原先两处逐字重复 1759 字符，抽此组件后产物字节不变。
  */
 ---
-<script is:inline data-swup-ignore-script>
 
-      (function () {
-        try {
-          /* 仅真实文档载入（首包解析期）执行：Swup 换页时 scripts-plugin 会克隆
+<script is:inline data-swup-ignore-script>
+  (function () {
+    try {
+      /* 仅真实文档载入（首包解析期）执行：Swup 换页时 scripts-plugin 会克隆
              重执行 head 内联脚本——那不是刷新，命中旧保存值会误挂隐藏门并与
              换页复位打架。data-swup-ignore-script 已豁免重执行，此处 readyState
              守卫为双保险（属性失效时的兜底）。 */
-          if (document.readyState !== "loading") return;
-          var raw = sessionStorage.getItem(
-            "ethereal-scroll:" + location.pathname,
-          );
-          if (!raw) return;
-          var saved = JSON.parse(raw);
-          if (!saved || typeof saved.y !== "number" || saved.y <= 0) return;
-          if (Date.now() - (saved.t || 0) > 6 * 3600 * 1000) return;
-          var root = document.documentElement;
-          var target = Math.round(saved.y);
-          if ("scrollRestoration" in history) {
-            history.scrollRestoration = "manual";
-          }
-          root.classList.add("reload-restoring");
-          var done = false;
-          function finish() {
-            if (done) return;
-            done = true;
-            root.classList.remove("reload-restoring");
-          }
-          var last = -1;
-          var stable = 0;
-          function attempt() {
-            if (done) return;
-            root.scrollTop = target;
-            var y = root.scrollTop;
-            if (Math.abs(y - target) < 2) return finish();
-            if (y === last) {
-              // 连续 8 帧不变（内容高度已定但不足目标 ⇒ 已尽量贴近）即收尾
-              stable += 1;
-              if (stable >= 8 && y > 0) return finish();
-            } else {
-              stable = 0;
-              last = y;
-            }
-            requestAnimationFrame(attempt);
-          }
-          requestAnimationFrame(attempt);
-          // 兜底：最多隐藏 1200ms，异常情况下不至于久留空白
-          setTimeout(finish, 1200);
-        } catch (e) {}
-      })();
+      if (document.readyState !== "loading") return;
+      var raw = sessionStorage.getItem("ethereal-scroll:" + location.pathname);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      if (!saved || typeof saved.y !== "number" || saved.y <= 0) return;
+      if (Date.now() - (saved.t || 0) > 6 * 3600 * 1000) return;
+      var root = document.documentElement;
+      var target = Math.round(saved.y);
+      if ("scrollRestoration" in history) {
+        history.scrollRestoration = "manual";
+      }
+      root.classList.add("reload-restoring");
+      var done = false; // 隐藏期结束（已显形）
+      var chaseDone = false; // 恢复彻底结束（到位 / 不可达 / 用户接管 / 超时）
+      function finish() {
+        if (done) return;
+        done = true;
+        root.classList.remove("reload-restoring");
+      }
+      function stopChase() {
+        chaseDone = true;
+        finish();
+      }
+      var lastY = -1;
+      var lastH = -1;
+      var stable = 0;
+      var frame = 0;
+      var clearCycles = 0;
+      // 目标上方（回溯 3000px 内）是否还有未加载完的图片：只有这些图
+      // 会改变目标点的实际偏移；目标下方的图再怎么迟加载也不影响落点。
+      // 每 10 帧查一次（只查未完成的图片，强制布局开销可控）。
+      function checkPendingAbove(y) {
+        var imgs = document.images;
+        for (var i = 0; i < imgs.length; i++) {
+          var im = imgs[i];
+          if (im.complete) continue;
+          if (!(im.currentSrc || im.getAttribute("src"))) continue;
+          var top = im.getBoundingClientRect().top + y;
+          if (top < target && top > target - 3000) return true;
+        }
+        return false;
+      }
+      function attempt() {
+        if (chaseDone) return;
+        root.scrollTop = target;
+        var y = root.scrollTop;
+        frame += 1;
+        if (frame % 10 === 0) {
+          clearCycles = checkPendingAbove(y) ? 0 : clearCycles + 1;
+        }
+        /* ⚠️ 到位判定必须叠加「高度已稳定」：目标 y 是按完整布局存的，
+               加载中段上方图片未到位时布局是压缩的，scrollTop 会一度恰好
+               等于 target、但指向的其实是更靠后的内容——此时显形，随后图片
+               加载把正文撑开，画面就会当着用户面跳回一截（2026-11-13 实测：
+               第五节恢复时先显第六节、1~2s 后跳回第五节，约 300~400px）。
+               故：「等于 target」必须叠加布局已定型才算数——快速通道看
+               目标上方图片是否加载完（见下），不可达兜底看全页高度稳定。 */
+        /* ⚠️ 收尾条件（2026-11-13 修）：旧版「scrollTop 连续 8 帧不变即收尾」
+               是误判源——正文图片无宽高属性、迟加载时页面高度是间歇式增长的，
+               两张图之间 >130ms 的空档就会让钳制值「稳定 8 帧」，恢复在半路
+               提前收尾（实测目标 4990 落到 2020，丢约 3 屏）。现行口径：
+               一切收尾都以「scrollHeight 连续 45 帧不变」为前提（见下）。 */
+        var h = root.scrollHeight;
+        if (h === lastH) {
+          stable += 1;
+        } else {
+          stable = 0;
+          lastH = h;
+        }
+        // 到位（快速通道，2026-11-13 加）：已达目标，且连续 2 个检查
+        // 周期（约 20 帧 / 0.33s）确认目标上方已无待加载图片——上方
+        // 布局已定型，下方图片迟加载与落点无关，不必再等全页高度
+        // 稳定 45 帧，显形明显更快（治「白屏时间长」）。
+        if (Math.abs(y - target) < 2 && clearCycles >= 2) return stopChase();
+        // 不可达：文档已 complete、高度稳定 ≥45 帧、位置也不再变
+        // ⇒ 内容确实比存档时短了，停在能达到的最近处
+        if (
+          document.readyState === "complete" &&
+          stable >= 45 &&
+          y === lastY &&
+          y > 0
+        )
+          return stopChase();
+        lastY = y;
+        requestAnimationFrame(attempt);
+      }
+      requestAnimationFrame(attempt);
+      // 用户主动滚动（滚轮/触摸/按键）即彻底让位，不与人抢
+      window.addEventListener("wheel", stopChase, { passive: true });
+      window.addEventListener("touchstart", stopChase, { passive: true });
+      window.addEventListener("keydown", stopChase);
+      // 兜底：最多隐藏 5000ms。恢复全程只在隐藏期内进行、显形后绝不再
+      // 写 scrollTop——曾试过「显形后继续追赶 15s」，慢加载时画面会当着
+      // 用户的面闪到别处再回来（2026-11-13 用户实测反馈），已废止。
+      // 5s 内仍未到位（极端慢加载）则停在当时能达到的最近位置，静止
+      // 不闪；国内正常加载在 1~2s 内即到位显形，走不到这个兜底。
+      setTimeout(stopChase, 5000);
+    } catch (e) {}
+  })();
 </script>

@@ -184,6 +184,7 @@ spec:
             defaultMode: list
             coverPosition: right
             descriptionLines: 2
+            coverContainMode: false
             featuredEnable: true
             featuredSource: recent
             featuredPostDisplay: all
@@ -227,6 +228,13 @@ spec:
               max: 6
               step: 1
               help: "文章简介显示行数，设为 0 则不截断"
+            - $formkit: switch
+              name: coverContainMode
+              id: postList_coverContainMode
+              key: postList_coverContainMode
+              label: 封面完整显示（设计型裁切）
+              value: false
+              help: "开启后文章卡封面改为完整显示（contain，不裁切原图），封面框的空白处用同一张封面图的模糊放大版填充；列表与网格两种布局都生效。关闭（默认）则维持现状的 cover 裁切填满"
             - $formkit: group
               name: grid
               id: postList_grid

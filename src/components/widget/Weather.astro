@@ -37,16 +37,56 @@ const className = Astro.props.class;
   </div>
 
   <div id="weather-content" class="px-3 py-1">
-    <!-- min-h 对齐成功态两行内容（≈76px）的高度：加载态只有一行 spinner，
-         不留位的话天气数据到达时侧栏会整体下跳 ~50px（CLS）。
-         该占位随 innerHTML 清空自动消失，不影响成功/失败态的自然高度。 -->
+    <!-- 骨架屏（批次4 ⑩）：沿用原 min-h-[4.75rem] 对齐成功态两行内容（≈76px）
+         的防 CLS 占位高度，但把单行 spinner 换成与 renderWeather 成功态同
+         构的两行骨架：第一行城市/天气描述条（h-5 行盒），第二行图标块 +
+         温度条 + 右侧风力/湿度两条（h-9 行盒），gap-3 与成功态一致 —— 高度
+         不变、形状贴近，数据到达时不再有 spinner→内容的形态跳变。
+         移除机制：renderWeather()/renderError()/showErrorKey() 三路都先
+         container.innerHTML="" 再填充，骨架天然被清空，无需脚本额外清理。 -->
+    <span class="sr-only" th:text="#{widget.weather.loading}">加载中...</span>
     <div
-      class="flex min-h-[4.75rem] items-center justify-center gap-2 text-neutral-400 text-sm"
+      class="weather-skeleton flex min-h-[4.75rem] flex-col justify-center gap-3 px-1"
+      aria-hidden="true"
     >
-      <span class="icon-[mdi--loading] animate-spin text-base"></span>
-      <span th:text="#{widget.weather.loading}">加载中...</span>
+      <div class="flex h-5 items-center justify-between">
+        <span class="weather-skeleton-bar block h-3.5 w-24 rounded"></span>
+        <span class="weather-skeleton-bar block h-3 w-10 rounded"></span>
+      </div>
+      <div class="flex h-9 items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="weather-skeleton-bar block h-9 w-9 rounded-lg"></span>
+          <span class="weather-skeleton-bar block h-8 w-16 rounded"></span>
+        </div>
+        <div class="flex flex-col items-end gap-1.5">
+          <span class="weather-skeleton-bar block h-2.5 w-14 rounded"></span>
+          <span class="weather-skeleton-bar block h-2.5 w-12 rounded"></span>
+        </div>
+      </div>
     </div>
   </div>
+  <style>
+    .weather-skeleton-bar {
+      background: var(--btn-regular-bg-hover);
+      animation: weather-skeleton-pulse 1.6s ease-in-out infinite;
+    }
+
+    @keyframes weather-skeleton-pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.55;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .weather-skeleton-bar {
+        animation: none;
+      }
+    }
+  </style>
 </WidgetLayout>
 
 <script is:inline>
