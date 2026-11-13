@@ -1025,6 +1025,15 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       var dropDelay = 40;
       el.innerHTML = "";
       var chars = text.split("");
+      // 逐字定时器收进数组：Swup 换页（astro:before-swap）时统一清掉，
+      // 否则未到点的定时器会继续往已脱离文档的 span 上写样式（无害但白烧）。
+      var timers = [];
+      function cancelDrops() {
+        for (var t = 0; t < timers.length; t++) clearTimeout(timers[t]);
+        timers.length = 0;
+        document.removeEventListener("astro:before-swap", cancelDrops);
+      }
+      document.addEventListener("astro:before-swap", cancelDrops);
       chars.forEach(function (ch, i) {
         var span = document.createElement("span");
         span.textContent = ch === " " ? "\u00A0" : ch;
@@ -1034,12 +1043,14 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         span.style.transition =
           "opacity 0.1s ease-out, transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1)";
         el.appendChild(span);
-        setTimeout(
-          function () {
-            span.style.opacity = "1";
-            span.style.transform = "translateY(0)";
-          },
-          (i + 1) * dropDelay,
+        timers.push(
+          setTimeout(
+            function () {
+              span.style.opacity = "1";
+              span.style.transform = "translateY(0)";
+            },
+            (i + 1) * dropDelay,
+          ),
         );
       });
     })();

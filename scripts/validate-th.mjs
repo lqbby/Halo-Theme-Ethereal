@@ -23,7 +23,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { join, relative } from "node:path";
+import { delimiter, join, relative } from "node:path";
 
 const ROOT = process.cwd();
 const VERBOSE = process.argv.includes("-v");
@@ -160,7 +160,9 @@ try {
       "-Dfile.encoding=UTF-8",
       "-Dstdout.encoding=UTF-8",
       "-cp",
-      jars.join(";"),
+      // classpath 分隔符随平台（win ";" / unix ":"），写死 ";" 会让 Linux/macOS
+      // 上 JVM 找不到类、误报表达式错误 —— 用 path.delimiter。
+      jars.join(delimiter),
       harness,
       ...(VERBOSE ? ["-v"] : []),
       ...targets,

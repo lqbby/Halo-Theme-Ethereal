@@ -200,9 +200,10 @@ function mountWidgets(root: Element) {
 /**
  * 扫描 .custom-md 内的 > [!ethereal-*] callout 块，转译成 xhhao-com 标签，
  * 再调插件 mount 渲染。
+ * mount 必须无条件调用：只含原生 xhhao-com 标签（没有短代码）的文章
+ * 在 Swup 切页时同样需要挂载，否则组件不渲染（插件侧无 MutationObserver 兜底）。
  */
 export function renderShortcodes(root: Element) {
-  let translated = false;
   root
     .querySelectorAll<HTMLElement>(".callout[data-subtype^='ethereal-']")
     .forEach((callout) => {
@@ -212,7 +213,6 @@ export function renderShortcodes(root: Element) {
       const sections = parseSections(callout);
       if (!sections.length) return;
       callout.replaceWith(translator(sections));
-      translated = true;
     });
-  if (translated) mountWidgets(root);
+  mountWidgets(root);
 }

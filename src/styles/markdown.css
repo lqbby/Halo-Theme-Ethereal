@@ -93,7 +93,10 @@
   );
   background-size: 200% 100%;
   background-repeat: no-repeat;
-  animation: shiki-skeleton-shimmer 1.6s linear infinite;
+  /* 扫光只跑 12 轮（≈19s）不无限循环：高亮正常完成时 halo 会把 pre 隐藏、
+     骨架远早于 12 轮就消失；若 Shiki 加载失败，无限扫光只会白烧合成帧，
+     停在静态骨架底上更诚实。 */
+  animation: shiki-skeleton-shimmer 1.6s linear 12;
 }
 
 /* 原始文本藏掉（visibility:hidden 让文字不可见但保留占位高度；pre 的 rounded-xl
@@ -459,7 +462,7 @@
   margin-block: 0.4em;
 }
 
-.custom-md ul > li:not([class*="xhhao-com"])::before {
+.custom-md ul > li:not([class*="xhhao-com"]):not(.vditor-task)::before {
   content: "";
   position: absolute;
   left: -1.08em;

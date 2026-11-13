@@ -11,6 +11,7 @@ import { guardOnce } from "../../utils/once";
     this.index = 0;
     this.delay = 40;
     this.timeoutId = null;
+    this.charTimers = [];
 
     if (el.parentElement) {
       el.parentElement.style.animation = "none";
@@ -26,12 +27,22 @@ import { guardOnce } from "../../utils/once";
       clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
+    // 逐字定时器一并清掉：切页/隐藏后不应再往旧 span 上写样式
+    for (var i = 0; i < this.charTimers.length; i++) {
+      clearTimeout(this.charTimers[i]);
+    }
+    this.charTimers = [];
     // 恢复占位符维持行高，避免布局抖动
     this.el.innerHTML = "&nbsp;";
   };
 
   DropEffect.prototype.doDrop = function (text) {
     var self = this;
+    // 上一轮未落完的逐字定时器先清掉，避免新旧两轮互相抢 span 样式
+    for (var t = 0; t < self.charTimers.length; t++) {
+      clearTimeout(self.charTimers[t]);
+    }
+    self.charTimers = [];
     self.el.innerHTML = "";
     text.split("").forEach(function (ch, i) {
       var span = document.createElement("span");
@@ -41,12 +52,14 @@ import { guardOnce } from "../../utils/once";
       span.style.transform = "translateY(-1.2em)";
       span.style.transition = "opacity 0.1s ease-out, transform 0.35s ease-out";
       self.el.appendChild(span);
-      setTimeout(
-        function () {
-          span.style.opacity = "1";
-          span.style.transform = "translateY(0)";
-        },
-        (i + 1) * self.delay,
+      self.charTimers.push(
+        setTimeout(
+          function () {
+            span.style.opacity = "1";
+            span.style.transform = "translateY(0)";
+          },
+          (i + 1) * self.delay,
+        ),
       );
     });
   };

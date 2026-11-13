@@ -99,10 +99,17 @@
     );
     if (boxes.length === 0) return;
 
-    // 先全部打标：保证两份页脚只发一次请求，也防同一次换页里脚本被多次执行
+    // 先全部打标：保证两份页脚只发一次请求，也防同一次换页里脚本被多次执行。
+    // 但标记只是「请求进行中」的占位：失败/空数据时要在回调里摘掉（见 unmark），
+    // 否则本页会被永久标记成已加载、友链区空白且再无重试机会。
     boxes.forEach(function (box) {
       box.setAttribute("data-hbf-loaded", "true");
     });
+    function unmark() {
+      boxes.forEach(function (box) {
+        box.removeAttribute("data-hbf-loaded");
+      });
+    }
 
     var endpoint = boxes[0].getAttribute("data-hbf-endpoint");
     if (!endpoint) return;
@@ -121,13 +128,18 @@
       })
       .then(function (data) {
         var items = (data && data.items) || [];
-        if (items.length === 0) return;
+        if (items.length === 0) {
+          unmark();
+          return;
+        }
         boxes.forEach(function (box) {
           fill(box, items);
         });
       })
       .catch(function () {
-        /* 静默失败：容器留空，头部「申请友链」按钮与 <noscript> 的 /links 入口仍在 */
+        /* 静默失败：容器留空，头部「申请友链」按钮与 <noscript> 的 /links 入口仍在；
+           摘掉标记，下次脚本执行（换页/重入）时还能重试 */
+        unmark();
       });
   }
 

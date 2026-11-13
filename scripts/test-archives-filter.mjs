@@ -188,8 +188,10 @@ if (allTab) {
 }
 
 // ── 5. 场景二：入口直接带筛选参数（分享链接 / 刷新 / 后退） ───────────────────
-// 模拟 SSR 只渲了第 1 页里的命中行（AI工具 的 3 篇全在第 2 页 ⇒ SSR 出 0 行），
-// 断言 init() 会自动补齐后续分页并把 3 篇都渲染出来。
+// 模拟 SSR 只渲了第 1 页里的命中行（数量随站点内容变化，可能为 0），
+// 断言 init() 会自动补齐后续分页并把该分类的全部文章都渲染出来。
+// 注：旧断言写死 ssrRows === 0（当年 AI工具 的文章全在第 2 页），站点内容
+// 变化后第 1 页已有命中行，该前提不再成立；核心断言是「补齐到全量」。
 const scenSlug = "ai";
 let scenWant = 0;
 for (const cs of slugCats.values()) if (cs.includes(scenSlug)) scenWant++;
@@ -226,7 +228,7 @@ let filteredFixture = pages[0].replace(
   const gotRows = d2.window.document.querySelectorAll(
     "#archive-list [data-archive-row]",
   ).length;
-  var entryOk = ssrRows === 0 && gotRows === scenWant;
+  var entryOk = ssrRows <= scenWant && gotRows === scenWant;
   if (!entryOk) failed++;
   var entryInfo = `SSR ${ssrRows} 行 → 补齐后 ${gotRows} 行（应 ${scenWant}）`;
 }

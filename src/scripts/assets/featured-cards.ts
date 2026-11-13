@@ -450,6 +450,26 @@ import { openRandomPostCarousel } from "./_random-post-carousel";
         onRandomClick(randomBtn);
       });
     }
+
+    // 标签带流动动画离屏暂停：50s 常驻动画在卡片滚出视口后仍会逐帧合成，
+    // IO 监听可见性切换 animation-play-state；换页重跑 init 时先断开旧观察者。
+    var tagsScroll = row.querySelector(".featured-random-tags-scroll");
+    if (tagsScroll && typeof IntersectionObserver === "function") {
+      if ((window as any).__featuredTagsFlowIO) {
+        (window as any).__featuredTagsFlowIO.disconnect();
+      }
+      var flowIO = new IntersectionObserver(function (entries) {
+        for (var i = 0; i < entries.length; i++) {
+          (entries[i].target as HTMLElement).style.animationPlayState = entries[
+            i
+          ].isIntersecting
+            ? ""
+            : "paused";
+        }
+      });
+      flowIO.observe(tagsScroll);
+      (window as any).__featuredTagsFlowIO = flowIO;
+    }
   }
 
   // 文档级监听只挂一次：本脚本在 Swup 容器内会随换页重新执行，

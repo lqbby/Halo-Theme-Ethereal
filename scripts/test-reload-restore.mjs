@@ -7,7 +7,7 @@
 //   + CSS 隐藏门。判据：
 //   R1 Layout.astro / pages/layout.astro 各含恢复脚本，且脚本体**逐字一致**（两外壳约定）
 //   R2 脚本含关键防护：scrollRestoration=manual、reload-restoring 类、
-//      到位判据(|y-target|<2)、稳定 8 帧收尾、1200ms 兜底
+//      到位判据(|y-target|<2 且上方无待加载图片的快速通道)、稳定 45 帧不可达收尾、5000ms 兜底
 //   R3 app.ts 有位置记录器（ethereal-scroll: 键 + pagehide 补终值 + 500ms 限频 + 仅记非顶部）
 //   R4 transition.css 隐藏门只动 opacity、不含 transition（#banner-wrapper 属 is-home
 //      位移族，禁止附加过渡——见 test-marquee-translate-base 的家族契约）
@@ -56,7 +56,9 @@ const shell2 = readFileSync(PLUGIN_LAYOUT, "utf8");
 /** @param {string} t */
 const usesComponent = (t) =>
   t.includes("<ReloadRestore />") &&
-  /import ReloadRestore from "\.\.\/components\/misc\/ReloadRestore\.astro";/.test(t);
+  /import ReloadRestore from "\.\.\/components\/misc\/ReloadRestore\.astro";/.test(
+    t,
+  );
 
 check("R1a 共用组件 ReloadRestore.astro 含恢复脚本", !!s1, true);
 check(
@@ -75,8 +77,8 @@ check(
     'history.scrollRestoration = "manual"',
     'classList.add("reload-restoring")',
     "Math.abs(y - target) < 2",
-    "stable >= 8",
-    "setTimeout(finish, 1200)",
+    "stable >= 45",
+    "setTimeout(stopChase, 5000)",
   ].every((k) => body.includes(k)),
   true,
 );

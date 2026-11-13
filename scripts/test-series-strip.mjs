@@ -596,8 +596,8 @@ check(
 
 const settings = read(path.join(themeRoot, "settings.yaml"));
 check(
-  "B5 settings 的 postList 组含 seriesEnable 开关",
-  /name:\s*seriesEnable/.test(settings),
+  "B5 settings 的 postList 组含 seriesDisplay 显示范围（v1.7.40 起取代 seriesEnable 开关）",
+  /name:\s*seriesDisplay/.test(settings),
 );
 check(
   "B6 settings 的 postList 组含 seriesCount 数字",
@@ -607,17 +607,18 @@ check(
   "B7 seriesCount 有 1..24 的约束与联动显隐",
   /min:\s*1/m.test(settings) &&
     /max:\s*24/m.test(settings) &&
-    /if:\s*"\$get\(postList_seriesEnable\)\.value === true"/.test(settings),
+    /if:\s*"\$get\(postList_seriesDisplay\)\.value !== 'off'"/.test(settings),
 );
 check(
   "B8 postList 默认值里带上了新字段",
-  /seriesEnable:\s*true/.test(settings) && /seriesCount:\s*4/.test(settings),
+  /name:\s*seriesDisplay[\s\S]{0,300}?value:\s*all/.test(settings) &&
+    /name:\s*seriesCount[\s\S]{0,300}?value:\s*4/.test(settings),
 );
 check(
   "B9 后台文案已改成「多系列切换」口径（不再是「一个系列一张卡」）",
-  /label:\s*显示「系列」卡片条/.test(settings) &&
+  /label:\s*「系列」卡片条 · 显示范围/.test(settings) &&
     /label:\s*系列数量（切换按钮）/.test(settings) &&
-    settings.includes("在首页精选卡片上方显示系列卡"),
+    settings.includes("系列卡片条在桌面端与移动端的显示范围"),
 );
 
 // settings 里声明了的字段，TypeScript 侧的 PostList 也必须声明 —— 否则模板里

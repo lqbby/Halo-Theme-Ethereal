@@ -93,7 +93,7 @@
             th:if="${moment.spec.content != null and not #strings.isEmpty(moment.spec.content.raw)}"
             th:href="@{/moments/{name}(name=${moment.metadata.name})}"
             th:with="momentRaw=${moment.spec.content.raw},
-                     momentText=${momentRaw == null ? '' : momentRaw.replaceAll('<[^>]*>', ' ').trim()}"
+                     momentText=${momentRaw == null ? '' : momentRaw.replaceAll('<[^>]*>', ' ').replaceAll('&nbsp;', ' ').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&#39;', '''').replaceAll('&quot;', '&quot;').replaceAll('&amp;', '&').trim()}"
             class="home-moment-link group flex min-h-[24px] items-center whitespace-nowrap"
           >
             <span

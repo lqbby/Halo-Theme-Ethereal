@@ -181,7 +181,14 @@ function runner({ api, name, theme, num, pad, svg, probeDims, failProbe }) {
     };
   };
 
+  // 被测脚本已演进为「实例作用域」：以 document.currentScript.parentElement 为
+  // widgetRoot 并用 querySelector 在容器内取子元素（真实浏览器契约）。桩件须
+  // 同步这个契约，否则脚本在 widgetRoot.querySelector 处直接抛错、误报产品 bug。
+  const widgetRootEl = makeEl("div");
+  widgetRootEl.querySelector = (sel) =>
+    sel.startsWith("#") ? (byId[sel.slice(1)] ?? null) : null;
   const document = {
+    currentScript: { parentElement: widgetRootEl },
     getElementById: (id) => byId[id] ?? null,
     createElement: makeEl,
     createDocumentFragment: () => makeEl("#fragment"),

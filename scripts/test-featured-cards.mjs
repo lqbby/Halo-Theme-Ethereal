@@ -546,7 +546,9 @@ console.log(`产物目录：${tplDir}\n`);
   check(
     "左卡是 <button>，且被 fcRandom 设置门控",
     /<button[^>]*id="featured-random"/.test(idx) &&
-      idx.includes('th:if="${fcRandom}"'),
+      // 门控已演进为「开关 + 显示范围」双条件（featuredRandomDisplay），
+      // 与 seriesDisplay 同一轮改造；旧断言只认 th:if="${fcRandom}" 已过时。
+      idx.includes("th:if=\"${fcRandom and fcRandomMode != 'off'}\""),
   );
   check(
     "左卡图标格 12×3=36 格、6×3=18 列",

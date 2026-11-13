@@ -115,6 +115,11 @@ import PageHeader from "../components/control/PageHeader.astro";
       }, 0);
 
       function roll(el, target) {
+        /* 动效敏感用户直接落终值（下方 CSS 注释的承诺，JS 此前未兑现） */
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          el.textContent = target;
+          return;
+        }
         var dur = 550;
         var start = null;
         function tick(now) {

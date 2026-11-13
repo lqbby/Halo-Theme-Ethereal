@@ -628,10 +628,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           `${offset}px`,
         );
 
-        window.__etherealOriginalHistory ??= {
-          pushState: window.history.pushState,
-          replaceState: window.history.replaceState,
-        };
+        // 注意：此处不能用 ??= 等 ES2021 语法——本脚本为 is:inline 不经转译，
+        // 老内核（如 QQ/X5）解析失败会让整段初始化中断；用传统写法兜底。
+        if (!window.__etherealOriginalHistory) {
+          window.__etherealOriginalHistory = {
+            pushState: window.history.pushState,
+            replaceState: window.history.replaceState,
+          };
+        }
 
         // 版本横幅：仅首次加载输出一次（Swup 切换页面会重复执行本脚本）
         if (!window.__etherealBannerLogged) {
@@ -1003,6 +1007,15 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
         #sidebar-sticky,
         #right-sidebar-sticky {
           transition: top var(--dur-scroll, 700ms) ease !important;
+        }
+        /* 换页动画期间禁用 top 过渡：换页回顶滑行中导航栏显隐会翻转吸顶
+           目标值，700ms 缓动让侧边栏慢半拍追赶、与主栏滑动错位（拉扯感）；
+           换页期直接瞬时到位，普通滚动时的导航栏同步缓动不受影响 */
+        html.is-changing #sidebar-sticky,
+        html.is-changing #right-sidebar-sticky,
+        html.is-animating #sidebar-sticky,
+        html.is-animating #right-sidebar-sticky {
+          transition: none !important;
         }
         @media (prefers-reduced-motion: reduce) {
           /* 减少动态效果：侧边栏吸顶位置瞬时切换，不做位移过渡 */

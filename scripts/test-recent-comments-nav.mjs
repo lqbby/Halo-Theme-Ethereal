@@ -140,15 +140,19 @@ function makeEnv(url) {
     },
   };
 
-  // 懒加载钩子：只登记不执行，让测试自己控制 load 时机
+  // 懒加载钩子：只登记不执行，让测试自己控制 load 时机。
+  // 注意 __themeLazyInit 的签名已由「字符串键」演进为「元素锚点」（字符串键永远
+  // 命中文档第一个同 id 元素，桌面/移动双实例时移动端那份 IO 永不触发）——
+  // 桩件按元素 id 归档，兼容新签名。
   /** @type {Record<string, () => void>} */
   const lazy = {};
   /**
-   * @param {string} id
+   * @param {any} anchor
    * @param {() => void} fn
    */
-  const themeLazyInit = (id, fn) => {
-    lazy[id] = fn;
+  const themeLazyInit = (anchor, fn) => {
+    const key = typeof anchor === "string" ? anchor : anchor && anchor.id;
+    if (key) lazy[key] = fn;
   };
   w.__themeLazyInit = themeLazyInit;
   if (typeof w.AbortController === "undefined")

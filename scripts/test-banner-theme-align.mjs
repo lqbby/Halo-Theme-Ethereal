@@ -188,7 +188,9 @@ const run = async () => {
     check(
       "BA-4a 暗色：用 data-theme-position",
       img.style.objectPosition,
-      "top",
+      // CSSOM 序列化会把单关键字 "top" 规范化为 "center top"（jsdom 与浏览器一致），
+      // 脚本写入的是 data-theme-position 原值 "top"，读回按规范化结果断言。
+      "center top",
     );
 
     // ── BA-5 幂等 ──

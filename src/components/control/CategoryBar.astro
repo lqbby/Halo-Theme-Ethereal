@@ -14,7 +14,15 @@
 // pill（z-index:1）保持透明底，只切换文字色 —— 选中态的视觉由滑块承担。
 //
 // 运动引擎只做一件事：每帧把滑块往「当前选中 pill 的实时矩形」逼近。
-//   · 指数平滑（帧率无关）：cur += (tgt - cur) * (1 - e^(-dt/tau))
+//   · 中心+宽度双弹簧（2026-11-13 换核，替代指数平滑）：位移只由中心弹簧
+//     驱动（速度单调、无反转、无中途停顿），宽度弹簧滞后 + 速度拉伸分量
+//     负责水滴形变；落定按位置+速度双阈值一次收干净（双缘弹簧试过：
+//     前缘先停、后缘过冲回头，飞行中段会「停一下」，已弃）
+//   · WAAPI 飞行层（同日晚追加）：点击/换页的目标切换若目标静止（pill
+//     完整可见、无揭示滚动），飞行改由 element.animate 在合成器上跑
+//     （起点→拉伸中点→目标三帧），与 Swup 换页的主线程忙碌解耦、
+//     不掉帧；目标会动（揭示滚动/用户横滚）时仍由弹簧循环跟随，
+//     两条路径经 visualState/handoffFlight 采样接管，可任意互切
 //   · 滚动增量前馈：滚动区内的目标，其 track 坐标随 scrollLeft 线性平移，
 //     直接把这一分量精确补偿掉 → 滚动期间零滞后（滑块与 pill 严丝合缝）
 //   · 收敛即自停，无定时器、无状态机
@@ -39,7 +47,9 @@
 //   ① 纯合成滑块：宽度从「逐帧写 width」改为「固定基准宽 + scaleX 拉伸」。
 //      width 会每帧触发布局；transform 只在合成器上跑。圆角用 1/k 反向补偿
 //      保持正圆（border-radius 只绘制、不布局）⇒ 逐帧零重排。
-//   ② 图层隔离：本栏与滚动区各加 contain: layout style + backface-visibility。
+//   ② 图层隔离：本栏与滚动区各加 contain: layout + backface-visibility。
+//      （原写 layout style：style 容纳值已被规范与浏览器移除，整条 contain
+//      声明有被判无效、连 layout 一起丢弃的风险，故只保留 layout。）
 //      **不用 contain: paint** —— 会裁掉滑块的 box-shadow 外发光（实测保守档）。
 //   ③ 触控端滤镜智能降档：桌面 saturate(180%) blur(20px)；命中
 //      「窄屏 ∪ 无悬停粗指针」时降为纯 blur(8px) 且底噪 α 提到 0.85。
@@ -135,7 +145,7 @@
        diff max 0）；顺带也测了 paint，本例同样 diff 0，但仍取保守档。
        ⚠️ contain 不会破坏本栏**自身**的 backdrop-filter：磨砂挂自身、采样自祖先
        Backdrop Root，而 contain 只作用于后代（同 1.5.59 立下的 Backdrop Root 判据）。 */
-    contain: layout style;
+    contain: layout;
     backface-visibility: hidden;
     border: 1px solid
       color-mix(in srgb, var(--btn-content) var(--cb-bar-border), transparent);
@@ -221,7 +231,7 @@
        layout+style 隔离：滚动区内部布局/样式自包含，滑动时不牵连外层重排；
        overscroll-behavior-x: contain ⇒ 横滚到端点时**不把滚动链传给父级**
        （移动端在栏上横滑，到边不再带动整页左右晃）。 */
-    contain: layout style;
+    contain: layout;
     backface-visibility: hidden;
     overscroll-behavior-x: contain;
   }
@@ -433,6 +443,9 @@
     .category-scroll.can-scroll-left,
     .category-scroll.can-scroll-right,
     .category-scroll.can-scroll-left.can-scroll-right {
+      /* 上面渐隐遮罩是带 -webkit- 前缀定义的，复位必须两条都写，
+         否则 Safari 里遮罩摘不掉 */
+      -webkit-mask-image: none;
       mask-image: none;
     }
 
@@ -469,17 +482,34 @@
     if (!track || !liquid) return;
 
     /* ── 运动参数 ──────────────────────────────────────────────────────────
-       tau = 指数平滑时间常数（秒），到达 95% 约需 3τ，是唯一的手感旋钮。
-       · TAU_FLOW   选中项切换时液体的「流动」速度
-       · TAU_MAX    长距离位移上限（配合 VMAX，避免大跨越一帧甩过去）
-       · VMAX       速度上限：tau = max(TAU_FLOW, 距离 / VMAX)
+       液体 = 中心弹簧 + 宽度弹簧 + 速度拉伸（2026-11-13 二次换核）：
+       · 中心 W_CENTER / Z_CENTER：临界阻尼，整体位移的唯一驱动 → 速度单调
+         衰减、无反转，飞行全程不停顿
+       · 宽度 W_WIDTH / Z_WIDTH：软一档，宽度变化天然滞后于位移
+       · 速度拉伸：显示宽 = 弹簧宽 + min(宽度×STRETCH_MAX, |中心速度|×
+         STRETCH_V)，速度越快拉得越长、停下自动收回 —— 水滴的形变跟着
+         速度走，而不是跟着两条边的赛跑走。拉伸刻意收紧（0.28 / 0.02）：
+         摊得太长会两头挂在起止胶囊上、看着像两颗水滴，成团优先
+       · V_CAP 速度上限（px/s），防长距离一帧甩飞
        · TAU_SCROLL 点击后「最小揭示」滚动的缓动（pill 被裁切时才滚，滚最小量）
+       为什么不用双缘弹簧（同日第一版）：前缘先到先停、后缘过冲再回头，
+       两条边独立运动会在飞行中段制造「停一下又动」的观感；中心模型里
+       两条边由中心±宽/2 派生，永远同进同退。
+       落定判据 = 位置差与速度同时小于阈值（弹簧有明确终点，一次收干净，
+       不再有旧指数平滑尾段的亚像素顿挫）。
        ──────────────────────────────────────────────────────────────────── */
-    var TAU_FLOW = 0.1;
-    var TAU_MAX = 0.18;
-    var VMAX = 2000;
+    var W_CENTER = 21;
+    var Z_CENTER = 1.0;
+    var W_WIDTH = 13;
+    var Z_WIDTH = 0.9;
+    var STRETCH_V = 0.02;
+    var STRETCH_MAX = 0.28;
+    var V_CAP = 2600;
     var TAU_SCROLL = 0.135;
     var EPS_X = 0.15;
+    var EPS_W = 0.3;
+    var EPS_V = 10;
+    var EPS_VW = 14;
     var EPS_O = 0.004;
 
     var reduceMotion = false;
@@ -494,7 +524,10 @@
     } catch (e) {}
 
     /* ── 状态 ──────────────────────────────────────────────────────────── */
-    var cur = { x: 0, w: 0, o: 1 }; // 液体当前值（track 坐标系）
+    var cur = { x: 0, w: 0, o: 1 }; // 液体当前值（track 坐标系；每帧由中心/宽度合成）
+    var eC = { p: 0, v: 0 }; // 中心弹簧：位置 / 速度（px、px/s）
+    var eW = { p: 0, v: 0 }; // 宽度弹簧（不含速度拉伸分量）
+    var stretchCur = 0; // 速度拉伸分量（低通后，px）
     var tgt = { x: 0, w: 0, o: 1 }; // 液体目标值
     var tgtInScroll = false; // 当前目标是否位于滚动区内（决定是否做滚动前馈）
     var scrCur = 0; // 程序化滚动当前位置
@@ -584,11 +617,161 @@
         "translate3d(" + cur.x + "px,0,0) scaleX(" + cur.w / LW_BASE + ")";
       var w = cur.w > 1 ? cur.w : 1;
       var rx = (LIQ_R * LW_BASE) / w;
-      if (Math.abs(rx - lastRadius) > 0.3) {
+      if (Math.abs(rx - lastRadius) > 1) {
         liquid.style.borderRadius = rx + "px / " + LIQ_R + "px";
         lastRadius = rx;
       }
       liquid.style.opacity = cur.o;
+    }
+
+    /* ── WAAPI 飞行（点击/换页的目标切换专用）────────────────────────────
+       逐帧 JS 弹簧在飞行途中要和 Swup 换页抢主线程，手机上尤其容易掉帧。
+       目标静止（点击的 pill 完整可见、无需揭示滚动）时，把飞行交给浏览器
+       合成器：element.animate 一次排好「起点 → 拉伸中点 → 目标」三帧，
+       主线程再忙也不掉帧。目标会动的情况（揭示滚动中 / 用户正在横滚）
+       仍走下面的 rAF 弹簧循环 —— kick/settleNow 会先把动画采样接管回来。
+       圆角：飞行中不逐帧写，起飞时按目标宽一次校准（中途略有出入，300ms
+       内肉眼不可辨）；落定后 apply 的逐帧口径在弹簧路径上不变。 */
+    var flightAnim = null;
+    var flightTo = null; // 当前飞行的目的地 {x,w}：同目标重复起飞直接放行原飞行
+
+    function tfOf(x, w) {
+      return "translate3d(" + x + "px,0,0) scaleX(" + w / LW_BASE + ")";
+    }
+
+    function flightMs(dist) {
+      var ms = 250 + dist * 0.35;
+      return ms > 540 ? 540 : ms;
+    }
+
+    function setRadiusFor(w) {
+      var rx = (LIQ_R * LW_BASE) / (w > 1 ? w : 1);
+      liquid.style.borderRadius = rx + "px / " + LIQ_R + "px";
+      lastRadius = rx;
+    }
+
+    /* 当前「渲染中」的液体几何：动画进行时读合成结果（getComputedStyle
+       返回动画当前帧的 transform），否则就是 JS 状态 cur。 */
+    function visualState() {
+      if (flightAnim) {
+        try {
+          var cs = window.getComputedStyle(liquid);
+          var t = cs.transform || "";
+          var nums = t.match(/-?[\d.]+/g);
+          if (nums && t.indexOf("matrix3d") === 0 && nums.length >= 13) {
+            return {
+              x: parseFloat(nums[12]) || 0,
+              w: Math.abs(parseFloat(nums[0]) || 0) * LW_BASE,
+              o: parseFloat(cs.opacity),
+            };
+          }
+          if (nums && t.indexOf("matrix") === 0 && nums.length >= 5) {
+            return {
+              x: parseFloat(nums[4]) || 0,
+              w: Math.abs(parseFloat(nums[0]) || 0) * LW_BASE,
+              o: parseFloat(cs.opacity),
+            };
+          }
+        } catch (e) {}
+      }
+      return { x: cur.x, w: cur.w, o: cur.o };
+    }
+
+    /* 把飞行接管回 JS 状态（弹簧循环接手前调用）：采样当前帧并取消动画 */
+    function handoffFlight() {
+      if (!flightAnim) return;
+      var s = visualState();
+      flightAnim.cancel();
+      flightAnim = null;
+      flightTo = null;
+      cur.x = s.x;
+      cur.w = s.w;
+      cur.o = s.o;
+      eC.p = s.x + s.w / 2;
+      eC.v = 0;
+      eW.p = s.w;
+      eW.v = 0;
+      stretchCur = 0;
+    }
+
+    /* 起飞：目标须已由 measure() 写入 tgt。成功接管返回 true；
+       不可用（无 WAAPI / reduced-motion）返回 false，调用方回落弹簧。 */
+    function startFlight() {
+      if (!liquid.animate || reduceMotion) return false;
+      var from = visualState();
+      var to = { x: tgt.x, w: tgt.w, o: tgt.o };
+      var dist = Math.abs(to.x + to.w / 2 - (from.x + from.w / 2));
+      if (
+        dist < 1 &&
+        Math.abs(to.w - from.w) < 1 &&
+        Math.abs(to.o - from.o) < 0.01
+      ) {
+        settleNow();
+        return true;
+      }
+      /* 已在飞往同一目标（点击起飞后 Swup page:view 又调起一次）：
+         绝不重启 —— 重启会把原飞行的速度/缓动清零，还会在已拉伸的
+         宽度上再叠一层拉伸脉冲，视觉上就是半路多出一颗水滴。
+         让原飞行跑完即可（实测：重启时总时长 ~880ms vs 设计上限
+         540ms，飞行中宽度被叠到 120px vs 单次上限 ~95px）。 */
+      if (
+        flightAnim &&
+        flightTo &&
+        Math.abs(flightTo.x - to.x) < 1 &&
+        Math.abs(flightTo.w - to.w) < 1
+      )
+        return true;
+      if (flightAnim) {
+        flightAnim.cancel();
+        flightAnim = null;
+      }
+      setRadiusFor(to.w);
+      // 中点帧要「成团」：拉伸封顶（较大端宽 ×1.3 且增量 ≤34px）——旧口径
+      // 增量随距离涨到 64px，长跳时液滴摊成一条两头圆的长带，一头挂在
+      // 起点、一头探到目标，看着像裂成两颗水滴。成团飞 + 中点偏前
+      // （62%）就没有这个错觉。
+      var midC =
+        from.x + from.w / 2 + (to.x + to.w / 2 - (from.x + from.w / 2)) * 0.62;
+      var midW = Math.min(
+        Math.max(from.w, to.w) * 1.3,
+        Math.max(from.w, to.w) + 34,
+      );
+      var anim = liquid.animate(
+        [
+          {
+            transform: tfOf(from.x, from.w),
+            opacity: from.o,
+            easing: "cubic-bezier(0.45, 0, 0.7, 0.4)",
+          },
+          {
+            transform: tfOf(midC - midW / 2, midW),
+            opacity: to.o,
+            offset: 0.55,
+            easing: "cubic-bezier(0.2, 0.6, 0.25, 1)",
+          },
+          { transform: tfOf(to.x, to.w), opacity: to.o },
+        ],
+        { duration: flightMs(dist), fill: "forwards" },
+      );
+      flightAnim = anim;
+      flightTo = to;
+      // JS 状态直接记为目标：循环被唤起时先 handoffFlight 采样接管
+      cur.x = to.x;
+      cur.w = to.w;
+      cur.o = to.o;
+      eC.p = to.x + to.w / 2;
+      eC.v = 0;
+      eW.p = to.w;
+      eW.v = 0;
+      stretchCur = 0;
+      anim.onfinish = function () {
+        if (flightAnim !== anim) return;
+        flightAnim = null;
+        flightTo = null;
+        apply(); // 内联样式接棒（值 = 目标），再撤动画，无缝
+        anim.cancel();
+      };
+      return true;
     }
 
     var cachedSW = 0;
@@ -607,6 +790,20 @@
       var atEnd = scroll.scrollLeft + cachedCW >= cachedSW - 1;
       scroll.classList.toggle("can-scroll-left", over && !atStart);
       scroll.classList.toggle("can-scroll-right", over && !atEnd);
+    }
+
+    /* 弹簧积分（半隐式欧拉 + 子步）：a = ω²·(目标−位置) − 2ζω·速度。
+       子步 ≤1/240s 保证高刚度下数值稳定；速度钳制防长距离甩飞。 */
+    function springTo(e, target, w, z, dt) {
+      var steps = Math.max(1, Math.ceil(dt / (1 / 240)));
+      var h = dt / steps;
+      for (var i = 0; i < steps; i++) {
+        var a = w * w * (target - e.p) - 2 * z * w * e.v;
+        e.v += a * h;
+        if (e.v > V_CAP) e.v = V_CAP;
+        else if (e.v < -V_CAP) e.v = -V_CAP;
+        e.p += e.v * h;
+      }
     }
 
     /* ── 跟随循环：整个组件唯一的动画时间源 ───────────────────────────── */
@@ -631,32 +828,46 @@
       prevScrollLeft = sl1;
 
       // 2) 滚动前馈：滑块已「咬合」在滚动区内的目标上时，目标的 track 坐标
-      //    随 scrollLeft 精确平移 -Δ，直接补偿掉这一分量 → 滚动期间零滞后。
-      //    加锁条件（用上一帧遗留的 tgt / tgtInScroll 判定）避免在
-      //    「从区外 pill 飞向区内 pill」的途中误补偿。
+      //    随 scrollLeft 精确平移 -Δ，直接把中心平移掉这一分量 → 滚动期间
+      //    零滞后（速度不掺假，平移的是坐标系）。加锁条件（用上一帧遗留
+      //    的 tgt / tgtInScroll 判定）避免在「从区外 pill 飞向区内 pill」
+      //    的途中误补偿。
       var locked = tgtInScroll && Math.abs(tgt.x - cur.x) < 2;
-      if (locked && dScroll !== 0) cur.x -= dScroll;
+      if (locked && dScroll !== 0) {
+        eC.p -= dScroll;
+      }
 
       // 3) 目标随几何实时重算（滚动位置已更新，rect 反映新值）
       measure();
 
-      // 4) 指数平滑跟随（帧率无关）；长距离按速度上限放大 tau
-      var dist = Math.abs(tgt.x - cur.x) + Math.abs(tgt.w - cur.w);
-      var tau = TAU_FLOW;
-      var bySpeed = dist / VMAX;
-      if (bySpeed > tau) tau = bySpeed;
-      if (tau > TAU_MAX) tau = TAU_MAX;
-      var k = 1 - Math.exp(-dt / tau);
-      cur.x += (tgt.x - cur.x) * k;
-      cur.w += (tgt.w - cur.w) * k;
-      cur.o += (tgt.o - cur.o) * k;
+      // 4) 中心 + 宽度双弹簧推进，显示宽再叠加速度拉伸（低通防抖）：
+      //    两条边由 中心 ± 显示宽/2 派生，永远同进同退、不会一条先停。
+      var tC = tgt.x + tgt.w / 2;
+      var tW = tgt.w;
+      springTo(eC, tC, W_CENTER, Z_CENTER, dt);
+      springTo(eW, tW, W_WIDTH, Z_WIDTH, dt);
+      var sT = Math.min(eW.p * STRETCH_MAX, Math.abs(eC.v) * STRETCH_V);
+      stretchCur += (sT - stretchCur) * (1 - Math.exp(-dt / 0.05));
+      var wNow = eW.p + stretchCur;
+      if (wNow < 0) wNow = 0;
+      cur.x = eC.p - wNow / 2;
+      cur.w = wNow;
+      // 透明度无方向性，仍走短指数平滑
+      cur.o += (tgt.o - cur.o) * (1 - Math.exp(-dt / 0.08));
 
       var settled =
         scrTgt === null &&
-        Math.abs(tgt.x - cur.x) < EPS_X &&
-        Math.abs(tgt.w - cur.w) < EPS_X &&
+        Math.abs(tC - eC.p) < EPS_X &&
+        Math.abs(eC.v) < EPS_V &&
+        Math.abs(tW - eW.p) < EPS_W &&
+        Math.abs(eW.v) < EPS_VW &&
         Math.abs(tgt.o - cur.o) < EPS_O;
       if (settled) {
+        eC.p = tC;
+        eC.v = 0;
+        eW.p = tW;
+        eW.v = 0;
+        stretchCur = 0;
         cur.x = tgt.x;
         cur.w = tgt.w;
         cur.o = tgt.o;
@@ -677,6 +888,7 @@
         settleNow();
         return;
       }
+      handoffFlight(); // 弹簧循环接手前，先把 WAAPI 飞行采样接管回来
       if (raf) return;
       lastTs = 0;
       raf = window.requestAnimationFrame(frame);
@@ -684,6 +896,7 @@
 
     /* 瞬时落定：初始化 / resize / 字体加载 / reduced-motion */
     function settleNow() {
+      handoffFlight();
       if (raf) {
         window.cancelAnimationFrame(raf);
         raf = 0;
@@ -695,6 +908,11 @@
         scrTgt = null;
       }
       measure();
+      eC.p = tgt.x + tgt.w / 2;
+      eC.v = 0;
+      eW.p = tgt.w;
+      eW.v = 0;
+      stretchCur = 0;
       cur.x = tgt.x;
       cur.w = tgt.w;
       cur.o = tgt.o;
@@ -703,17 +921,18 @@
       updateScrollMask();
     }
 
-    /* 本次位移的 tau（与 frame 内一致），用于反推文字变色时长 */
+    /* 本次位移的等效 tau（供点击处反推文字变色时长，口径 = 返回值 ×3000
+       ≈ 变色毫秒数）：弹簧口径下按「距离 → 预计到位时长」估算 ——
+       基准 240ms（中心弹簧约 0.24–0.35s 到位），距离每 px 加 0.18ms，
+       上限 520ms。 */
     function moveTau(fromEl, toEl) {
-      if (!fromEl || !toEl) return TAU_FLOW;
+      if (!fromEl || !toEl) return 0.1;
       var d = Math.abs(
         toEl.getBoundingClientRect().left - fromEl.getBoundingClientRect().left,
       );
-      var tau = TAU_FLOW;
-      var bySpeed = d / VMAX;
-      if (bySpeed > tau) tau = bySpeed;
-      if (tau > TAU_MAX) tau = TAU_MAX;
-      return tau;
+      var ms = 240 + d * 0.18;
+      if (ms > 520) ms = 520;
+      return ms / 3000;
     }
 
     function pathOf(href) {
@@ -870,7 +1089,8 @@
     }
 
     function cancelAuto() {
-      // 用户接管滚动：放弃程序化动画
+      // 用户接管滚动：放弃程序化动画（含 WAAPI 飞行，采样接管回弹簧）
+      handoffFlight();
       scrTgt = null;
       if (scroll) {
         scrCur = scroll.scrollLeft;
@@ -993,7 +1213,9 @@
       setActiveCategory();
       if (smooth) {
         scrollPillToReveal(true);
-        kick();
+        measure();
+        // 无揭示滚动（目标静止）→ WAAPI 飞行；否则弹簧跟随移动目标
+        if (scrTgt !== null || !startFlight()) kick();
       } else {
         scrollPillToReveal(false);
         settleNow();
@@ -1040,11 +1262,25 @@
 
         e.preventDefault();
 
-        // 用本次位移的 tau 反推「上高亮」的文字变色时长（≈3τ = 液体到达 95% 的时间），
-        // 让文字变色与液体到位同起同止 —— 不再有先变色后滑到的脱节
+        // 先预判路径：pill 被裁切 → 需要揭示滚动（目标会动，走弹簧）；
+        // 完整可见 → WAAPI 飞行。变色时长按所选路径的预计到位时间反推，
+        // 让文字变色与液体到位同起同止 —— 不再有先变色后滑到的脱节。
+        // （--cb-c-enter 必须在 setActiveCategory 翻转 data-active 之前写，
+        //   否则过渡会用上一帧的时长。）
         var prev = activePill();
-        var tau = moveTau(prev, pill);
-        var ms = reduceMotion ? 1 : Math.round(tau * 3000);
+        var needsReveal =
+          !!scroll && scroll.contains(pill) && revealLeft(pill) !== null;
+        var willFly = !needsReveal && !reduceMotion && !!liquid.animate;
+        var ms;
+        if (reduceMotion) ms = 1;
+        else if (willFly) {
+          var pr = prev ? prev.getBoundingClientRect() : null;
+          var nr = pill.getBoundingClientRect();
+          var dC = pr
+            ? Math.abs(nr.left + nr.width / 2 - (pr.left + pr.width / 2))
+            : nr.width;
+          ms = Math.round(flightMs(dC));
+        } else ms = Math.round(moveTau(prev, pill) * 3000);
         bar.style.setProperty("--cb-c-enter", ms + "ms");
 
         setActiveCategory(targetUrl);
@@ -1052,7 +1288,8 @@
         // 滚动区内的 pill：只有被裁切时才做最小揭示滚动（滚最小量露出），
         // 否则零滚动、液体单独平滑滑动 —— 消除「居中」带来的无谓位移与双重运动
         if (scroll && scroll.contains(pill)) scrollPillToReveal(true);
-        kick();
+        measure();
+        if (!willFly || !startFlight()) kick();
 
         if (pathOf(href) === location.pathname) return;
         if (window.swup) window.swup.navigate(href);

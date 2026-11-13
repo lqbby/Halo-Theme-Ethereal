@@ -84,6 +84,7 @@ const expectedOrder = [
   "defaultMode",
   "coverPosition",
   "descriptionLines",
+  "coverContainMode",
   "grid",
   "featuredEnable",
   "featuredPostDisplay",

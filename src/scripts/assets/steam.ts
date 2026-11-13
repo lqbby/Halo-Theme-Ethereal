@@ -328,6 +328,9 @@ async function initHeatmap() {
     echartsLib = res[0];
     series = buildSeries(res[1], cfg.days);
   } catch (err) {
+    // 与成功路径同一道过期守卫：旧请求的失败不得把新请求的正常渲染盖成报错
+    if (shared.__steamReqId !== myId) return;
+    if (!document.body.contains(el)) return;
     console.warn("[steam] 热力图加载失败：", err);
     showState(el, "error");
     return;

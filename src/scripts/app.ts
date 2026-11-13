@@ -492,6 +492,9 @@ function initCustomScrollbar() {
       const scrollYBefore =
         fromInteraction || navBusy() ? null : window.scrollY;
       const stampAtCapture = navResetStamp;
+      // 用户交互戳：捕获 → 恢复帧之间只要用户动过（wheel/touchmove/keydown
+      // 都会刷新 lastUserScrollAt），恢复就可能与用户意图抢位置，一并放弃。
+      const interactionAtCapture = lastUserScrollAt;
       OverlayScrollbars(
         { target: bodyElement, cancel: { nativeScrollbarsOverlaid: true } },
         {
@@ -520,6 +523,8 @@ function initCustomScrollbar() {
           // 捕获 → 恢复之间发生过换页/回顶复位（纪元变化）⇒ 旧位置已无意义，
           // 放弃恢复（否则竞态会把用户拽到新页面深处/最底）
           if (navResetStamp !== stampAtCapture) return;
+          // 同理：间隔内用户主动滚过/按过键，位置以用户为准，不抢
+          if (lastUserScrollAt !== interactionAtCapture) return;
           if (Math.abs(window.scrollY - scrollYBefore) > 1) {
             window.scrollTo({ top: scrollYBefore });
           }
@@ -569,9 +574,16 @@ function initCustomScrollbar() {
       // 即用户观察到的「约 4 秒后首次点击才成功」）。wheel（桌面滚轮）/ touchmove
       // （移动端触摸滚动）/ keydown（键盘）都不直接对应「点击」，触发 mount 不会
       // 干扰正在进行的点击。
-      window.addEventListener("wheel", () => run(true), opts);
-      window.addEventListener("touchmove", () => run(true), opts);
-      window.addEventListener("keydown", () => run(true), opts);
+      // 触发即先刷新滚动时间戳：wheel/touchmove 命中时对应的 scroll 事件尚未
+      // 发生，若直接 run，守卫会误判「不在滚动中」而让 mount 落在滚动首帧
+      // （空闲后第一次滚动正中此洞）。keydown 同理（方向键/空格即滚动）。
+      const trigger = () => {
+        lastUserScrollAt = Date.now();
+        run(true);
+      };
+      window.addEventListener("wheel", trigger, opts);
+      window.addEventListener("touchmove", trigger, opts);
+      window.addEventListener("keydown", trigger, opts);
       setTimeout(() => run(false), 3500);
     };
     const running = document
@@ -1019,10 +1031,19 @@ class TableOfContents extends HTMLElement {
       bottomOffset - topOffset < 0.9 * tocHeight
         ? topOffset - 32
         : bottomOffset - tocHeight * 0.8;
+    // 例外：换页回顶滑行 / 快速滚动时 active 会在一秒内连续跳变多次，每次
+    // 都起一条 smooth 动画只会互相改派目标、来回追赶（侧边栏拉扯感）。
+    // 距离超过容器高度、或正处 Swup 换页动画期时改瞬时到位；正常阅读的
+    // 小步跟随仍走平滑。
+    const html = document.documentElement;
+    const inPageSwitch =
+      html.classList.contains("is-changing") ||
+      html.classList.contains("is-animating");
+    const farJump = Math.abs(top - scrollTop) > tocHeight;
     this.tocEl.scrollTo({
       top,
       left: 0,
-      behavior: "smooth",
+      behavior: inPageSwitch || farJump ? "auto" : "smooth",
     });
   }
 

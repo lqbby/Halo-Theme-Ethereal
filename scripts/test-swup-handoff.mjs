@@ -107,20 +107,25 @@ if (!existsSync(ASSETS)) {
   console.error(`❌ 找不到构建产物目录（先在仓库根跑 astro build）：${ASSETS}`);
   process.exit(1);
 }
+// 脚本序号会随 Layout.astro 里 <script> 块增减漂移（曾是 index_1，现为 index_0），
+// 不写死序号：在所有 Layout 脚本 bundle 里找真正含 page:load 守卫的那一个。
 const bundles = readdirSync(ASSETS).filter(
   (f) =>
-    f.startsWith("Layout.astro_astro_type_script_index_1_lang.") &&
+    /^Layout\.astro_astro_type_script_index_\d+_lang\./.test(f) &&
     f.endsWith(".js"),
 );
 if (!bundles.length) {
   console.error("❌ 产物里找不到 Layout 主脚本 bundle");
   process.exit(1);
 }
-const bundle = readFileSync(join(ASSETS, bundles[0]), "utf8");
+const bundleName = bundles.find((f) =>
+  readFileSync(join(ASSETS, f), "utf8").includes("page:load"),
+);
+const bundle = bundleName ? readFileSync(join(ASSETS, bundleName), "utf8") : "";
 const hasHook = bundle.includes("page:load");
 const hasContainersRef = /containers/.test(bundle);
 check("SH-5 产物注册了 page:load 守卫", hasHook && hasContainersRef, true);
-if (!hasHook) console.log("    bundle:", bundles[0]);
+if (!hasHook) console.log("    bundles:", bundles.join(", "));
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
 process.exit(failures === 0 ? 0 : 1);

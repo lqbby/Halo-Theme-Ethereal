@@ -147,15 +147,18 @@ function makeEnv() {
   /** @param {string} type */
   const countOf = (type) => listeners.filter((l) => l.type === type).length;
 
-  // 懒加载钩子：只登记不执行，让测试自己控制 load 时机
+  // 懒加载钩子：只登记不执行，让测试自己控制 load 时机。
+  // __themeLazyInit 签名已由「字符串键」演进为「元素锚点」（见 test-recent-comments-nav
+  // 同处说明），桩件按元素 id 归档以兼容新签名。
   /** @type {Record<string, () => void>} */
   const lazy = {};
   /**
-   * @param {string} id
+   * @param {any} anchor
    * @param {() => void} fn
    */
-  const themeLazyInit = (id, fn) => {
-    lazy[id] = fn;
+  const themeLazyInit = (anchor, fn) => {
+    const key = typeof anchor === "string" ? anchor : anchor && anchor.id;
+    if (key) lazy[key] = fn;
   };
   w.__themeLazyInit = themeLazyInit;
   /**
