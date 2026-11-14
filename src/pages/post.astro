@@ -431,7 +431,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       <div
         th:if="${theme.config?.performance?.imageProcessing?.provider != null and theme.config?.performance?.imageProcessing?.provider != 'halo' and theme.config?.performance?.imageProcessing?.provider != 'none'}"
         id="content-placeholder"
-        class="min-h-[30vh]"
+        class="min-h-[2000vh]"
       >
         <!-- 无 JS 降级：禁用脚本时直接渲染正文（图片不拼 CDN 参数，可用性优先）。
              正常启用 JS 时 noscript 子树不产生 DOM 元素，processAndInsert 会用模板克隆整体
