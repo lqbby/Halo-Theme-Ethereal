@@ -328,6 +328,12 @@ function spGuardEnded(): void {
 function spInstall(): void {
   if (spInstalled || !spActive) return;
   spInstalled = true;
+  (window as any).__etSp = {
+    writes: spWrites,
+    marks: spMarks,
+    ytrace: spYtrace,
+    stats: spStats,
+  };
   const rec = (fn: string, args: unknown[], stack: string): void => {
     try {
       spPush(

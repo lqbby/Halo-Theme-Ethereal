@@ -473,13 +473,16 @@ const style = Astro.props.style || undefined;
       if (!imgEl) return;
       root.setAttribute("data-state", "theme");
       imgEl.hidden = false;
-      imgEl.addEventListener("load", function () {
-        root.setAttribute("data-state", "ready");
-      });
-      imgEl.addEventListener("error", function () {
-        console.warn("[MoeCounter] 主题图片加载失败:", theme);
-        showError(root);
-      });
+      if (!imgEl._moeListenersBound) {
+        imgEl._moeListenersBound = true;
+        imgEl.addEventListener("load", function () {
+          root.setAttribute("data-state", "ready");
+        });
+        imgEl.addEventListener("error", function () {
+          console.warn("[MoeCounter] 主题图片加载失败:", theme);
+          showError(root);
+        });
+      }
       imgEl.src =
         api +
         "/get/@" +

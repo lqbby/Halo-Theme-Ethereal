@@ -124,7 +124,7 @@ const FRIENDS_ENDPOINT =
     <a
       class="hbf-more-btn"
       data-hbf-more
-      th:if="${hbfMaxItems > 0 and hbfTotal > hbfMaxItems}"
+      th:if="${hbfTotal > (hbfMaxItems > 0 ? hbfMaxItems : 6)}"
       th:href="@{/links}"
       th:title="#{footer.friendLinks.moreTitle(${hbfTotal})}"
       th:aria-label="#{footer.friendLinks.moreAria}"

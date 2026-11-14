@@ -41,33 +41,38 @@ function storageRemove(key) {
     return;
   }
 
-  var mode = storageGet("postListLayout");
-  if (mode !== "list" && mode !== "grid") return;
-  if (mode === container.dataset.serverLayout) return;
-
-  container.classList.toggle("post-grid-mode", mode === "grid");
-  container.classList.toggle("post-list-mode", mode === "list");
-
-  // 布局类变化后触发瀑布流重排/复位（post-list-layout.js 暴露的入口，
-  // 首载时其尚未执行、由它自己的 init 读取已覆盖的类，此处调用为空操作）
-  if (typeof window.__postListRelayout === "function") {
-    window.__postListRelayout();
-  }
-})();
-
-// 瀑布流覆盖：data-masonry 属性跟随访客选择（仅网格布局下由瀑布流脚本生效，
-// 列表布局下该属性无效果）。开关关闭时忽略并清理，与其它访客键语义一致。
-// 瀑布流随「卡片样式切换」开关联动（同卡片样式区内的其它开关）。
-(function () {
-  var container = document.getElementById("post-list-container");
-  if (!container) return;
-  // 改用设置模块的 getVisitorSwitches() 单一真相源（与 postListLayout 同款 seam）。
   if (!getVisitorSwitches().appearance) {
     storageRemove("postListMasonry");
     return;
   }
+
   var masonry = storageGet("postListMasonry");
-  if (masonry === "true" || masonry === "false") {
+  var masonryChanged = false;
+  if (
+    (masonry === "true" || masonry === "false") &&
+    container.getAttribute("data-masonry") !== masonry
+  ) {
     container.setAttribute("data-masonry", masonry);
+    masonryChanged = true;
+  }
+
+  var mode = storageGet("postListLayout");
+  var layoutChanged = false;
+  if (
+    (mode === "list" || mode === "grid") &&
+    mode !== container.dataset.serverLayout
+  ) {
+    container.classList.toggle("post-grid-mode", mode === "grid");
+    container.classList.toggle("post-list-mode", mode === "list");
+    layoutChanged = true;
+  }
+
+  // 布局类或瀑布流属性变化后触发瀑布流重排/复位（post-list-layout.js 暴露的入口，
+  // 首载时其尚未执行、由它自己的 init 读取已覆盖的类与 data-masonry）
+  if (
+    (layoutChanged || masonryChanged) &&
+    typeof window.__postListRelayout === "function"
+  ) {
+    window.__postListRelayout();
   }
 })();

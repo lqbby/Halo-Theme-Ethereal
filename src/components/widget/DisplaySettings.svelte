@@ -327,8 +327,6 @@
     cardPattern = getDefaultCardPattern();
     resetCardShell();
     cardShell = getDefaultCardShell();
-    resetSakura();
-    sakura = getDefaultSakuraEnabled();
     postListMasonry = getDefaultPostListMasonry();
   }
 

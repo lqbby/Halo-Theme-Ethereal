@@ -287,6 +287,7 @@
     if (el.__serverStop) el.__serverStop();
     el.__serverStop = stop;
     document.addEventListener("visibilitychange", onVisible);
+    document.addEventListener("astro:before-swap", stop, { once: true });
     load();
   }
 

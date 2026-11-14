@@ -164,7 +164,8 @@ import PageHeader from "../components/control/PageHeader.astro";
       stats={[
         {
           key: "links-friends",
-          valueExpr: "${#aggregates.sum(groups.![links.size()])}",
+          valueExpr:
+            "${groups == null or #lists.isEmpty(groups) ? 0 : (#aggregates.sum(groups.![links == null ? 0 : links.size()]) ?: 0)}",
           value: "0",
           labelExpr: "#{common.stat.friends}",
           label: "朋友",
@@ -378,13 +379,13 @@ import PageHeader from "../components/control/PageHeader.astro";
       >
         <div class="flex items-center gap-3">
           <img
-            th:if="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
-            th:src="${theme.config?.links?.ownerInfo.owner_avatar}"
-            th:alt="${theme.config?.links?.ownerInfo.owner_name}"
+            th:if="${not #strings.isEmpty(theme.config?.links?.ownerInfo?.owner_avatar)}"
+            th:src="${theme.config?.links?.ownerInfo?.owner_avatar}"
+            th:alt="${theme.config?.links?.ownerInfo?.owner_name}"
             class="h-14 w-14 shrink-0 rounded-xl object-cover"
           />
           <div
-            th:unless="${not #strings.isEmpty(theme.config?.links?.ownerInfo.owner_avatar)}"
+            th:unless="${not #strings.isEmpty(theme.config?.links?.ownerInfo?.owner_avatar)}"
             class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-(--btn-regular-bg) text-(--primary)"
           >
             <span class="icon-[material-symbols--link-rounded] text-2xl"></span>
@@ -392,13 +393,13 @@ import PageHeader from "../components/control/PageHeader.astro";
           <div class="min-w-0 flex-1">
             <h3
               class="text-base font-bold text-90"
-              th:text="${theme.config?.links?.ownerInfo.owner_name}"
+              th:text="${theme.config?.links?.ownerInfo?.owner_name}"
             >
               博客名称
             </h3>
             <p
               class="mt-0.5 line-clamp-2 text-[13px] text-50"
-              th:text="${theme.config?.links?.ownerInfo.owner_description}"
+              th:text="${theme.config?.links?.ownerInfo?.owner_description}"
             >
               博客描述
             </p>
@@ -413,12 +414,12 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerSiteName}">站点名称</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_name}"
+                th:text="${theme.config?.links?.ownerInfo?.owner_name}"
               >
                 博客名称
               </div>
             </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_name}"
+              copyText="${theme.config?.links?.ownerInfo?.owner_name}"
             />
           </div>
           <div
@@ -431,12 +432,12 @@ import PageHeader from "../components/control/PageHeader.astro";
                 >
               </div><div
                 class="line-clamp-2 text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_description}"
+                th:text="${theme.config?.links?.ownerInfo?.owner_description}"
               >
                 博客描述
               </div>
             </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_description}"
+              copyText="${theme.config?.links?.ownerInfo?.owner_description}"
             />
           </div>
           <div
@@ -447,12 +448,12 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerSiteUrl}">站点链接</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_url}"
+                th:text="${theme.config?.links?.ownerInfo?.owner_url}"
               >
                 https://example.com
               </div>
             </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_url}"
+              copyText="${theme.config?.links?.ownerInfo?.owner_url}"
             />
           </div>
           <div
@@ -463,12 +464,12 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerAvatarUrl}">头像链接</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_avatar}"
+                th:text="${theme.config?.links?.ownerInfo?.owner_avatar}"
               >
                 https://example.com/avatar.jpg
               </div>
             </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_avatar}"
+              copyText="${theme.config?.links?.ownerInfo?.owner_avatar}"
             />
           </div>
           <div
@@ -479,12 +480,12 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span th:text="#{page.links.ownerRss}">RSS 地址</span>
               </div><div
                 class="truncate text-[13px] text-90"
-                th:text="${theme.config?.links?.ownerInfo.owner_rss}"
+                th:text="${theme.config?.links?.ownerInfo?.owner_rss}"
               >
                 /rss.xml
               </div>
             </div><CopyButton
-              copyText="${theme.config?.links?.ownerInfo.owner_rss}"
+              copyText="${theme.config?.links?.ownerInfo?.owner_rss}"
             />
           </div>
         </div>
@@ -927,7 +928,7 @@ import PageHeader from "../components/control/PageHeader.astro";
 
   <div
     id="comment"
-    th:if="${haloCommentEnabled && (theme.config?.links?.features.enable_comment == null || theme.config?.links?.features.enable_comment)}"
+    th:if="${haloCommentEnabled && (theme.config?.links?.features?.enable_comment == null || theme.config?.links?.features?.enable_comment)}"
     class="card-base relative z-10 w-full px-6 pb-4 pt-6 md:px-9"
   >
     <h2

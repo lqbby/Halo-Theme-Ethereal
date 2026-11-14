@@ -617,8 +617,8 @@ const COLLAPSED_HEIGHT = "7.5rem";
     // 主路径：1 次请求拿全站最新评论（permalink 由后端解析好）
     function load() {
       // 请求序号：换页后旧响应可能后到，已有更新请求则丢弃，避免覆盖新页评论列表
-      window.__rcReqId = (window.__rcReqId || 0) + 1;
-      var reqId = window.__rcReqId;
+      listEl.__rcReqId = (listEl.__rcReqId || 0) + 1;
+      var reqId = listEl.__rcReqId;
       // 先读会话缓存：命中且未过期直接渲染，一次请求都不发
       try {
         var cached = sessionStorage.getItem(CACHE_KEY);
@@ -642,7 +642,7 @@ const COLLAPSED_HEIGHT = "7.5rem";
           return r.json();
         })
         .then(function (data) {
-          if (reqId !== window.__rcReqId) return;
+          if (reqId !== listEl.__rcReqId) return;
           var top = ((data && data.items) || []).map(adaptItem);
           if (!top.length) {
             showEmpty();
@@ -776,7 +776,22 @@ const COLLAPSED_HEIGHT = "7.5rem";
     //   一次评论提交触发 N 次请求。故用一次性标记只注册一遍；同时每次执行都把 load
     //   覆盖到 __rcReload，保证 handler 调用的永远是「当前页」的 load（旧闭包里的
     //   listEl 已被 Swup 替换，直接复用会渲染到脱离文档的节点上）。
-    window.__rcReload = load;
+    window.__rcReloaders = (window.__rcReloaders || []).filter(function (item) {
+      return item && item.el && item.el.isConnected;
+    });
+    window.__rcReloaders.push({ el: listEl, fn: load });
+    window.__rcReload = function () {
+      (window.__rcReloaders || []).forEach(function (item) {
+        if (
+          item &&
+          item.el &&
+          item.el.isConnected &&
+          typeof item.fn === "function"
+        ) {
+          item.fn();
+        }
+      });
+    };
     if (!window.__rcOnCommentCreated) {
       window.__rcOnCommentCreated = function () {
         try {

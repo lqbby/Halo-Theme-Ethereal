@@ -34,7 +34,7 @@ import PageHeader from "../components/control/PageHeader.astro";
         },
         {
           valueExpr:
-            "${categories == null ? 0 : #aggregates.sum(categories.![postCount ?: 0])}",
+            "${categories == null or #lists.isEmpty(categories) ? 0 : (#aggregates.sum(categories.![postCount ?: 0]) ?: 0)}",
           value: "0",
           labelExpr: "#{common.stat.posts}",
           label: "文章",

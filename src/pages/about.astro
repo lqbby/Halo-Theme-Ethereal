@@ -1877,9 +1877,9 @@ import Canonical from "../components/misc/Canonical.astro";
                 class="about-activity"
                 th:each="m : ${aboutMoments}"
                 th:with="momentText=${m?.spec?.content?.raw != null
-                    ? m?.spec?.content?.raw.replaceAll('<[^>]*>', ' ').trim()
+                    ? m?.spec?.content?.raw.replaceAll('<[^>]*>', ' ').replaceAll(' ', ' ').replaceAll('<', '<').replaceAll('>', '>').replaceAll(''', '''').replaceAll('&quot;', '&quot;').replaceAll('&', '&').trim()
                     : ''},
-                  momentLabel=${#strings.defaultString(momentText, '分享了一条瞬间')}"
+                  momentLabel=${#strings.isEmpty(momentText) ? '分享了一条瞬间' : momentText}"
                 th:data-time="${m?.spec?.releaseTime}"
               >
                 <span class="about-activity-marker" aria-hidden="true"></span>

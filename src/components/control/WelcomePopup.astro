@@ -275,13 +275,13 @@ interface Props {
 
     // 从天气小组件配置读取腾讯位置服务 Key（复用现有 Key，与 Weather.astro 一致）
     function getTencentKey() {
-      var widgets =
-        (config &&
-          config.sidebar &&
-          config.sidebar.widgetsConfig &&
-          (config.sidebar.widgetsConfig.rightWidgets ||
-            config.sidebar.widgetsConfig.widgets)) ||
-        [];
+      var wcCfg =
+        (config && config.sidebar && config.sidebar.widgetsConfig) || {};
+      var widgets = [].concat(
+        wcCfg.widgets || [],
+        wcCfg.rightWidgets || [],
+        wcCfg.mobileWidgets || [],
+      );
       for (var i = 0; i < widgets.length; i++) {
         if (widgets[i].value === "weather" && widgets[i].tencent_key) {
           return widgets[i].tencent_key;

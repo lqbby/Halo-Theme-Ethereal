@@ -652,8 +652,11 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
     <script
       th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile)}"
       th:inline="javascript"
+      data-swup-ignore-script
     >
       (function () {
+        if (window.__etherealExternalFontLoaded) return;
+        window.__etherealExternalFontLoaded = true;
         var rawUrl = /*[[${theme.config.style.externalFont.fontFile}]]*/ "";
         var rawFamily = /*[[${theme.config.style.externalFont.family}]]*/ "";
         var trustedHosts = [

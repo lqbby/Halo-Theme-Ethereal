@@ -100,9 +100,9 @@ const className = Astro.props.class;
   <div
     class="hitokoto-card px-3"
     id="hitokotoCard"
-    th:attr="data-api=${widget.hitokoto_api ?: widget.api},
-      data-fallback-text=${widget.fallback_text},
-      data-fallback-source=${widget.fallback_source}"
+    th:attr="data-api=${widget?.hitokoto_api ?: widget?.api},
+      data-fallback-text=${widget?.fallback_text},
+      data-fallback-source=${widget?.fallback_source}"
   >
     <div class="hitokoto-main-row">
       <p
@@ -232,14 +232,14 @@ const className = Astro.props.class;
       }
 
       function refresh() {
-        // 请求序号：连点「换一句」时旧响应可能后到，若已有更新刷新则丢弃，
-        // 避免把文案覆盖成更早的句子（fetchHitokoto 每次新建 controller、不 abort 旧请求）。
-        var id = (window.__hitokotoRefreshId =
-          (window.__hitokotoRefreshId || 0) + 1);
+        // 请求序号（实例级）：连点「换一句」时旧响应可能后到，若本卡片已有更新刷新则丢弃，
+        // 避免多实例同屏渲染时互相中断（fetchHitokoto 每次新建 controller、不 abort 旧请求）。
+        var id = (card.__hitokotoRefreshId =
+          (card.__hitokotoRefreshId || 0) + 1);
         card.classList.add("hitokoto-loading");
         refreshBtn.classList.add("spinning");
         fetchHitokoto().then(function (data) {
-          if (id !== window.__hitokotoRefreshId) return;
+          if (id !== card.__hitokotoRefreshId) return;
           setCachedData(CACHE_KEY, data);
           updateCard(data);
           setTimeout(function () {
@@ -248,8 +248,9 @@ const className = Astro.props.class;
         });
       }
 
-      // 只绑定一次 click 事件
-      if (!hitokotoBound) {
+      // 只绑定一次 click 事件（挂在 DOM dataset 上，防 Swup 重执行脚本时叠加绑定）
+      if (refreshBtn && !refreshBtn.dataset.hitokotoBound) {
+        refreshBtn.dataset.hitokotoBound = "1";
         hitokotoBound = true;
         refreshBtn.addEventListener("click", refresh);
       }

@@ -395,8 +395,13 @@ const layoutId = `${widgetId}-layout`;
 </div>
 
 <script define:vars={{ widgetId }} is:inline>
+  var widgetRoot =
+    (document.currentScript && document.currentScript.parentElement) ||
+    document;
   function initFirefly() {
-    const widget = document.getElementById(widgetId);
+    const widget =
+      widgetRoot.querySelector(".firefly-music-player") ||
+      document.getElementById(widgetId);
     if (!widget || widget.dataset.fireflyBound === "true") return;
     widget.dataset.fireflyBound = "true";
 
@@ -495,9 +500,9 @@ const layoutId = `${widgetId}-layout`;
       btnDrawer: widget.querySelector(".btn-drawer-toggle"),
       playlistDrawer: widget.querySelector(".playlist-drawer"),
       playlistContainer: widget.querySelector(".playlist-container"),
-      itemTemplate: document.getElementById(
-        `playlist-item-template-${widgetId}`,
-      ),
+      itemTemplate:
+        widgetRoot.querySelector(`#playlist-item-template-${widgetId}`) ||
+        document.getElementById(`playlist-item-template-${widgetId}`),
     };
 
     ui.artist.textContent = cfg.i18n.noPlaying;
@@ -1052,5 +1057,8 @@ const layoutId = `${widgetId}-layout`;
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
   }
   // 视口懒加载：播放器容器进入可视区才初始化（首屏不再无条件加载歌单）
-  window.__themeLazyInit(widgetId, initFirefly);
+  window.__themeLazyInit(
+    widgetRoot.querySelector(".firefly-music-player") || widgetId,
+    initFirefly,
+  );
 </script>

@@ -2,7 +2,9 @@
 <html
   th:lang="${#locale.toLanguageTag}"
   th:fragment="layout (title,head,body)"
-  th:data-hue="${theme.config?.style?.themeColor?.hue}"
+  th:data-hue="${theme.config?.style?.themeColor?.hue ?: 250}"
+  th:data-color-scheme="${theme.config?.style?.colorScheme?.color_scheme ?: 'auto'}"
+  th:data-allow-scheme-switch="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme != false}"
 >
   <head>
     <meta charset="UTF-8" />
@@ -681,21 +683,9 @@
             var s = localStorage.getItem("__user_chose_theme")
               ? localStorage.getItem("theme")
               : null;
-            var tc = document.getElementById("theme-config");
-            var ds = "auto",
-              ac = true;
-            if (tc) {
-              try {
-                var c = JSON.parse(tc.textContent);
-                ds =
-                  (c.style && c.style.colorScheme && c.style.colorScheme.color_scheme) ||
-                  "auto";
-                ac =
-                  (c.layout &&
-                    c.layout.mobileMenu &&
-                    c.layout.mobileMenu.enable_change_color_scheme) !== false;
-              } catch (e) {}
-            }
+            var de = document.documentElement;
+            var ds = de.getAttribute("data-color-scheme") || "auto",
+              ac = de.getAttribute("data-allow-scheme-switch") !== "false";
             var sch = ac && s ? s : ds;
             if (
               sch === "dark" ||
@@ -740,7 +730,7 @@
           <div class="aside-top">
             <img
               class="aside-logo"
-              th:src="${(theme.config?.sidebar?.profile?.avatar ?: '/themes/Ethereal/assets/images/demo-avatar.png')}"
+              th:src="${(theme.config?.sidebar?.profile?.avatar ?: '/themes/Ethereal/assets/images/demo-avatar.webp')}"
               th:alt="${site.title}"
               alt="Logo"
             />
@@ -826,11 +816,21 @@
             isLoginError = false;
           var typingTimer = null;
 
-          document.addEventListener("mousemove", function (e) {
-            mouseX = e.clientX;
-            mouseY = e.clientY;
-            if (!isTyping && !isLoginError) updateCharacters();
-          });
+          var moveRaf = 0;
+          document.addEventListener(
+            "mousemove",
+            function (e) {
+              mouseX = e.clientX;
+              mouseY = e.clientY;
+              if (!isTyping && !isLoginError && !moveRaf) {
+                moveRaf = requestAnimationFrame(function () {
+                  moveRaf = 0;
+                  if (!isTyping && !isLoginError) updateCharacters();
+                });
+              }
+            },
+            { passive: true },
+          );
 
           // 监听 Halo 注入的输入框：聚焦用户名时角色对视，聚焦密码时转头回避
           var haloInputs = document.querySelectorAll(

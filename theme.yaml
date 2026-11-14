@@ -1,4 +1,4 @@
-﻿apiVersion: theme.halo.run/v1alpha1
+apiVersion: theme.halo.run/v1alpha1
 kind: Theme
 metadata:
   name: Ethereal

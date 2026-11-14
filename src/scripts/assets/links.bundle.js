@@ -707,6 +707,9 @@ import { t } from "../../utils/i18n";
       }
     }
 
+    var clearBtn = document.getElementById("links-search-clear");
+    if (clearBtn) clearBtn.classList.toggle("hidden", !query);
+
     var empty = document.getElementById("links-empty");
     if (empty) empty.classList.toggle("hidden", visibleTotal > 0);
   }
@@ -726,6 +729,16 @@ import { t } from "../../utils/i18n";
   document.addEventListener("click", function (e) {
     var target = e.target;
     if (!(target instanceof Element)) return;
+    if (target.closest("#links-search-clear")) {
+      e.preventDefault();
+      var input = document.getElementById("links-search");
+      if (input) {
+        input.value = "";
+        input.focus();
+      }
+      applyFilter(true);
+      return;
+    }
     var btn = target.closest("[data-link-group-filter]");
     if (!btn) return;
     var filter = filterEl();

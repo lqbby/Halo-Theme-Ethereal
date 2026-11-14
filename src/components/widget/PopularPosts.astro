@@ -282,11 +282,11 @@ const MAX_POSTS = 5;
       }
 
       // AbortController：Swup 导航会重新执行本脚本，先中止上一次未完成的请求，避免旧响应覆盖新页面
-      if (window.__popularPostsAbort) {
-        window.__popularPostsAbort.abort();
+      if (container.__popularPostsAbort) {
+        container.__popularPostsAbort.abort();
       }
       var controller = new AbortController();
-      window.__popularPostsAbort = controller;
+      container.__popularPostsAbort = controller;
       var signal = controller.signal;
 
       // 服务端排序取 Top N（sort=stats.visit,desc；客户端不再排序——
