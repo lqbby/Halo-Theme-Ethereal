@@ -777,7 +777,9 @@ const COLLAPSED_HEIGHT = "7.5rem";
     //   覆盖到 __rcReload，保证 handler 调用的永远是「当前页」的 load（旧闭包里的
     //   listEl 已被 Swup 替换，直接复用会渲染到脱离文档的节点上）。
     window.__rcReloaders = (window.__rcReloaders || []).filter(function (item) {
-      return item && item.el && item.el.isConnected;
+      // 去重：同一 listEl 重执行（Swup 克隆重跑 / 脚本重复注入）时，先把旧的同元素
+      // 实例清掉再 push 新的，避免 __rcReload 对同一列表调两次 load。
+      return item && item.el && item.el.isConnected && item.el !== listEl;
     });
     window.__rcReloaders.push({ el: listEl, fn: load });
     window.__rcReload = function () {

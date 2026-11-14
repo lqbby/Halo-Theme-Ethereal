@@ -48,7 +48,10 @@ const code = fs.readFileSync(target, "utf8");
  */
 const carouselSrc = (() => {
   const p = path.join(themeRoot, "src/scripts/assets/_random-post-carousel.ts");
-  return fs.existsSync(p) ? fs.readFileSync(p, "utf8") : "";
+  // normalize 换行：Windows checkout 是 CRLF，多行断言里写的是 \n，不归一就会误判
+  return fs.existsSync(p)
+    ? fs.readFileSync(p, "utf8").replace(/\r\n/g, "\n")
+    : "";
 })();
 
 const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
