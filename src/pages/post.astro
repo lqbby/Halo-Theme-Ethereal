@@ -1252,30 +1252,43 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           window.XhhaoComContentWidgets.mount();
         }
 
-        // 记录挂载后真实高度：挂载是异步的（chunk 动态 import + Svelte mount），
-        // 等全部组件挂载完成后按 DOM 顺序收集高度存 sessionStorage，供下次刷新
-        // 按同样顺序精确占位（键按 pathname 隔离，跨文章不串）。
-        setTimeout(function () {
-          var cwMounted = contentEl.querySelectorAll(
-            "[data-xhhao-com-mounted]",
-          );
-          var cwHs = [];
-          for (var cwJ = 0; cwJ < cwMounted.length; cwJ++) {
-            cwHs.push(
-              Math.round(cwMounted[cwJ].getBoundingClientRect().height),
+        // 记录挂载后真实高度：挂载是异步 + 懒加载（滚动到才挂载），固定 setTimeout
+        // 会在组件还没挂载时就执行、收集不到。改用 MutationObserver 监听组件挂载
+        // （data-xhhao-com-mounted 出现），防抖 1.5s 后按 DOM 顺序收集高度存
+        // sessionStorage，供下次刷新按同样顺序精确占位（键按 pathname 隔离）。
+        var cwRecordTimer = null;
+        var cwRecord = function () {
+          clearTimeout(cwRecordTimer);
+          cwRecordTimer = setTimeout(function () {
+            var cwMounted = contentEl.querySelectorAll(
+              "[data-xhhao-com-mounted]",
             );
-          }
-          if (cwHs.length) {
-            try {
-              sessionStorage.setItem(
-                "cw-h-" + location.pathname,
-                JSON.stringify(cwHs),
+            var cwHs = [];
+            for (var cwJ = 0; cwJ < cwMounted.length; cwJ++) {
+              cwHs.push(
+                Math.round(cwMounted[cwJ].getBoundingClientRect().height),
               );
-            } catch (e) {
-              /* 配额满/隐私模式：忽略，下次仍走 CSS 兜底 */
             }
-          }
-        }, 2500);
+            if (cwHs.length) {
+              try {
+                sessionStorage.setItem(
+                  "cw-h-" + location.pathname,
+                  JSON.stringify(cwHs),
+                );
+              } catch (e) {
+                /* 配额满/隐私模式：忽略，下次仍走 CSS 兜底 */
+              }
+            }
+          }, 1500);
+        };
+        try {
+          new MutationObserver(cwRecord).observe(contentEl, {
+            childList: true,
+            subtree: true,
+          });
+        } catch (e) {
+          /* 环境不支持 MutationObserver：忽略 */
+        }
 
         // reading-time 自动统计：等组件挂载渲染完成（下一帧）再统计正文，
         // 避免 .xhhao-com-reading-time 尚未渲染时 querySelector 落空。
