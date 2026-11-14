@@ -177,3 +177,12 @@
    由插件自身负责。主题侧原有的 .cw-pending（opacity:0 + min-height 5em）与
    .xhhao-com-widget 的 cw-widget-in 淡入动画是针对旧「懒加载」版的 FOUC 方案，
    如今反而让组件挨个淡入、看着像「几秒后又刷新一次」，故移除。 */
+
+/* ── 6. 干掉插件挂载后的淡入（xhhao-com-widget-fade-in 0.18s）──
+   立即挂载下，组件挂载时先 opacity:0 再淡入，实测有 ~220ms 完全不可见 +
+   180ms 渐变，滚动停在组件位置刷新时就是「组件从无到有闪一下」。改为挂载
+   即全不透明，组件与正文同帧出现，无淡入观感。 */
+.xhhao-com-widget {
+  animation: none !important;
+  opacity: 1 !important;
+}
