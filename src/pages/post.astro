@@ -1215,19 +1215,10 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
         placeholder.replaceWith(contentEl);
         template.remove();
-        // content-widgets 组件防 FOUC + 防布局跳动：挂载前给原始 <xhhao-com-*>
-        // 标签加 cw-pending（CSS opacity:0 隐藏无样式文本 + min-height 5em 占位）。
-        // 原地刷新时浏览器恢复滚动早于组件异步挂载，占位若只有一行文本高（~21px）
-        // 而挂载后 71~158px，高度突变会挤开下方内容（闪）；min-height 5em 把占位
-        // 抬到 ~80px，跳动从 ~137px 压到 ~78px，多数组件（alert/tip 等 71px 级）
-        // 几乎消除。首次访问无跳动风险（插件 rootMargin 已提前挂载）。
-        var cwAll = contentEl.querySelectorAll("*");
-        for (var cwI = 0; cwI < cwAll.length; cwI++) {
-          var cwTag = cwAll[cwI].tagName;
-          if (cwTag && cwTag.toLowerCase().indexOf("xhhao-com-") === 0) {
-            cwAll[cwI].classList.add("cw-pending");
-          }
-        }
+        // content-widgets 组件挂载前的隐藏 + 挂载后淡入，由插件 HeadProcessor 的
+        // fouc style（${widgetTags}{visibility:hidden} + 0.18s fade-in）负责。
+        // 主题侧不再加 cw-pending（旧懒加载版的 FOUC 方案，会让组件挨个淡入、
+        // 看着像「几秒后又刷新一次」，已随插件改立即挂载而移除）。
         document.querySelectorAll("table-of-contents").forEach(function (toc) {
           if (typeof toc.refresh === "function") toc.refresh();
         });

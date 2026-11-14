@@ -172,29 +172,8 @@
   box-shadow: none;
 }
 
-/* ── 5. 防 FOUC：挂载前隐藏原始 <xhhao-com-*> 标签，挂载后淡入 ──
-   插件懒加载（IntersectionObserver rootMargin 200px）滚动到视口才把原始标签
-   replaceWith 成带 .xhhao-com-widget 的 div；挂载前的无样式原始标签会「闪一下」。
-   post.astro 在正文插入后给原始标签加 .cw-pending（opacity:0），挂载替换后由
-   下方淡入动画平滑显现，消除「滚动到组件闪一下」。 */
-.cw-pending {
-  opacity: 0;
-  /* 预留接近挂载后的高度：原地刷新时浏览器恢复滚动早于组件挂载，
-     挂载前仅 21px（无样式文本一行），挂载后 71~158px，高度突变把下方内容
-     挤开（布局跳动）。给个 ~5em 的占位高度，把跳动幅度压到可忽略。
-     仅对 block 级组件生效（inline 组件如 badge/key 的 height 不生效，无需预留）。 */
-  min-height: 5em;
-}
-
-.xhhao-com-widget {
-  animation: cw-widget-in 0.25s ease;
-}
-
-@keyframes cw-widget-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
+/* ── 5. 组件挂载前隐藏交由插件 HeadProcessor 的 fouc style（visibility:hidden）──
+   插件源码已改成立即挂载（同步、首帧前完成），挂载前隐藏 + 挂载后淡入（0.18s）
+   由插件自身负责。主题侧原有的 .cw-pending（opacity:0 + min-height 5em）与
+   .xhhao-com-widget 的 cw-widget-in 淡入动画是针对旧「懒加载」版的 FOUC 方案，
+   如今反而让组件挨个淡入、看着像「几秒后又刷新一次」，故移除。 */
