@@ -1208,42 +1208,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
         placeholder.replaceWith(contentEl);
         template.remove();
-        // content-widgets 组件防 FOUC + 防布局跳动：
-        // ① 挂载前给原始 <xhhao-com-*> 标签加 cw-pending（CSS opacity:0 隐藏无样式文本）
-        // ② 读上次挂载后的真实高度（sessionStorage），按 DOM 顺序给组件设置精确
-        //    min-height 占位——「原地刷新」时浏览器恢复滚动早于组件异步挂载，
-        //    若占位只有一行文本高（~21px）而挂载后 71~158px，高度突变会把下方
-        //    内容挤开（闪）。精确占位后刷新零跳动；首次访问无缓存则回落 CSS 的
-        //    5em 兜底，滚动时已由插件 rootMargin 提前挂载，影响可忽略。
-        var cwHeights = null;
-        try {
-          cwHeights = JSON.parse(
-            sessionStorage.getItem("cw-h-" + location.pathname) || "null",
-          );
-        } catch (e) {
-          cwHeights = null;
-        }
+        // content-widgets 组件防 FOUC + 防布局跳动：挂载前给原始 <xhhao-com-*>
+        // 标签加 cw-pending（CSS opacity:0 隐藏无样式文本 + min-height 5em 占位）。
+        // 原地刷新时浏览器恢复滚动早于组件异步挂载，占位若只有一行文本高（~21px）
+        // 而挂载后 71~158px，高度突变会挤开下方内容（闪）；min-height 5em 把占位
+        // 抬到 ~80px，跳动从 ~137px 压到 ~78px，多数组件（alert/tip 等 71px 级）
+        // 几乎消除。首次访问无跳动风险（插件 rootMargin 已提前挂载）。
         var cwAll = contentEl.querySelectorAll("*");
-        var cwIdx = 0;
         for (var cwI = 0; cwI < cwAll.length; cwI++) {
           var cwTag = cwAll[cwI].tagName;
           if (cwTag && cwTag.toLowerCase().indexOf("xhhao-com-") === 0) {
-            // 跳过嵌套组件（父级也是 xhhao-com-*）：插件挂载父组件时把子组件
-            // 一并吸收，子组件不独立成 data-xhhao-com-mounted 的 div，占位若
-            // 也计入会与记录顺序错位。
-            var cwParent = cwAll[cwI].parentElement;
-            if (
-              cwParent &&
-              cwParent.tagName &&
-              cwParent.tagName.toLowerCase().indexOf("xhhao-com-") === 0
-            ) {
-              continue;
-            }
             cwAll[cwI].classList.add("cw-pending");
-            if (cwHeights && cwHeights[cwIdx] > 0) {
-              cwAll[cwI].style.minHeight = cwHeights[cwIdx] + "px";
-            }
-            cwIdx++;
           }
         }
         document.querySelectorAll("table-of-contents").forEach(function (toc) {
@@ -1261,44 +1236,6 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           typeof window.XhhaoComContentWidgets.mount === "function"
         ) {
           window.XhhaoComContentWidgets.mount();
-        }
-
-        // 记录挂载后真实高度：挂载是异步 + 懒加载（滚动到才挂载），固定 setTimeout
-        // 会在组件还没挂载时就执行、收集不到。改用 MutationObserver 监听组件挂载
-        // （data-xhhao-com-mounted 出现），防抖 1.5s 后按 DOM 顺序收集高度存
-        // sessionStorage，供下次刷新按同样顺序精确占位（键按 pathname 隔离）。
-        var cwRecordTimer = null;
-        var cwRecord = function () {
-          clearTimeout(cwRecordTimer);
-          cwRecordTimer = setTimeout(function () {
-            var cwMounted = contentEl.querySelectorAll(
-              "[data-xhhao-com-mounted]",
-            );
-            var cwHs = [];
-            for (var cwJ = 0; cwJ < cwMounted.length; cwJ++) {
-              cwHs.push(
-                Math.round(cwMounted[cwJ].getBoundingClientRect().height),
-              );
-            }
-            if (cwHs.length) {
-              try {
-                sessionStorage.setItem(
-                  "cw-h-" + location.pathname,
-                  JSON.stringify(cwHs),
-                );
-              } catch (e) {
-                /* 配额满/隐私模式：忽略，下次仍走 CSS 兜底 */
-              }
-            }
-          }, 1500);
-        };
-        try {
-          new MutationObserver(cwRecord).observe(contentEl, {
-            childList: true,
-            subtree: true,
-          });
-        } catch (e) {
-          /* 环境不支持 MutationObserver：忽略 */
         }
 
         // reading-time 自动统计：等组件挂载渲染完成（下一帧）再统计正文，
