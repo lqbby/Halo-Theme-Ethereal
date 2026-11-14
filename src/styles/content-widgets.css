@@ -171,3 +171,25 @@
   border: none;
   box-shadow: none;
 }
+
+/* ── 5. 防 FOUC：挂载前隐藏原始 <xhhao-com-*> 标签，挂载后淡入 ──
+   插件懒加载（IntersectionObserver rootMargin 200px）滚动到视口才把原始标签
+   replaceWith 成带 .xhhao-com-widget 的 div；挂载前的无样式原始标签会「闪一下」。
+   post.astro 在正文插入后给原始标签加 .cw-pending（opacity:0），挂载替换后由
+   下方淡入动画平滑显现，消除「滚动到组件闪一下」。 */
+.cw-pending {
+  opacity: 0;
+}
+
+.xhhao-com-widget {
+  animation: cw-widget-in 0.25s ease;
+}
+
+@keyframes cw-widget-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

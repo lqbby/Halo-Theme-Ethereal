@@ -1208,6 +1208,16 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
 
         placeholder.replaceWith(contentEl);
         template.remove();
+        // content-widgets 组件防 FOUC：挂载前给原始 <xhhao-com-*> 标签加 cw-pending
+        // （CSS 里 opacity:0 隐藏），插件懒加载挂载时 replaceWith 成 .xhhao-com-widget
+        // 的 div 后自然恢复 + 淡入，避免「滚动到组件闪一下」。
+        var cwAll = contentEl.querySelectorAll("*");
+        for (var cwI = 0; cwI < cwAll.length; cwI++) {
+          var cwTag = cwAll[cwI].tagName;
+          if (cwTag && cwTag.toLowerCase().indexOf("xhhao-com-") === 0) {
+            cwAll[cwI].classList.add("cw-pending");
+          }
+        }
         document.querySelectorAll("table-of-contents").forEach(function (toc) {
           if (typeof toc.refresh === "function") toc.refresh();
         });
