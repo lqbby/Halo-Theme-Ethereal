@@ -28,7 +28,7 @@ const style = Astro.props.style || undefined;
 >
   <WidgetLayout
     name="站点统计"
-    nameKey="widget?.siteStats.title"
+    nameKey="widget.siteStats.title"
     id="site-stats"
     class={className}
     style={style}
@@ -46,7 +46,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.posts}">文章</span
+            th:text="#{widget.siteStats.posts}">文章</span
           >
         </div>
         <span
@@ -67,7 +67,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.categories}">分类</span
+            th:text="#{widget.siteStats.categories}">分类</span
           >
         </div>
         <span
@@ -88,7 +88,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.tags}">标签</span
+            th:text="#{widget.siteStats.tags}">标签</span
           >
         </div>
         <span
@@ -108,7 +108,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.visits}">访问量</span
+            th:text="#{widget.siteStats.visits}">访问量</span
           >
         </div>
         <span
@@ -128,7 +128,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.upvotes}">点赞数</span
+            th:text="#{widget.siteStats.upvotes}">点赞数</span
           >
         </div>
         <span
@@ -148,7 +148,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.comments}">评论数</span
+            th:text="#{widget.siteStats.comments}">评论数</span
           >
         </div>
         <span
@@ -168,7 +168,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.totalWords}">总字数</span
+            th:text="#{widget.siteStats.totalWords}">总字数</span
           >
         </div>
         <!-- data-server-words：API 拓展包插件（app-di1jh8gd;extra-api ≥3.x）已安装时，
@@ -196,7 +196,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.lastActivity}">最后活动</span
+            th:text="#{widget.siteStats.lastActivity}">最后活动</span
           >
         </div>
         <span
@@ -218,7 +218,7 @@ const style = Astro.props.style || undefined;
           ></span>
           <span
             class="text-sm font-medium text-neutral-700 dark:text-neutral-300"
-            th:text="#{widget?.siteStats.runningDays}">运行天数</span
+            th:text="#{widget.siteStats.runningDays}">运行天数</span
           >
         </div>
         <div class="flex items-center">
@@ -229,7 +229,7 @@ const style = Astro.props.style || undefined;
           >
           <span
             class="ml-1 text-sm text-neutral-500 dark:text-neutral-400"
-            th:text="#{widget?.siteStats.days}">天</span
+            th:text="#{widget.siteStats.days}">天</span
           >
         </div>
       </div>
@@ -292,7 +292,7 @@ const style = Astro.props.style || undefined;
       if (num >= 10000) {
         return window.__etherealBigNum(
           num,
-          "widget?.siteStats.tenThousand",
+          "widget.siteStats.tenThousand",
           "k",
         );
       }
@@ -320,17 +320,17 @@ const style = Astro.props.style || undefined;
       var now = new Date();
       var diffMs = now.getTime() - date.getTime();
       var diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays === 0) return t("widget?.siteStats.today", "今天");
-      if (diffDays === 1) return t("widget?.siteStats.yesterday", "昨天");
+      if (diffDays === 0) return t("widget.siteStats.today", "今天");
+      if (diffDays === 1) return t("widget.siteStats.yesterday", "昨天");
       if (diffDays < 30)
-        return format(t("widget?.siteStats.daysAgo", "{0} 天前"), diffDays);
+        return format(t("widget.siteStats.daysAgo", "{0} 天前"), diffDays);
       if (diffDays < 365)
         return format(
-          t("widget?.siteStats.monthsAgo", "{0} 个月前"),
+          t("widget.siteStats.monthsAgo", "{0} 个月前"),
           Math.floor(diffDays / 30),
         );
       return format(
-        t("widget?.siteStats.yearsAgo", "{0} 年前"),
+        t("widget.siteStats.yearsAgo", "{0} 年前"),
         Math.floor(diffDays / 365),
       );
     }
