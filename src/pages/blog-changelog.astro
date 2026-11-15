@@ -1113,12 +1113,14 @@ import QueryPagination from "../components/control/QueryPagination.astro";
                页码 = index / pageSize + 1（整数除，与 totalPages 同口径）。 -->
           <!-- 首命中守卫：目标批次先在 th:with 里算唯一一个（version 全等
                优先，其次 entries 首个命中），链接只渲染这一个；旧写法逐批
-               渲染、命中几批出几个链接。 -->
+               渲染、命中几批出几个链接。注意：选择表达式 .^[] 内裸变量名
+               会按批次 Map 取键（取不到即失效），里程碑版本必须经
+               #ctx.getVariable 从上下文取（InstaBox 真引擎实测）。 -->
           <span
             class="contents"
             th:with="msVer2=${m?.version ?: ''},
-              msEq=${(!#strings.isEmpty(msVer2) and dayList != null) ? dayList.^[version == msVer2] : null},
-              msHit=${msEq == null and !#strings.isEmpty(msVer2) and dayList != null ? dayList.^[entries != null and #strings.contains(entries, msVer2 + ' ·')] : null},
+              msEq=${(!#strings.isEmpty(msVer2) and dayList != null) ? dayList.^[version == #ctx.getVariable('msVer2')] : null},
+              msHit=${msEq == null and !#strings.isEmpty(msVer2) and dayList != null ? dayList.^[entries != null and #strings.contains(entries, #ctx.getVariable('msVer2') + ' ·')] : null},
               msTarget=${msEq != null ? msEq : msHit}"
           >
             <a
