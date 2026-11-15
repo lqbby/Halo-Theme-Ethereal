@@ -1,684 +1,1915 @@
 @reference "./global.css";
 
-/* ============================================================================
-   数据看板（statistics.html）新版式样式
-   ----------------------------------------------------------------------------
-   版式构成借鉴公开看板的信息组织（统计卡 → 趋势 → 活动热力 → 分布 → 评论），
-   视觉语言完全按 Ethereal 自身规范实现：card-base 玻璃卡、--hue 派生色、
-   与「关于我」页同款的分区标题节奏（主色小号大写 label + 中文标题）。
-   不引用任何外部站点素材，图表为 statistics-dashboard.js 手写 SVG，
-   本文件只给几何上色，色值一律从 var(--primary) / var(--deep-text) /
-   var(--card-bg) 用 color-mix / oklch 相对色派生，深浅双模式自动成立。
+/* 数据看板页（src/pages/statistics.astro）专属样式。
+   排版骨架按 rainzt.cn/analytics 公开看板 1:1 重排（2026-11-15 第二版）：
+   hero（左文案 + 右 meta/stamp + 下方 rail）→ 4 张 summary 卡 → 两栏
+   layout（主栏 minmax(0,1.8fr) / 侧栏 minmax(16rem,.85fr)，gap 1rem）：
+     主栏：访问脉冲（图 + legend + 本周期 snapshot + 热门排行两个子块）、
+           推送节奏（4 metric + 热力图块〔tab/蛇控件/月份行/foot/message〕）、
+           访客活跃时间（热力 grid + art + 4 stat + footer）；
+     侧栏：设备与浏览器（distribution：两个 donut + legend）、地域卡
+           （列表+占比条 / TOP5 ranking 双列）、流量来源（donut + 列表）、
+           最近评论（侧栏变体）；页尾还有一条 footer strip。
+   视觉 token 仍是 Ethereal 自己的：玻璃拟态来自全站 .card-base；强调色由
+   主色相 --hue 派生（4 个色相旋转 + 粉色相），深浅适配走全站 html.dark
+   （亮度经 color-mix 调整）；不引用对方任何素材与色板。
+   经 statistics.css?v={hash} 引用（MainGridLayout head 注入），全局
+   .onload-animation 入场动画对各大块生效（延迟见下方 n 规则）。 */
 
-   旧版此文件的作用是把 data-statistics 插件的 --chartboard-* /
-   --halo-data-statistics-* 变量重映射到主题 token；新版模板已不再渲染
-   插件容器，这批映射随之移除（插件自身的全站 head 注入不受影响）。
-   ============================================================================ */
-
+/* ========== 作用域根与色相变体 ========== */
 #statistics-dashboard {
-  /* 第二数据系列（访客线 / 环形分段的对照色）：主色色相旋转派生，
-     不支持相对色语法时回退到主色与卡底的混合。 */
-  --stats-series-2: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
-  --stats-series-2: oklch(from var(--primary) 0.72 0.13 calc(h + 150));
-  --stats-text-muted: color-mix(in oklab, var(--deep-text) 55%, transparent);
-  --stats-text-faint: color-mix(in oklab, var(--deep-text) 38%, transparent);
-  --stats-track: color-mix(in oklab, var(--deep-text) 9%, transparent);
+  /* 五个色相角色（v1 蓝=主色 / v2 薄荷 / v3 金 / v4 紫 / v5 粉），全部由
+     主题色相 --hue 旋转派生，换主题色相时整页跟随。 */
+  --stats-v1: var(--primary);
+  --stats-v2: oklch(0.72 0.17 calc(var(--hue) + 130));
+  --stats-v3: oklch(0.76 0.15 calc(var(--hue) - 185));
+  --stats-v4: oklch(0.68 0.18 calc(var(--hue) + 60));
+  --stats-v5: oklch(0.7 0.19 calc(var(--hue) - 45));
+}
 
-  /* ---------- 分区标题（对齐 about 页 about-section-label 节奏） ---------- */
-  .stats-kicker {
-    margin: 0;
-    color: var(--primary);
-    font-size: 0.6rem;
-    font-weight: 780;
-    letter-spacing: 0.12em;
-    line-height: 1.3;
-    text-transform: uppercase;
-  }
-  .stats-panel-title {
-    margin: 0.25rem 0 0;
-    color: var(--deep-text);
-    font-size: 1.125rem;
-    font-weight: 800;
-    line-height: 1.35;
-  }
-  .stats-panel-desc {
-    margin: 0.3rem 0 0;
-    color: var(--stats-text-muted);
-    font-size: 0.8125rem;
-    line-height: 1.5;
-  }
-  .stats-panel-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 1.1rem;
-  }
-  .stats-badge {
-    flex-shrink: 0;
-    padding: 0.28rem 0.65rem;
-    border-radius: 999px;
-    background: var(--btn-regular-bg);
-    color: var(--stats-text-muted);
-    font-size: 0.72rem;
-    font-weight: 600;
-    line-height: 1.4;
-    white-space: nowrap;
-  }
-  .stats-mono {
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.85em;
-  }
-  .stats-subtitle {
-    margin: 1.25rem 0 0.6rem;
-    color: var(--deep-text);
-    font-size: 0.875rem;
-    font-weight: 700;
-  }
+/* 入场动画延迟：hero→0 / summary→1 / 主栏 2、4、6 / 侧栏 3、5、7、8 /
+   页脚 9（与全站 widget onload-animation 的 100–900ms 档位对齐） */
+#statistics-dashboard .stats-hero {
+  animation-delay: calc(var(--onload-animation-delay) + 0ms);
+}
+#statistics-dashboard .stats-summary {
+  animation-delay: calc(var(--onload-animation-delay) + 100ms);
+}
+#statistics-dashboard [data-panel="pulse"] {
+  animation-delay: calc(var(--onload-animation-delay) + 200ms);
+}
+#statistics-dashboard [data-panel="devices"] {
+  animation-delay: calc(var(--onload-animation-delay) + 300ms);
+}
+#statistics-dashboard [data-panel="push"] {
+  animation-delay: calc(var(--onload-animation-delay) + 400ms);
+}
+#statistics-dashboard [data-panel="regions"] {
+  animation-delay: calc(var(--onload-animation-delay) + 500ms);
+}
+#statistics-dashboard [data-panel="activity"] {
+  animation-delay: calc(var(--onload-animation-delay) + 600ms);
+}
+#statistics-dashboard [data-panel="sources"] {
+  animation-delay: calc(var(--onload-animation-delay) + 700ms);
+}
+#statistics-dashboard [data-panel="comments"] {
+  animation-delay: calc(var(--onload-animation-delay) + 800ms);
+}
+#statistics-dashboard .stats-footer {
+  animation-delay: calc(var(--onload-animation-delay) + 900ms);
+}
 
-  /* ---------- 未配置 / 空状态（安静占位，不报错不白屏） ---------- */
-  .stats-unconfigured {
-    margin-top: 0.9rem;
-    padding: 0.8rem 1rem;
-    border: 1px dashed var(--line-color);
-    border-radius: var(--radius-large, 1rem);
-    color: var(--stats-text-muted);
-    font-size: 0.8125rem;
-    line-height: 1.6;
-  }
-  section > .stats-unconfigured:first-of-type {
-    margin-top: 0;
-  }
-  .stats-empty {
-    padding: 1.6rem 1rem;
-    text-align: center;
-    color: var(--stats-text-muted);
-  }
-  .stats-empty strong {
-    display: block;
-    margin-bottom: 0.3rem;
-    color: var(--deep-text);
-    font-size: 0.9rem;
-  }
-  .stats-empty span {
-    font-size: 0.8125rem;
-  }
+/* ========== 共用小件 ========== */
+/* 面板 kicker：英文大写小字（hero/panel/aside 共用解剖） */
+#statistics-dashboard .stats-kicker {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0;
+  color: var(--primary);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+#statistics-dashboard .stats-kicker__signal {
+  width: 0.48rem;
+  height: 0.48rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 0.28rem color-mix(in oklab, var(--primary) 16%, transparent);
+}
 
-  /* ---------- 1. 顶部统计卡 ---------- */
-  .stats-summary-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-  @media (min-width: 768px) {
-    .stats-summary-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
-  .stats-summary-card {
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    padding: 1.1rem 1.25rem;
-  }
-  .stats-summary-card__label {
-    color: var(--stats-text-muted);
-    font-size: 0.8125rem;
-    font-weight: 600;
-  }
-  .stats-summary-card__value {
-    color: var(--deep-text);
-    font-size: 1.9rem;
-    font-weight: 800;
-    line-height: 1.15;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-summary-card__note {
-    color: var(--stats-text-faint);
-    font-size: 0.62rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-  }
+/* 面板状态徽章（推送节奏 / 活跃时间共用） */
+#statistics-dashboard .stats-panel__badge {
+  flex: 0 0 auto;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.45rem;
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
 
-  /* ---------- 2. 访问脉冲 ---------- */
-  .stats-range {
-    display: flex;
-    flex-shrink: 0;
-    gap: 0.25rem;
-    padding: 0.25rem;
-    border-radius: 0.65rem;
-    background: var(--btn-regular-bg);
-  }
-  .stats-range button {
-    padding: 0.32rem 0.7rem;
-    border: 0;
-    border-radius: 0.45rem;
-    background: transparent;
-    color: var(--stats-text-muted);
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition:
-      background 0.18s ease,
-      color 0.18s ease;
-  }
-  .stats-range button[aria-pressed="true"] {
-    background: var(--card-bg);
-    color: var(--primary);
-    box-shadow: 0 1px 4px rgb(0 0 0 / 0.08);
-  }
-  .stats-chart-wrap {
-    position: relative;
-  }
-  .stats-chart {
-    display: block;
-    width: 100%;
-    height: auto;
-  }
-  .stats-chart-grid line {
-    stroke: var(--line-color);
-    stroke-width: 1;
-  }
-  .stats-chart-ytext {
-    fill: var(--stats-text-faint);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-area-stop--top {
-    stop-color: var(--primary);
-    stop-opacity: 0.24;
-  }
-  .stats-area-stop--bottom {
-    stop-color: var(--primary);
-    stop-opacity: 0;
-  }
-  .stats-chart-area {
-    fill: url("#stats-area-gradient");
-  }
-  .stats-chart-line {
-    fill: none;
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  .stats-chart-line--views {
-    stroke: var(--primary);
-  }
-  .stats-chart-line--visitors {
-    stroke: var(--stats-series-2);
-  }
-  .stats-chart-point {
-    fill: var(--card-bg);
-    stroke: var(--primary);
-    stroke-width: 1.6;
-  }
-  .stats-chart-guide {
-    stroke: var(--primary);
-    stroke-width: 1;
-    stroke-dasharray: 3 4;
-    opacity: 0.55;
-  }
-  .stats-chart-x {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.35rem;
-    color: var(--stats-text-faint);
-    font-size: 0.72rem;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-chart-legend {
-    display: flex;
-    gap: 1.1rem;
-    margin: 0.7rem 0 0;
-    color: var(--stats-text-muted);
-    font-size: 0.78rem;
-  }
-  .stats-dot {
-    display: inline-block;
-    width: 0.5rem;
-    height: 0.5rem;
-    margin-right: 0.35rem;
-    border-radius: 999px;
-    background: var(--primary);
-    vertical-align: 0.08em;
-  }
-  .stats-dot--views {
-    background: var(--primary);
-  }
-  .stats-dot--visitors {
-    background: var(--stats-series-2);
-  }
-  .stats-chart-tooltip {
-    position: absolute;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 8.5rem;
-    padding: 0.55rem 0.7rem;
-    border: 1px solid var(--line-color);
-    border-radius: 0.7rem;
-    background: var(--card-bg);
-    box-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.28);
-    color: var(--stats-text-muted);
-    font-size: 0.75rem;
-    pointer-events: none;
-    transform: translate(-50%, 0.4rem);
-  }
-  .stats-chart-tooltip[hidden] {
-    display: none;
-  }
-  .stats-chart-tooltip strong {
-    color: var(--deep-text);
-    font-size: 0.78rem;
-  }
-  .stats-chart-tooltip b {
-    color: var(--deep-text);
-    font-variant-numeric: tabular-nums;
-  }
+#statistics-dashboard .stats-mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 0.92em;
+}
 
-  /* ---------- 热力格（推送节奏 / 活跃时间共用） ---------- */
-  .stats-heat-cell {
-    display: block;
-    border-radius: 3px;
-    background: var(--stats-track);
-  }
-  .stats-heat-cell[data-level="1"] {
-    background: color-mix(in oklab, var(--primary) 26%, var(--card-bg));
-  }
-  .stats-heat-cell[data-level="2"] {
-    background: color-mix(in oklab, var(--primary) 48%, var(--card-bg));
-  }
-  .stats-heat-cell[data-level="3"] {
-    background: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
-  }
-  .stats-heat-cell[data-level="4"] {
-    background: var(--primary);
-  }
-  .stats-heat-cell--future {
-    background: transparent;
-  }
-  .stats-heat-legend {
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
-    margin: 0.7rem 0 0;
-    color: var(--stats-text-faint);
-    font-size: 0.72rem;
-  }
-  .stats-heat-legend .stats-heat-cell {
-    width: 0.72rem;
-    height: 0.72rem;
-  }
+/* 未配置占位（Umami 分享未填 / 取数失败时 TS 追加） */
+#statistics-dashboard .stats-unconfigured {
+  margin: 1rem 1.35rem 1.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed var(--line-divider);
+  border-radius: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+#statistics-dashboard .stats-summary .stats-unconfigured {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+/* 侧栏卡内占位边距收紧 */
+#statistics-dashboard .stats-side-card .stats-unconfigured {
+  margin: 0.9rem 0 0.2rem;
+}
 
-  /* ---------- 3. 推送节奏 ---------- */
-  .stats-push-metrics {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.8rem;
-    margin-bottom: 1.1rem;
-  }
-  @media (max-width: 640px) {
-    .stats-push-metrics {
-      grid-template-columns: 1fr;
-    }
-  }
-  .stats-push-metric {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-    padding: 0.8rem 1rem;
-    border-radius: var(--radius-large, 1rem);
-    background: color-mix(in oklab, var(--card-bg) 88%, var(--primary));
-  }
-  .stats-push-metric span {
-    color: var(--stats-text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-  .stats-push-metric strong {
-    color: var(--deep-text);
-    font-size: 1.15rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-push-grid {
-    display: grid;
-    grid-template-rows: repeat(7, 1fr);
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
-    gap: 3px;
-  }
-  .stats-push-grid .stats-heat-cell {
-    aspect-ratio: 1;
-    width: 100%;
-  }
+/* 空状态（取数成功但无数据 / 接口失败的安静提示） */
+#statistics-dashboard .stats-empty {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0 1.35rem 1.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px dashed var(--line-divider);
+  border-radius: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+#statistics-dashboard .stats-empty strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
 
-  /* ---------- 4. 访客活跃时间 ---------- */
-  .stats-activity-hours {
-    display: grid;
-    grid-template-columns: repeat(12, 1fr);
-    margin-left: 2.4rem;
-    margin-bottom: 0.35rem;
-    color: var(--stats-text-faint);
-    font-size: 0.68rem;
-  }
-  .stats-activity-body {
-    display: grid;
-    grid-template-columns: 2.4rem 1fr;
-  }
-  .stats-activity-days {
-    display: grid;
-    grid-template-rows: repeat(7, 1fr);
-    align-items: center;
-    color: var(--stats-text-faint);
-    font-size: 0.72rem;
-  }
-  .stats-activity-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .stats-activity-row {
-    display: grid;
-    grid-template-columns: repeat(24, 1fr);
-    gap: 3px;
-  }
-  .stats-activity-row .stats-heat-cell {
-    aspect-ratio: 1;
-    width: 100%;
-  }
+/* ========== Hero ========== */
+#statistics-dashboard .stats-hero {
+  padding: clamp(1rem, 2vw, 1.5rem);
+}
+#statistics-dashboard .stats-hero__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1.25rem;
+  align-items: end;
+}
+#statistics-dashboard .stats-hero__title {
+  margin: 0.55rem 0 0;
+  color: var(--text-primary);
+  font-size: clamp(1.55rem, 3vw, 2.55rem);
+  font-weight: 850;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+#statistics-dashboard .stats-hero__lead {
+  max-width: 42rem;
+  margin: 0.72rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.75;
+}
+#statistics-dashboard .stats-hero__notes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.9rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.68rem;
+}
+#statistics-dashboard .stats-hero__notes > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+#statistics-dashboard .stats-hero__notes [class*="icon-"] {
+  font-size: 0.95rem;
+}
+#statistics-dashboard .stats-hero__meta {
+  display: grid;
+  justify-items: end;
+  gap: 0.7rem;
+  min-width: 9rem;
+}
+/* 状态胶囊：点 + 文案（TS 按 Umami 连接状态切换 data-state） */
+#statistics-dashboard .stats-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.42rem 0.72rem;
+  border: 1px solid var(--line-divider);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card-bg) 72%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+#statistics-dashboard .stats-status__dot {
+  width: 0.48rem;
+  height: 0.48rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--text-tertiary, var(--text-secondary));
+}
+#statistics-dashboard .stats-status[data-state="online"] {
+  border-color: color-mix(in oklab, var(--stats-v2) 32%, transparent);
+  background: color-mix(in oklab, var(--stats-v2) 10%, transparent);
+  color: var(--text-primary);
+}
+#statistics-dashboard .stats-status[data-state="online"] .stats-status__dot {
+  background: var(--stats-v2);
+  box-shadow: 0 0 0 0.22rem color-mix(in oklab, var(--stats-v2) 18%, transparent);
+}
+#statistics-dashboard .stats-status[data-state="offline"] {
+  border-color: color-mix(in oklab, var(--stats-v3) 34%, transparent);
+  background: color-mix(in oklab, var(--stats-v3) 10%, transparent);
+}
+#statistics-dashboard .stats-status[data-state="offline"] .stats-status__dot {
+  background: var(--stats-v3);
+}
+/* 右侧 stamp：DATA SOURCE / Umami / 小字 */
+#statistics-dashboard .stats-hero__stamp {
+  display: grid;
+  justify-items: end;
+  gap: 0.16rem;
+  text-align: right;
+}
+#statistics-dashboard .stats-hero__stamp span {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+#statistics-dashboard .stats-hero__stamp strong {
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-weight: 850;
+}
+#statistics-dashboard .stats-hero__stamp small {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.68rem;
+}
+/* hero 底部 rail：左字 + 中线 + 右字 */
+#statistics-dashboard .stats-hero__rail {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  margin-top: 1.2rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.63rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+#statistics-dashboard .stats-hero__rail span:nth-child(2) {
+  height: 1px;
+  background: var(--line-divider);
+}
 
-  /* ---------- 5/6/7. 分布区（环形 + 图例 / 条形） ---------- */
-  .stats-duo {
-    display: grid;
-    grid-template-columns: 1fr;
+/* ========== Summary 统计卡行 ========== */
+#statistics-dashboard .stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 1rem 0;
+}
+#statistics-dashboard .stats-summary-card {
+  --stats-accent: var(--stats-v1);
+  min-height: 7.3rem;
+  padding: 0.82rem 0.95rem;
+  overflow: hidden;
+  border: 1px solid var(--line-divider);
+  border-radius: calc(var(--radius-large) - 0.2rem);
+  background: var(--card-bg);
+  background: color-mix(in oklab, var(--card-bg) 82%, transparent);
+  box-shadow: var(--shadow);
+}
+#statistics-dashboard .stats-summary-card--v2 {
+  --stats-accent: var(--stats-v2);
+}
+#statistics-dashboard .stats-summary-card--v3 {
+  --stats-accent: var(--stats-v3);
+}
+#statistics-dashboard .stats-summary-card--v4 {
+  --stats-accent: var(--stats-v4);
+}
+#statistics-dashboard .stats-summary-card__topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+#statistics-dashboard .stats-summary-card__label {
+  color: var(--stats-accent);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+#statistics-dashboard .stats-summary-card__topline [class*="icon-"] {
+  color: var(--stats-accent);
+  font-size: 1.3rem;
+}
+#statistics-dashboard .stats-summary-card > strong {
+  display: block;
+  margin-top: 0.72rem;
+  color: var(--text-primary);
+  font-size: clamp(1.3rem, 2.25vw, 1.85rem);
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-summary-card > span {
+  display: block;
+  margin-top: 0.38rem;
+  color: var(--text-primary);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+#statistics-dashboard .stats-summary-card > small {
+  display: block;
+  margin-top: 0.1rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.68rem;
+}
+
+/* ========== 两栏布局 ========== */
+#statistics-dashboard .stats-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(16rem, 0.85fr);
+  gap: 1rem;
+  align-items: start;
+}
+#statistics-dashboard .stats-main,
+#statistics-dashboard .stats-sidebar {
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* ========== Panel 通用解剖 ========== */
+#statistics-dashboard .stats-panel {
+  overflow: hidden;
+}
+#statistics-dashboard .stats-panel__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.35rem 1.45rem 0;
+}
+#statistics-dashboard .stats-panel__header--compact {
+  padding-top: 1.05rem;
+}
+#statistics-dashboard .stats-panel__header h2 {
+  margin: 0.4rem 0 0;
+  color: var(--text-primary);
+  font-size: 1.28rem;
+  font-weight: 820;
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+#statistics-dashboard .stats-panel__description {
+  max-width: 34rem;
+  margin: 0.45rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.65;
+}
+#statistics-dashboard .stats-panel__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex: 0 0 auto;
+}
+
+/* 范围切换按钮组（7/30/90 天） */
+#statistics-dashboard .stats-range {
+  display: flex;
+  gap: 0.3rem;
+}
+#statistics-dashboard .stats-range button {
+  min-width: 2.8rem;
+  padding: 0.4rem 0.52rem;
+  border: 1px solid var(--line-divider);
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    border-color 0.2s ease;
+}
+#statistics-dashboard .stats-range button:hover {
+  color: var(--text-primary);
+}
+#statistics-dashboard .stats-range button[aria-pressed="true"] {
+  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+}
+/* 刷新按钮（重播折线动画） */
+#statistics-dashboard .stats-refresh {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line-divider);
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.3s ease;
+}
+#statistics-dashboard .stats-refresh:hover {
+  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
+  color: var(--primary);
+}
+#statistics-dashboard .stats-refresh:active {
+  transform: rotate(120deg);
+}
+
+/* ========== ① 访问脉冲：折线图 ========== */
+#statistics-dashboard .stats-chart-wrap {
+  position: relative;
+  min-height: 12.9rem;
+  margin-top: 0.42rem;
+  padding: 0.06rem 1.1rem 0 2.2rem;
+}
+/* y 轴刻度（绝对定位在左侧留白列，3 档：max / mid / 0） */
+#statistics-dashboard .stats-chart-labels {
+  position: absolute;
+  top: 0.06rem;
+  bottom: 1.55rem;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: calc(2.2rem + 4.375%);
+  padding-right: 0.5rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.56rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-chart {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+#statistics-dashboard .stats-chart-grid line {
+  stroke: var(--line-divider);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+#statistics-dashboard .stats-chart-area {
+  fill: url(#stats-area-gradient);
+}
+#statistics-dashboard .stats-area-stop--top {
+  stop-color: var(--primary);
+  stop-opacity: 0.26;
+}
+#statistics-dashboard .stats-area-stop--bottom {
+  stop-color: var(--primary);
+  stop-opacity: 0.02;
+}
+#statistics-dashboard .stats-chart-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+  vector-effect: non-scaling-stroke;
+}
+#statistics-dashboard .stats-chart-line--views {
+  stroke: var(--primary);
+}
+#statistics-dashboard .stats-chart-line--visitors {
+  stroke: var(--stats-v3);
+}
+#statistics-dashboard .stats-chart-guide {
+  stroke: var(--text-tertiary, var(--text-secondary));
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-chart-point {
+  stroke: var(--card-bg);
+  stroke-width: 1.6;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-chart-point--views {
+  fill: var(--primary);
+}
+#statistics-dashboard .stats-chart-point--visitors {
+  fill: var(--stats-v3);
+}
+#statistics-dashboard .stats-chart-hit {
+  fill: transparent;
+  cursor: pointer;
+}
+#statistics-dashboard .stats-chart__tooltip {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 0.28rem;
+  min-width: 7.5rem;
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line-divider);
+  border-radius: 0.65rem;
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-chart__tooltip strong {
+  color: var(--text-primary);
+  font-size: 0.74rem;
+}
+#statistics-dashboard .stats-chart__tooltip span {
+  display: flex;
+  align-items: center;
+  gap: 0.34rem;
+}
+#statistics-dashboard .stats-chart__tooltip b {
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-chart__x-axis {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 1.667% 0 4.375%;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.58rem;
+}
+/* 图内空状态：虚线框覆盖图表区 */
+#statistics-dashboard .stats-chart-empty {
+  position: absolute;
+  inset: 0.06rem 1.1rem 1.55rem 2.2rem;
+  display: grid;
+  place-content: center;
+  gap: 0.3rem;
+  padding: 1rem;
+  border: 1px dashed var(--line-divider);
+  border-radius: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  text-align: center;
+}
+#statistics-dashboard .stats-chart-empty strong {
+  color: var(--text-primary);
+  font-size: 0.88rem;
+}
+/* 图表 footer：legend 行 */
+#statistics-dashboard .stats-chart-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 1.45rem;
+  padding: 0.45rem 0 0.62rem;
+}
+#statistics-dashboard .stats-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+#statistics-dashboard .stats-chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+#statistics-dashboard .stats-legend-dot {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+#statistics-dashboard .stats-legend-dot--views {
+  background: var(--primary);
+}
+#statistics-dashboard .stats-legend-dot--visitors {
+  background: var(--stats-v3);
+}
+
+/* ========== ① 访问脉冲：details（snapshot + 排行） ========== */
+#statistics-dashboard .stats-traffic__details {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 0 1.35rem 0.72rem;
+}
+/* 本周期 snapshot：标题行 + 2×2 指标格 */
+#statistics-dashboard .stats-traffic__period-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2.1rem;
+}
+#statistics-dashboard .stats-period__intro {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+}
+#statistics-dashboard .stats-period__intro strong {
+  color: var(--text-primary);
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+#statistics-dashboard .stats-period__intro span {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.57rem;
+}
+#statistics-dashboard .stats-period__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.02rem 0.5rem;
+  margin-top: 0.1rem;
+}
+#statistics-dashboard .stats-period__metric {
+  --stats-accent: var(--stats-v1);
+  display: grid;
+  grid-template-columns: 1.2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.34rem;
+  padding: 0.24rem 0.2rem;
+  border-radius: 0.52rem;
+}
+#statistics-dashboard .stats-period__metric--v2 {
+  --stats-accent: var(--stats-v2);
+}
+#statistics-dashboard .stats-period__metric--v3 {
+  --stats-accent: var(--stats-v3);
+}
+#statistics-dashboard .stats-period__metric--v4 {
+  --stats-accent: var(--stats-v4);
+}
+#statistics-dashboard .stats-period__metric--v5 {
+  --stats-accent: var(--stats-v5);
+}
+#statistics-dashboard .stats-period__metric-icon {
+  display: grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 0.36rem;
+  background: color-mix(in oklab, var(--stats-accent) 13%, transparent);
+  color: var(--stats-accent);
+  font-size: 0.78rem;
+}
+#statistics-dashboard .stats-period__metric-copy {
+  display: grid;
+  min-width: 0;
+}
+#statistics-dashboard .stats-period__metric-copy > span {
+  color: var(--text-primary);
+  font-size: 0.64rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-period__metric-copy small {
+  overflow: hidden;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.51rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-period__metric > strong {
+  color: var(--text-primary);
+  font-size: 0.75rem;
+  font-weight: 820;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 热门排行：ol 链接行 + 底部占比进度线 */
+#statistics-dashboard .stats-traffic__section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.1rem;
+}
+#statistics-dashboard .stats-traffic__section-heading strong {
+  color: var(--text-primary);
+  font-size: 0.79rem;
+  font-weight: 800;
+}
+#statistics-dashboard .stats-traffic__section-heading span {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.57rem;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-ranking {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#statistics-dashboard .stats-ranking__item {
+  --stats-share: 0%;
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.32rem;
+  padding: 0.26rem 0.32rem 0.4rem;
+  overflow: hidden;
+  border-radius: 0.52rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+#statistics-dashboard a.stats-ranking__item:hover {
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+}
+#statistics-dashboard .stats-ranking__item::before {
+  content: "";
+  position: absolute;
+  right: 0.32rem;
+  bottom: 0.14rem;
+  left: 0.32rem;
+  height: 0.1rem;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in oklab, var(--primary) 42%, transparent) var(--stats-share),
+    color-mix(in oklab, var(--text-primary) 7%, transparent) var(--stats-share)
+  );
+}
+#statistics-dashboard .stats-ranking__index {
+  display: grid;
+  place-items: center;
+  width: 1.24rem;
+  height: 1.24rem;
+  border-radius: 0.4rem;
+  background: color-mix(in oklab, var(--primary) 9%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.54rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-ranking__item:first-child .stats-ranking__index {
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+#statistics-dashboard .stats-ranking__copy {
+  display: grid;
+  min-width: 0;
+}
+#statistics-dashboard .stats-ranking__copy strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.66rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-ranking__copy small {
+  overflow: hidden;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.51rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-ranking__item > strong {
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 820;
+  font-variant-numeric: tabular-nums;
+}
+/* 排行骨架行：文案占位条 */
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy i,
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy em {
+  display: block;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 9%, transparent);
+}
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy i {
+  width: 62%;
+}
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy em {
+  width: 38%;
+  margin-top: 0.24rem;
+}
+#statistics-dashboard .stats-ranking__empty {
+  padding: 0.5rem 0.32rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.66rem;
+}
+
+/* ========== ② 推送节奏 ========== */
+#statistics-dashboard .stats-deployment__header {
+  position: relative;
+}
+#statistics-dashboard .stats-deployment__heading {
+  max-width: 66%;
+}
+/* 标题右侧的文字 art（对方是吉祥物图，我方用纯文字构成，不引用其素材） */
+#statistics-dashboard .stats-deployment__art {
+  position: absolute;
+  top: 0.4rem;
+  right: 5.2rem;
+  display: grid;
+  justify-items: end;
+  gap: 0.1rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.66rem;
+  line-height: 1.5;
+  text-align: right;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-deployment__art p {
+  margin: 0;
+}
+#statistics-dashboard .stats-deployment__art span {
+  color: var(--stats-v5);
+  font-size: 0.8rem;
+}
+/* 4 个 metric 块 */
+#statistics-dashboard .stats-deployment__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 0.85rem 1.35rem 0;
+}
+#statistics-dashboard .stats-deployment__metric {
+  --stats-accent: var(--stats-v1);
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 4.8rem;
+  padding: 0.72rem 0.7rem;
+  border-radius: 0.78rem;
+  background: color-mix(in oklab, var(--stats-accent) 7%, transparent);
+}
+#statistics-dashboard .stats-deployment__metric--v2 {
+  --stats-accent: var(--stats-v2);
+}
+#statistics-dashboard .stats-deployment__metric--v3 {
+  --stats-accent: var(--stats-v3);
+}
+#statistics-dashboard .stats-deployment__metric--v4 {
+  --stats-accent: var(--stats-v4);
+}
+#statistics-dashboard .stats-deployment__metric--v5 {
+  --stats-accent: var(--stats-v5);
+}
+#statistics-dashboard .stats-deployment__metric-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.55rem;
+  background: color-mix(in oklab, var(--stats-accent) 14%, transparent);
+  color: var(--stats-accent);
+  font-size: 1.1rem;
+}
+#statistics-dashboard .stats-deployment__metric-copy {
+  display: grid;
+  min-width: 0;
+}
+#statistics-dashboard .stats-deployment__metric-copy > span {
+  color: var(--text-primary);
+  font-size: 0.68rem;
+  font-weight: 750;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-deployment__metric-copy small {
+  overflow: hidden;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.56rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-deployment__metric > strong {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  font-weight: 850;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* 热力图块（带顶分隔线的内层块） */
+#statistics-dashboard .stats-deployment__heatmap {
+  margin: 1.1rem 1.35rem 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-divider);
+  border-radius: 0.82rem;
+}
+#statistics-dashboard .stats-deployment__heatmap-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 1rem;
+}
+#statistics-dashboard .stats-deployment__heatmap-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+#statistics-dashboard .stats-deployment__heatmap-title strong {
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 820;
+}
+#statistics-dashboard .stats-deployment__heatmap-title > span {
+  display: inline-flex;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.85rem;
+}
+/* 贪吃蛇控件（居中两组小选项） */
+#statistics-dashboard .stats-deployment__snake-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem 1rem;
+}
+#statistics-dashboard .stats-deployment__snake-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+#statistics-dashboard .stats-deployment__snake-options {
+  display: inline-flex;
+  gap: 0.22rem;
+}
+#statistics-dashboard .stats-deployment__snake-options button,
+#statistics-dashboard .stats-deployment__heatmap-tabs button {
+  padding: 0.24rem 0.42rem;
+  border: 0;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease;
+}
+#statistics-dashboard .stats-deployment__snake-options button:hover,
+#statistics-dashboard .stats-deployment__heatmap-tabs button:hover {
+  color: var(--text-primary);
+}
+#statistics-dashboard
+  .stats-deployment__snake-options
+  button[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--primary) 13%, transparent);
+  color: var(--primary);
+}
+#statistics-dashboard .stats-deployment__heatmap-tabs {
+  display: inline-flex;
+  gap: 0.22rem;
+}
+#statistics-dashboard
+  .stats-deployment__heatmap-tabs
+  button[aria-pressed="true"] {
+  color: var(--text-primary);
+  font-weight: 850;
+}
+/* 热力图滚动区 + 网格 + 月份行 */
+#statistics-dashboard .stats-deployment__heatmap-scroll {
+  margin-top: 0.82rem;
+  padding: 0.24rem 1rem 0.34rem;
+  overflow-x: auto;
+}
+#statistics-dashboard .stats-deployment__heatmap-main {
+  min-width: max-content;
+}
+#statistics-dashboard .stats-push-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 0.56rem);
+  gap: 0.16rem;
+  width: max-content;
+}
+#statistics-dashboard .stats-push-months {
+  position: relative;
+  height: 0.9rem;
+  margin-top: 0.3rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.56rem;
+}
+#statistics-dashboard .stats-push-months span {
+  position: absolute;
+  top: 0;
+  white-space: nowrap;
+}
+/* 热力图 foot：来源 + 少→多 legend */
+#statistics-dashboard .stats-deployment__heatmap-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.8rem 1rem 0;
+  padding: 0.72rem 0 0.82rem;
+  border-top: 1px solid var(--line-divider);
+}
+#statistics-dashboard .stats-deployment__source {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+/* message 条：左图标 + 文案 + 右飞机图标 */
+#statistics-dashboard .stats-deployment__message {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 0.72rem;
+  margin: 0.9rem 1rem 1rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.92rem;
+  background: linear-gradient(
+    120deg,
+    color-mix(in oklab, var(--stats-v2) 12%, transparent),
+    color-mix(in oklab, var(--primary) 10%, transparent)
+  );
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  line-height: 1.6;
+}
+#statistics-dashboard .stats-deployment__message-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  background: color-mix(in oklab, var(--card-bg) 65%, transparent);
+  color: var(--primary);
+  font-size: 1.05rem;
+}
+#statistics-dashboard .stats-deployment__message-plane {
+  justify-self: end;
+  color: var(--primary);
+  font-size: 1.15rem;
+}
+
+/* 热力格共用（推送网格 / 活跃网格 / legend 小格）：
+   5 档由主色相派生（GitHub 式绿是对方/平台色，我方走主题色相阶梯） */
+#statistics-dashboard .stats-heat-cell {
+  width: 0.56rem;
+  height: 0.56rem;
+  padding: 0;
+  border: 0;
+  border-radius: 0.18rem;
+  background: color-mix(in oklab, var(--text-primary) 7%, transparent);
+}
+#statistics-dashboard .stats-heat-cell[data-level="1"] {
+  background: color-mix(in oklab, var(--primary) 28%, transparent);
+}
+#statistics-dashboard .stats-heat-cell[data-level="2"] {
+  background: color-mix(in oklab, var(--primary) 48%, transparent);
+}
+#statistics-dashboard .stats-heat-cell[data-level="3"] {
+  background: color-mix(in oklab, var(--primary) 72%, transparent);
+}
+#statistics-dashboard .stats-heat-cell[data-level="4"] {
+  background: var(--primary);
+}
+/* 推送网格上的食物与蛇身（TS 切换类名） */
+#statistics-dashboard .stats-push-grid .stats-heat-cell {
+  cursor: pointer;
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell.is-food {
+  background: var(--stats-v3);
+  box-shadow: 0 0 0 0.14rem color-mix(in oklab, var(--stats-v3) 30%, transparent);
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell.is-snake {
+  background: var(--stats-v5);
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell.is-snake-head {
+  background: var(--stats-v5);
+  box-shadow: 0 0 0 0.14rem color-mix(in oklab, var(--stats-v5) 32%, transparent);
+}
+/* 少→多 legend */
+#statistics-dashboard .stats-heat-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+#statistics-dashboard .stats-heat-legend .stats-heat-cell {
+  width: 0.62rem;
+  height: 0.62rem;
+}
+
+/* ========== ③ 访客活跃时间 ========== */
+#statistics-dashboard .stats-activity__title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+#statistics-dashboard .stats-activity__title-row h2 {
+  margin: 0;
+}
+#statistics-dashboard .stats-activity__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(9rem, 0.85fr);
+  gap: 0.95rem;
+  align-items: center;
+  margin: 0.95rem 1.35rem 0;
+}
+/* 热力图：左星期列 + 顶小时行 + 24×7 格 */
+#statistics-dashboard .stats-activity__heatmap {
+  display: grid;
+  grid-template-columns: 2.05rem minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  gap: 0.48rem 0.5rem;
+}
+#statistics-dashboard .stats-activity__hours {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+  text-align: center;
+}
+#statistics-dashboard .stats-activity__days {
+  grid-row: 2;
+  display: grid;
+  grid-template-rows: repeat(7, minmax(0, 1fr));
+  align-items: center;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+#statistics-dashboard .stats-activity__grid {
+  grid-column: 2;
+  grid-row: 2;
+  display: grid;
+  gap: clamp(0.18rem, 0.45vw, 0.28rem);
+}
+#statistics-dashboard .stats-activity-row {
+  display: grid;
+  grid-template-columns: repeat(24, minmax(0, 1fr));
+  gap: clamp(0.18rem, 0.45vw, 0.28rem);
+}
+#statistics-dashboard .stats-activity__cell {
+  width: auto;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 0.24rem;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+#statistics-dashboard .stats-activity__cell:hover {
+  transform: scale(1.18);
+}
+#statistics-dashboard .stats-activity__note {
+  margin: 0.55rem 0 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.68rem;
+  line-height: 1.6;
+}
+/* 右侧 art 块：轨道圆环 + 居中文字（纯 CSS 构成） */
+#statistics-dashboard .stats-activity__art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 14.2rem;
+  overflow: hidden;
+  border-radius: 1rem;
+  background:
+    radial-gradient(
+      circle at 78% 18%,
+      color-mix(in oklab, var(--stats-v3) 20%, transparent),
+      transparent 46%
+    ),
+    radial-gradient(
+      circle at 18% 82%,
+      color-mix(in oklab, var(--primary) 16%, transparent),
+      transparent 52%
+    ),
+    color-mix(in oklab, var(--primary) 5%, transparent);
+  text-align: center;
+}
+#statistics-dashboard .stats-activity__art-orbit {
+  position: absolute;
+  width: 9.5rem;
+  height: 9.5rem;
+  border: 1px dashed color-mix(in oklab, var(--primary) 30%, transparent);
+  border-radius: 999px;
+}
+#statistics-dashboard .stats-activity__art-orbit--2 {
+  width: 6.2rem;
+  height: 6.2rem;
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--stats-v3) 26%, transparent);
+}
+#statistics-dashboard .stats-activity__art p {
+  position: relative;
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  font-weight: 800;
+  line-height: 1.7;
+}
+/* 4 个 stat 色块 */
+#statistics-dashboard .stats-activity__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.72rem;
+  margin: 0.95rem 1.35rem 0;
+}
+#statistics-dashboard .stats-activity__stat {
+  --stats-accent: var(--stats-v1);
+  display: grid;
+  grid-template-columns: 2.12rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.58rem;
+  padding: 0.58rem 0.76rem;
+  border-radius: 0.78rem;
+  background: color-mix(in oklab, var(--stats-accent) 7%, transparent);
+}
+#statistics-dashboard .stats-activity__stat--v2 {
+  --stats-accent: var(--stats-v2);
+}
+#statistics-dashboard .stats-activity__stat--v3 {
+  --stats-accent: var(--stats-v3);
+}
+#statistics-dashboard .stats-activity__stat--v4 {
+  --stats-accent: var(--stats-v4);
+}
+#statistics-dashboard .stats-activity__stat--v5 {
+  --stats-accent: var(--stats-v5);
+}
+#statistics-dashboard .stats-activity__stat-icon {
+  display: grid;
+  place-items: center;
+  width: 2.12rem;
+  height: 2.12rem;
+  border-radius: 0.6rem;
+  background: color-mix(in oklab, var(--stats-accent) 14%, transparent);
+  color: var(--stats-accent);
+  font-size: 1.12rem;
+}
+#statistics-dashboard .stats-activity__stat-copy {
+  display: grid;
+  min-width: 0;
+}
+#statistics-dashboard .stats-activity__stat-copy > span {
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-activity__stat-copy strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+/* panel footer：左说明 + 右 legend */
+#statistics-dashboard .stats-activity__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.68rem 1.35rem 0;
+  padding: 0.58rem 0 0.78rem;
+  border-top: 1px solid var(--line-divider);
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+
+/* ========== 侧栏卡通用 ========== */
+#statistics-dashboard .stats-side-card {
+  padding: 1.05rem 1rem 0.9rem;
+  overflow: hidden;
+}
+#statistics-dashboard .stats-side-card h2 {
+  margin: 0.32rem 0 0;
+  color: var(--text-primary);
+  font-size: 0.96rem;
+  font-weight: 820;
+  line-height: 1.25;
+}
+
+/* ④ 设备与浏览器（snapshot 头 + breakdown） */
+#statistics-dashboard .stats-snapshot__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+#statistics-dashboard .stats-snapshot__header p:last-child {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+#statistics-dashboard .stats-snapshot__header-icon {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+#statistics-dashboard .stats-breakdown {
+  margin-top: 0.85rem;
+}
+#statistics-dashboard .stats-breakdown + .stats-breakdown {
+  margin-top: 1rem;
+}
+#statistics-dashboard .stats-breakdown__title span {
+  color: var(--text-primary);
+  font-size: 0.68rem;
+  font-weight: 780;
+}
+#statistics-dashboard .stats-breakdown__body {
+  display: grid;
+  grid-template-columns: minmax(5rem, 0.85fr) minmax(0, 1.15fr);
+  align-items: center;
+  gap: 0.65rem;
+  margin-top: 0.48rem;
+}
+/* donut 通用（设备/浏览器/来源共用，尺寸由容器决定） */
+#statistics-dashboard .stats-donut {
+  position: relative;
+  width: 100%;
+  max-width: 6.8rem;
+  aspect-ratio: 1;
+  justify-self: center;
+}
+#statistics-dashboard .stats-donut svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#statistics-dashboard .stats-donut-track {
+  stroke: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-donut__icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--card-bg) 80%, transparent);
+  color: var(--primary);
+  font-size: 1rem;
+  pointer-events: none;
+}
+/* donut 中心 label（来源卡用） */
+#statistics-dashboard .stats-donut-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 0.1rem;
+  text-align: center;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-donut-label strong {
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 850;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-donut-label span {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.52rem;
+}
+/* legend 列表（设备/浏览器/来源共用） */
+#statistics-dashboard .stats-legend {
+  display: grid;
+  gap: 0.12rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#statistics-dashboard .stats-legend__item {
+  display: grid;
+  grid-template-columns: 0.42rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.2rem 0.28rem;
+  border-radius: 0.48rem;
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+}
+#statistics-dashboard .stats-legend__item i {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+}
+#statistics-dashboard .stats-legend__item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-legend__item strong {
+  color: var(--text-primary);
+  font-size: 0.66rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-legend__skeleton {
+  display: grid;
+  grid-template-columns: 0.42rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.38rem;
+  padding: 0.2rem 0.28rem;
+}
+#statistics-dashboard .stats-legend__skeleton i {
+  width: 0.42rem;
+  height: 0.42rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 12%, transparent);
+}
+#statistics-dashboard .stats-legend__skeleton span {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-legend__empty {
+  padding: 0.2rem 0.28rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.64rem;
+}
+
+/* ⑤ 地域卡（列表+占比条 / TOP5 ranking） */
+#statistics-dashboard .stats-region-card {
+  padding: 0.95rem 1rem 0.78rem;
+}
+#statistics-dashboard .stats-region-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+#statistics-dashboard .stats-region-card__header p:last-child {
+  margin: 0.3rem 0 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+}
+#statistics-dashboard .stats-region-card__header-icon {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 1.2rem;
+}
+#statistics-dashboard .stats-region-card__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(6.7rem, 0.88fr);
+  gap: 0.55rem;
+  align-items: center;
+  margin-top: 0.62rem;
+}
+/* 左列：地区列表 + 占比条 */
+#statistics-dashboard .stats-region-bars {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#statistics-dashboard .stats-region-bar {
+  display: grid;
+  gap: 0.2rem;
+}
+#statistics-dashboard .stats-region-bar__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 0.62rem;
+}
+#statistics-dashboard .stats-region-bar__head span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-region-bar__head strong {
+  color: var(--text-primary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-region-bar__track {
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-region-bar__fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--primary);
+}
+/* 右列：TOP 5 排行 */
+#statistics-dashboard .stats-region-card__ranking > p {
+  margin: 0 0 0.3rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.5rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+#statistics-dashboard .stats-region-card__ranking ol {
+  display: grid;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+#statistics-dashboard .stats-region-card__item {
+  display: grid;
+  grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.24rem;
+  border-radius: 0.46rem;
+  color: var(--text-secondary);
+  font-size: 0.6rem;
+}
+#statistics-dashboard .stats-region-card__item i {
+  display: grid;
+  place-items: center;
+  width: 0.78rem;
+  height: 0.78rem;
+  border-radius: 0.22rem;
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  color: var(--text-secondary);
+  font-size: 0.45rem;
+  font-style: normal;
+  font-weight: 800;
+}
+#statistics-dashboard .stats-region-card__item:first-child i {
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+#statistics-dashboard .stats-region-card__item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-region-card__item strong {
+  color: var(--text-primary);
+  font-size: 0.56rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-region-card__item--skeleton {
+  display: grid;
+  grid-template-columns: 0.9rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.28rem;
+  padding: 0.18rem 0.24rem;
+}
+#statistics-dashboard .stats-region-card__item--skeleton i,
+#statistics-dashboard .stats-region-card__item--skeleton span,
+#statistics-dashboard .stats-region-card__item--skeleton strong {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-region-card__item--skeleton i {
+  width: 0.78rem;
+  height: 0.78rem;
+  border-radius: 0.22rem;
+}
+#statistics-dashboard .stats-region-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  margin-top: 0.62rem;
+  padding-top: 0.52rem;
+  border-top: 1px solid var(--line-divider);
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.6rem;
+}
+
+/* ⑥ 流量来源 */
+#statistics-dashboard .stats-sources {
+  padding: 0.84rem 1.1rem 0.62rem;
+}
+#statistics-dashboard .stats-sources__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+#statistics-dashboard .stats-sources__header h2 {
+  margin: 0;
+}
+#statistics-dashboard .stats-sources__header h2 span {
+  color: var(--primary);
+  font-size: 0.63rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+#statistics-dashboard .stats-sources__range {
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-sources__body {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.58rem;
+}
+#statistics-dashboard .stats-sources .stats-donut {
+  max-width: 5.5rem;
+}
+#statistics-dashboard .stats-sources .stats-legend__item {
+  font-size: 0.61rem;
+}
+
+/* ⑦ 最近评论（侧栏变体） */
+#statistics-dashboard .stats-comments-card {
+  padding: 0;
+}
+#statistics-dashboard .stats-comments__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  padding: 1.05rem 1rem 0.65rem;
+}
+#statistics-dashboard .stats-comments__header .stats-panel__description {
+  font-size: 0.68rem;
+  margin-top: 0.35rem;
+}
+#statistics-dashboard .stats-comments__header-meta {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 0.45rem;
+}
+#statistics-dashboard .stats-comments {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+#statistics-dashboard .stats-comment {
+  display: grid;
+  grid-template-columns: 2.3rem minmax(0, 1fr);
+  gap: 0.62rem;
+  padding: 0.6rem 0.55rem;
+  border-radius: 0.75rem;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.2s ease;
+}
+#statistics-dashboard a.stats-comment:hover {
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
+}
+#statistics-dashboard .stats-comment__avatar {
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 2px solid color-mix(in oklab, var(--primary) 22%, transparent);
+  border-radius: 999px;
+  object-fit: cover;
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-comment__body {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+}
+#statistics-dashboard .stats-comment__topline {
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  min-width: 0;
+}
+#statistics-dashboard .stats-comment__name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 0.76rem;
+  font-weight: 820;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-comment__time {
+  flex: 0 0 auto;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.6rem;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+}
+#statistics-dashboard .stats-comment__post {
+  overflow: hidden;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.6rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#statistics-dashboard .stats-comment__text {
+  display: -webkit-box;
+  margin: 0.22rem 0 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.7rem;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+#statistics-dashboard .stats-comment--skeleton .stats-comment__avatar {
+  border-color: transparent;
+}
+#statistics-dashboard .stats-skel-line {
+  display: block;
+  height: 0.55rem;
+  margin-top: 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+}
+#statistics-dashboard .stats-comments__status {
+  margin: 0 1rem;
+  padding: 0.65rem 0 0.85rem;
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.66rem;
+  line-height: 1.6;
+}
+#statistics-dashboard .stats-comments__status:empty {
+  display: none;
+}
+
+/* ========== 页脚条 ========== */
+#statistics-dashboard .stats-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding: 1.1rem 1.35rem;
+}
+#statistics-dashboard .stats-footer__eyebrow {
+  color: var(--primary);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+#statistics-dashboard .stats-footer p {
+  margin: 0.3rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.6;
+}
+#statistics-dashboard .stats-footer__link {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+#statistics-dashboard .stats-footer__link:hover {
+  text-decoration: underline;
+}
+
+/* ========== 响应式（断点照参考页 CSS 度量） ========== */
+@media (max-width: 900px) {
+  #statistics-dashboard .stats-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #statistics-dashboard .stats-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
-  @media (min-width: 1024px) {
-    .stats-duo {
-      grid-template-columns: 1fr 1fr;
-      column-gap: 1rem;
-    }
+}
+@media (max-width: 680px) {
+  #statistics-dashboard .stats-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .stats-donut-row {
-    display: flex;
-    align-items: center;
-    gap: 1.2rem;
-    flex-wrap: wrap;
+  #statistics-dashboard .stats-summary-card {
+    min-height: 8.9rem;
   }
-  .stats-donut {
-    position: relative;
-    width: 8.5rem;
-    height: 8.5rem;
-    flex-shrink: 0;
+  #statistics-dashboard .stats-hero__grid {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .stats-donut svg {
-    display: block;
-    width: 100%;
-    height: 100%;
+  #statistics-dashboard .stats-hero__meta {
+    justify-items: start;
   }
-  .stats-donut-track {
-    fill: none;
-    stroke: var(--stats-track);
-    stroke-width: 13;
+  #statistics-dashboard .stats-hero__stamp {
+    justify-items: start;
+    text-align: left;
   }
-  .stats-donut-seg {
-    fill: none;
-    stroke-width: 13;
+  #statistics-dashboard .stats-hero__rail {
+    margin-top: 1.7rem;
   }
-  .stats-seg-1 {
-    stroke: var(--primary);
-  }
-  .stats-seg-2 {
-    stroke: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
-    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 45));
-  }
-  .stats-seg-3 {
-    stroke: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
-    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 95));
-  }
-  .stats-seg-4 {
-    stroke: var(--stats-series-2);
-  }
-  .stats-seg-5 {
-    stroke: color-mix(in oklab, var(--primary) 38%, var(--card-bg));
-    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 215));
-  }
-  .stats-seg-6 {
-    stroke: color-mix(in oklab, var(--deep-text) 32%, transparent);
-  }
-  .stats-seg-bg-1 {
-    background: var(--primary);
-  }
-  .stats-seg-bg-2 {
-    background: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
-    background: oklch(from var(--primary) 0.72 0.13 calc(h + 45));
-  }
-  .stats-seg-bg-3 {
-    background: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
-    background: oklch(from var(--primary) 0.72 0.13 calc(h + 95));
-  }
-  .stats-seg-bg-4 {
-    background: var(--stats-series-2);
-  }
-  .stats-seg-bg-5 {
-    background: color-mix(in oklab, var(--primary) 38%, var(--card-bg));
-    background: oklch(from var(--primary) 0.72 0.13 calc(h + 215));
-  }
-  .stats-seg-bg-6 {
-    background: color-mix(in oklab, var(--deep-text) 32%, transparent);
-  }
-  .stats-donut-label {
-    position: absolute;
-    inset: 0;
-    display: flex;
+  #statistics-dashboard .stats-panel__header {
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.1rem;
-    pointer-events: none;
+    align-items: stretch;
   }
-  .stats-donut-label strong {
-    color: var(--deep-text);
-    font-size: 1.3rem;
-    font-weight: 800;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-donut-label span {
-    color: var(--stats-text-faint);
-    font-size: 0.7rem;
-  }
-  .stats-legend {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 10rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .stats-legend li {
-    display: flex;
-    align-items: center;
-    gap: 0.45rem;
-    color: var(--stats-text-muted);
-    font-size: 0.8125rem;
-  }
-  .stats-legend__name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .stats-legend b {
-    color: var(--deep-text);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-  .stats-legend__empty,
-  .stats-bars__empty {
-    color: var(--stats-text-faint);
-    font-size: 0.8125rem;
-  }
-  .stats-bars {
-    display: flex;
-    flex-direction: column;
-    gap: 0.55rem;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .stats-bars li {
-    display: grid;
-    grid-template-columns: 6.2rem 1fr auto;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.8125rem;
-  }
-  .stats-bars__name {
-    overflow: hidden;
-    color: var(--stats-text-muted);
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .stats-bars__track {
-    display: block;
-    height: 0.5rem;
-    border-radius: 999px;
-    background: var(--stats-track);
-    overflow: hidden;
-  }
-  .stats-bars__fill {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    background: var(--primary);
-  }
-  .stats-bars b {
-    color: var(--deep-text);
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* ---------- 8. 最近评论 ---------- */
-  .stats-comments {
-    display: flex;
-    flex-direction: column;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-  .stats-comment {
-    border-top: 1px solid var(--line-color);
-  }
-  .stats-comment:first-child {
-    border-top: 0;
-  }
-  .stats-comment__link {
-    display: flex;
-    gap: 0.75rem;
-    padding: 0.8rem 0.4rem;
-    border-radius: 0.7rem;
-    text-decoration: none;
-    transition: background 0.18s ease;
-  }
-  .stats-comment__link:hover {
-    background: var(--btn-regular-bg);
-  }
-  .stats-comment__avatar {
-    width: 2.4rem;
-    height: 2.4rem;
-    flex-shrink: 0;
-    border-radius: 999px;
-    object-fit: cover;
-  }
-  .stats-comment__avatar--initial {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #fff;
-    font-size: 1rem;
-    font-weight: 700;
-  }
-  .stats-comment__body {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    gap: 0.2rem;
-    min-width: 0;
-  }
-  .stats-comment__meta {
-    display: flex;
-    align-items: baseline;
+  #statistics-dashboard .stats-panel__controls {
     justify-content: space-between;
-    gap: 0.6rem;
   }
-  .stats-comment__meta b {
-    overflow: hidden;
-    color: var(--deep-text);
-    font-size: 0.875rem;
-    font-weight: 600;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  #statistics-dashboard .stats-traffic__details {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .stats-comment__meta i {
-    flex-shrink: 0;
-    color: var(--stats-text-faint);
-    font-size: 0.72rem;
-    font-style: normal;
+  #statistics-dashboard .stats-period__metrics {
+    grid-template-columns: minmax(0, 1fr);
   }
-  .stats-comment__text {
-    display: -webkit-box;
-    overflow: hidden;
-    color: var(--stats-text-muted);
-    font-size: 0.8125rem;
-    line-height: 1.55;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
+  #statistics-dashboard .stats-deployment__metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .stats-comments__empty {
-    padding: 1rem 0.4rem;
-    color: var(--stats-text-faint);
-    font-size: 0.8125rem;
-    text-align: center;
+  #statistics-dashboard .stats-deployment__heading {
+    max-width: none;
   }
-  /* 骨架屏（与侧边栏最近评论同款脉冲） */
-  .stats-comment--skeleton {
-    display: flex;
-    gap: 0.75rem;
-    padding: 0.8rem 0.4rem;
+  #statistics-dashboard .stats-deployment__art {
+    display: none;
   }
-  .stats-comment--skeleton .stats-comment__avatar {
-    background: var(--stats-track);
-    animation: stats-skel-pulse 1.6s ease-in-out infinite;
+  #statistics-dashboard .stats-deployment__heatmap-head {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
   }
-  .stats-comment--skeleton .stats-comment__body {
-    gap: 0.45rem;
-    justify-content: center;
+  #statistics-dashboard .stats-deployment__snake-controls {
+    justify-content: flex-start;
   }
-  .stats-skel-line {
-    display: block;
-    height: 0.7rem;
-    border-radius: 0.3rem;
-    background: var(--stats-track);
-    animation: stats-skel-pulse 1.6s ease-in-out infinite;
+  #statistics-dashboard .stats-activity__body {
+    grid-template-columns: minmax(0, 1fr);
   }
-  @keyframes stats-skel-pulse {
-    0%,
-    100% {
-      opacity: 1;
-    }
-    50% {
-      opacity: 0.55;
-    }
+  #statistics-dashboard .stats-activity__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  @media (prefers-reduced-motion: reduce) {
-    .stats-comment--skeleton .stats-comment__avatar,
-    .stats-skel-line {
-      animation: none;
-    }
+  #statistics-dashboard .stats-sidebar {
+    grid-template-columns: minmax(0, 1fr);
   }
+  #statistics-dashboard .stats-chart-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  #statistics-dashboard .stats-activity__hours span:nth-child(even) {
+    visibility: hidden;
+  }
+  #statistics-dashboard .stats-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* 减动效：关图表描线/蛇的过渡（描线动画本身在 TS 里也会跳过） */
+@media (prefers-reduced-motion: reduce) {
+  #statistics-dashboard .stats-chart-line,
+  #statistics-dashboard .stats-chart-area,
+  #statistics-dashboard .stats-activity__cell,
+  #statistics-dashboard .stats-refresh {
+    transition: none;
+  }
+}
+
+/* 不支持 color-mix 的回退：关键底色给不透明近似值
+   （color-mix 声明在后，支持的浏览器会覆盖本段） */
+@supports not (background: color-mix(in oklab, red 10%, transparent)) {
+  #statistics-dashboard .stats-summary-card {
+    background: var(--card-bg);
+  }
+  #statistics-dashboard .stats-status {
+    background: var(--card-bg);
+  }
+  #statistics-dashboard .stats-deployment__metric,
+  #statistics-dashboard .stats-activity__stat {
+    background: var(--card-bg);
+  }
+  #statistics-dashboard .stats-deployment__message {
+    background: var(--card-bg);
+  }
+  #statistics-dashboard .stats-activity__art {
+    background: var(--card-bg);
+  }
+}
+
+/* ========== 补遗（与 TS 渲染细节对齐） ========== */
+/* 图表为空时隐藏 y 轴刻度与 x 轴（空状态框自己说明） */
+#statistics-dashboard .stats-chart-wrap.is-empty .stats-chart-labels,
+#statistics-dashboard .stats-chart-wrap.is-empty .stats-chart__x-axis {
+  visibility: hidden;
+}
+/* donut 圆环基线：轨道与分段统一无填充、11 单位描边
+   （分段 stroke 色由 TS 按色相旋转逐段内联给出） */
+#statistics-dashboard .stats-donut circle {
+  fill: none;
+  stroke-width: 11;
+}
+/* 推送网格里未来日期的格子压暗 */
+#statistics-dashboard .stats-heat-cell--future {
+  opacity: 0.35;
+}
+/* 评论无头像时的首字母占位（TS 生成，背景色内联） */
+#statistics-dashboard .stats-comment__avatar--initial {
+  display: grid;
+  place-items: center;
+  border-color: transparent;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 800;
 }

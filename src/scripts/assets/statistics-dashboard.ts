@@ -175,19 +175,50 @@
     return "startAt=" + startAt + "&endAt=" + endAt;
   }
 
+  /* ---------------- Hero 状态 ---------------- */
+
+  function setHeroStatus(state, text, stamp) {
+    var box = root.querySelector("[data-hero-status]");
+    if (box) {
+      box.setAttribute("data-state", state);
+      var t = box.querySelector("[data-hero-status-text]");
+      if (t && text) t.textContent = text;
+    }
+    if (stamp) {
+      var s = root.querySelector("[data-last-update]");
+      if (s) s.textContent = stamp;
+    }
+  }
+
   /* ---------------- 1. 顶部统计卡 ---------------- */
+
+  // 今日 stats 只取一次：summary 卡与活跃时间面板的「今日访客」共用
+  var todayStatsPromise = null;
+  function getTodayStats() {
+    if (!todayStatsPromise) {
+      var now = Date.now();
+      var dayStart = new Date();
+      dayStart.setHours(0, 0, 0, 0);
+      todayStatsPromise = umamiGet(
+        "stats?startAt=" + dayStart.getTime() + "&endAt=" + now,
+      ).then(function (stats) {
+        return {
+          visitors: statVal(stats, "visitors"),
+          pageviews: statVal(stats, "pageviews"),
+        };
+      });
+    }
+    return todayStatsPromise;
+  }
 
   function loadSummary() {
     if (!panelEl("summary")) return;
     var now = Date.now();
-    var dayStart = new Date();
-    dayStart.setHours(0, 0, 0, 0);
-    var today = "startAt=" + dayStart.getTime() + "&endAt=" + now;
     var all = "startAt=0&endAt=" + now;
-    Promise.all([umamiGet("stats?" + today), umamiGet("stats?" + all)])
+    Promise.all([getTodayStats(), umamiGet("stats?" + all)])
       .then(function (rs) {
-        setStat("todayVisitors", statVal(rs[0], "visitors"));
-        setStat("todayPageviews", statVal(rs[0], "pageviews"));
+        setStat("todayVisitors", rs[0].visitors);
+        setStat("todayPageviews", rs[0].pageviews);
         setStat("totalVisitors", statVal(rs[1], "visitors"));
         setStat("totalPageviews", statVal(rs[1], "pageviews"));
       })
@@ -282,6 +313,9 @@
     }, 0);
     if (emptyEl) emptyEl.hidden = total > 0;
     if (svg) svg.style.display = total > 0 ? "" : "none";
+    var wrap = panel.querySelector(".stats-chart-wrap");
+    if (wrap) wrap.classList.toggle("is-empty", !total);
+    fillPeriodStats(series);
     if (!total) return;
 
     var n = series.dates.length;
@@ -333,17 +367,23 @@
       .querySelector('[data-chart-line="visitors"]')
       .setAttribute("d", smoothPath(visitorsPts));
 
+    pulseState.maxV = max;
     var NS = "http://www.w3.org/2000/svg";
     var g = panel.querySelector("[data-chart-points]");
     while (g.firstChild) g.removeChild(g.firstChild);
-    viewsPts.forEach(function (p) {
-      var c = document.createElementNS(NS, "circle");
-      c.setAttribute("cx", p.x);
-      c.setAttribute("cy", p.y);
-      c.setAttribute("r", "3");
-      c.setAttribute("class", "stats-chart-point");
-      g.appendChild(c);
-    });
+    function addPoints(pts, cls) {
+      pts.forEach(function (p) {
+        var c = document.createElementNS(NS, "circle");
+        c.setAttribute("cx", p.x);
+        c.setAttribute("cy", p.y);
+        c.setAttribute("r", "3");
+        c.setAttribute("class", "stats-chart-point " + cls);
+        g.appendChild(c);
+      });
+    }
+    addPoints(viewsPts, "stats-chart-point--views");
+    addPoints(visitorsPts, "stats-chart-point--visitors");
+    animatePulseLines(panel);
 
     var yMax = panel.querySelector('[data-y="max"]');
     var yMid = panel.querySelector('[data-y="mid"]');
@@ -362,6 +402,139 @@
       "aria-label",
       "最近 " + n + " 天的浏览量与访客趋势，单日最高浏览 " + fmtNum(max),
     );
+  }
+
+  // 本周期 snapshot 子块：与折线同一份 series 派生（不额外取数）
+  function fillPeriodStats(series) {
+    var panel = panelEl("pulse");
+    if (!panel) return;
+    var views = 0;
+    var visitors = 0;
+    var active = 0;
+    var peak = 0;
+    var peakDate = null;
+    series.views.forEach(function (v, i) {
+      views += v;
+      visitors += series.visitors[i] || 0;
+      if (v > 0) active++;
+      if (v > peak) {
+        peak = v;
+        peakDate = series.dates[i];
+      }
+    });
+    function set(sel, text) {
+      var el = panel.querySelector(sel);
+      if (el) el.textContent = text;
+    }
+    set("[data-period-views]", fmtNum(views));
+    set("[data-period-visitors]", fmtNum(visitors));
+    set("[data-period-active]", fmtNum(active) + " 天");
+    set("[data-period-peak]", fmtNum(peak));
+    set(
+      "[data-period-peak-date]",
+      peakDate
+        ? peakDate.getMonth() + 1 + "月" + peakDate.getDate() + "日"
+        : "—",
+    );
+    set(
+      "[data-period-range-label]",
+      "近 " + series.dates.length + " 天 · 本地时间",
+    );
+  }
+
+  // 折线描画动画（刷新/切换范围时重播；减动效时跳过）
+  function animatePulseLines(panel) {
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    ["views", "visitors"].forEach(function (key) {
+      var path = panel.querySelector('[data-chart-line="' + key + '"]');
+      if (!path || !path.getTotalLength) return;
+      try {
+        var len = path.getTotalLength();
+        path.style.transition = "none";
+        path.style.strokeDasharray = String(len);
+        path.style.strokeDashoffset = String(len);
+        // 强制回流后启动过渡
+        void path.getBoundingClientRect();
+        path.style.transition = "stroke-dashoffset 0.9s ease";
+        path.style.strokeDashoffset = "0";
+      } catch (e) {}
+    });
+  }
+
+  /* 热门排行子块：Umami metrics 的 URL 排行（近 30 天，与对方同口径） */
+  function loadRanking() {
+    var panel = panelEl("pulse");
+    if (!panel) return;
+    var list = panel.querySelector("[data-ranking-list]");
+    if (!list) return;
+    metricsList("url", 50)
+      .then(function (rows) {
+        var clean = rows.filter(function (r) {
+          return (
+            r.value > 0 &&
+            r.label.charAt(0) === "/" &&
+            !/\.(css|js|png|jpe?g|svg|ico|webp|woff2?|xml|txt|json)(\?|$)/i.test(
+              r.label,
+            )
+          );
+        });
+        renderRanking(list, clean.slice(0, 8));
+      })
+      .catch(function () {
+        renderRanking(list, []);
+      });
+  }
+
+  function renderRanking(list, rows) {
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!rows.length) {
+      var empty = document.createElement("li");
+      empty.className = "stats-ranking__empty";
+      empty.textContent = "暂时没有可展示的排行";
+      list.appendChild(empty);
+      return;
+    }
+    var max = rows[0].value || 1;
+    rows.forEach(function (r, i) {
+      var item = document.createElement(
+        r.label.charAt(0) === "/" ? "a" : "span",
+      );
+      item.className = "stats-ranking__item";
+      if (item.tagName === "A") item.setAttribute("href", r.label);
+      item.style.setProperty(
+        "--stats-share",
+        Math.max(4, Math.round((r.value / max) * 100)) + "%",
+      );
+      var idx = document.createElement("span");
+      idx.className = "stats-ranking__index";
+      idx.textContent = String(i + 1).padStart(2, "0");
+      var copy = document.createElement("span");
+      copy.className = "stats-ranking__copy";
+      var title = document.createElement("strong");
+      var decoded = r.label;
+      try {
+        decoded = decodeURIComponent(r.label);
+      } catch (e) {}
+      var seg = decoded.replace(/\/+$/, "").split("/").pop();
+      title.textContent = decoded === "/" ? "首页" : seg || decoded;
+      title.title = decoded;
+      copy.appendChild(title);
+      if (decoded !== title.textContent) {
+        var sub = document.createElement("small");
+        sub.textContent = decoded;
+        copy.appendChild(sub);
+      }
+      var val = document.createElement("strong");
+      val.textContent = fmtNum(r.value);
+      item.appendChild(idx);
+      item.appendChild(copy);
+      item.appendChild(val);
+      list.appendChild(item);
+    });
   }
 
   // 脉冲图 hover：竖直引导线 + 浮签（事件委托在 svg 上，按横坐标找最近点）
@@ -415,6 +588,8 @@
     });
   }
 
+  var pulseRange = 30;
+
   function bindPulseRange() {
     var panel = panelEl("pulse");
     if (!panel) return;
@@ -424,9 +599,17 @@
         btns.forEach(function (b) {
           b.setAttribute("aria-pressed", b === btn ? "true" : "false");
         });
-        loadPulse(Number(btn.getAttribute("data-range")) || 30);
+        pulseRange = Number(btn.getAttribute("data-range")) || 30;
+        loadPulse(pulseRange);
       });
     });
+    var refresh = panel.querySelector("[data-pulse-refresh]");
+    if (refresh) {
+      refresh.addEventListener("click", function () {
+        delete pulseCache[pulseRange];
+        loadPulse(pulseRange);
+      });
+    }
   }
 
   /* ---------------- 3. 推送节奏（GitHub 公开 API） ---------------- */
@@ -519,62 +702,429 @@
     return new Date(monday.getTime() - 14 * 7 * DAY_MS);
   }
 
+  var pushState = null; // { byDay, mode }
+  var PUSH_WEEKS = 15;
+
   function renderPush(data) {
     var panel = panelEl("push");
     if (!panel || !data) return;
-    var byDay = data.byDay || {};
+    pushState = { byDay: data.byDay || {}, mode: "daily" };
+    fillPushMetrics(panel, pushState.byDay);
+    renderPushGrid();
+    bindPushControls(panel);
+    initSnake(panel);
+    var status = panel.querySelector("[data-push-status]");
+    if (status) status.textContent = "数据来自 GitHub";
+  }
+
+  // 4 个 metric 块全部由同一份 byDay 派生（不额外取数）
+  function fillPushMetrics(panel, byDay) {
+    var activeTs = [];
+    Object.keys(byDay).forEach(function (k) {
+      if ((byDay[k] || 0) > 0)
+        activeTs.push(new Date(k + "T00:00:00").getTime());
+    });
+    activeTs.sort(function (a, b) {
+      return a - b;
+    });
+    function set(sel, text) {
+      var el = panel.querySelector(sel);
+      if (el) el.textContent = text;
+    }
+    if (!activeTs.length) {
+      set("[data-push-latest]", "—");
+      set("[data-push-interval]", "—");
+      set("[data-push-cadence]", "—");
+      set("[data-push-streak]", "—");
+      return;
+    }
+    var latest = activeTs[activeTs.length - 1];
+    var latestDate = new Date(latest);
+    set(
+      "[data-push-latest]",
+      fmtRelative(latestDate.toISOString()) || "今天",
+    );
+    set(
+      "[data-push-latest-date]",
+      latestDate.getMonth() + 1 + "月" + latestDate.getDate() + "日",
+    );
+    if (activeTs.length >= 2) {
+      var gapDays = Math.round(
+        (latest - activeTs[activeTs.length - 2]) / DAY_MS,
+      );
+      set("[data-push-interval]", gapDays + " 天");
+      var gaps = [];
+      for (var i = 1; i < activeTs.length; i++) {
+        gaps.push((activeTs[i] - activeTs[i - 1]) / DAY_MS);
+      }
+      var avg = gaps.reduce(function (a, b) {
+        return a + b;
+      }, 0) / gaps.length;
+      set(
+        "[data-push-cadence]",
+        (Math.round(avg * 10) / 10).toString().replace(/\.0$/, "") + " 天",
+      );
+    } else {
+      set("[data-push-interval]", "—");
+      set("[data-push-cadence]", "—");
+    }
+    // 连续推送：以最近活跃日为终点向前数连续天数
+    var byKey = {};
+    activeTs.forEach(function (t) {
+      byKey[dayKey(t)] = true;
+    });
+    var streak = 0;
+    var cursor = latest;
+    while (byKey[dayKey(cursor)]) {
+      streak++;
+      cursor -= DAY_MS;
+    }
+    set("[data-push-streak]", streak + " 天");
+  }
+
+  function pushMaxOf(byDay) {
+    var max = 0;
+    Object.keys(byDay).forEach(function (k) {
+      if (byDay[k] > max) max = byDay[k];
+    });
+    return max || 1;
+  }
+
+  // 热力网格：daily = 每日计数 / weekly = 按周汇总（一行） /
+  // cumulative = 累计计数；格子按列优先（周 × 星期）排布
+  function renderPushGrid() {
+    var panel = panelEl("push");
+    if (!panel || !pushState) return;
+    var grid = panel.querySelector("[data-push-grid]");
+    var months = panel.querySelector("[data-push-months]");
+    if (!grid) return;
+    stopSnake();
+    while (grid.firstChild) grid.removeChild(grid.firstChild);
+    if (months) while (months.firstChild) months.removeChild(months.firstChild);
+    var byDay = pushState.byDay;
     var start = ghWindowStart();
     var today = new Date();
     today.setHours(0, 0, 0, 0);
-    var max = 0;
-    var activeDays = 0;
-    var total30 = 0;
-    var latestTs = 0;
-    Object.keys(byDay).forEach(function (k) {
-      var v = byDay[k];
-      if (v > max) max = v;
-      if (v > 0) {
-        activeDays++;
-        var t = new Date(k + "T00:00:00").getTime();
-        if (t > latestTs) latestTs = t;
-        if (today.getTime() - t < 30 * DAY_MS) total30 += v;
-      }
-    });
+    var mode = pushState.mode;
 
-    var grid = panel.querySelector("[data-push-grid]");
-    if (grid) {
-      while (grid.firstChild) grid.removeChild(grid.firstChild);
-      for (var w = 0; w < 15; w++) {
+    function levelOf(count, max) {
+      return count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4));
+    }
+    function addCell(count, max, title, idx) {
+      var cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "stats-heat-cell";
+      cell.setAttribute("data-level", String(levelOf(count, max)));
+      if (title) cell.title = title;
+      if (idx != null) cell.setAttribute("data-cell-idx", String(idx));
+      grid.appendChild(cell);
+      return cell;
+    }
+
+    if (mode === "weekly") {
+      grid.style.gridTemplateRows = "repeat(1, 0.56rem)";
+      var weekTotals = [];
+      var wmax = 1;
+      for (var w = 0; w < PUSH_WEEKS; w++) {
+        var sum = 0;
         for (var wd = 0; wd < 7; wd++) {
-          var day = new Date(start.getTime() + (w * 7 + wd) * DAY_MS);
-          var cell = document.createElement("span");
-          var future = day.getTime() > today.getTime();
-          var count = future ? 0 : byDay[dayKey(day.getTime())] || 0;
-          var level =
-            count === 0 ? 0 : Math.min(4, Math.ceil((count / (max || 1)) * 4));
-          cell.className =
-            "stats-heat-cell" + (future ? " stats-heat-cell--future" : "");
-          cell.setAttribute("data-level", String(level));
-          if (!future) {
-            cell.title = dayKey(day.getTime()) + " · " + count + " 次提交";
-          }
-          grid.appendChild(cell);
+          var d = new Date(start.getTime() + (w * 7 + wd) * DAY_MS);
+          if (d.getTime() <= today.getTime())
+            sum += byDay[dayKey(d.getTime())] || 0;
+        }
+        weekTotals.push(sum);
+        if (sum > wmax) wmax = sum;
+      }
+      weekTotals.forEach(function (sum, w) {
+        var ws = new Date(start.getTime() + w * 7 * DAY_MS);
+        addCell(
+          sum,
+          wmax,
+          dayKey(ws.getTime()) + " 这一周 · " + sum + " 次提交",
+          null,
+        );
+      });
+      if (months) months.style.display = "none";
+      return;
+    }
+
+    grid.style.gridTemplateRows = "";
+    if (months) months.style.display = "";
+    var counts = [];
+    var cmax = 1;
+    var running = 0;
+    for (var i = 0; i < PUSH_WEEKS * 7; i++) {
+      var day = new Date(start.getTime() + i * DAY_MS);
+      var future = day.getTime() > today.getTime();
+      var c = future ? 0 : byDay[dayKey(day.getTime())] || 0;
+      running += c;
+      var v = mode === "cumulative" ? running : c;
+      counts.push({ day: day, future: future, raw: c, value: v });
+      if (v > cmax) cmax = v;
+    }
+    var max = mode === "cumulative" ? cmax : pushMaxOf(byDay);
+    counts.forEach(function (row, idx) {
+      var cell = addCell(
+        row.value,
+        max,
+        row.future
+          ? ""
+          : dayKey(row.day.getTime()) +
+              " · " +
+              row.raw +
+              " 次提交" +
+              (mode === "cumulative" ? "（累计 " + row.value + "）" : ""),
+        idx,
+      );
+      if (row.future) cell.classList.add("stats-heat-cell--future");
+    });
+    // 月份行：每列（周一）月份变化时打一个标签
+    if (months) {
+      var lastMonth = -1;
+      for (var w2 = 0; w2 < PUSH_WEEKS; w2++) {
+        var monday = new Date(start.getTime() + w2 * 7 * DAY_MS);
+        if (monday.getMonth() !== lastMonth) {
+          lastMonth = monday.getMonth();
+          var label = document.createElement("span");
+          label.textContent = monday.getMonth() + 1 + "月";
+          label.style.left = w2 * 0.72 + "rem";
+          months.appendChild(label);
         }
       }
     }
+    if (mode === "daily") startSnake(panel);
+  }
 
-    var latestEl = panel.querySelector("[data-push-latest]");
-    if (latestEl) {
-      latestEl.textContent = latestTs
-        ? fmtRelative(new Date(latestTs).toISOString())
-        : "—";
+  function bindPushControls(panel) {
+    if (panel.getAttribute("data-push-bound")) return;
+    panel.setAttribute("data-push-bound", "1");
+    var modeBtns = panel.querySelectorAll("[data-push-mode]");
+    modeBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        modeBtns.forEach(function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+        if (pushState) {
+          pushState.mode = btn.getAttribute("data-push-mode") || "daily";
+          renderPushGrid();
+        }
+      });
+    });
+    var speedBtns = panel.querySelectorAll("[data-snake-speed]");
+    speedBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        speedBtns.forEach(function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+        if (snake) {
+          snake.speed = Number(btn.getAttribute("data-snake-speed")) || 1;
+          scheduleSnake();
+        }
+      });
+    });
+    var foodBtns = panel.querySelectorAll("[data-snake-food]");
+    foodBtns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        foodBtns.forEach(function (b) {
+          b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+        });
+        if (snake) snake.gain = Number(btn.getAttribute("data-snake-food")) || 1;
+      });
+    });
+    var grid = panel.querySelector("[data-push-grid]");
+    if (grid) {
+      grid.addEventListener("click", function (evt) {
+        var cell = evt.target.closest
+          ? evt.target.closest("[data-cell-idx]")
+          : null;
+        if (!cell || !snake) return;
+        var idx = Number(cell.getAttribute("data-cell-idx"));
+        if (snake.foods.has(idx)) snake.foods.delete(idx);
+        else if (!snake.bodySet.has(idx)) snake.foods.add(idx);
+        paintSnake();
+      });
     }
-    var c30 = panel.querySelector("[data-push-30d]");
-    if (c30) c30.textContent = fmtNum(total30);
-    var act = panel.querySelector("[data-push-active]");
-    if (act) act.textContent = fmtNum(activeDays) + " 天";
-    var status = panel.querySelector("[data-push-status]");
-    if (status) status.textContent = "数据来自 GitHub";
+  }
+
+  /* 贪吃蛇：在每日热力格上散步，吃掉访客点下的食物格增长。
+     仅在 daily 模式 + 面板可见 + 文档可见时运行；减动效时不启动。 */
+  var snake = null;
+
+  function initSnake(panel) {
+    if (
+      window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    snake = {
+      panel: panel,
+      body: [3, 2, 1], // idx = 周*7 + 星期（列优先）
+      bodySet: new Set([3, 2, 1]),
+      dir: 7, // 向右（下一周同星期）
+      foods: new Set(),
+      gain: 1,
+      grow: 0,
+      speed: 1,
+      timer: null,
+      running: false,
+    };
+    // 初始食物：随机挑 3 个有提交记录的格子
+    var grid = panel.querySelector("[data-push-grid]");
+    if (grid) {
+      var active = [];
+      grid.querySelectorAll("[data-cell-idx]").forEach(function (c) {
+        if (Number(c.getAttribute("data-level")) > 0)
+          active.push(Number(c.getAttribute("data-cell-idx")));
+      });
+      for (var i = 0; i < 3 && active.length; i++) {
+        var pick = active.splice(
+          Math.floor(Math.random() * active.length),
+          1,
+        )[0];
+        if (!snake.bodySet.has(pick)) snake.foods.add(pick);
+      }
+    }
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(function (entries) {
+        snakeVisible = entries[0].isIntersecting;
+        scheduleSnake();
+      }).observe(panel);
+    } else {
+      snakeVisible = true;
+    }
+    document.addEventListener("visibilitychange", scheduleSnake);
+    paintSnake();
+    scheduleSnake();
+  }
+
+  var snakeVisible = false;
+
+  function startSnake(panel) {
+    if (!snake) return;
+    snake.panel = panel;
+    paintSnake();
+    scheduleSnake();
+  }
+
+  function stopSnake() {
+    if (snake && snake.timer) {
+      clearTimeout(snake.timer);
+      snake.timer = null;
+    }
+    if (snake) snake.running = false;
+  }
+
+  function scheduleSnake() {
+    if (!snake) return;
+    stopSnake();
+    if (
+      !pushState ||
+      pushState.mode !== "daily" ||
+      !snakeVisible ||
+      document.hidden
+    )
+      return;
+    snake.running = true;
+    snake.timer = setTimeout(snakeTick, 280 / snake.speed);
+  }
+
+  function snakeTick() {
+    if (!snake || !snake.running) return;
+    var cols = PUSH_WEEKS;
+    var rows = 7;
+    var head = snake.body[0];
+    var hc = Math.floor(head / rows);
+    var hr = head % rows;
+    // 目标：最近的食物；没有就沿当前方向
+    var target = null;
+    var best = Infinity;
+    snake.foods.forEach(function (f) {
+      var d =
+        Math.abs(Math.floor(f / rows) - hc) + Math.abs((f % rows) - hr);
+      if (d < best) {
+        best = d;
+        target = f;
+      }
+    });
+    var dirs = [7, -7, 1, -1];
+    function stepOk(idx, dir) {
+      var c = Math.floor(idx / rows);
+      var r = idx % rows;
+      if (dir === 7) return c < cols - 1;
+      if (dir === -7) return c > 0;
+      if (dir === 1) return r < rows - 1;
+      return r > 0;
+    }
+    function score(dir) {
+      if (!stepOk(head, dir)) return -1;
+      var nidx = head + dir;
+      if (snake.bodySet.has(nidx) && nidx !== snake.body[snake.body.length - 1])
+        return -1;
+      if (target == null) return dir === snake.dir ? 2 : 1;
+      var d =
+        Math.abs(Math.floor(nidx / rows) - Math.floor(target / rows)) +
+        Math.abs((nidx % rows) - (target % rows));
+      return 100 - d;
+    }
+    var bestDir = snake.dir;
+    var bestScore = -Infinity;
+    // 随机打散同分方向，避免走死胡同时抖动
+    dirs
+      .slice()
+      .sort(function () {
+        return Math.random() - 0.5;
+      })
+      .forEach(function (dir) {
+        var s = score(dir);
+        if (s > bestScore) {
+          bestScore = s;
+          bestDir = dir;
+        }
+      });
+    if (bestScore < 0) {
+      // 无路可走：原地重置到左上角
+      snake.body = [3, 2, 1];
+      snake.bodySet = new Set(snake.body);
+      snake.dir = 7;
+      paintSnake();
+      scheduleSnake();
+      return;
+    }
+    snake.dir = bestDir;
+    var next = head + bestDir;
+    snake.body.unshift(next);
+    snake.bodySet.add(next);
+    if (snake.foods.has(next)) {
+      snake.foods.delete(next);
+      snake.grow += snake.gain;
+    }
+    if (snake.grow > 0) {
+      snake.grow--;
+    } else {
+      var tail = snake.body.pop();
+      if (tail !== next) snake.bodySet.delete(tail);
+    }
+    paintSnake();
+    scheduleSnake();
+  }
+
+  function paintSnake() {
+    if (!snake) return;
+    var grid = snake.panel.querySelector("[data-push-grid]");
+    if (!grid) return;
+    grid
+      .querySelectorAll(".is-snake, .is-snake-head, .is-food")
+      .forEach(function (c) {
+        c.classList.remove("is-snake", "is-snake-head", "is-food");
+      });
+    snake.foods.forEach(function (f) {
+      var c = grid.querySelector('[data-cell-idx="' + f + '"]');
+      if (c) c.classList.add("is-food");
+    });
+    snake.body.forEach(function (idx, i) {
+      var c = grid.querySelector('[data-cell-idx="' + idx + '"]');
+      if (c) c.classList.add(i === 0 ? "is-snake-head" : "is-snake");
+    });
   }
 
   function showPushEmpty() {
@@ -628,10 +1178,67 @@
               fmtNum(v) +
               " 次浏览";
           });
+        fillActivityStats(panel, grid);
       })
       .catch(function () {
         noteFailure("activity", "Umami 数据暂时读不到，请稍后再看。");
       });
+  }
+
+  // 活跃面板的 4 个 stat 色块 + 热力图下说明，全部由同一份小时网格派生
+  function fillActivityStats(panel, grid) {
+    var total = 0;
+    var night = 0;
+    var peakV = 0;
+    var peakWd = 0;
+    var peakH = 0;
+    var wdTotals = [0, 0, 0, 0, 0, 0, 0];
+    for (var w = 0; w < 7; w++) {
+      for (var h = 0; h < 24; h++) {
+        var v = grid[w][h] || 0;
+        total += v;
+        wdTotals[w] += v;
+        if (h >= 22 || h < 6) night += v;
+        if (v > peakV) {
+          peakV = v;
+          peakWd = w;
+          peakH = h;
+        }
+      }
+    }
+    function set(sel, text) {
+      var el = panel.querySelector(sel);
+      if (el) el.textContent = text;
+    }
+    if (total > 0) {
+      set(
+        "[data-act-peak]",
+        WEEKDAYS[peakWd] + " " + String(peakH).padStart(2, "0") + ":00",
+      );
+      var bestWd = 0;
+      wdTotals.forEach(function (t, i) {
+        if (t > wdTotals[bestWd]) bestWd = i;
+      });
+      set("[data-act-weekday]", WEEKDAYS[bestWd]);
+      set("[data-act-night]", Math.round((night / total) * 100) + "%");
+      set(
+        "[data-activity-note]",
+        "近 30 天共 " +
+          fmtNum(total) +
+          " 次浏览 · 大家最常在" +
+          WEEKDAYS[peakWd] +
+          " " +
+          String(peakH).padStart(2, "0") +
+          ":00 前后来访",
+      );
+    } else {
+      set("[data-activity-note]", "近 30 天暂时没有小时级访问记录。");
+    }
+    getTodayStats()
+      .then(function (t) {
+        set("[data-act-today]", fmtNum(t.visitors));
+      })
+      .catch(function () {});
   }
 
   /* ---------------- 5/6/7. metrics：设备 / 浏览器 / 地域 / 来源 ---------------- */
@@ -675,6 +1282,24 @@
     news: "新闻",
   };
 
+  // 环形分段配色：由主题色相 --hue 旋转派生（与 CSS 的 --stats-v* 同一逻辑），
+  // 「其他」合并项固定灰。脚本只在运行时读一次色相值，不写死站点颜色。
+  var SEG_ROTATIONS = [0, 130, -45, 60, -185, 200];
+  function segColor(row, i) {
+    if (row && row.label === "其他") return "oklch(0.62 0.02 250)";
+    var hue = 250;
+    try {
+      var raw = getComputedStyle(document.documentElement)
+        .getPropertyValue("--hue")
+        .trim();
+      var parsed = parseFloat(raw);
+      if (!isNaN(parsed)) hue = parsed;
+    } catch (e) {}
+    var rot = SEG_ROTATIONS[i % SEG_ROTATIONS.length];
+    var light = i % 2 ? 0.68 : 0.62;
+    return "oklch(" + light + " 0.17 " + (hue + rot) + ")";
+  }
+
   // 手写 SVG 环形图：rows 取前 6，其余合并为「其他」
   function drawDonut(svg, rows) {
     var NS = "http://www.w3.org/2000/svg";
@@ -698,7 +1323,7 @@
       c.setAttribute("cx", "50");
       c.setAttribute("cy", "50");
       c.setAttribute("r", "40");
-      c.setAttribute("class", "stats-donut-seg stats-seg-" + ((i % 6) + 1));
+      c.setAttribute("stroke", segColor(r, i));
       c.setAttribute("stroke-dasharray", Math.max(0, frac * C - 1.5) + " " + C);
       c.setAttribute("stroke-dashoffset", String(-offset * C));
       c.setAttribute("transform", "rotate(-90 50 50)");
@@ -709,15 +1334,17 @@
   }
 
   function renderLegend(ul, rows, total) {
+    if (!ul) return;
     while (ul.firstChild) ul.removeChild(ul.firstChild);
     rows.forEach(function (r, i) {
       var li = document.createElement("li");
+      li.className = "stats-legend__item";
       var dot = document.createElement("i");
-      dot.className = "stats-dot stats-seg-bg-" + ((i % 6) + 1);
+      dot.style.background = segColor(r, i);
       var name = document.createElement("span");
-      name.className = "stats-legend__name";
       name.textContent = r.label;
-      var val = document.createElement("b");
+      name.title = r.label;
+      var val = document.createElement("strong");
       var pct = total ? Math.round((r.value / total) * 100) : 0;
       val.textContent = fmtNum(r.value) + " · " + pct + "%";
       li.appendChild(dot);
@@ -733,36 +1360,68 @@
     }
   }
 
-  function renderBars(ul, rows, total) {
+  // 地域卡左列：名称 + 数值行 与 占比条（占比条按最大值归一）
+  function renderRegionBars(ul, rows, total) {
+    if (!ul) return;
     while (ul.firstChild) ul.removeChild(ul.firstChild);
     var max = rows.reduce(function (a, r) {
       return Math.max(a, r.value);
     }, 0);
     rows.forEach(function (r) {
       var li = document.createElement("li");
+      li.className = "stats-region-bar";
+      var head = document.createElement("div");
+      head.className = "stats-region-bar__head";
       var name = document.createElement("span");
-      name.className = "stats-bars__name";
       name.textContent = r.label;
       name.title = r.label;
-      var track = document.createElement("span");
-      track.className = "stats-bars__track";
-      var fill = document.createElement("i");
-      fill.className = "stats-bars__fill";
-      fill.style.width = max ? Math.max(2, (r.value / max) * 100) + "%" : "0%";
-      track.appendChild(fill);
-      var val = document.createElement("b");
+      var val = document.createElement("strong");
       var pct = total ? Math.round((r.value / total) * 100) : 0;
       val.textContent = fmtNum(r.value) + " · " + pct + "%";
-      li.appendChild(name);
+      head.appendChild(name);
+      head.appendChild(val);
+      var track = document.createElement("span");
+      track.className = "stats-region-bar__track";
+      var fill = document.createElement("i");
+      fill.className = "stats-region-bar__fill";
+      fill.style.width = max ? Math.max(2, (r.value / max) * 100) + "%" : "0%";
+      track.appendChild(fill);
+      li.appendChild(head);
       li.appendChild(track);
-      li.appendChild(val);
       ul.appendChild(li);
     });
     if (!rows.length) {
       var li = document.createElement("li");
-      li.className = "stats-bars__empty";
+      li.className = "stats-legend__empty";
       li.textContent = "暂无数据";
       ul.appendChild(li);
+    }
+  }
+
+  // 地域卡右列：TOP 5 排行
+  function renderRegionRanking(ol, rows) {
+    if (!ol) return;
+    while (ol.firstChild) ol.removeChild(ol.firstChild);
+    rows.slice(0, 5).forEach(function (r, i) {
+      var li = document.createElement("li");
+      li.className = "stats-region-card__item";
+      var idx = document.createElement("i");
+      idx.textContent = String(i + 1);
+      var name = document.createElement("span");
+      name.textContent = r.label;
+      name.title = r.label;
+      var val = document.createElement("strong");
+      val.textContent = fmtNum(r.value);
+      li.appendChild(idx);
+      li.appendChild(name);
+      li.appendChild(val);
+      ol.appendChild(li);
+    });
+    if (!rows.length) {
+      var li = document.createElement("li");
+      li.className = "stats-legend__empty";
+      li.textContent = "暂无数据";
+      ol.appendChild(li);
     }
   }
 
@@ -801,12 +1460,14 @@
       });
     metricsList("browser", 8)
       .then(function (rows) {
-        var total = rows.reduce(function (a, r) {
-          return a + r.value;
-        }, 0);
-        renderBars(
-          panel.querySelector('[data-bars="browser"]'),
-          rows.slice(0, 6),
+        var top = topWithOther(rows, 5);
+        var total = drawDonut(
+          panel.querySelector('[data-donut="browser"]'),
+          top,
+        );
+        renderLegend(
+          panel.querySelector('[data-legend="browser"]'),
+          top,
           total,
         );
       })
@@ -821,11 +1482,17 @@
         var total = rows.reduce(function (a, r) {
           return a + r.value;
         }, 0);
-        renderBars(
+        renderRegionBars(
           panel.querySelector("[data-region-list]"),
           rows.slice(0, 8),
           total,
         );
+        renderRegionRanking(
+          panel.querySelector("[data-region-ranking]"),
+          rows,
+        );
+        var totalEl = panel.querySelector("[data-region-total]");
+        if (totalEl) totalEl.textContent = "共 " + fmtNum(total) + " 人";
       })
       .catch(function () {
         noteFailure("regions", "Umami 数据暂时读不到，请稍后再看。");
@@ -998,19 +1665,22 @@
     return "";
   }
 
-  function renderComments(comments) {
+  function renderComments(comments, statusNote) {
     var panel = panelEl("comments");
     if (!panel) return;
     var list = panel.querySelector("[data-comments-list]");
     if (!list) return;
-    while (list.firstChild) list.removeChild(list.firstChild);
-    if (!comments.length) {
-      var empty = document.createElement("li");
-      empty.className = "stats-comments__empty";
-      empty.textContent = "暂无评论";
-      list.appendChild(empty);
-      return;
+    var status = panel.querySelector("[data-comments-status]");
+    if (status) {
+      status.textContent =
+        statusNote != null
+          ? statusNote
+          : comments.length
+            ? ""
+            : "暂时还没有评论，来坐第一排。";
     }
+    while (list.firstChild) list.removeChild(list.firstChild);
+    if (!comments.length) return;
     var palette = [
       "#ef4444",
       "#f59e0b",
@@ -1028,9 +1698,8 @@
       var avatar = resolveAvatar(owner, spec);
 
       var li = document.createElement("li");
-      li.className = "stats-comment";
       var link = document.createElement("a");
-      link.className = "stats-comment__link";
+      link.className = "stats-comment";
       var permalink = c.__permalink || null;
       var cname = c.metadata && c.metadata.name;
       link.href = permalink
@@ -1067,19 +1736,29 @@
       var body = document.createElement("span");
       body.className = "stats-comment__body";
       var meta = document.createElement("span");
-      meta.className = "stats-comment__meta";
+      meta.className = "stats-comment__topline";
       var nm = document.createElement("b");
+      nm.className = "stats-comment__name";
       nm.textContent = name;
       var tm = document.createElement("i");
+      tm.className = "stats-comment__time";
       tm.textContent = fmtRelative(
         spec.creationTime || (c.metadata && c.metadata.creationTimestamp),
       );
       meta.appendChild(nm);
       meta.appendChild(tm);
-      var text = document.createElement("span");
+      body.appendChild(meta);
+      var postTitle = c.__postTitle || "";
+      if (postTitle) {
+        var post = document.createElement("span");
+        post.className = "stats-comment__post";
+        post.textContent = "评论于《" + postTitle + "》";
+        post.title = postTitle;
+        body.appendChild(post);
+      }
+      var text = document.createElement("p");
       text.className = "stats-comment__text";
       renderBody(text, spec.content || spec.raw || "");
-      body.appendChild(meta);
       body.appendChild(text);
       link.appendChild(body);
       li.appendChild(link);
@@ -1110,6 +1789,11 @@
         subjectRef: it.subjectRef,
       },
       __permalink: it.permalink,
+      __postTitle:
+        it.postTitle ||
+        it.subjectTitle ||
+        (it.subjectRef && it.subjectRef.title) ||
+        "",
     };
   }
 
@@ -1130,6 +1814,7 @@
       .then(function (data) {
         var posts = (data && data.items) || [];
         var permalinkMap = {};
+        var titleMap = {};
         posts.forEach(function (p) {
           var nm = p.metadata && p.metadata.name;
           if (!nm) return;
@@ -1137,6 +1822,7 @@
             (p.status && p.status.permalink) ||
             (p.spec && p.spec.slug ? "/" + p.spec.slug : null);
           if (perm) permalinkMap[nm] = perm;
+          if (p.spec && p.spec.title) titleMap[nm] = p.spec.title;
         });
         var withComments = posts.filter(function (p) {
           return (p.stats && p.stats.comment) > 0;
@@ -1177,12 +1863,13 @@
           top.forEach(function (c) {
             var sr = c.spec && c.spec.subjectRef;
             c.__permalink = (sr && sr.name && permalinkMap[sr.name]) || null;
+            c.__postTitle = (sr && sr.name && titleMap[sr.name]) || "";
           });
           renderComments(top);
         });
       })
       .catch(function () {
-        renderComments([]);
+        renderComments([], "评论暂时读不到，请稍后再看。");
       });
   }
 
@@ -1192,9 +1879,16 @@
   bindPulseHover();
   loadPush();
   loadComments();
-  if (shareId) {
+  if (!shareId) {
+    setHeroStatus(
+      "offline",
+      "未配置",
+      "在主题设置中填入 Umami 分享链接后显示",
+    );
+  } else {
     umamiInit().then(function (ok) {
       if (!ok) {
+        setHeroStatus("offline", "暂时无法连接", "公开分享数据 · 连接失败");
         [
           "summary",
           "pulse",
@@ -1210,8 +1904,18 @@
         });
         return;
       }
+      var nowD = new Date();
+      setHeroStatus(
+        "online",
+        "实时公开数据",
+        "更新于 " +
+          String(nowD.getHours()).padStart(2, "0") +
+          ":" +
+          String(nowD.getMinutes()).padStart(2, "0"),
+      );
       loadSummary();
       loadPulse(30);
+      loadRanking();
       loadActivity();
       loadDevices();
       loadRegions();

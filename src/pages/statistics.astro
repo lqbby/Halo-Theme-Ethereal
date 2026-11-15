@@ -1,39 +1,39 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
-import PageHeader from "../components/control/PageHeader.astro";
 ---
 
 <!--
-  数据看板页面模板（Halo 自定义页面「数据看板」），版式移植自 rainzt.cn/analytics
-  的公开看板构成，按 Ethereal 习惯原创实现（玻璃卡 + hue 派生色 + 手写 SVG 图表，
-  不引入图表库、不引用对方任何素材）。
+  数据看板页面模板（Halo 自定义页面「数据看板」）。排版骨架按 rainzt.cn/analytics
+  公开看板 1:1 重排（2026-11-15 第二版）：hero（左文案 + 右 meta/status/stamp，
+  下方 rail）→ 4 张 summary 卡 → 两栏 layout（主栏 1.8fr / 侧栏 0.85fr）：
+    主栏：① 访问脉冲（图 + legend + 本周期 snapshot 子块 + 热门排行子块）
+          ② 推送节奏（4 metric + 热力图〔每日/每周/累计 tab + 贪吃蛇控件〕）
+          ③ 访客活跃时间（7×24 热力 + art + 4 stat 色块 + footer）
+    侧栏：④ 设备与浏览器（设备/浏览器两个 donut + legend 的 distribution 卡）
+          ⑤ 访客地域分布（列表+占比条 / TOP5 ranking 双列卡；对方原版是中国
+             省级地图，其地图素材为对方自有资产不可复用，故地图位降级为列表）
+          ⑥ 流量来源（donut + 中心 label + 列表）
+          ⑦ 最近评论（侧栏变体）
+  视觉 token 仍是 Ethereal 自己的（card-base 玻璃、--hue 派生色、主题字体与
+  圆角），4 个色相变体由主色相对色相旋转派生；不引用对方任何素材。
 
-  面板构成（自上而下，各面板显隐由主题设置「扩展页面 → 数据看板」的逐面板
-  开关控制，缺省全开）：
-  1. 顶部统计卡（今日访客 / 今日浏览 / 总访客 / 总浏览）—— Umami
-  2. 访问脉冲（每日 PV/UV 趋势，7/30/90 天切换）—— Umami pageviews
-  3. 推送节奏（GitHub 仓库提交活动密度）—— GitHub 公开 API（仓库名走设置）
-  4. 访客活跃时间（星期 × 小时热力，近 30 天）—— Umami pageviews 按小时聚合
-  5. 设备与浏览器 —— Umami metrics（device / browser）
-  6. 访客地域分布 —— Umami metrics（region，列表 + 占比条；对方原版是中国
-     省级地图，其地图素材为对方自有资产不可复用，故此处降级为列表呈现）
-  7. 流量来源 —— Umami metrics（channel，取不到时回退 referrer）
-  8. 最近评论 —— 与侧边栏同源：recent-comments 插件聚合端点
-     /apis/api.recent-comments.halo.run/v1alpha1/comments/latest
-
-  Umami 数据走「公开分享流」（与对方同一机制）：设置里填分享链接或 shareId，
-  客户端先 GET {base}/api/share/{id} 换 token + websiteId，再带
-  x-umami-share-token 头调 /api/websites/{id}/stats|pageviews|metrics。
-  分享字段留空 ⇒ 各 Umami 面板只渲染安静的「未配置」占位，整页照常打开。
+  数据接线（与第一版一致，未改口径）：
+  - Umami 走「公开分享流」：设置里填分享链接或 shareId，客户端先
+    GET {base}/api/share/{id} 换 token + websiteId，再带 x-umami-share-token
+    头调 /api/websites/{id}/stats|pageviews|metrics。分享字段留空 ⇒ 各 Umami
+    面板渲染安静的「未配置」占位，整页照常打开。
+  - 推送节奏走 GitHub 公开 API /repos/{repo}/commits（仓库名走设置）。
+  - 最近评论与侧边栏同源：recent-comments 插件聚合端点
+    /apis/api.recent-comments.halo.run/v1alpha1/comments/latest。
   全部取数与绘图在 src/scripts/assets/statistics-dashboard.ts（经典脚本管线）。
 
   与旧版的关系：旧版页面只是 data-statistics 插件前台组件的空容器
   （.xhhaocom-chartboard / .xhhaocom-dataStatistics-* / .github-statistics-*），
-  本版起这些容器整体移除。插件本体不卸载、不用禁用——它经
-  TemplateHeadProcessor 在全站 head 的注入保持原样，只是本页不再有它的挂载点；
-  旧设置开关 siteCharts / umami / github 已被逐面板开关替代，历史值在
-  ConfigMap 中作惰性残留、不再被读取。插件注入的全局脚本在本页闲置无副作用。
+  现行版已整体移除。插件本体不卸载、不用禁用——它经 TemplateHeadProcessor
+  在全站 head 的注入保持原样，只是本页不再有它的挂载点；旧设置开关
+  siteCharts / umami / github 已被逐面板开关替代，历史值在 ConfigMap 中作
+  惰性残留、不再被读取。插件注入的全局脚本在本页闲置无副作用。
 -->
 <MainGridLayout
   title="${singlePage.spec.title + ' - ' + site.title}"
@@ -43,7 +43,7 @@ import PageHeader from "../components/control/PageHeader.astro";
     <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
     <Canonical path="${singlePage.status.permalink}" />
   </Fragment>
-  <!-- 作用域根容器：id 供 statistics.css 挂新版式样式；data-* 把设置值传给
+  <!-- 作用域根容器：id 供 statistics.css 挂版式样式；data-* 把设置值传给
        statistics-dashboard.js（脚本只读 DOM，不读 theme-config JSON）。 -->
   <div
     id="statistics-dashboard"
@@ -67,424 +67,944 @@ import PageHeader from "../components/control/PageHeader.astro";
     th:data-umami-share="${umamiShare}"
     th:data-github-repo="${githubRepo}"
   >
-    <!-- 页头：纯净玻璃卡，不加主色辉光 -->
-    <div class="card-base page-head-card onload-animation mb-4">
-      <PageHeader
-        containerClass=""
-        titleExpr="${singlePage.spec.title}"
-        title="数据看板"
-        iconClass="icon-[material-symbols--monitoring-outline-rounded]"
-        eyebrow="STATISTICS"
-      />
-    </div>
+    <!-- ===== Hero：左 kicker+标题+lead+notes，右 status+stamp，下方 rail ===== -->
+    <header class="card-base stats-hero onload-animation">
+      <div class="stats-hero__grid">
+        <div class="stats-hero__copy">
+          <p class="stats-kicker stats-hero__kicker">
+            <span class="stats-kicker__signal" aria-hidden="true"></span
+            >STATISTICS
+          </p>
+          <h1 class="stats-hero__title" th:text="${singlePage.spec.title}">
+            数据看板
+          </h1>
+          <p class="stats-hero__lead">
+            这里展示本站的访问趋势与公开统计，不记录任何可识别个人身份的信息。
+          </p>
+          <div class="stats-hero__notes">
+            <span
+              ><span
+                class="icon-[material-symbols--lock-open-rounded]"
+                aria-hidden="true"></span>公开只读</span
+            >
+            <span
+              ><span
+                class="icon-[material-symbols--calendar-today-rounded]"
+                aria-hidden="true"></span>按本地时间汇总</span
+            >
+          </div>
+        </div>
+        <div class="stats-hero__meta">
+          <div
+            class="stats-status"
+            data-hero-status
+            data-state="loading"
+            role="status"
+            aria-live="polite"
+          >
+            <span class="stats-status__dot" aria-hidden="true"></span>
+            <span data-hero-status-text>连接中</span>
+          </div>
+          <div class="stats-hero__stamp">
+            <span>DATA SOURCE</span>
+            <strong>Umami</strong>
+            <small data-last-update>公开分享数据 · 自动刷新</small>
+          </div>
+        </div>
+      </div>
+      <div class="stats-hero__rail" aria-hidden="true">
+        <span>LQBBY / 2026</span>
+        <span></span>
+        <span>PUBLIC ANALYTICS</span>
+      </div>
+    </header>
 
-    <!-- 1. 顶部统计卡 -->
+    <!-- ===== Summary：4 张统计卡（色相变体 v1/v2/v3/v4） ===== -->
     <section
       th:if="${swSummary}"
-      class="onload-animation mb-4"
+      class="stats-summary onload-animation"
       data-panel="summary"
+      aria-label="站点概览"
     >
-      <div class="stats-summary-grid">
-        <article class="card-base stats-summary-card">
-          <span class="stats-summary-card__label">今日访客</span>
-          <strong class="stats-summary-card__value" data-stat="todayVisitors"
-            >—</strong
-          >
-          <small class="stats-summary-card__note">TODAY · VISITORS</small>
-        </article>
-        <article class="card-base stats-summary-card">
-          <span class="stats-summary-card__label">今日浏览</span>
-          <strong class="stats-summary-card__value" data-stat="todayPageviews"
-            >—</strong
-          >
-          <small class="stats-summary-card__note">TODAY · PAGEVIEWS</small>
-        </article>
-        <article class="card-base stats-summary-card">
-          <span class="stats-summary-card__label">总访客</span>
-          <strong class="stats-summary-card__value" data-stat="totalVisitors"
-            >—</strong
-          >
-          <small class="stats-summary-card__note">ALL-TIME · VISITORS</small>
-        </article>
-        <article class="card-base stats-summary-card">
-          <span class="stats-summary-card__label">总浏览</span>
-          <strong class="stats-summary-card__value" data-stat="totalPageviews"
-            >—</strong
-          >
-          <small class="stats-summary-card__note">ALL-TIME · PAGEVIEWS</small>
-        </article>
-      </div>
+      <article class="stats-summary-card stats-summary-card--v1">
+        <div class="stats-summary-card__topline">
+          <span class="stats-summary-card__label">ALL-TIME</span>
+          <span
+            class="icon-[material-symbols--group-rounded]"
+            aria-hidden="true"></span>
+        </div>
+        <strong data-stat="totalVisitors" aria-live="polite">—</strong>
+        <span>累计访客</span>
+        <small>开站以来累计</small>
+      </article>
+      <article class="stats-summary-card stats-summary-card--v2">
+        <div class="stats-summary-card__topline">
+          <span class="stats-summary-card__label">ALL-TIME</span>
+          <span
+            class="icon-[material-symbols--visibility-rounded]"
+            aria-hidden="true"></span>
+        </div>
+        <strong data-stat="totalPageviews" aria-live="polite">—</strong>
+        <span>累计浏览</span>
+        <small>开站以来累计</small>
+      </article>
+      <article class="stats-summary-card stats-summary-card--v3">
+        <div class="stats-summary-card__topline">
+          <span class="stats-summary-card__label">TODAY</span>
+          <span
+            class="icon-[material-symbols--person-rounded]"
+            aria-hidden="true"></span>
+        </div>
+        <strong data-stat="todayVisitors" aria-live="polite">—</strong>
+        <span>今日访客</span>
+        <small>本地时间 00:00 起</small>
+      </article>
+      <article class="stats-summary-card stats-summary-card--v4">
+        <div class="stats-summary-card__topline">
+          <span class="stats-summary-card__label">TODAY</span>
+          <span
+            class="icon-[material-symbols--ads-click-rounded]"
+            aria-hidden="true"></span>
+        </div>
+        <strong data-stat="todayPageviews" aria-live="polite">—</strong>
+        <span>今日浏览</span>
+        <small>实时公开数据</small>
+      </article>
       <div th:if="${!umamiReady}" class="stats-unconfigured">
         流量数据未配置：在主题设置「扩展页面 → 数据看板」填入 Umami
         分享链接后，这里与下方流量面板会显示真实数据。
       </div>
     </section>
 
-    <!-- 2. 访问脉冲 -->
-    <section
-      th:if="${swPulse}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-      data-panel="pulse"
-    >
-      <header class="stats-panel-head">
-        <div>
-          <p class="stats-kicker">TRAFFIC / SIGNAL</p>
-          <h2 class="stats-panel-title">访问脉冲</h2>
-          <p class="stats-panel-desc">每天的浏览量与访客数</p>
-        </div>
-        <div class="stats-range" role="group" aria-label="选择统计时间范围">
-          <button type="button" data-range="7" aria-pressed="false">7 天</button
-          >
-          <button type="button" data-range="30" aria-pressed="true"
-            >30 天</button
-          >
-          <button type="button" data-range="90" aria-pressed="false"
-            >90 天</button
-          >
-        </div>
-      </header>
-      <div th:if="${!umamiReady}" class="stats-unconfigured">
-        未配置 Umami 分享链接，暂无趋势数据。
-      </div>
-      <div th:if="${umamiReady}" class="stats-chart-wrap">
-        <svg
-          class="stats-chart"
-          data-pulse-chart
-          viewBox="0 0 960 300"
-          role="img"
-          aria-label="最近 30 天的浏览量与访客趋势"
+    <!-- ===== 两栏布局：主栏 1.8fr / 侧栏 0.85fr ===== -->
+    <div class="stats-layout">
+      <div class="stats-main">
+        <!-- ① 访问脉冲 -->
+        <section
+          th:if="${swPulse}"
+          class="card-base stats-panel onload-animation"
+          data-panel="pulse"
         >
-          <defs>
-            <linearGradient
-              id="stats-area-gradient"
-              x1="0"
-              x2="0"
-              y1="0"
-              y2="1"
-            >
-              <stop offset="0%" class="stats-area-stop stats-area-stop--top"
-              ></stop>
-              <stop
-                offset="100%"
-                class="stats-area-stop stats-area-stop--bottom"></stop>
-            </linearGradient>
-          </defs>
-          <g class="stats-chart-grid" aria-hidden="true">
-            <line x1="42" y1="38" x2="944" y2="38"></line>
-            <line x1="42" y1="134" x2="944" y2="134"></line>
-            <line x1="42" y1="230" x2="944" y2="230"></line>
-          </g>
-          <text
-            class="stats-chart-ytext"
-            data-y="max"
-            x="34"
-            y="42"
-            text-anchor="end">—</text
-          >
-          <text
-            class="stats-chart-ytext"
-            data-y="mid"
-            x="34"
-            y="138"
-            text-anchor="end">—</text
-          >
-          <text class="stats-chart-ytext" x="34" y="234" text-anchor="end"
-            >0</text
-          >
-          <path
-            class="stats-chart-area"
-            data-chart-area
-            d="M 42 230 L 944 230 Z"></path>
-          <path
-            class="stats-chart-line stats-chart-line--views"
-            data-chart-line="views"
-            d="M 42 230 L 944 230"></path>
-          <path
-            class="stats-chart-line stats-chart-line--visitors"
-            data-chart-line="visitors"
-            d="M 42 230 L 944 230"></path>
-          <line
-            class="stats-chart-guide"
-            data-chart-guide
-            x1="42"
-            y1="24"
-            x2="42"
-            y2="230"
-            style="display:none"></line>
-          <g data-chart-points></g>
-        </svg>
-        <div class="stats-chart-tooltip" data-chart-tooltip hidden>
-          <strong data-tip-date>—</strong>
-          <span
-            ><i class="stats-dot stats-dot--views"></i><b data-tip-views>—</b> 浏览</span
-          >
-          <span
-            ><i class="stats-dot stats-dot--visitors"></i><b data-tip-visitors
-              >—</b
-            > 访客</span
-          >
-        </div>
-        <div class="stats-chart-x" aria-hidden="true">
-          <span data-x="start">—</span><span data-x="mid">—</span><span
-            data-x="end">今天</span
-          >
-        </div>
-        <div class="stats-empty" data-chart-empty hidden>
-          <strong>暂时没有可展示的趋势</strong>
-          <span>公开数据接口暂时没有返回这段时间的记录。</span>
-        </div>
-        <p class="stats-chart-legend" aria-hidden="true">
-          <span><i class="stats-dot stats-dot--views"></i>浏览量</span>
-          <span><i class="stats-dot stats-dot--visitors"></i>访客数</span>
-        </p>
-      </div>
-    </section>
-
-    <!-- 3. 推送节奏 -->
-    <section
-      th:if="${swPush}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-      data-panel="push"
-    >
-      <header class="stats-panel-head">
-        <div>
-          <p class="stats-kicker">OPERATIONS / RELEASES</p>
-          <h2 class="stats-panel-title">推送节奏</h2>
-          <p class="stats-panel-desc">
-            仓库 <span class="stats-mono" th:text="${githubRepo}"
-              >lqbby/Halo-Theme-Ethereal</span
-            > 的提交活动密度（近 15 周）
-          </p>
-        </div>
-        <span class="stats-badge" data-push-status>读取中</span>
-      </header>
-      <div class="stats-push-metrics">
-        <div class="stats-push-metric">
-          <span>最近一次提交</span>
-          <strong data-push-latest>—</strong>
-        </div>
-        <div class="stats-push-metric">
-          <span>近 30 天提交</span>
-          <strong data-push-30d>—</strong>
-        </div>
-        <div class="stats-push-metric">
-          <span>近 15 周活跃天数</span>
-          <strong data-push-active>—</strong>
-        </div>
-      </div>
-      <div
-        class="stats-push-grid"
-        data-push-grid
-        role="img"
-        aria-label="近 15 周每日提交活动密度"
-      >
-      </div>
-      <p class="stats-heat-legend" aria-hidden="true">
-        <span>少</span>
-        <i class="stats-heat-cell" data-level="0"></i>
-        <i class="stats-heat-cell" data-level="1"></i>
-        <i class="stats-heat-cell" data-level="2"></i>
-        <i class="stats-heat-cell" data-level="3"></i>
-        <i class="stats-heat-cell" data-level="4"></i>
-        <span>多</span>
-      </p>
-      <div class="stats-empty" data-push-empty hidden>
-        <strong>暂时读不到提交活动</strong>
-        <span
-          >GitHub 公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
-        >
-      </div>
-    </section>
-
-    <!-- 4. 访客活跃时间 -->
-    <section
-      th:if="${swActivity}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-      data-panel="activity"
-    >
-      <header class="stats-panel-head">
-        <div>
-          <p class="stats-kicker">VISITOR / ACTIVITY</p>
-          <h2 class="stats-panel-title">访客活跃时间</h2>
-          <p class="stats-panel-desc">看看大家通常在什么时候来这里</p>
-        </div>
-        <span class="stats-badge">近 30 天</span>
-      </header>
-      <div th:if="${!umamiReady}" class="stats-unconfigured">
-        未配置 Umami 分享链接，暂无活跃时间数据。
-      </div>
-      <div th:if="${umamiReady}" class="stats-activity">
-        <div class="stats-activity-hours" aria-hidden="true">
-          <span>00时</span><span>02时</span><span>04时</span><span>06时</span
-          ><span>08时</span><span>10时</span>
-          <span>12时</span><span>14时</span><span>16时</span><span>18时</span
-          ><span>20时</span><span>22时</span>
-        </div>
-        <div class="stats-activity-body">
-          <div class="stats-activity-days" aria-hidden="true">
-            <span>周一</span><span>周二</span><span>周三</span><span>周四</span
-            ><span>周五</span><span>周六</span><span>周日</span>
-          </div>
-          <div
-            class="stats-activity-grid"
-            data-activity-grid
-            role="grid"
-            aria-label="近 30 天访客按星期与小时的活跃分布"
-          >
-            <div
-              class="stats-activity-row"
-              th:each="wd : ${#numbers.sequence(0, 6)}"
-            >
-              <span
-                class="stats-heat-cell"
-                th:each="h : ${#numbers.sequence(0, 23)}"
-                th:data-wd="${wd}"
-                th:data-h="${h}"
-                data-level="0"></span>
+          <header class="stats-panel__header">
+            <div>
+              <p class="stats-kicker">TRAFFIC / SIGNAL</p>
+              <h2>访问脉冲</h2>
+              <p class="stats-panel__description">
+                每天的浏览量与访客数 · 刷新可重播动画
+              </p>
             </div>
+            <div class="stats-panel__controls">
+              <div
+                class="stats-range"
+                role="group"
+                aria-label="选择统计时间范围"
+              >
+                <button type="button" data-range="7" aria-pressed="false"
+                  >7 天</button
+                >
+                <button type="button" data-range="30" aria-pressed="true"
+                  >30 天</button
+                >
+                <button type="button" data-range="90" aria-pressed="false"
+                  >90 天</button
+                >
+              </div>
+              <button
+                type="button"
+                class="stats-refresh"
+                data-pulse-refresh
+                aria-label="刷新趋势数据"
+                title="刷新趋势数据"
+              >
+                <span
+                  class="icon-[material-symbols--refresh-rounded]"
+                  aria-hidden="true"></span>
+              </button>
+            </div>
+          </header>
+          <div th:if="${!umamiReady}" class="stats-unconfigured">
+            未配置 Umami 分享链接，暂无趋势数据。
           </div>
-        </div>
-        <p class="stats-heat-legend" aria-hidden="true">
-          <span>少</span>
-          <i class="stats-heat-cell" data-level="0"></i>
-          <i class="stats-heat-cell" data-level="1"></i>
-          <i class="stats-heat-cell" data-level="2"></i>
-          <i class="stats-heat-cell" data-level="3"></i>
-          <i class="stats-heat-cell" data-level="4"></i>
-          <span>多</span>
-        </p>
-      </div>
-    </section>
-
-    <!-- 5 + 6 + 7：设备与浏览器 / 地域 / 来源（两列区） -->
-    <div class="stats-duo">
-      <!-- 5. 设备与浏览器 -->
-      <section
-        th:if="${swDevices}"
-        class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-        data-panel="devices"
-      >
-        <header class="stats-panel-head">
-          <div>
-            <p class="stats-kicker">VISITORS / DEVICES</p>
-            <h2 class="stats-panel-title">设备与浏览器</h2>
-            <p class="stats-panel-desc">访客用什么来看</p>
-          </div>
-          <span class="stats-badge">近 30 天</span>
-        </header>
-        <div th:if="${!umamiReady}" class="stats-unconfigured">
-          未配置 Umami 分享链接，暂无设备数据。
-        </div>
-        <div th:if="${umamiReady}">
-          <div class="stats-donut-row">
-            <div class="stats-donut" role="img" aria-label="设备分布">
-              <svg viewBox="0 0 100 100" data-donut="device" aria-hidden="true"
-              ></svg>
-              <div class="stats-donut-label">
-                <strong data-donut-total="device">—</strong><span>访客</span>
+          <div th:if="${umamiReady}">
+            <div class="stats-chart-wrap">
+              <div class="stats-chart-labels" aria-hidden="true">
+                <span data-y="max">—</span>
+                <span data-y="mid">—</span>
+                <span>0</span>
+              </div>
+              <svg
+                class="stats-chart"
+                data-pulse-chart
+                viewBox="0 0 960 300"
+                role="img"
+                aria-label="最近 30 天的浏览量与访客趋势"
+              >
+                <defs>
+                  <linearGradient
+                    id="stats-area-gradient"
+                    x1="0"
+                    x2="0"
+                    y1="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      class="stats-area-stop stats-area-stop--top"></stop>
+                    <stop
+                      offset="100%"
+                      class="stats-area-stop stats-area-stop--bottom"
+                    ></stop>
+                  </linearGradient>
+                </defs>
+                <g class="stats-chart-grid" aria-hidden="true">
+                  <line x1="42" y1="38" x2="944" y2="38"></line>
+                  <line x1="42" y1="134" x2="944" y2="134"></line>
+                  <line x1="42" y1="230" x2="944" y2="230"></line>
+                </g>
+                <path
+                  class="stats-chart-area"
+                  data-chart-area
+                  d="M 42 230 L 944 230 Z"></path>
+                <path
+                  class="stats-chart-line stats-chart-line--views"
+                  data-chart-line="views"
+                  d="M 42 230 L 944 230"></path>
+                <path
+                  class="stats-chart-line stats-chart-line--visitors"
+                  data-chart-line="visitors"
+                  d="M 42 230 L 944 230"></path>
+                <line
+                  class="stats-chart-guide"
+                  data-chart-guide
+                  x1="42"
+                  y1="24"
+                  x2="42"
+                  y2="230"
+                  style="display:none"></line>
+                <g data-chart-points></g>
+              </svg>
+              <div class="stats-chart__tooltip" data-chart-tooltip hidden>
+                <strong data-tip-date>—</strong>
+                <span
+                  ><i class="stats-legend-dot stats-legend-dot--views"></i><b
+                    data-tip-views>—</b
+                  >
+                  浏览</span
+                >
+                <span
+                  ><i class="stats-legend-dot stats-legend-dot--visitors"
+                  ></i><b data-tip-visitors>—</b> 访客</span
+                >
+              </div>
+              <div class="stats-chart__x-axis" aria-hidden="true">
+                <span data-x="start">—</span>
+                <span data-x="mid">—</span>
+                <span data-x="end">今天</span>
+              </div>
+              <div class="stats-chart-empty" data-chart-empty hidden>
+                <strong>暂时没有可展示的趋势</strong>
+                <span>公开数据接口暂时没有返回这段时间的记录。</span>
               </div>
             </div>
-            <ul class="stats-legend" data-legend="device"></ul>
+            <footer class="stats-chart-footer">
+              <div class="stats-chart-legend">
+                <span
+                  ><i class="stats-legend-dot stats-legend-dot--views"></i
+                  >浏览量</span
+                >
+                <span
+                  ><i class="stats-legend-dot stats-legend-dot--visitors"></i
+                  >访客</span
+                >
+              </div>
+            </footer>
+            <div class="stats-traffic__details">
+              <!-- 本周期 snapshot 子块 -->
+              <section class="stats-traffic__period">
+                <div class="stats-traffic__period-heading">
+                  <div class="stats-period__intro">
+                    <strong>本周期数据</strong>
+                    <span data-period-range-label>近 30 天 · 本地时间</span>
+                  </div>
+                </div>
+                <div class="stats-period__metrics">
+                  <div class="stats-period__metric stats-period__metric--v1">
+                    <span class="stats-period__metric-icon">
+                      <span
+                        class="icon-[material-symbols--bar-chart-rounded]"
+                        aria-hidden="true"></span>
+                    </span>
+                    <span class="stats-period__metric-copy">
+                      <span>浏览量</span>
+                      <small>本周期累计</small>
+                    </span>
+                    <strong data-period-views>—</strong>
+                  </div>
+                  <div class="stats-period__metric stats-period__metric--v5">
+                    <span class="stats-period__metric-icon">
+                      <span
+                        class="icon-[material-symbols--group-rounded]"
+                        aria-hidden="true"></span>
+                    </span>
+                    <span class="stats-period__metric-copy">
+                      <span>访客数</span>
+                      <small>按日汇总</small>
+                    </span>
+                    <strong data-period-visitors>—</strong>
+                  </div>
+                  <div class="stats-period__metric stats-period__metric--v2">
+                    <span class="stats-period__metric-icon">
+                      <span
+                        class="icon-[material-symbols--calendar-month-rounded]"
+                        aria-hidden="true"></span>
+                    </span>
+                    <span class="stats-period__metric-copy">
+                      <span>活跃天数</span>
+                      <small>有访问记录的天数</small>
+                    </span>
+                    <strong data-period-active>—</strong>
+                  </div>
+                  <div class="stats-period__metric stats-period__metric--v3">
+                    <span class="stats-period__metric-icon">
+                      <span
+                        class="icon-[material-symbols--trending-up-rounded]"
+                        aria-hidden="true"></span>
+                    </span>
+                    <span class="stats-period__metric-copy">
+                      <span>单日峰值</span>
+                      <small data-period-peak-date>—</small>
+                    </span>
+                    <strong data-period-peak>—</strong>
+                  </div>
+                </div>
+              </section>
+              <!-- 热门排行子块（Umami metrics 路径排行） -->
+              <section class="stats-traffic__ranking">
+                <header class="stats-traffic__section-heading">
+                  <strong>大家在看什么</strong>
+                  <span>近 30 天 · 访客</span>
+                </header>
+                <ol class="stats-ranking" data-ranking-list>
+                  <li class="stats-ranking__item stats-skeleton-row">
+                    <span class="stats-ranking__index">01</span>
+                    <span class="stats-ranking__copy"><i></i><em></em></span>
+                    <strong>—</strong>
+                  </li>
+                  <li class="stats-ranking__item stats-skeleton-row">
+                    <span class="stats-ranking__index">02</span>
+                    <span class="stats-ranking__copy"><i></i><em></em></span>
+                    <strong>—</strong>
+                  </li>
+                  <li class="stats-ranking__item stats-skeleton-row">
+                    <span class="stats-ranking__index">03</span>
+                    <span class="stats-ranking__copy"><i></i><em></em></span>
+                    <strong>—</strong>
+                  </li>
+                  <li class="stats-ranking__item stats-skeleton-row">
+                    <span class="stats-ranking__index">04</span>
+                    <span class="stats-ranking__copy"><i></i><em></em></span>
+                    <strong>—</strong>
+                  </li>
+                </ol>
+              </section>
+            </div>
           </div>
-          <h3 class="stats-subtitle">浏览器</h3>
-          <ul class="stats-bars" data-bars="browser"></ul>
-        </div>
-      </section>
+        </section>
 
-      <!-- 6 + 7 的右列容器 -->
-      <div class="stats-duo-col">
-        <!-- 6. 访客地域分布 -->
+        <!-- ② 推送节奏 -->
+        <section
+          th:if="${swPush}"
+          class="card-base stats-panel stats-deployment onload-animation"
+          data-panel="push"
+        >
+          <header
+            class="stats-panel__header stats-panel__header--compact stats-deployment__header"
+          >
+            <div class="stats-deployment__heading">
+              <p class="stats-kicker">OPERATIONS / RELEASES</p>
+              <h2>推送节奏</h2>
+              <p class="stats-panel__description">
+                按仓库 <span class="stats-mono" th:text="${githubRepo}"
+                  >lqbby/Halo-Theme-Ethereal</span
+                > 的提交时间观察活动密度
+              </p>
+            </div>
+            <div class="stats-deployment__art" aria-hidden="true">
+              <p>持续更新，<br />保持热爱</p>
+              <span>♥</span>
+            </div>
+            <span class="stats-panel__badge" data-push-status>读取中</span>
+          </header>
+          <div class="stats-deployment__metrics">
+            <div
+              class="stats-deployment__metric stats-deployment__metric--v1"
+            >
+              <span class="stats-deployment__metric-icon">
+                <span
+                  class="icon-[material-symbols--history-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <span class="stats-deployment__metric-copy">
+                <span>最近一次推送</span>
+                <small data-push-latest-date>—</small>
+              </span>
+              <strong data-push-latest>—</strong>
+            </div>
+            <div
+              class="stats-deployment__metric stats-deployment__metric--v5"
+            >
+              <span class="stats-deployment__metric-icon">
+                <span
+                  class="icon-[material-symbols--timelapse-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <span class="stats-deployment__metric-copy">
+                <span>最近间隔</span>
+                <small>与上一次推送相隔</small>
+              </span>
+              <strong data-push-interval>—</strong>
+            </div>
+            <div
+              class="stats-deployment__metric stats-deployment__metric--v1"
+            >
+              <span class="stats-deployment__metric-icon">
+                <span
+                  class="icon-[material-symbols--speed-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <span class="stats-deployment__metric-copy">
+                <span>平均节奏</span>
+                <small>活跃日之间的平均间隔</small>
+              </span>
+              <strong data-push-cadence>—</strong>
+            </div>
+            <div
+              class="stats-deployment__metric stats-deployment__metric--v4"
+            >
+              <span class="stats-deployment__metric-icon">
+                <span
+                  class="icon-[material-symbols--whatshot-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <span class="stats-deployment__metric-copy">
+                <span>连续推送</span>
+                <small>当前连续记录</small>
+              </span>
+              <strong data-push-streak>—</strong>
+            </div>
+          </div>
+          <div class="stats-deployment__heatmap">
+            <div class="stats-deployment__heatmap-head">
+              <div class="stats-deployment__heatmap-title">
+                <strong>推送活动</strong>
+                <span title="近 15 周的每日提交密度，颜色越深提交越多">
+                  <span
+                    class="icon-[material-symbols--info-rounded]"
+                    aria-hidden="true"></span>
+                </span>
+              </div>
+              <div class="stats-deployment__snake-controls">
+                <div
+                  class="stats-deployment__snake-control"
+                  role="group"
+                  aria-label="蛇速度"
+                >
+                  <span>蛇速度</span>
+                  <div class="stats-deployment__snake-options">
+                    <button
+                      type="button"
+                      data-snake-speed="1"
+                      aria-pressed="true"
+                    >
+                      1x
+                    </button>
+                    <button
+                      type="button"
+                      data-snake-speed="2"
+                      aria-pressed="false"
+                    >
+                      2x
+                    </button>
+                    <button
+                      type="button"
+                      data-snake-speed="5"
+                      aria-pressed="false"
+                    >
+                      5x
+                    </button>
+                  </div>
+                </div>
+                <div
+                  class="stats-deployment__snake-control"
+                  role="group"
+                  aria-label="食物容量"
+                >
+                  <span>食物容量</span>
+                  <div class="stats-deployment__snake-options">
+                    <button
+                      type="button"
+                      data-snake-food="1"
+                      aria-pressed="true"
+                      title="吃一个食物增长 1 格"
+                    >
+                      1x
+                    </button>
+                    <button
+                      type="button"
+                      data-snake-food="2"
+                      aria-pressed="false"
+                      title="吃一个食物增长 2 格"
+                    >
+                      2x
+                    </button>
+                    <button
+                      type="button"
+                      data-snake-food="5"
+                      aria-pressed="false"
+                      title="吃一个食物增长 5 格"
+                    >
+                      5x
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div
+                class="stats-deployment__heatmap-tabs"
+                role="group"
+                aria-label="热力图时间粒度"
+              >
+                <button
+                  type="button"
+                  data-push-mode="daily"
+                  aria-pressed="true"
+                >
+                  每日
+                </button>
+                <button
+                  type="button"
+                  data-push-mode="weekly"
+                  aria-pressed="false"
+                >
+                  每周
+                </button>
+                <button
+                  type="button"
+                  data-push-mode="cumulative"
+                  aria-pressed="false"
+                >
+                  累计
+                </button>
+              </div>
+            </div>
+            <div class="stats-deployment__heatmap-scroll">
+              <div class="stats-deployment__heatmap-main">
+                <div
+                  class="stats-push-grid"
+                  data-push-grid
+                  role="img"
+                  aria-label="近 15 周提交活动密度"
+                >
+                </div>
+                <div
+                  class="stats-push-months"
+                  data-push-months
+                  aria-hidden="true"
+                >
+                </div>
+              </div>
+            </div>
+            <div class="stats-deployment__heatmap-foot">
+              <span class="stats-deployment__source"
+                >数据来自 GitHub 公开接口</span
+              >
+              <span class="stats-heat-legend" aria-hidden="true">
+                <span>少</span>
+                <i class="stats-heat-cell" data-level="0"></i>
+                <i class="stats-heat-cell" data-level="1"></i>
+                <i class="stats-heat-cell" data-level="2"></i>
+                <i class="stats-heat-cell" data-level="3"></i>
+                <i class="stats-heat-cell" data-level="4"></i>
+                <span>多</span>
+              </span>
+            </div>
+            <div class="stats-deployment__message">
+              <span class="stats-deployment__message-icon">
+                <span
+                  class="icon-[material-symbols--pets-rounded]"
+                  aria-hidden="true"></span>
+              </span>
+              <span>小蛇正在提交格子上散步——点任意格子，可以喂它一个食物。</span>
+              <span
+                class="icon-[material-symbols--send-rounded] stats-deployment__message-plane"
+                aria-hidden="true"></span>
+            </div>
+          </div>
+          <div class="stats-empty" data-push-empty hidden>
+            <strong>暂时读不到提交活动</strong>
+            <span
+              >GitHub
+              公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
+            >
+          </div>
+        </section>
+
+        <!-- ③ 访客活跃时间 -->
+        <section
+          th:if="${swActivity}"
+          class="card-base stats-panel onload-animation"
+          data-panel="activity"
+        >
+          <header class="stats-panel__header">
+            <div>
+              <p class="stats-kicker">VISITOR / ACTIVITY</p>
+              <div class="stats-activity__title-row">
+                <h2>访客活跃时间</h2>
+                <span class="stats-panel__badge">近 30 天</span>
+              </div>
+              <p class="stats-panel__description">
+                看看大家通常在什么时候来这里
+              </p>
+            </div>
+          </header>
+          <div th:if="${!umamiReady}" class="stats-unconfigured">
+            未配置 Umami 分享链接，暂无活跃时间数据。
+          </div>
+          <div th:if="${umamiReady}">
+            <div class="stats-activity__body">
+              <div class="stats-activity__heatmap-wrap">
+                <div class="stats-activity__heatmap">
+                  <div class="stats-activity__hours" aria-hidden="true">
+                    <span>00时</span><span>02时</span><span>04时</span
+                    ><span>06时</span><span>08时</span><span>10时</span>
+                    <span>12时</span><span>14时</span><span>16时</span
+                    ><span>18时</span><span>20时</span><span>22时</span>
+                  </div>
+                  <div class="stats-activity__days" aria-hidden="true">
+                    <span>周一</span><span>周二</span><span>周三</span
+                    ><span>周四</span><span>周五</span><span>周六</span
+                    ><span>周日</span>
+                  </div>
+                  <div
+                    class="stats-activity__grid"
+                    data-activity-grid
+                    role="grid"
+                    aria-label="近 30 天访客按星期与小时的活跃分布"
+                  >
+                    <div
+                      class="stats-activity-row"
+                      th:each="wd : ${#numbers.sequence(0, 6)}"
+                    >
+                      <button
+                        type="button"
+                        class="stats-activity__cell stats-heat-cell"
+                        th:each="h : ${#numbers.sequence(0, 23)}"
+                        th:data-wd="${wd}"
+                        th:data-h="${h}"
+                        data-level="0"
+                      ></button>
+                    </div>
+                  </div>
+                </div>
+                <p class="stats-activity__note" data-activity-note>
+                  正在读取近 30 天的小时级访问记录…
+                </p>
+              </div>
+              <div class="stats-activity__art" aria-hidden="true">
+                <div class="stats-activity__art-orbit"></div>
+                <div
+                  class="stats-activity__art-orbit stats-activity__art-orbit--2"
+                >
+                </div>
+                <p>谢谢你的<br />每一次到访</p>
+              </div>
+            </div>
+            <div class="stats-activity__stats">
+              <div class="stats-activity__stat stats-activity__stat--v1">
+                <span class="stats-activity__stat-icon">
+                  <span
+                    class="icon-[material-symbols--schedule-rounded]"
+                    aria-hidden="true"></span>
+                </span>
+                <span class="stats-activity__stat-copy">
+                  <span>最活跃时间</span>
+                  <strong data-act-peak>—</strong>
+                </span>
+              </div>
+              <div class="stats-activity__stat stats-activity__stat--v5">
+                <span class="stats-activity__stat-icon">
+                  <span
+                    class="icon-[material-symbols--date-range-rounded]"
+                    aria-hidden="true"></span>
+                </span>
+                <span class="stats-activity__stat-copy">
+                  <span>最活跃星期</span>
+                  <strong data-act-weekday>—</strong>
+                </span>
+              </div>
+              <div class="stats-activity__stat stats-activity__stat--v2">
+                <span class="stats-activity__stat-icon">
+                  <span
+                    class="icon-[material-symbols--bedtime-rounded]"
+                    aria-hidden="true"></span>
+                </span>
+                <span class="stats-activity__stat-copy">
+                  <span>夜间访问占比</span>
+                  <strong data-act-night>—</strong>
+                </span>
+              </div>
+              <div class="stats-activity__stat stats-activity__stat--v3">
+                <span class="stats-activity__stat-icon">
+                  <span
+                    class="icon-[material-symbols--person-rounded]"
+                    aria-hidden="true"></span>
+                </span>
+                <span class="stats-activity__stat-copy">
+                  <span>今日访客</span>
+                  <strong data-act-today>—</strong>
+                </span>
+              </div>
+            </div>
+            <footer class="stats-activity__footer">
+              <span>按本地时间聚合 · 数据只保留统计维度</span>
+              <span class="stats-heat-legend" aria-hidden="true">
+                <span>少</span>
+                <i class="stats-heat-cell" data-level="0"></i>
+                <i class="stats-heat-cell" data-level="1"></i>
+                <i class="stats-heat-cell" data-level="2"></i>
+                <i class="stats-heat-cell" data-level="3"></i>
+                <i class="stats-heat-cell" data-level="4"></i>
+                <span>多</span>
+              </span>
+            </footer>
+          </div>
+        </section>
+      </div>
+
+      <!-- ===== 侧栏 ===== -->
+      <aside class="stats-sidebar">
+        <!-- ④ 设备与浏览器（distribution 卡） -->
+        <section
+          th:if="${swDevices}"
+          class="card-base stats-side-card onload-animation"
+          data-panel="devices"
+        >
+          <header class="stats-snapshot__header">
+            <div>
+              <p class="stats-kicker">VISITORS / DEVICES</p>
+              <h2>设备与浏览器</h2>
+              <p>访客从哪里来</p>
+            </div>
+            <span
+              class="icon-[material-symbols--devices-rounded] stats-snapshot__header-icon"
+              aria-hidden="true"></span>
+          </header>
+          <div th:if="${!umamiReady}" class="stats-unconfigured">
+            未配置 Umami 分享链接，暂无设备数据。
+          </div>
+          <div th:if="${umamiReady}">
+            <div class="stats-breakdown">
+              <div class="stats-breakdown__title"><span>设备分布</span></div>
+              <div class="stats-breakdown__body">
+                <div class="stats-donut" role="img" aria-label="设备分布">
+                  <svg viewBox="0 0 100 100" data-donut="device"></svg>
+                  <span class="stats-donut__icon">
+                    <span
+                      class="icon-[material-symbols--devices-rounded]"
+                      aria-hidden="true"></span>
+                  </span>
+                </div>
+                <ul class="stats-legend" data-legend="device">
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                </ul>
+              </div>
+            </div>
+            <div class="stats-breakdown">
+              <div class="stats-breakdown__title"><span>浏览器偏好</span></div>
+              <div class="stats-breakdown__body">
+                <div class="stats-donut" role="img" aria-label="浏览器偏好">
+                  <svg viewBox="0 0 100 100" data-donut="browser"></svg>
+                  <span class="stats-donut__icon">
+                    <span
+                      class="icon-[material-symbols--explore-rounded]"
+                      aria-hidden="true"></span>
+                  </span>
+                </div>
+                <ul class="stats-legend" data-legend="browser">
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                  <li class="stats-legend__skeleton"><i></i><span></span></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ⑤ 访客地域分布（列表+占比条 / TOP5 ranking） -->
         <section
           th:if="${swRegions}"
-          class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+          class="card-base stats-side-card stats-region-card onload-animation"
           data-panel="regions"
         >
-          <header class="stats-panel-head">
+          <header class="stats-region-card__header">
             <div>
-              <p class="stats-kicker">VISITORS / REGIONS</p>
-              <h2 class="stats-panel-title">访客地域分布</h2>
-              <p class="stats-panel-desc">访客所在的地区（近 30 天）</p>
+              <p class="stats-kicker">VISITORS / MAP</p>
+              <h2>访客地域分布</h2>
+              <p>访客所在的地区</p>
             </div>
-            <span class="stats-badge">近 30 天</span>
+            <span
+              class="icon-[material-symbols--map-rounded] stats-region-card__header-icon"
+              aria-hidden="true"></span>
           </header>
           <div th:if="${!umamiReady}" class="stats-unconfigured">
             未配置 Umami 分享链接，暂无地域数据。
           </div>
-          <ul th:if="${umamiReady}" class="stats-bars" data-region-list></ul>
+          <div th:if="${umamiReady}">
+            <div class="stats-region-card__body">
+              <ul class="stats-region-bars" data-region-list></ul>
+              <div class="stats-region-card__ranking">
+                <p>TOP 5 地区</p>
+                <ol data-region-ranking>
+                  <li class="stats-region-card__item--skeleton">
+                    <i></i><span></span><strong></strong>
+                  </li>
+                  <li class="stats-region-card__item--skeleton">
+                    <i></i><span></span><strong></strong>
+                  </li>
+                  <li class="stats-region-card__item--skeleton">
+                    <i></i><span></span><strong></strong>
+                  </li>
+                  <li class="stats-region-card__item--skeleton">
+                    <i></i><span></span><strong></strong>
+                  </li>
+                  <li class="stats-region-card__item--skeleton">
+                    <i></i><span></span><strong></strong>
+                  </li>
+                </ol>
+              </div>
+            </div>
+            <footer class="stats-region-card__footer">
+              <span>按近 30 天访客统计</span>
+              <span data-region-total></span>
+            </footer>
+          </div>
         </section>
 
-        <!-- 7. 流量来源 -->
+        <!-- ⑥ 流量来源（donut + 中心 label + 列表） -->
         <section
           th:if="${swSources}"
-          class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+          class="card-base stats-side-card stats-sources onload-animation"
           data-panel="sources"
         >
-          <header class="stats-panel-head">
-            <div>
-              <p class="stats-kicker">TRAFFIC / SOURCES</p>
-              <h2 class="stats-panel-title">流量来源</h2>
-              <p class="stats-panel-desc">访客从哪里点进来</p>
-            </div>
-            <span class="stats-badge">近 30 天</span>
+          <header class="stats-sources__header">
+            <h2>流量来源 <span>/ TRAFFIC / SOURCES</span></h2>
+            <span class="stats-sources__range">近 30 天</span>
           </header>
           <div th:if="${!umamiReady}" class="stats-unconfigured">
             未配置 Umami 分享链接，暂无来源数据。
           </div>
-          <div th:if="${umamiReady}" class="stats-donut-row">
+          <div th:if="${umamiReady}" class="stats-sources__body">
             <div class="stats-donut" role="img" aria-label="流量来源分布">
-              <svg viewBox="0 0 100 100" data-donut="source" aria-hidden="true"
-              ></svg>
+              <svg viewBox="0 0 100 100" data-donut="source"></svg>
               <div class="stats-donut-label">
-                <strong data-donut-total="source">—</strong><span>访客</span>
+                <strong data-donut-total="source">—</strong>
+                <span>本周期访客</span>
               </div>
             </div>
-            <ul class="stats-legend" data-legend="source"></ul>
+            <ol class="stats-legend" data-legend="source"></ol>
           </div>
         </section>
-      </div>
+
+        <!-- ⑦ 最近评论（侧栏变体） -->
+        <section
+          th:if="${swComments}"
+          class="card-base stats-side-card stats-comments-card onload-animation"
+          data-panel="comments"
+        >
+          <header class="stats-comments__header">
+            <div>
+              <p class="stats-kicker">COMMUNITY / RECENT NOTES</p>
+              <h2>最近评论</h2>
+              <p class="stats-panel__description">
+                有人来过，也留下了几句值得被看见的话。
+              </p>
+            </div>
+            <div class="stats-comments__header-meta">
+              <span class="stats-panel__badge">最新 8 条</span>
+            </div>
+          </header>
+          <ul class="stats-comments" data-comments-list aria-live="polite">
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 30%"></span>
+                <span class="stats-skel-line" style="width: 48%"></span>
+                <span class="stats-skel-line" style="width: 92%"></span>
+                <span class="stats-skel-line" style="width: 62%"></span>
+              </span>
+            </li>
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 26%"></span>
+                <span class="stats-skel-line" style="width: 44%"></span>
+                <span class="stats-skel-line" style="width: 88%"></span>
+                <span class="stats-skel-line" style="width: 58%"></span>
+              </span>
+            </li>
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 34%"></span>
+                <span class="stats-skel-line" style="width: 46%"></span>
+                <span class="stats-skel-line" style="width: 90%"></span>
+                <span class="stats-skel-line" style="width: 60%"></span>
+              </span>
+            </li>
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 28%"></span>
+                <span class="stats-skel-line" style="width: 50%"></span>
+                <span class="stats-skel-line" style="width: 86%"></span>
+                <span class="stats-skel-line" style="width: 56%"></span>
+              </span>
+            </li>
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 31%"></span>
+                <span class="stats-skel-line" style="width: 47%"></span>
+                <span class="stats-skel-line" style="width: 91%"></span>
+                <span class="stats-skel-line" style="width: 59%"></span>
+              </span>
+            </li>
+            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+              <span class="stats-comment__avatar"></span>
+              <span class="stats-comment__body">
+                <span class="stats-skel-line" style="width: 29%"></span>
+                <span class="stats-skel-line" style="width: 45%"></span>
+                <span class="stats-skel-line" style="width: 89%"></span>
+                <span class="stats-skel-line" style="width: 63%"></span>
+              </span>
+            </li>
+          </ul>
+          <p class="stats-comments__status" data-comments-status>
+            正在读取最近评论…
+          </p>
+        </section>
+      </aside>
     </div>
 
-    <!-- 8. 最近评论 -->
-    <section
-      th:if="${swComments}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-      data-panel="comments"
-    >
-      <header class="stats-panel-head">
-        <div>
-          <p class="stats-kicker">COMMUNITY / RECENT NOTES</p>
-          <h2 class="stats-panel-title">最近评论</h2>
-          <p class="stats-panel-desc">有人来过，也留下了几句值得被看见的话。</p>
-        </div>
-        <span class="stats-badge">最新 8 条</span>
-      </header>
-      <ul class="stats-comments" data-comments-list aria-live="polite">
-        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
-          <span class="stats-comment__avatar"></span>
-          <span class="stats-comment__body">
-            <span class="stats-skel-line" style="width: 30%"></span>
-            <span class="stats-skel-line" style="width: 92%"></span>
-            <span class="stats-skel-line" style="width: 64%"></span>
-          </span>
-        </li>
-        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
-          <span class="stats-comment__avatar"></span>
-          <span class="stats-comment__body">
-            <span class="stats-skel-line" style="width: 24%"></span>
-            <span class="stats-skel-line" style="width: 85%"></span>
-            <span class="stats-skel-line" style="width: 58%"></span>
-          </span>
-        </li>
-        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
-          <span class="stats-comment__avatar"></span>
-          <span class="stats-comment__body">
-            <span class="stats-skel-line" style="width: 34%"></span>
-            <span class="stats-skel-line" style="width: 88%"></span>
-            <span class="stats-skel-line" style="width: 61%"></span>
-          </span>
-        </li>
-      </ul>
-    </section>
+    <!-- ===== 页脚条 ===== -->
+    <footer class="card-base stats-footer onload-animation">
+      <div>
+        <span class="stats-footer__eyebrow">PUBLIC ANALYTICS</span>
+        <p>本站的公开数据记录，来自 Umami 与 GitHub 的公开接口。</p>
+      </div>
+      <a class="stats-footer__link" href="/about">回到关于我</a>
+    </footer>
   </div>
 
   <script
