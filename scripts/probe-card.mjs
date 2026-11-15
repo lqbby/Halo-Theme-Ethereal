@@ -14,7 +14,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -108,7 +108,7 @@ if (process.argv.includes("--semantics")) {
         "-Dfile.encoding=UTF-8",
         "-Dstdout.encoding=UTF-8",
         "-cp",
-        jars.join(";"),
+        jars.join(delimiter),
         PROBE,
         "--semantics",
       ],
@@ -167,7 +167,7 @@ for (const sc of SCENARIOS) {
         "-Dfile.encoding=UTF-8",
         "-Dstdout.encoding=UTF-8",
         "-cp",
-        jars.join(";"),
+        jars.join(delimiter),
         PROBE,
         TARGET,
         ...sc.args,

@@ -165,4 +165,4 @@ for (const [name, key] of [
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

@@ -45,13 +45,20 @@ function collect(dir, exts, out = []) {
   return out;
 }
 
+/** 全仓扫描到的 th:* 属性总数（为 0 说明匹配口径失效，必须变红而非假绿） */
+let scannedAttrs = 0;
 /**
  * @param {string} text
  * @param {string} label
  */
 function scanText(text, label) {
-  for (const m of text.matchAll(/\bth:([A-Za-z-]+)="([^"]*)"/g)) {
-    const v = m[2];
+  // 口径：th:x="..." / th:x='...' / data-th-x=... / Astro 模板字面量 th:x={`...`}
+  // 旧实现只认双引号字面量，恰好漏掉携带动态拼接表达式的 Astro 写法（出过 500 的那一类）
+  for (const m of text.matchAll(
+    /\b(?:th:|data-th-)([A-Za-z-]+)=(?:\{`([^`]*)`|"([^"]*)"|'([^']*)')/g,
+  )) {
+    scannedAttrs++;
+    const v = m[2] ?? m[3] ?? m[4] ?? "";
     if (!v.includes("{")) continue;
     const open = (v.match(/\{/g) || []).length;
     const close = (v.match(/\}/g) || []).length;
@@ -77,9 +84,10 @@ check("E0 扫描文件数 > 0", files.length > 0, true);
 for (const f of files) {
   scanText(readFileSync(f, "utf8"), f.replace(ROOT, "").replace(/\\/g, "/"));
 }
+check(`E0b 扫描到的 th:* 属性数 > 0（实得 ${scannedAttrs}）`, scannedAttrs > 0, true);
 
 check(`E1/E2 th:* 表达式结构无问题（${problems.length} 处）`, problems.length, 0);
 for (const p of problems.slice(0, 10)) console.log("    ", p);
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

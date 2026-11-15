@@ -21,6 +21,7 @@
 //   SS-8 产物核对：页面含内联 __smartScrollTo、assets 含 scroll-manager chunk
 //   SS-9 评论落位接入核对（源码判据）：doScroll 经门控调用、瞬时分支 rAF 即 resolve
 import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -62,11 +63,18 @@ function extractFn(src, header, closeIndent = "\n}") {
 
 /**
  * 把函数体编译成可调用函数（函数体里通过全局 window 取环境）
+ * 在隔离 vm 沙箱里编译（替代被项目禁用的 new Function）：沙箱不带宿主 API，
+ * 每次调用前把当前 globalThis.window 同步进沙箱，与旧实现「调用时读全局
+ * window」的语义一致。
  * @param {string} body @param {string} name
  */
 function compile(body, name) {
-  // eslint-disable-next-line no-new-func
-  return new Function(`${body}\n return ${name};`)();
+  const sandbox = { window: undefined };
+  const fn = runInNewContext(`${body}\n${name};`, sandbox);
+  return (/** @type {unknown[]} */ ...args) => {
+    sandbox.window = /** @type {any} */ (globalThis).window;
+    return fn(...args);
+  };
 }
 
 const smartTS = compile(
@@ -297,4 +305,4 @@ if (existsSync(TEMPLATES)) {
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

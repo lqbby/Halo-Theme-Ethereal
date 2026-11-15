@@ -65,4 +65,4 @@ check("group 总数 > 0", groupNames.length > 0, true);
 console.log(
   `\n通过 ${failures === 0 ? "全部" : "部分"}（失败 ${failures} 项）${failures ? " ❌" : " ✅ 全部通过"}`,
 );
-process.exit(failures ? 1 : 0);
+process.exitCode = (failures ? 1 : 0);

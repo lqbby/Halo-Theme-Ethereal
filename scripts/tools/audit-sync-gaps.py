@@ -5,12 +5,12 @@ import re
 
 # ── 收集所有 CSS 文本 ──
 css_text = []
-for root in ("ethereal/src/styles", "ethereal/public/assets"):
+for root in ("src/styles", "public/assets"):
     for f in os.listdir(root):
         if f.endswith(".css"):
             css_text.append(io.open(os.path.join(root, f), encoding="utf-8").read())
 # 补上各 .astro/.svelte 的内联 <style>（本地习惯：页面级 <style is:global> 写页面样式）
-for root, _dirs, files in os.walk("ethereal/src"):
+for root, _dirs, files in os.walk("src"):
     for f in files:
         if f.endswith((".astro", ".svelte")):
             t = io.open(os.path.join(root, f), encoding="utf-8").read()
@@ -45,20 +45,20 @@ def is_custom(cls: str) -> bool:
 
 
 # ── 扫描页面（含其 import 的本地组件，1 层）──
-pages = sorted(f for f in os.listdir("ethereal/src/pages") if f.endswith(".astro"))
+pages = sorted(f for f in os.listdir("src/pages") if f.endswith(".astro"))
 missing_classes = {}
 missing_i18n = {}
 missing_scripts = {}
 
 for page in pages:
-    p = "ethereal/src/pages/" + page
+    p = "src/pages/" + page
     text = io.open(p, encoding="utf-8").read()
     files = [(page, text)]
     # 一层 import 的本地组件
     for m in re.finditer(r'from "(\.\./components/[^"]+\.astro)"', text):
-        cp = os.path.normpath(os.path.join("ethereal/src/pages", m.group(1)))
+        cp = os.path.normpath(os.path.join("src/pages", m.group(1)))
         if os.path.exists(cp):
-            files.append((os.path.relpath(cp, "ethereal/src"), io.open(cp, encoding="utf-8").read()))
+            files.append((os.path.relpath(cp, "src"), io.open(cp, encoding="utf-8").read()))
 
     for name, t in files:
         for m in re.finditer(r'class="([^"]+)"', t):
@@ -69,7 +69,7 @@ for page in pages:
             key = m.group(1)
             hit = False
             for lang in ("zh_CN", "zh_TW", "default"):
-                f = "ethereal/i18n/%s.properties" % lang
+                f = "i18n/%s.properties" % lang
                 if os.path.exists(f) and ("\n" + key + "=") in ("\n" + io.open(f, encoding="utf-8").read()):
                     hit = True
                     break
@@ -78,8 +78,8 @@ for page in pages:
     # 脚本依赖
     for m in re.finditer(r"assets/([a-z0-9.-]+)\.js", text):
         js = m.group(1)
-        cands = ["ethereal/src/scripts/assets/%s.ts" % js, "ethereal/src/scripts/assets/%s.js" % js,
-                 "ethereal/public/assets/%s.js" % js]
+        cands = ["src/scripts/assets/%s.ts" % js, "src/scripts/assets/%s.js" % js,
+                 "public/assets/%s.js" % js]
         if not any(os.path.exists(c) for c in cands):
             missing_scripts.setdefault(js, set()).add(page)
 

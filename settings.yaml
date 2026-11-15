@@ -2990,7 +2990,7 @@ spec:
               name: pageSize
               label: 每页数量
               value: 10
-              min: 1
+              min: 0
               max: 50
               step: 1
               help: "每页显示的技能卡片数量，设为 0 或留空则不分页"

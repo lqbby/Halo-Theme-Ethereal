@@ -31,13 +31,18 @@ def read(path):
 
 SRC_EXTS = {".astro", ".svelte", ".ts", ".js", ".css", ".mjs"}
 src_files = collect("src", SRC_EXTS) + collect("scripts", SRC_EXTS)
-blob = "\n".join(read(f) for f in src_files)
+
+# 逐文件留一份内容：第 1 节判定类是否被使用时要排除「定义文件自身」，
+# 只拼成一整块文本的话，类名必然在自己的定义处命中，审计恒为空。
+contents = {f: read(f) for f in src_files}
 
 # 也把构建产物里的引用算上（产物由源码生成，但可兜住「只在产物里出现」的情况）
 for extra in ("templates", "public"):
     if os.path.isdir(extra):
         for f in collect(extra, {".html", ".js", ".css"}):
-            blob += "\n" + read(f)
+            contents[f] = read(f)
+
+blob = "\n".join(contents.values())
 
 
 def used_anywhere(name):
@@ -51,8 +56,38 @@ defined = {}
 for f in collect("src/styles", {".css"}):
     css = read(f)
     for m in re.finditer(r"\.([a-zA-Z_][\w-]*)", css):
-        defined.setdefault(m.group(1), set()).add(os.path.basename(f))
-unused = [n for n in sorted(defined) if not used_anywhere(n)]
+        defined.setdefault(m.group(1), set()).add(f)
+
+
+# 使用证据：定义文件自身不算——类名必然在自己的定义处出现，算上的话
+# 每个类都「被使用」、结果恒为空。产物里的 .css 是定义文件的编译拷贝，
+# 同理排除（产物 .html/.js 里的引用仍算数）。词元集合判定与 used_anywhere
+# 的边界正则等价（按非词元字符切分取整词）。
+def token_set(text):
+    return set(re.findall(r"[A-Za-z0-9_-]+", text))
+
+
+evidence_tokens = set()
+styles_tokens = {}
+for f, text in contents.items():
+    if f.endswith(".css") and (f.startswith("templates/") or f.startswith("public/")):
+        continue  # 产物样式表 = 定义的拷贝
+    if f.startswith("src/styles/"):
+        styles_tokens[f] = token_set(text)
+    else:
+        evidence_tokens |= token_set(text)
+
+
+def class_used(name, defining_files):
+    if name in evidence_tokens:
+        return True
+    # 其他样式文件里的选择器引用（如 .a .b）也算使用
+    return any(
+        name in toks for f, toks in styles_tokens.items() if f not in defining_files
+    )
+
+
+unused = [n for n in sorted(defined) if not class_used(n, defined[n])]
 tot = 0
 for n in unused:
     # 估算该类的规则体字节数
@@ -62,7 +97,7 @@ for n in unused:
         for m in re.finditer(r"\.(" + re.escape(n) + r")(?![A-Za-z0-9_-])[^{]*\{([^}]*)\}", css):
             bytes_ += len(m.group(0))
     tot += bytes_
-    print("  .%-40s %-22s ~%d B" % (n, ",".join(sorted(defined[n])), bytes_))
+    print("  .%-40s %-22s ~%d B" % (n, ",".join(sorted(os.path.basename(p) for p in defined[n])), bytes_))
 print("  --> 共 %d 个未引用类，规则体合计约 %d B" % (len(unused), tot))
 
 print()

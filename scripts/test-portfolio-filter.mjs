@@ -14,8 +14,9 @@
 //       断言回访后筛选与点击委托仍然有效（修复前 guardOnce 会短路整个 IIFE ⇒ 必红）。
 //
 // 运行：
-//   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
-//   "C:/Users/LQ/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" scripts/test-portfolio-filter.mjs
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-portfolio-filter.mjs
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -92,7 +93,7 @@ const HTML = `<!doctype html><html><body>
 
 const dom = new JSDOM(HTML, { url: URL_WITH_TAG, runScripts: "outside-only" });
 const { window } = dom;
-window.eval(readFileSync(BUNDLE, "utf8"));
+runInContext(readFileSync(BUNDLE, "utf8"), window);
 if (window.document.readyState === "loading") {
   window.document.dispatchEvent(new window.Event("DOMContentLoaded"));
 }
@@ -236,12 +237,12 @@ check(
   };
 
   // 首次进入
-  w2.eval(bundleCode);
+  runInContext(bundleCode, w2);
   check("回访·首刷按 ?tag=Tech 生效", v2().join(","), "0,2");
 
   // 模拟换页回访：同一 window 内重建 DOM，再执行一次脚本
   d2.body.innerHTML = pristineBody;
-  w2.eval(bundleCode);
+  runInContext(bundleCode, w2);
 
   check(
     "回访·守卫 key 仍持久（正是病灶来源）",
@@ -278,4 +279,4 @@ check(
 }
 
 console.log(failures === 0 ? "\n全部通过 ✅" : `\n${failures} 项失败 ❌`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

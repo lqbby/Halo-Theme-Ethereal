@@ -27,6 +27,8 @@
 //   NODE_PATH="<node workspace>/node_modules" node scripts/test-visit-tracker.mjs
 //   # 对照 + 守卫组（从产物抠出真实守卫脚本）
 //   NODE_PATH="<node workspace>/node_modules" node scripts/test-visit-tracker.mjs <产物目录或 html>
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -148,7 +150,7 @@ function execTracker(w, name) {
     configurable: true,
   });
   try {
-    w.eval(TRACKER_SRC);
+    runInContext(TRACKER_SRC, w);
   } finally {
     delete w.document.currentScript;
   }
@@ -212,14 +214,28 @@ if (arg) {
   }
   if (!htmlPath || !extractGuard(readFileSync(htmlPath, "utf8"))) {
     // 退而求其次：在目录里找任意含守卫的 html
-    const dir = statSync(arg).isDirectory() ? arg : dirname(arg);
-    const hit = readdirSync(dir)
-      .filter((f) => f.endsWith(".html"))
-      .map((f) => join(dir, f))
-      .find((p) => extractGuard(readFileSync(p, "utf8")));
-    htmlPath = hit || null;
+    // arg 不存在/不可读时 statSync 会直接抛 ENOENT 把整个套件打崩，兜住降级为跳过
+    try {
+      const dir = statSync(arg).isDirectory() ? arg : dirname(arg);
+      const hit = readdirSync(dir)
+        .filter((f) => f.endsWith(".html"))
+        .map((f) => join(dir, f))
+        .find((p) => extractGuard(readFileSync(p, "utf8")));
+      htmlPath = hit || null;
+    } catch {
+      htmlPath = null;
+    }
   }
 }
+
+// 分支判决退出：先等 stdout 队列排空再 exit，避免管道下总结行被截断
+// （其余文件的尾部判决已统一改 process.exitCode，但这两处后面还有依赖
+//  htmlPath/guard 的代码，必须真停）
+/** @returns {Promise<never>} 内部必然 process.exit，供调用方空值收窄 */
+const exitAfterFlush = async (/** @type {number} */ code) => {
+  await new Promise((r) => process.stdout.write("", r));
+  process.exit(code);
+};
 
 if (!htmlPath) {
   console.log(
@@ -228,20 +244,24 @@ if (!htmlPath) {
   console.log(
     `\n${failures === 0 ? "✅ 对照组通过（bug 已复现）" : `❌ ${failures} 项失败`}`,
   );
-  process.exit(failures === 0 ? 0 : 1);
+  await exitAfterFlush(failures === 0 ? 0 : 1);
 }
 
-const guard = extractGuard(readFileSync(htmlPath, "utf8"));
+const guard = extractGuard(
+  readFileSync(/** @type {string} */ (htmlPath), "utf8"),
+);
 if (!guard) {
   console.log("\n⚠️ 产物里找不到 data-visit-guard ⇒ 跳过守卫组。");
-  process.exit(failures === 0 ? 0 : 1);
+  await exitAfterFlush(failures === 0 ? 0 : 1);
 }
 console.log(`\n── 守卫组：脚本来自 ${htmlPath} ──`);
-console.log(`   属性：${guard.attrs.trim()}`);
+console.log(
+  `   属性：${/** @type {{ attrs: string; body: string }} */ (guard).attrs.trim()}`,
+);
 {
   const env = makeEnv();
   const { w, reports } = env;
-  w.eval(guard.body); // 守卫必须先于 tracker 执行（head 里靠前）
+  runInContext(/** @type {{ attrs: string; body: string }} */ (guard).body, w); // 守卫必须先于 tracker 执行（head 里靠前）
   execTracker(w, "A");
   const afterFirst = reports.length;
   navPush(w, "/archives/B");
@@ -274,4 +294,4 @@ console.log(`   属性：${guard.attrs.trim()}`);
 }
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

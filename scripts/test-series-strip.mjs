@@ -29,6 +29,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 
@@ -943,8 +944,15 @@ function runJs(strip, { win, reducedMotion = false } = {}) {
     },
   };
   const w = win || makeWindow({ reducedMotion });
-  const fn = new Function("document", "window", js);
-  fn(doc, w);
+  // 隔离 vm 沙箱执行产物（替代被项目禁用的 new Function）：只注入桩与基础
+  // 计时器（旧实现靠 Node 全局兜底的就这些），产物看不到 process/require
+  runInNewContext(js, {
+    document: doc,
+    window: w,
+    console,
+    setTimeout,
+    clearTimeout,
+  });
   return { doc, win: w };
 }
 
@@ -1283,4 +1291,4 @@ const tix = (t) => t.getAttribute("tabindex");
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

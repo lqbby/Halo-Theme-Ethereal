@@ -21,6 +21,7 @@
  * 用法：node scripts/test-steam-heatmap.mjs [templates/assets/steam.js]
  */
 import fs from "node:fs";
+import { runInNewContext } from "node:vm";
 
 const target = process.argv[2] || "templates/assets/steam.js";
 const code = fs.readFileSync(target, "utf8");
@@ -187,29 +188,24 @@ function makeEnv({ echartsFails = false, hangFetch = false } = {}) {
     win,
     vars,
     run() {
-      const fn = new Function(
-        "window",
-        "document",
-        "console",
-        "setTimeout",
-        "clearTimeout",
-        "fetch",
-        "getComputedStyle",
-        "MutationObserver",
-        "ResizeObserver",
-        code,
-      );
-      fn(
-        win,
+      // 隔离 vm 沙箱执行产物（替代被项目禁用的 new Function）：产物只能看到
+      // 下面显式注入的宿主 API，看不到 process/require；信任前提 = code 必须是
+      // 本地构建产物，不得来自外部输入
+      runInNewContext(code, {
+        window: win,
         document,
-        { warn() {}, log() {}, error() {}, info() {} },
+        console: { warn() {}, log() {}, error() {}, info() {} },
         setTimeout,
         clearTimeout,
-        fetchStub,
+        fetch: fetchStub,
         getComputedStyle,
-        MO,
-        RO,
-      );
+        MutationObserver: MO,
+        ResizeObserver: RO,
+        // 产物用 AbortController/AbortSignal 做取数超时：旧 new Function 靠 Node
+        // 全局兜底，vm 沙箱里必须显式注入，否则超时逻辑直接 ReferenceError
+        AbortController,
+        AbortSignal,
+      });
     },
     firePageView() {
       (st.hooks["page:view"] || []).forEach((h) => h());
@@ -331,12 +327,17 @@ console.log("[5] 接口挂住 ⇒ 10s 后 abort");
       e.st.fetchUrls.some((u) => u.includes("heatmap/records")),
     String(e.st.heatmapCalls),
   );
-  // 产物里应有超时常量（10000ms；minify 后可能是 1e4）与 abort 调用：
-  // 压缩后定时器行为验不了，改看源码特征（两种写法都接受）
+  // 行为断言：等产物的 10s 超时真正触发 abort（fetchStub 的 abort 监听计数）。
+  // 旧实现是源码正则（任意无关的 10000 常量、注释里的 abort 都能满足），已废弃；
+  // 这里轮询上限 12s，命中即断言恰好 abort 一次——套件因此多花约 10s，换真覆盖。
+  const deadline = Date.now() + 12_000;
+  while (e.st.aborted === 0 && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 200));
+  }
   check(
-    "产物含 10s 超时 + abort 逻辑",
-    /(10e3|10000|1e4)/.test(code) && /abort/i.test(code),
-    "未找到超时常量/abort",
+    "挂住的请求在 10s 超时后被 abort（恰好 1 次）",
+    e.st.aborted === 1,
+    `aborted=${e.st.aborted}`,
   );
 }
 
@@ -357,4 +358,4 @@ console.log("[6] 在可见容器上 echarts.init");
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

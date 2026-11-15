@@ -13,8 +13,9 @@
 // 被测脚本：构建产物 public/assets/links.bundle.js（即包内 templates/assets/links.bundle.js）。
 //
 // 运行：
-//   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
-//   "C:/Users/LQ/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" scripts/test-links-filter.mjs
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-links-filter.mjs
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -116,7 +117,14 @@ function prepare(dom, html) {
 
 function boot(dom) {
   const { window } = dom;
-  window.eval(readFileSync(BUNDLE, "utf8"));
+  // bundle 缺失/语法错误时要报可读失败，而不是裸堆栈（产物路径见文件头注释）
+  try {
+    runInContext(readFileSync(BUNDLE, "utf8"), window);
+  } catch (err) {
+    throw new Error(
+      `bundle 加载/执行失败（${BUNDLE}）：${err instanceof Error ? err.message : err}`,
+    );
+  }
   // jsdom 构造完成后 readyState 通常已是 complete；兜底手动派发一次
   if (window.document.readyState === "loading") {
     window.document.dispatchEvent(new window.Event("DOMContentLoaded"));
@@ -236,4 +244,4 @@ console.log(
     ? "\n✔ 友链就地筛选桩测全部通过"
     : `\n✖ 有 ${failures} 项未通过`,
 );
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

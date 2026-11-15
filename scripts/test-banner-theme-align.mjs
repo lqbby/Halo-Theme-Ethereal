@@ -20,9 +20,11 @@
 //   BA-6 揭示门槛：候选集刚被换过（complete 先 true 后 false）时不得立刻摘遮罩，
 //        必须等 load 事件才摘（否则闪暗图）
 //
-// 运行（JSDOM 在 managed workspace，不在仓库依赖里）：
-//   NODE_PATH=C:\Users\LQ\.workbuddy\binaries\node\workspace\node_modules node scripts/test-banner-theme-align.mjs
+// 运行（JSDOM 不在仓库依赖里，经 JSDOM_MODULE 指定其位置）：
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-banner-theme-align.mjs
 //   ⚠️ 读 cwd 的 templates/index.html（构建产物）⇒ 须在 worktree 里跑
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -58,15 +60,18 @@ const html = readFileSync(INDEX, "utf8");
 
 /**
  * 抽出含 marker 的内联 <script> 体（is:inline 产物无属性，写作 `<script>`）
+ * 枚举真实 script 块再按体内容匹配 marker——旧实现用 indexOf 首命中定位，
+ * marker 若先出现在 HTML 注释里会抽到跨标签的错误切片（喂给 eval 后要么
+ * SyntaxError、要么假通过），且各下标无 -1 守卫。
  * @param {string} src @param {string} marker
  */
 function extractInline(src, marker) {
-  const at = src.indexOf(marker);
-  if (at < 0) return null;
-  const open = src.lastIndexOf("<script", at);
-  const bodyStart = src.indexOf(">", open) + 1;
-  const end = src.indexOf("</script>", at);
-  return src.slice(bodyStart, end);
+  const re = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    if (m[1].includes(marker)) return m[1];
+  }
+  return null;
 }
 
 const alignCode = extractInline(html, "__etherealAlignBannerTheme");
@@ -124,7 +129,7 @@ function makeEnv(opt) {
     configurable: true,
     get: () => completeFlag,
   });
-  w.eval(alignCode);
+  runInContext(/** @type {string} */ (alignCode), w);
   return {
     dom,
     w,
@@ -211,7 +216,7 @@ const run = async () => {
     const env = makeEnv({ dark: false, complete: true });
     const { w, img, setComplete } = env;
     const banner = w.document.getElementById("banner");
-    w.eval(revealCode);
+    runInContext(revealCode, w);
     // 模拟浏览器在「下一个任务」才提交新的 currentSrc：暗图（已缓存，complete=true）
     // 随 source 移除作废 ⇒ 此刻尚未就绪
     setComplete(false);
@@ -230,7 +235,7 @@ const run = async () => {
     const env = makeEnv({ dark: false, complete: true });
     const { w } = env;
     const banner = w.document.getElementById("banner");
-    w.eval(revealCode);
+    runInContext(revealCode, w);
     await tick(w);
     await frames(w, 3);
     check("BA-6d 已就绪（complete）时正常揭示", hidden(banner), false);
@@ -238,7 +243,7 @@ const run = async () => {
   }
 
   console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-  process.exit(failures === 0 ? 0 : 1);
+  process.exitCode = (failures === 0 ? 0 : 1);
 };
 
 void run();

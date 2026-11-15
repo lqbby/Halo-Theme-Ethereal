@@ -19,9 +19,10 @@
 //   CL-3  换页路径（带精准 hash 进入）⇒ 先瞬时贴靠 #comment 顶 + replaceState
 //   CL-4  同页路径（hashchange）⇒ 不再瞬时贴靠（单次平滑更连贯），仍做 replaceState
 //
-// 运行（JSDOM 在 managed workspace，不在仓库依赖里）：
-//   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
-//   "C:/Users/LQ/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" scripts/test-recent-comments-nav.mjs
+// 运行（JSDOM 不在仓库依赖里，经 JSDOM_MODULE 指定其位置）：
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-recent-comments-nav.mjs
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -69,8 +70,11 @@ function extractInlineScript(source, anchor) {
   const i = source.indexOf(anchor);
   if (i < 0) throw new Error(`产物里找不到锚点：${anchor}`);
   const start = source.lastIndexOf("<script", i);
-  const openEnd = source.indexOf(">", start);
+  const openEnd = start < 0 ? -1 : source.indexOf(">", start);
   const end = source.indexOf("</script>", i);
+  // 任一边界缺失时禁止静默切片（旧实现会把错误片段喂给 jsdom，报错难定位）
+  if (start < 0 || openEnd < 0 || end < 0 || end <= openEnd)
+    throw new Error(`锚点所在内联脚本结构异常：${anchor}`);
   return source.slice(openEnd + 1, end);
 }
 
@@ -218,7 +222,7 @@ console.log("── RecentComments 跳转逻辑（产物内联脚本）──");
 {
   const env = makeEnv(ORIGIN + "/archives/post-1");
   const { w, lazy, navCalls } = env;
-  w.eval(RC_SRC);
+  runInContext(RC_SRC, w);
 
   const load = lazy["recent-comments-list"];
   check("NAV-0 lazyInit 注册的 load 是函数", typeof load, "function");
@@ -324,7 +328,7 @@ console.log("\n── comment-locate 同页锚点监听（产物 comment-locate.
 {
   const env = makeEnv(ORIGIN + "/archives/post-1");
   const { w, countOf } = env;
-  w.eval(CL_SRC);
+  runInContext(CL_SRC, w);
   check("CL-1 hashchange 监听注册一次", countOf("hashchange"), 1);
   check(
     "CL-1 ethereal:locate-comment 监听注册一次",
@@ -333,7 +337,7 @@ console.log("\n── comment-locate 同页锚点监听（产物 comment-locate.
   );
 
   // 模拟 Swup 换页克隆重执行（同一 window 再 eval 一次）⇒ 不得重复注册
-  w.eval(CL_SRC);
+  runInContext(CL_SRC, w);
   check(
     "CL-2 克隆重执行后监听器总数不变",
     countOf("hashchange") + countOf("ethereal:locate-comment"),
@@ -376,7 +380,7 @@ console.log("\n── comment-locate 瞬时贴靠（snap）行为 ──");
    * @param {any} o */
   const recordSnap = (o) => snapCalls.push(o);
   box.scrollIntoView = recordSnap;
-  w.eval(CL_SRC);
+  runInContext(CL_SRC, w);
   // jsdom 构造返回时 readyState 可能仍是 "loading"（bind 挂到 DOMContentLoaded），
   // 等事件落地后再断言；bind 的监听器先注册，事件触发时先跑。
   await new Promise((resolve) => {
@@ -413,4 +417,4 @@ console.log("\n── comment-locate 瞬时贴靠（snap）行为 ──");
 }
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

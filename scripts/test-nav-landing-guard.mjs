@@ -53,8 +53,17 @@ function check(name, actual, expected) {
 }
 
 const src = readFileSync(APP, "utf8");
-/** 压掉空白便于跨行匹配 */
-const flat = src.replace(/\s+/g, " ");
+/**
+ * 先剥注释再压空白：注释掉/退役的旧代码不得满足断言（否则功能删光测试仍绿）。
+ * 行注释剥离用 [^:] 前置守卫护住 "https://" 等字符串里的双斜杠；
+ * 块注释先剥（可跨行）。字符串内含块注释定界符的极少数情况会误剥，届时断言变红而非变绿，可接受。
+ */
+/** @param {string} s */
+const stripComments = (s) =>
+  s
+    .replace(/\/\*[\s\S]*?\*\//g, " ")
+    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+const flat = stripComments(src).replace(/\s+/g, " ");
 
 // L1 双档位表 + 清理
 check(
@@ -190,7 +199,9 @@ check(
   true,
 );
 
-// L8 运行语义仿真（与源码判据同构，防手改语义）
+// L8 文档仿真（注意：这里是判据的手写复刻，不执行 app.ts 的真实 guard——
+// 绿色只证明「仿真模型与文档判据自洽」，不构成对生产语义的行为覆盖；
+// PASSES 与源码档表的同步由 L1b 的源码断言负责）
 {
   const PASSES = [120, 300, 600, 1200, 2000, 3200, 4500];
   /**
@@ -214,7 +225,7 @@ check(
       writes: 0,
     };
     for (const _ of PASSES) guardTick(s);
-    check("L8a 仿真：正常路径零写回", s.writes, 0);
+    check("L8a 文档仿真：正常路径零写回", s.writes, 0);
   }
   // 仿真 2：被拽走 → 首个有效档写回顶，后续档静默（一次收敛）
   {
@@ -226,7 +237,7 @@ check(
       writes: 0,
     };
     for (const _ of PASSES) guardTick(s);
-    check("L8b 仿真：被拽走一次收敛到顶", `${s.writes}:${s.scrollY}`, "1:0");
+    check("L8b 文档仿真：被拽走一次收敛到顶", `${s.writes}:${s.scrollY}`, "1:0");
   }
   // 仿真 3：用户接管 → 全部跳过（不与用户抢滚动）
   {
@@ -238,7 +249,7 @@ check(
       writes: 0,
     };
     for (const _ of PASSES) guardTick(s);
-    check("L8c 仿真：用户接管后 guard 让位（不写回）", s.writes, 0);
+    check("L8c 文档仿真：用户接管后 guard 让位（不写回）", s.writes, 0);
   }
   // 仿真 4：新换页（token 递增）使旧 guard 失效
   {
@@ -251,7 +262,7 @@ check(
     };
     s.current += 1; // visit:start
     guardTick(s);
-    check("L8d 仿真：旧 guard 在新换页后失效", s.writes, 0);
+    check("L8d 文档仿真：旧 guard 在新换页后失效", s.writes, 0);
   }
   // 仿真 5：即时纠正——外部写者拽走后由 scroll 事件立即收回（不等档位）
   {
@@ -265,7 +276,7 @@ check(
     s.scrollY = 4000; // 外部写者（触发 scroll 事件）
     guardTick(s); // 事件回调（下一帧）
     check(
-      "L8e 仿真：拽走后事件即时收回（0 档位等待）",
+      "L8e 文档仿真：拽走后事件即时收回（0 档位等待）",
       `${s.writes}:${s.scrollY}`,
       "1:0",
     );
@@ -283,7 +294,7 @@ check(
     s.scrollY = 4000; // 用户滚到的位置
     guardTick(s);
     check(
-      "L8f 仿真：用户接管后事件回调不动作",
+      "L8f 文档仿真：用户接管后事件回调不动作",
       `${s.writes}:${s.scrollY}`,
       "0:4000",
     );
@@ -389,4 +400,4 @@ check(
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

@@ -2,6 +2,7 @@
 // 用途：脚本 test-visit-tracker.mjs 的契约 fixture —— 断言主题的 history.pushState 守卫
 //       能阻断它对 pushState/replaceState 的包装，从而消除「换页时重复上报上一篇文章」。
 // ⚠️ 线上原样副本，别手改；Halo 升级后重新抓一份替换。
+// 例外：haloTracker 入口函数有一处无害化改动（见文件内该处注释），与上游不完全一致，重抓时留意。
 !(function () {
   "use strict";
   !(function (t) {
@@ -110,7 +111,11 @@
         };
       if (!t.haloTracker) {
         var A = function (t) {
-          return trackEvent(t);
+          // 与上游的分歧（仅此一处）：上游原样调用未定义的 trackEvent，
+          // 一旦有人调用 haloTracker(...) 就抛 ReferenceError。本仓无人调用
+          // 该接口（契约测试只验 pushState 守卫），这里仅做无害化：
+          // trackEvent 存在才转发，否则静默。上游修复后重抓时可还原。
+          return typeof trackEvent === "function" ? trackEvent(t) : undefined;
         };
         ((A.trackView = P), (t.haloTracker = A));
       }

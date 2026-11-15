@@ -12,8 +12,10 @@ runs:
   steps:
     - name: 验证产物
       shell: bash
+      env:
+        INPUT_ZIP_PATH: ${{ inputs.zip-path }}
       run: |
-        ZIP="${{ inputs.zip-path }}"
+        ZIP="$INPUT_ZIP_PATH"
         if [ -z "$ZIP" ]; then
           ZIP=$(ls dist/*.zip 2>/dev/null | head -1)
         fi

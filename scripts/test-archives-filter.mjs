@@ -11,6 +11,8 @@
  *   SITE=https://www.lqbby.com \
  *   NODE_PATH=/path/to/node_modules node scripts/test-archives-filter.mjs
  */
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -39,26 +41,42 @@ async function get(url) {
 }
 
 // ── 1. 权威映射：文章 slug → 分类 slug（走 Halo 公开 API） ────────────────────
-const api = JSON.parse(
-  await get(`${SITE}/apis/api.content.halo.run/v1alpha1/posts?page=1&size=200`),
-);
+// 按页拉全：旧实现只取 size=200 一页，站点文章数超过 200 时映射表会静默截断，
+// 后续断言等于在错误契约上验证（总数取 API 的 total、映射却只有前 200 篇）。
+const API_PAGE_SIZE = 200;
 const slugCats = new Map();
-for (const p of api.items) {
-  slugCats.set(
-    p.spec.slug,
-    (p.categories || []).map((c) => c.spec.slug),
+let TOTAL = 0;
+for (let page = 1; ; page++) {
+  const api = JSON.parse(
+    await get(
+      `${SITE}/apis/api.content.halo.run/v1alpha1/posts?page=${page}&size=${API_PAGE_SIZE}`,
+    ),
   );
+  TOTAL = api.total;
+  for (const p of api.items) {
+    slugCats.set(
+      p.spec.slug,
+      (p.categories || []).map((c) => c.spec.slug),
+    );
+  }
+  if (api.items.length === 0 || slugCats.size >= TOTAL) break;
+  if (page > 100) throw new Error(`API 分页异常：已拉 ${page} 页仍未凑齐 ${TOTAL} 篇`);
 }
-const TOTAL = api.total;
+if (slugCats.size !== TOTAL)
+  throw new Error(`映射不完整：API total=${TOTAL}，实际拉到 ${slugCats.size} 篇`);
 
 // ── 2. 抓线上各分页，并注入服务端契约属性 ────────────────────────────────────
-const pageCount = Math.ceil(TOTAL / 10); // 页大小取实际每页条数由第 1 页推断
-const rawPages = [];
-for (let k = 1; k <= pageCount; k++) {
-  const url = k === 1 ? `${SITE}/archives` : `${SITE}/archives/page/${k}`;
-  rawPages.push(await get(url));
+// 每页条数必须由线上第 1 页实际行数推断：旧实现写死 10 并自称「由第 1 页推断」，
+// 站点改每页条数时 pageCount 算错，整个桩测集会在错误页数上跑。
+const firstPageHtml = await get(`${SITE}/archives`);
+const realPageSize = (firstPageHtml.match(/data-archive-row=/g) || []).length;
+if (realPageSize === 0)
+  throw new Error("第 1 页抓不到 data-archive-row，无法推断每页条数");
+const pageCount = Math.ceil(TOTAL / realPageSize);
+const rawPages = [firstPageHtml];
+for (let k = 2; k <= pageCount; k++) {
+  rawPages.push(await get(`${SITE}/archives/page/${k}`));
 }
-const realPageSize = (rawPages[0].match(/data-archive-row=/g) || []).length;
 
 // 线上产物可能还是「旧 SSR」：那时空态块带 th:if="${filterActive}"，未筛选时压根不渲染。
 // 新模板已改为**恒渲染**（脚本要在未筛选的第 1 页上取它的快照），故桩件补注入。
@@ -105,7 +123,7 @@ window.fetch = (u) => {
     text: () => Promise.resolve(body || ""),
   });
 };
-window.eval(SCRIPT);
+runInContext(SCRIPT, window);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const doc = () => window.document;
@@ -220,7 +238,7 @@ let filteredFixture = pages[0].replace(
       text: () => Promise.resolve(body || ""),
     });
   };
-  d2.window.eval(SCRIPT);
+  runInContext(SCRIPT, d2.window);
   const ssrRows = d2.window.document.querySelectorAll(
     "#archive-list [data-archive-row]",
   ).length;
@@ -259,4 +277,4 @@ console.log(
   `入口带筛选（?category=${scenSlug}）：${entryInfo} ${entryOk ? "✅" : "❌"}`,
 );
 console.log(failed === 0 ? "\n✅ 全部通过" : `\n❌ 失败 ${failed} 项`);
-process.exit(failed === 0 ? 0 : 1);
+process.exitCode = (failed === 0 ? 0 : 1);

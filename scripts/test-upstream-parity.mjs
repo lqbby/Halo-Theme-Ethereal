@@ -147,6 +147,31 @@ for (const name of ["widgets", "mobileWidgets", "rightWidgets"]) {
     }
     return out;
   }
+  /** 提取每个 ${...} 的内部文本（与 stripExpr 同一深度计数口径） */
+  /** @param {string} s */
+  function exprInners(s) {
+    /** @type {string[]} */
+    const out = [];
+    let i = 0;
+    while (i < s.length) {
+      if (s[i] === "$" && s[i + 1] === "{") {
+        let depth = 0;
+        let j = i + 1;
+        for (; j < s.length; j++) {
+          if (s[j] === "{") depth++;
+          else if (s[j] === "}") {
+            depth--;
+            if (depth === 0) break;
+          }
+        }
+        out.push(s.slice(i + 2, j));
+        i = j + 1;
+      } else {
+        i++;
+      }
+    }
+    return out;
+  }
   const files = [];
   (function walk(dir) {
     for (const e of readdirSync(dir, { withFileTypes: true })) {
@@ -159,6 +184,18 @@ for (const name of ["widgets", "mobileWidgets", "rightWidgets"]) {
   const offenders = [];
   for (const f of files) {
     const raw = readFileSync(f, "utf8");
+    // 表达式内部的注释必须在剥离前查：stripExpr 会把 ${...} 连同注释一起删掉，
+    // 旧实现只查剥离后的残值 ⇒ 「表达式内禁注释」这半条守卫恒漏检、静默假绿
+    const rawRe = /\bth:[A-Za-z-]+="([^"]*)"/g;
+    let rm;
+    while ((rm = rawRe.exec(raw))) {
+      for (const inner of exprInners(rm[1])) {
+        if (inner.includes("/*"))
+          offenders.push(
+            `${f.replace(ROOT, "")} → 表达式内注释 ${inner.slice(0, 40)}…`,
+          );
+      }
+    }
     const stripped = stripExpr(raw);
     const re = /\bth:[A-Za-z-]+="([^"]*)"/g;
     let m;
@@ -177,4 +214,4 @@ for (const name of ["widgets", "mobileWidgets", "rightWidgets"]) {
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

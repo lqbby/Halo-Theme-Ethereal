@@ -142,6 +142,7 @@ check(
   "F2e animation:out:start 无撑高展示、无档位场景标记（v1.7.27 全退役）",
   (() => {
     const i = flatApp.indexOf('"animation:out:start"');
+    if (i < 0) return false; // 锚点缺失（功能被删/改名）必须变红，禁止 slice(-1) 让否定断言恒真
     const seg = flatApp.slice(i, i + 900);
     return (
       seg.indexOf("showPageHeightExtend") < 0 &&
@@ -209,4 +210,4 @@ check(
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

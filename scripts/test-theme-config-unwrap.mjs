@@ -27,6 +27,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 
 const ROOT = process.cwd();
 const SHELLS = ["src/layouts/Layout.astro", "src/pages/layout.astro"];
@@ -72,8 +73,8 @@ function runNormalizer(code, raw) {
   const doc = {
     getElementById: (id) => (id === "theme-config" ? el : null),
   };
-  // eslint-disable-next-line no-new-func
-  new Function("document", "window", code)(doc, {});
+  // 隔离 vm 沙箱执行被测代码（替代被项目禁用的 new Function），只注入 document/window 桩
+  runInNewContext(code, { document: doc, window: {} });
   return el.textContent;
 }
 
@@ -90,6 +91,9 @@ function check(label, cond, extra) {
   }
 }
 
+// 夹具里的腾讯地图 Key 必须是显眼的假值：真 Key 写进夹具会随仓库/CI 日志泄露
+const FAKE_TENCENT_KEY = "FAKE0-00000-00000-00000-00000-00000";
+
 // 复刻 Halo 的序列化形态：每个分组多包一层 realNode
 const wrappedFixture = JSON.stringify({
   mods: { realNode: { enable: true, cardShell: true } },
@@ -102,7 +106,7 @@ const wrappedFixture = JSON.stringify({
           { value: "moe-counter", counter_theme: "moebooru" },
           {
             value: "weather",
-            tencent_key: "YT4BZ-7AHWQ-CIG55-4H5LF-AKUBK-SGB25",
+            tencent_key: FAKE_TENCENT_KEY,
             default_city: "110000",
           },
         ],
@@ -156,7 +160,7 @@ console.log("[1] 包了 realNode ⇒ 拆平后消费者路径全部可达");
   const weather = (wc?.rightWidgets || []).find((w) => w.value === "weather");
   check(
     "★ 天气 Key 能取到（原 bug：恒为 undefined ⇒ 一直提示「请配置腾讯地图 Key」）",
-    weather?.tencent_key === "YT4BZ-7AHWQ-CIG55-4H5LF-AKUBK-SGB25",
+    weather?.tencent_key === FAKE_TENCENT_KEY,
     JSON.stringify(weather),
   );
   check("cfg.mods.cardShell 可达", cfg.mods?.cardShell === true);
@@ -220,7 +224,10 @@ for (const [label, raw] of [
   if (label === "realNode 不是对象") {
     check(
       "非对象的 realNode 原样保留",
-      JSON.parse(out).sidebar.realNode === "x",
+      // ok 为 false 时 out 是空串，无守卫的 JSON.parse 会抛错把整个套件带崩，
+      // 而不是记一条干净的断言失败
+      ok && JSON.parse(out).sidebar.realNode === "x",
+      ok ? out : "normalizer 抛异常",
     );
   }
 }
@@ -279,4 +286,4 @@ console.log("[7] #theme-config 带 data-swup-theme（跨 Swup 换页常驻）");
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

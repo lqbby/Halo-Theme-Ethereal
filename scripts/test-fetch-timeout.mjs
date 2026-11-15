@@ -141,4 +141,4 @@ globalThis.fetch = realFetch;
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

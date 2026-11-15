@@ -53,8 +53,12 @@ check(
 );
 
 check(
-  "G3 CSS：移动端下整块 display:none",
-  cssFlat.includes(".hbf-root.hbf-mobile-hidden { display: none; }"),
+  "G3 CSS：@media (max-width:767.98px) 内整块 display:none（写在媒体外不算通过）",
+  // 只 includes 规则文本会放行「桌面端也隐藏」的错误写法，必须连媒体查询一起匹配；
+  // 当前组件里该规则是媒体块内唯一规则，若日后往块内加规则排在它前面，本条会变红（保守方向）
+  /@media\s*\(max-width:\s*767\.98px\)\s*\{\s*\.hbf-root\.hbf-mobile-hidden\s*\{\s*display:\s*none;?\s*\}/.test(
+    cssFlat,
+  ),
   true,
 );
 
@@ -74,4 +78,4 @@ for (const f of ["default", "zh_CN", "zh_TW"]) {
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

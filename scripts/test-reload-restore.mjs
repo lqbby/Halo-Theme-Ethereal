@@ -110,10 +110,13 @@ check(
 );
 {
   const i = cssFlat.indexOf("html.reload-restoring #main-grid");
-  const seg = cssFlat.slice(i, i + 220);
+  check("R4b0 隐藏门规则可定位", i >= 0, true);
+  // 按规则块（到第一个 } 为止）截取；锚点缺失时 seg 为空串会让否定断言恒真，必须先有 R4b0 把关
+  const ruleEnd = i < 0 ? -1 : cssFlat.indexOf("}", i);
+  const seg = i < 0 ? "" : cssFlat.slice(i, ruleEnd < 0 ? i + 220 : ruleEnd);
   check(
     "R4b 隐藏门不含任何 transition（位移族契约）",
-    seg.includes("transition") === false,
+    i >= 0 && seg.includes("transition") === false,
     true,
   );
 }
@@ -126,4 +129,4 @@ check(
 );
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

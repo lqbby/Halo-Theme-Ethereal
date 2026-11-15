@@ -240,6 +240,15 @@ if (!guardOnce("navbar-panel-toggle")) {
     }
   });
 
+  // 跨断点兜底：抽屉打开时把窗口从移动端拉宽到桌面端（≥1024px，与
+  // Navbar.astro 桌面菜单栏的 lg 断点一致），抽屉自身被桌面样式隐藏，
+  // 但 body.nav-menu-open 与滚动锁定不会自动解除，状态残留会让悬浮按钮
+  // 等继续被 CSS 按「菜单打开」处理。进入桌面端时统一走关闭流程收起。
+  var navDesktopMq = window.matchMedia("(min-width: 1024px)");
+  navDesktopMq.addEventListener("change", function (e) {
+    if (e.matches && drawerMode) setNavMenuOpen(false);
+  });
+
   // 换页后刷新抽屉高亮并收起抽屉（与 app.ts 同一模式）。
   // 用共享 onPageView 去重注册：SwupScriptsPlugin 重执行脚本时只注册一次。
   onPageView("navbar", function () {

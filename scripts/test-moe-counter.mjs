@@ -35,6 +35,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 
 const ROOT = process.cwd();
 const TEMPLATES = path.join(ROOT, "templates");
@@ -267,25 +268,21 @@ function runner({ api, name, theme, num, pad, svg, probeDims, failProbe }) {
           json: () => Promise.resolve({ name, num: 999 }),
         });
       };
-      // eslint-disable-next-line no-new-func
-      new Function(
-        "window",
-        "document",
-        "console",
-        "setTimeout",
-        "clearTimeout",
-        "fetch",
-        "Image",
-        code,
-      )(
-        win,
+      // 隔离 vm 沙箱执行产物（替代被项目禁用的 new Function）：产物只能看到
+      // 下面显式注入的宿主 API，看不到 process/require；信任前提 = code 必须是
+      // 本地构建产物（templates/assets），不得来自外部输入
+      runInNewContext(code, {
+        window: win,
         document,
-        { warn() {}, log() {}, error() {}, info() {} },
+        console: { warn() {}, log() {}, error() {}, info() {} },
         setTimeout,
         clearTimeout,
-        fetchStub,
-        ImageStub,
-      );
+        fetch: fetchStub,
+        Image: ImageStub,
+        // 用例 [13] 会临时把 ResizeObserver 桩装到 globalThis 上（旧 new Function
+        // 靠全局解析读到）；vm 沙箱不回落宿主全局，须在 run 时按当前全局值显式透传
+        ResizeObserver: globalThis.ResizeObserver,
+      });
     },
   };
 }
@@ -691,4 +688,4 @@ console.log("[14] ★ 跨域响应缺 ACAO（fetch 必失败）时精灵模式�
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

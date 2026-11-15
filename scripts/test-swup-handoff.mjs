@@ -15,6 +15,7 @@
 //   SH-4 清单为空 / 非数组 / 选择器非常规 ⇒ 一律 false（宁可漏判，不误判主题页）
 //   SH-5 产物 bundle 里 page:load 守卫存在（含容器选择器正则标志）
 import { readFileSync, existsSync, readdirSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -52,10 +53,21 @@ const cleaned = raw
   .replace(/: string/g, "")
   .replace(/: boolean/g, "")
   .replace(/\(html, containers\)/, "(html, containers)");
+// 在隔离 vm 上下文里求值（替代被项目禁用的 new Function）：抽出的函数是纯函数，
+// 沙箱不注入任何宿主 API；抽取失败（多半是新的 TS 注解没被剥离）要报出可读原因而非裸 SyntaxError
 /** @type {(html: string, containers: unknown) => boolean} */
-const shouldHandoffToBrowser = new Function(
-  `${cleaned}; return shouldHandoffToBrowser;`,
-)();
+let shouldHandoffToBrowser;
+try {
+  shouldHandoffToBrowser = runInNewContext(
+    `${cleaned}; shouldHandoffToBrowser`,
+    {},
+  );
+} catch (err) {
+  console.error(
+    `❌ 被测函数抽取失败（类型注解未被剥离？）：${err instanceof Error ? err.message : err}`,
+  );
+  process.exit(1);
+}
 
 // 与 astro.config.mjs 的 swup.containers 一致（改配置时这里也要跟着改——测试的意义之一）
 const CONTAINERS = [
@@ -128,4 +140,4 @@ check("SH-5 产物注册了 page:load 守卫", hasHook && hasContainersRef, true
 if (!hasHook) console.log("    bundles:", bundles.join(", "));
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

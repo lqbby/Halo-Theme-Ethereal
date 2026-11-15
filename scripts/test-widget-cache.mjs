@@ -20,8 +20,9 @@
 //   PP-4 真请求回填新格式 {ts,posts}
 //
 // 运行（JSDOM 在 managed workspace，不在仓库依赖里）：
-//   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
-//   "C:/Users/LQ/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" scripts/test-widget-cache.mjs
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-widget-cache.mjs
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -72,12 +73,17 @@ function extractInlineScript(source, anchor) {
   const i = source.indexOf(anchor);
   if (i < 0) throw new Error(`产物里找不到锚点：${anchor}`);
   const start = source.lastIndexOf("<script", i);
-  const openEnd = source.indexOf(">", start);
+  const openEnd = start < 0 ? -1 : source.indexOf(">", start);
   const end = source.indexOf("</script>", i);
+  // 任一边界缺失时禁止静默切片（旧实现会把错误片段喂给 jsdom，报错难定位）
+  if (start < 0 || openEnd < 0 || end < 0 || end <= openEnd)
+    throw new Error(`锚点所在内联脚本结构异常：${anchor}`);
   return source.slice(openEnd + 1, end);
 }
 
-const RC_SRC = extractInlineScript(html, "var LIMIT=5;");
+// 锚点用组件自己的 localStorage 键（源码级稳定串）：旧锚点 "var LIMIT=5;"
+// 依赖压缩器去掉等号两侧空格的产物形态，压缩配置一变就静默抠错/抠不到
+const RC_SRC = extractInlineScript(html, "ethereal-recent-comments");
 const PP_SRC = extractInlineScript(html, PP_KEY);
 
 /** @type {(n?: number) => Promise<void>} */
@@ -218,7 +224,7 @@ console.log("── RecentComments（侧栏「最近评论」）──");
 {
   const env = makeEnv();
   const { w, lazy, fetchCalls, countOf } = env;
-  w.eval(RC_SRC);
+  runInContext(RC_SRC, w);
 
   check(
     "RC-0 lazyInit 注册的 load 是函数",
@@ -307,7 +313,7 @@ console.log("── RecentComments（侧栏「最近评论」）──");
   // RC-4 Swup 换页克隆重执行脚本 ⇒ 监听器不得重复绑定
   const beforeCount =
     countOf("halo:comment:created") + countOf("halo:comment-reply:created");
-  w.eval(RC_SRC);
+  runInContext(RC_SRC, w);
   const afterCount =
     countOf("halo:comment:created") + countOf("halo:comment-reply:created");
   check("RC-4 脚本重执行后监听器总数不变", afterCount, beforeCount);
@@ -327,7 +333,7 @@ console.log("\n── PopularPosts（侧栏「热门文章」）──");
 {
   const env = makeEnv();
   const { w, lazy, fetchCalls } = env;
-  w.eval(PP_SRC);
+  runInContext(PP_SRC, w);
 
   check(
     "PP-0 lazyInit 注册的 load 是函数",
@@ -393,4 +399,4 @@ console.log("\n── PopularPosts（侧栏「热门文章」）──");
 }
 
 console.log(`\n${failures === 0 ? "✅ 全部通过" : `❌ ${failures} 项失败`}`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

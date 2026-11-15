@@ -1,5 +1,8 @@
 blank_issues_enabled: true
 contact_links:
+  - name: 🔒 安全漏洞私密报告
+    url: https://github.com/lqbby/Halo-Theme-Ethereal/security/advisories/new
+    about: 安全漏洞请走此私密渠道提交（仅维护者可见），不要在公开 Issue 中描述利用细节
   - name: 💬 主题交流群（QQ）
     url: https://qm.qq.com/q/onMpJjYvgQ
     about: 使用过程中的疑问可以在交流群中讨论

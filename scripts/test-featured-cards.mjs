@@ -24,6 +24,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { runInNewContext } from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const target = process.argv[2] || "templates/assets/featured-cards.js";
@@ -470,31 +471,23 @@ function makeEnv({
     advance,
     settle: (n = 30) => flush(n),
     run() {
-      const fn = new Function(
-        "window",
-        "document",
-        "console",
-        "setTimeout",
-        "clearTimeout",
-        "fetch",
-        "requestAnimationFrame",
-        "cancelAnimationFrame",
-        "Image",
-        "getComputedStyle",
-        code,
-      );
-      fn(
-        win,
-        doc,
-        { warn() {}, log() {}, error() {}, info() {} },
+      // 隔离 vm 沙箱执行产物（替代被项目禁用的 new Function）：产物只能看到
+      // 下面显式注入的宿主 API，看不到 process/require；信任前提 = code 必须是
+      // 本地构建产物，不得来自外部输入
+      runInNewContext(code, {
+        window: win,
+        document: doc,
+        console: { warn() {}, log() {}, error() {}, info() {} },
         setTimeout,
         clearTimeout,
-        fetchStub,
-        raf,
-        caf,
-        FakeImage,
-        () => ({ getPropertyValue: (k) => (k === "--hue" ? "250" : "") }),
-      );
+        fetch: fetchStub,
+        requestAnimationFrame: raf,
+        cancelAnimationFrame: caf,
+        Image: FakeImage,
+        getComputedStyle: () => ({
+          getPropertyValue: (k) => (k === "--hue" ? "250" : ""),
+        }),
+      });
     },
     clickNav(which) {
       const btnEl = which === "prev" ? prevBtn : nextBtn;
@@ -1295,4 +1288,4 @@ console.log("[11] 无封面文章：切 is-cover-empty 并摘掉 src");
 console.log(
   `\n通过 ${pass} 项${fails.length ? `，失败 ${fails.length} 项：\n - ${fails.join("\n - ")}` : "，全部通过"}`,
 );
-process.exit(fails.length ? 1 : 0);
+process.exitCode = (fails.length ? 1 : 0);

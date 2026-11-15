@@ -45,8 +45,12 @@ function scanCssText(text, label, out, baseLine = 0) {
   for (const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const body = m[2];
     for (const prop of PAIRS) {
-      const iStd = body.indexOf(`${prop}:`);
-      const iPre = body.indexOf(`-webkit-${prop}:`);
+      // 带边界匹配：裸 indexOf(`${prop}:`) 会命中 -webkit-/-moz- 前缀名内部的同名子串，
+      // 造成假阳性（误报倒序）与假阴性（漏掉真倒序）两种误判
+      const stdMatch = new RegExp(`(^|[^-\\w])${prop}\\s*:`).exec(body);
+      const preMatch = new RegExp(`-webkit-${prop}\\s*:`).exec(body);
+      const iStd = stdMatch ? stdMatch.index + stdMatch[1].length : -1;
+      const iPre = preMatch ? preMatch.index : -1;
       if (iPre > iStd && iStd >= 0) {
         const line = baseLine + text.slice(0, m.index).split("\n").length;
         out.push(`${label}:${line} (${prop})`);
@@ -109,4 +113,4 @@ if (reversed.length) for (const r of reversed.slice(0, 6)) console.log("    ", r
 }
 
 console.log(failures === 0 ? "\n✅ 全部通过" : `\n❌ ${failures} 项失败`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);

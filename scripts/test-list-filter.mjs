@@ -9,8 +9,9 @@
 // 相册灯箱重绑钩子」这条链，以及「不该拦的点击不拦」。
 //
 // 运行：
-//   NODE_PATH="C:/Users/LQ/.workbuddy/binaries/node/workspace/node_modules" \
-//   "C:/Users/LQ/.workbuddy/binaries/node/versions/22.22.2-3/node.exe" scripts/test-list-filter.mjs
+//   JSDOM_MODULE=/path/to/jsdom node scripts/test-list-filter.mjs
+// 执行构建产物统一走 node:vm（项目禁用 eval / new Function）：runInContext(code, jsdomWindow)
+import { runInContext } from "node:vm";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -77,7 +78,7 @@ function makeDom(html, { responder, url = ORIGIN + "/equipments", hook } = {}) {
     return Promise.resolve(responder(String(input)));
   };
   if (hook) dom.window.__etherealRefreshPhotosGallery = hook;
-  dom.window.eval(readFileSync(BUNDLE, "utf8"));
+  runInContext(readFileSync(BUNDLE, "utf8"), dom.window);
   if (dom.window.document.readyState === "loading") {
     dom.window.document.dispatchEvent(new dom.window.Event("DOMContentLoaded"));
   }
@@ -266,4 +267,4 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
 }
 
 console.log(failures === 0 ? "\n全部通过 ✅" : `\n${failures} 项失败 ❌`);
-process.exit(failures === 0 ? 0 : 1);
+process.exitCode = (failures === 0 ? 0 : 1);
