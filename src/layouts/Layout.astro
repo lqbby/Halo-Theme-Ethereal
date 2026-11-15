@@ -648,6 +648,59 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
         }
       })();
     </script>
+    <!-- 字体关键切片预加载：LXGW WenKai Screen 分片按站内真实语料（首页/归档/
+         更新日志/数据看板/文章页正文，按 CSS 顺序首命中口径）测得的覆盖率排序，
+         前 6 片覆盖约 95.6% 的正文字符，配合 font-display: optional 让首屏文字
+         赶在阻塞窗口内用上文楷。仅当外部字体启用且 fontFile 指向这一套同源
+         字体包时输出，换字体后自动失效、不会 404。 -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-119.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-118.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-117.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-116.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-115.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
+    <link
+      rel="preload"
+      as="font"
+      type="font/woff2"
+      crossorigin
+      href="/upload/fonts/lxgw-1.7.0/files/lxgwwenkaigbscreen-subset-113.woff2"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and #strings.contains(theme.config.style.externalFont.fontFile, '/upload/fonts/lxgw-1.7.0/')}"
+    />
     <!-- 外部字体 CSS 模式：服务端直出样式表链接，字体 CSS 随 HTML 一起
          开始下载，避免等 JS 注入才拉字体导致的整页重排（先备用字体排版、
          字体到位后再重排）。下方脚本仍会按同 URL 注入（浏览器走缓存、
