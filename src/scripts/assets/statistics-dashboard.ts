@@ -627,27 +627,56 @@
   function loadPush() {
     var panel = panelEl("push");
     if (!panel) return;
-    if (!githubRepo || githubRepo.indexOf("/") < 0) {
-      showPushEmpty();
-      return;
-    }
-    readGhCache()
-      .then(function (cached) {
-        if (cached) return cached;
-        return fetchGhCommits().then(function (data) {
-          try {
-            sessionStorage.setItem(
-              GH_CACHE_KEY,
-              JSON.stringify({ ts: Date.now(), repo: githubRepo, data: data }),
-            );
-          } catch (e) {}
-          return data;
+    // 优先读站内生成的提交统计：VM 101 每小时用 git log 生成、同域提供，
+    // 绕开浏览器直调 api.github.com 的未认证限额（共享代理出口 IP 的
+    // 60 次/小时额度常被同 IP 陌生人占满，浏览器侧永远 403 判空）。
+    // 站内数据不可用时才回退 GitHub API 直连（sessionStorage 缓存只作用于它）。
+    fetchLocalPushData()
+      .catch(function () {
+        if (!githubRepo || githubRepo.indexOf("/") < 0) {
+          throw new Error("no repo");
+        }
+        return readGhCache().then(function (cached) {
+          if (cached) return cached;
+          return fetchGhCommits().then(function (data) {
+            try {
+              sessionStorage.setItem(
+                GH_CACHE_KEY,
+                JSON.stringify({
+                  ts: Date.now(),
+                  repo: githubRepo,
+                  data: data,
+                }),
+              );
+            } catch (e) {}
+            return data;
+          });
         });
       })
       .then(renderPush)
       .catch(function () {
         showPushEmpty();
       });
+  }
+
+  // 站内推送统计（/opt/push-data/gen_push_data.py 每小时生成，
+  // 形状与 fetchGhCommits 返回一致：{ byDay: { "YYYY-MM-DD": n }, startISO }）
+  function fetchLocalPushData() {
+    return fetchJSON(
+      "/upload/stats/push-data.json",
+      { cache: "no-cache" },
+      8000,
+    ).then(function (data) {
+      if (
+        !data ||
+        typeof data.byDay !== "object" ||
+        data.byDay === null ||
+        Array.isArray(data.byDay)
+      ) {
+        throw new Error("bad local push data");
+      }
+      return data;
+    });
   }
 
   function readGhCache() {
