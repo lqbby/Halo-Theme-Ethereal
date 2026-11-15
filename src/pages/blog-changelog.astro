@@ -1111,22 +1111,24 @@ import QueryPagination from "../components/control/QueryPagination.astro";
           <!-- 互链：命中「批次 version 相等，或批次 entries 含『里程碑版本 ·』行」时
                渲染指向该批次所在分页的永久链接；无对应批次的里程碑（初版 / v2.0.1）不渲染。
                页码 = index / pageSize + 1（整数除，与 totalPages 同口径）。 -->
-          <!-- 首命中守卫：目标批次先在 th:with 里算唯一一个（version 全等
-               优先，其次 entries 首个命中），链接只渲染这一个；旧写法逐批
-               渲染、命中几批出几个链接。注意：选择表达式 .^[] 内裸变量名
-               会按批次 Map 取键（取不到即失效），里程碑版本必须经
-               #ctx.getVariable 从上下文取（InstaBox 真引擎实测）。 -->
+          <!-- 首命中守卫：目标批次只取一个（version 全等优先，其次 entries
+               首个命中），链接只渲染这一个；旧写法逐批渲染、命中几批出几个。
+               实现要点（InstaBox 真引擎实测）：①选择/投影表达式内裸变量名
+               会按批次 Map 取键，必须经 #ctx.getVariable 取上下文变量；
+               ②配置项的 equals 不可靠（List.indexOf 会误命中靠前元素），
+               页码一律走「投影成 0/1 字符串列表再 indexOf」的索引口径。 -->
           <span
             class="contents"
             th:with="msVer2=${m?.version ?: ''},
-              msEq=${(!#strings.isEmpty(msVer2) and dayList != null) ? dayList.^[version == #ctx.getVariable('msVer2')] : null},
-              msHit=${msEq == null and !#strings.isEmpty(msVer2) and dayList != null ? dayList.^[entries != null and #strings.contains(entries, #ctx.getVariable('msVer2') + ' ·')] : null},
-              msTarget=${msEq != null ? msEq : msHit}"
+              msEqIdx=${(dayList == null or #strings.isEmpty(msVer2)) ? -1 : dayList.![version == #ctx.getVariable('msVer2') ? '1' : '0'].indexOf('1')},
+              msHitIdx=${msEqIdx >= 0 ? -1 : ((dayList == null or #strings.isEmpty(msVer2)) ? -1 : dayList.![entries != null and #strings.contains(entries, #ctx.getVariable('msVer2') + ' ·') ? '1' : '0'].indexOf('1'))},
+              msIdx=${msEqIdx >= 0 ? msEqIdx : msHitIdx},
+              msTarget=${msIdx >= 0 ? dayList[msIdx] : null}"
           >
             <a
               th:if="${msTarget != null}"
               class="cl-ms-link"
-              th:href="|${singlePage.status.permalink}?page=${(dayList.indexOf(msTarget) / pageSize) + 1}#cl-${msTarget.version}|"
+              th:href="|${singlePage.status.permalink}?page=${(msIdx / pageSize) + 1}#cl-${msTarget.version}|"
             >
               <span>查看该批次</span>
               <span
