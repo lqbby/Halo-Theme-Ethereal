@@ -38,6 +38,20 @@
   // 「博客更新日志」页的标签胶囊（圆角全包），与「关于我」的 .about-chip 不同
   var CLS_TAG =
     "rounded-full border border-(--line-color) px-2.5 py-1 text-xs text-75 transition-colors hover:border-(--primary) hover:text-(--primary)";
+  // 变更类型映射（更新日志页专用，容器带 data-tag-types 时启用）：
+  // 只收能明确归类的标签，拿不准的一律不映射、保持中性样式 ——
+  //   修复 = 缺陷修复；性能 / 重构 / 优化 = 改进（重构按 Keep a Changelog 的 Changed 归改进）；
+  //   功能 = 新功能交付（该日志里与「修复」并列打标）。
+  // 「破坏性 breaking」暂无现存标签命中（「回退」是回滚操作、非破坏性变更），
+  // 类别保留供未来标签使用。其余模块/区域类标签（文章页、Banner、页脚…）永不映射。
+  // 类型色由 blog-changelog.astro 的 .cl-tag--<type> 给出（主题既有语义色变量派生）。
+  var CL_TAG_TYPES = {
+    修复: "fix",
+    性能: "improve",
+    重构: "improve",
+    优化: "improve",
+    功能: "feature",
+  };
   // 「服务器状态」四行的图标 = 参考站同一组，按数据源字段固定；
   // 必须是**完整字面量**类名，候选集已由 global.css 的 @source inline 登记。
   var STUB_ICONS = {
@@ -115,11 +129,22 @@
         frag.appendChild(li);
       });
     } else if (kind === "tags") {
-      // 「博客更新日志」页专用（圆角全包胶囊）
+      // 「博客更新日志」页专用（圆角全包胶囊）；带 data-tag-types 的容器启用
+      // 变更类型系统：命中 CL_TAG_TYPES 的标签加圆点 + 类型描边（.cl-tag--<type>），
+      // 未命中的保持中性。每个标签都打 data-cl-tag，供更新日志页的本页筛选按标签匹配。
+      var typed = el.hasAttribute("data-tag-types");
       lines.forEach(function (line) {
         var span = document.createElement("span");
-        span.className = CLS_TAG;
-        span.textContent = line;
+        var type = typed ? CL_TAG_TYPES[line] || null : null;
+        span.className = CLS_TAG + (type ? " cl-tag cl-tag--" + type : "");
+        if (type) {
+          var dot = document.createElement("i");
+          dot.className = "cl-tag-dot";
+          dot.setAttribute("aria-hidden", "true");
+          span.appendChild(dot);
+        }
+        span.appendChild(document.createTextNode(line));
+        span.setAttribute("data-cl-tag", line);
         frag.appendChild(span);
       });
     } else if (kind === "projTech") {
@@ -629,6 +654,370 @@
     btn.hidden = false;
   }
 
+  // ============ 博客更新日志页（2026-11-15 优化轮）============
+  // 全部功能以 [data-cl-dataset] 数据岛的存在为门（该元素只有更新日志页有），
+  // 关于页加载同一脚本时整段跳过。数据岛 = 模板服务端写出的全部批次 (version, date)，
+  // 节奏条 / 时代统计都在这里按全量数据算；本页搜索筛选只作用于已渲染的本页批次。
+  function parseClDate(s) {
+    var m = /^(\d{4})\.(\d{2})\.(\d{2})$/.exec(s || "");
+    if (!m) return null;
+    return new Date(+m[1], +m[2] - 1, +m[3]);
+  }
+
+  function clEraOf(version) {
+    var m = /^(v\d+\.\d+)\./.exec(version || "");
+    return m ? m[1] : version || "";
+  }
+
+  function initChangelog() {
+    var island = document.querySelector("[data-cl-dataset]");
+    if (!island || island.hasAttribute("data-cl-ready")) return;
+    island.setAttribute("data-cl-ready", "true");
+
+    var batches = Array.prototype.slice
+      .call(island.querySelectorAll("span[data-v]"))
+      .map(function (s) {
+        return {
+          v: s.getAttribute("data-v") || "",
+          d: s.getAttribute("data-d") || "",
+        };
+      })
+      .filter(function (b) {
+        return b.d;
+      });
+
+    /* ---- 页头节奏条 + 活力指标（口径：批次日期） ---- */
+    if (batches.length) {
+      var byMonth = {};
+      batches.forEach(function (b) {
+        var k = b.d.slice(0, 7);
+        byMonth[k] = (byMonth[k] || 0) + 1;
+      });
+      var months = Object.keys(byMonth).sort();
+      var maxN = Math.max.apply(
+        null,
+        months.map(function (k) {
+          return byMonth[k];
+        }),
+      );
+      var bars = document.querySelector("[data-cl-bars]");
+      if (bars) {
+        months.forEach(function (k) {
+          var n = byMonth[k];
+          var cell = document.createElement("div");
+          cell.className = "cl-bar" + (n === maxN ? " is-max" : "");
+          cell.title = k + " · " + n + " 批";
+          var num = document.createElement("span");
+          num.className = "cl-bar-n";
+          num.textContent = String(n);
+          var bar = document.createElement("i");
+          bar.style.height = Math.max(6, Math.round((n / maxN) * 62)) + "%";
+          var lab = document.createElement("span");
+          lab.className = "cl-bar-m";
+          lab.textContent = k;
+          cell.appendChild(num);
+          cell.appendChild(bar);
+          cell.appendChild(lab);
+          bars.appendChild(cell);
+        });
+      }
+      // 数据按日期倒序：首条最新、末条最早
+      var lastD = parseClDate(batches[0].d);
+      var firstD = parseClDate(batches[batches.length - 1].d);
+      var setMetric = function (name, text) {
+        var el = document.querySelector('[data-cl-metric="' + name + '"]');
+        if (el) el.textContent = text;
+      };
+      if (lastD) {
+        var today = new Date();
+        today.setHours(0, 0, 0, 0);
+        var ago = Math.floor((today - lastD) / 86400000);
+        setMetric("last", ago <= 0 ? "今天" : ago + " 天前");
+        var yr = batches[0].d.slice(0, 4);
+        var yn = batches.filter(function (b) {
+          return b.d.slice(0, 4) === yr;
+        }).length;
+        setMetric("year", yn + " 批");
+      }
+      if (lastD && firstD && batches.length > 1) {
+        var span = Math.round(
+          (lastD - firstD) / 86400000 / (batches.length - 1),
+        );
+        setMetric("avg", "约 " + span + " 天");
+      }
+    }
+
+    /* ---- 时代横幅统计（日期范围 + 批次数，按全量数据） ---- */
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-era-stats]"))
+      .forEach(function (el) {
+        var era = el.getAttribute("data-era-stats");
+        var sub = batches.filter(function (b) {
+          return clEraOf(b.v) === era;
+        });
+        if (!sub.length) return;
+        var dates = sub
+          .map(function (b) {
+            return b.d;
+          })
+          .sort();
+        el.textContent =
+          dates[0] +
+          " – " +
+          dates[dates.length - 1] +
+          " · 共 " +
+          sub.length +
+          " 批";
+      });
+
+    var entries = Array.prototype.slice.call(
+      document.querySelectorAll(".cl-entry[id]"),
+    );
+
+    /* ---- 深链：hash 命中批次时自动展开并滚到位 ---- */
+    function openFromHash() {
+      var h = window.location.hash || "";
+      if (h.indexOf("#cl-") !== 0) return;
+      var t = document.getElementById(h.slice(1));
+      if (!t) return;
+      var det = t.querySelector("details.cl-details");
+      if (det) det.open = true;
+      setTimeout(function () {
+        t.scrollIntoView({ block: "start" });
+      }, 60);
+    }
+    openFromHash();
+
+    /* ---- 复制永久链接 ---- */
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-cl-copy]"))
+      .forEach(function (a) {
+        a.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          var url = new URL(a.getAttribute("href"), window.location.href).href;
+          var done = function () {
+            a.classList.add("is-copied");
+            var old = a.getAttribute("title");
+            a.setAttribute("title", "已复制");
+            setTimeout(function () {
+              a.classList.remove("is-copied");
+              if (old) a.setAttribute("title", old);
+            }, 1600);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(done, function () {
+              window.location.hash = url.split("#")[1] || "";
+            });
+          } else {
+            window.location.hash = url.split("#")[1] || "";
+          }
+        });
+      });
+
+    /* ---- 展开 / 收起全部（本页） ---- */
+    var setAll = function (open) {
+      Array.prototype.slice
+        .call(document.querySelectorAll(".cl-list details.cl-details"))
+        .forEach(function (d) {
+          d.open = open;
+        });
+    };
+    var exBtn = document.querySelector("[data-cl-expand-all]");
+    var coBtn = document.querySelector("[data-cl-collapse-all]");
+    if (exBtn)
+      exBtn.addEventListener("click", function () {
+        setAll(true);
+      });
+    if (coBtn)
+      coBtn.addEventListener("click", function () {
+        setAll(false);
+      });
+
+    /* ---- scrollspy：当前批次在导航轨高亮 ---- */
+    var chips = {};
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-cl-chip]"))
+      .forEach(function (c) {
+        chips[c.getAttribute("data-cl-chip")] = c;
+      });
+    if ("IntersectionObserver" in window && entries.length) {
+      var spy = new IntersectionObserver(
+        function (obs) {
+          obs.forEach(function (o) {
+            if (!o.isIntersecting) return;
+            var ver = o.target.id.replace(/^cl-/, "");
+            Object.keys(chips).forEach(function (k) {
+              var on = k === ver;
+              chips[k].classList.toggle("is-active", on);
+              if (on) chips[k].setAttribute("aria-current", "true");
+              else chips[k].removeAttribute("aria-current");
+            });
+          });
+        },
+        { rootMargin: "-25% 0px -65% 0px" },
+      );
+      entries.forEach(function (e) {
+        spy.observe(e);
+      });
+      document.addEventListener(
+        "astro:before-swap",
+        function () {
+          spy.disconnect();
+        },
+        { once: true },
+      );
+    }
+
+    /* ---- 本页搜索 + 标签筛选（口径仅限本页已渲染批次） ---- */
+    var searchInput = document.querySelector("[data-cl-search]");
+    var status = document.querySelector("[data-cl-status]");
+    var emptyBox = document.querySelector("[data-cl-empty]");
+    var state = { q: "", tag: "" };
+    var meta = entries.map(function (e) {
+      var parts = [e.textContent || ""];
+      Array.prototype.slice
+        .call(e.querySelectorAll("[data-lines]"))
+        .forEach(function (n) {
+          parts.push(n.getAttribute("data-lines") || "");
+        });
+      var tagBox = e.querySelector('[data-lines-render="tags"]');
+      return {
+        el: e,
+        text: parts.join(" ").toLowerCase(),
+        tags: tagBox ? splitLines(tagBox.getAttribute("data-lines")) : [],
+        ver: e.id.replace(/^cl-/, ""),
+      };
+    });
+
+    function applyFilter() {
+      var q = state.q.trim().toLowerCase();
+      var shown = 0;
+      meta.forEach(function (m) {
+        var okQ = !q || m.text.indexOf(q) >= 0;
+        var okT = !state.tag || m.tags.indexOf(state.tag) >= 0;
+        var ok = okQ && okT;
+        m.el.style.display = ok ? "" : "none";
+        if (ok) shown += 1;
+        var chip = chips[m.ver];
+        if (chip) chip.classList.toggle("is-filtered-out", !ok);
+      });
+      var active = !!(q || state.tag);
+      if (status) {
+        if (!active) {
+          status.textContent = "";
+        } else {
+          var bits = ["本页命中 " + shown + " / " + meta.length + " 批"];
+          if (state.tag) bits.push("标签：" + state.tag);
+          if (q) bits.push("关键词：" + state.q.trim());
+          status.textContent = bits.join(" · ") + "（仅本页） ";
+          var clr = document.createElement("button");
+          clr.type = "button";
+          clr.className = "cl-clear";
+          clr.textContent = "清除";
+          clr.addEventListener("click", clearFilter);
+          status.appendChild(clr);
+        }
+      }
+      if (emptyBox) emptyBox.hidden = !(active && shown === 0);
+      // 标签命中态
+      Array.prototype.slice
+        .call(document.querySelectorAll("[data-cl-tag]"))
+        .forEach(function (s) {
+          s.classList.toggle(
+            "is-tag-active",
+            !!state.tag && s.getAttribute("data-cl-tag") === state.tag,
+          );
+        });
+    }
+
+    function clearFilter() {
+      state.q = "";
+      state.tag = "";
+      if (searchInput) searchInput.value = "";
+      applyFilter();
+    }
+
+    if (searchInput) {
+      var debounce = null;
+      searchInput.addEventListener("input", function () {
+        if (debounce) clearTimeout(debounce);
+        debounce = setTimeout(function () {
+          state.q = searchInput.value;
+          applyFilter();
+        }, 120);
+      });
+    }
+    var clearBtn = document.querySelector("[data-cl-clear]");
+    if (clearBtn) clearBtn.addEventListener("click", clearFilter);
+    // 点任意标签 chip = 按该标签筛本页（再点一次取消）
+    var list = document.querySelector(".cl-list");
+    if (list) {
+      list.addEventListener("click", function (ev) {
+        var t = ev.target;
+        var chipEl = t && t.closest ? t.closest("[data-cl-tag]") : null;
+        if (!chipEl) return;
+        var tag = chipEl.getAttribute("data-cl-tag");
+        state.tag = state.tag === tag ? "" : tag;
+        applyFilter();
+      });
+    }
+    // 空状态「去站内搜索」：主题搜索是导航栏面板，无独立路由 —— 回页顶聚焦其输入框
+    var goSearch = document.querySelector("[data-cl-goto-search]");
+    if (goSearch) {
+      var navInput =
+        document.getElementById("search-input-desktop") ||
+        document.getElementById("search-input-mobile");
+      if (!navInput) goSearch.style.display = "none";
+      else
+        goSearch.addEventListener("click", function () {
+          var reduce = window.matchMedia(
+            "(prefers-reduced-motion: reduce)",
+          ).matches;
+          window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+          setTimeout(
+            function () {
+              navInput.focus();
+            },
+            reduce ? 0 : 350,
+          );
+        });
+    }
+
+    /* ---- 近期批次相对日期（≤31 天；绝对日期保留在文本与 title） ---- */
+    var now = new Date();
+    now.setHours(0, 0, 0, 0);
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-cl-date]"))
+      .forEach(function (t) {
+        var dt = parseClDate(t.getAttribute("data-cl-date"));
+        if (!dt) return;
+        var days = Math.floor((now - dt) / 86400000);
+        if (days < 0 || days > 31) return;
+        var s = document.createElement("span");
+        s.className = "cl-rel";
+        s.textContent = days === 0 ? " · 今天" : " · " + days + " 天前";
+        t.appendChild(s);
+      });
+
+    /* ---- 翻页后焦点落回列表标题（分页是整页跳转，用 sessionStorage 传旗） ---- */
+    Array.prototype.slice
+      .call(document.querySelectorAll(".cl-pageinfo a, .pager-strip a"))
+      .forEach(function (a) {
+        a.addEventListener("click", function () {
+          try {
+            sessionStorage.setItem("clFocusList", "1");
+          } catch (e) {}
+        });
+      });
+    try {
+      if (sessionStorage.getItem("clFocusList")) {
+        sessionStorage.removeItem("clFocusList");
+        var title = document.getElementById("cl-list-title");
+        if (title) title.focus({ preventScroll: false });
+      }
+    } catch (e) {}
+  }
+
   function init() {
     var nodes = document.querySelectorAll("[data-lines]:not([data-rendered])");
     Array.prototype.slice.call(nodes).forEach(function (el) {
@@ -638,6 +1027,7 @@
     loadRandomFriends();
     sortTimeline();
     initSkillFold();
+    initChangelog();
   }
 
   if (document.readyState === "loading") {

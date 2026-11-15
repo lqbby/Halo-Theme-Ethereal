@@ -22,6 +22,15 @@
 //      最新一条绿色脉冲；条目卡接 card-hover-lift + 悬停渐变罩 + 标题变色；
 //      版本号胶囊由灰底改主色底（扫读优先）；日期列改「大号日 + 小号年月」；
 //      「详细记录」摘要改 btn-regular 同款小胶囊。
+//
+// 🚀 2026-11-15 优化轮（调研方案三期，细节见 ethereal-changelog-optimize-notes.md）：
+//   ① 导航：批次永久链接（id=cl-版本 + 复制按钮 + hash 自动展开）、吸顶批次轨
+//      （年份跳转 + scrollspy）、分页信息条（页码上下文/首页末页/跳页/rel）；
+//   ② 扫读：时代横幅（版本线派生）、变更类型标签（extend-pages.js 的 CL_TAG_TYPES
+//      映射，圆点+文字）、里程碑高亮卡与成长轨迹互链；
+//   ③ 点缀：页头节奏条（全量批次按月聚合，数据走 [data-cl-dataset] 数据岛由 JS 算）、
+//      本页搜索/标签筛选、RSS 与最新版本锚点、近期相对日期。
+//   条目类型图标未做：entries 无可靠类型前缀信号（实测类型动词开头仅 3.9%）。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import QueryPagination from "../components/control/QueryPagination.astro";
@@ -359,6 +368,522 @@ import QueryPagination from "../components/control/QueryPagination.astro";
           transform: scale(0.65);
         }
       }
+
+      /* ===== 2026-11-15 优化轮（调研方案三期）===== */
+
+      /* 深链落点：给吸顶导航栏 + 吸顶批次轨让位；命中时卡片描边提示 */
+      .cl-entry {
+        scroll-margin-top: calc(var(--navbar-height, 4.5rem) + 5.25rem);
+      }
+      .cl-entry:target .cl-card {
+        border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+        box-shadow: 0 0 0 2px
+          color-mix(in oklab, var(--primary) 30%, transparent);
+      }
+
+      /* 页头节奏条：按月聚合的批次条形 + 活力指标（数值由 extend-pages.js 回填） */
+      .cl-cadence {
+        margin-top: 1rem;
+        border: 1px solid var(--line-color);
+        border-radius: 0.75rem;
+        padding: 0.8rem 0.875rem 0.7rem;
+        background: var(--card-bg);
+      }
+      .cl-cadence-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.4rem 1rem;
+      }
+      .cl-cadence-title {
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        color: var(--primary);
+      }
+      .cl-cadence-metrics {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem 1rem;
+        font-size: 0.72rem;
+        color: var(--deep-text);
+      }
+      .cl-cadence-metrics strong {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        color: var(--primary);
+      }
+      .cl-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.6rem;
+        height: 5.2rem;
+        margin-top: 0.6rem;
+      }
+      .cl-bar {
+        flex: 1 1 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-end;
+        height: 100%;
+        min-width: 0;
+      }
+      .cl-bar-n {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--deep-text);
+      }
+      .cl-bar i {
+        display: block;
+        width: 100%;
+        max-width: 2.4rem;
+        min-height: 3px;
+        margin-top: 0.2rem;
+        border-radius: 0.35rem 0.35rem 0 0;
+        background: color-mix(in oklab, var(--primary) 45%, transparent);
+      }
+      .cl-bar.is-max i {
+        background: var(--primary);
+      }
+      .cl-bar-m {
+        margin-top: 0.3rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.66rem;
+        white-space: nowrap;
+        color: var(--deep-text);
+        opacity: 0.75;
+      }
+      .cl-cadence-note {
+        margin-top: 0.45rem;
+        font-size: 0.66rem;
+        opacity: 0.65;
+      }
+
+      /* 工具栏：本页搜索 / 类型图例 / 展开收起 / 筛选状态 */
+      .cl-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.5rem 0.75rem;
+        margin-bottom: 0.75rem;
+      }
+      .cl-search {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        flex: 1 1 13rem;
+        min-width: 11rem;
+        border: 1px solid var(--line-color);
+        border-radius: 9999px;
+        padding: 0.32rem 0.8rem;
+        background: var(--card-bg);
+        color: var(--btn-content);
+        transition: border-color 0.2s ease;
+      }
+      .cl-search:focus-within {
+        border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+      }
+      .cl-search input {
+        flex: 1;
+        min-width: 0;
+        background: transparent;
+        border: 0;
+        outline: 0;
+        font-size: 0.8rem;
+        color: var(--deep-text);
+      }
+      .cl-legend {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.2rem 0.7rem;
+        font-size: 0.7rem;
+        color: var(--deep-text);
+      }
+      .cl-legend > span {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.32rem;
+      }
+      .cl-type-dot {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 9999px;
+        background: var(--cl-tag-c, var(--primary));
+        flex: none;
+      }
+      .cl-toolbtns {
+        display: inline-flex;
+        gap: 0.4rem;
+        margin-left: auto;
+      }
+      .cl-toolbtn {
+        border-radius: 0.5rem;
+        padding: 0.3rem 0.65rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: var(--btn-content);
+        background: var(--btn-regular-bg);
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+      }
+      .cl-toolbtn:hover {
+        background: var(--btn-regular-bg-hover);
+      }
+      .cl-filter-status {
+        flex-basis: 100%;
+        font-size: 0.72rem;
+        color: var(--primary);
+      }
+      .cl-filter-status:empty {
+        display: none;
+      }
+      .cl-clear {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .cl-empty {
+        flex-basis: 100%;
+        border: 1px dashed var(--line-color);
+        border-radius: 0.75rem;
+        padding: 1rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--deep-text);
+      }
+      .cl-empty .cl-toolbtn {
+        margin-left: 0.5rem;
+      }
+
+      /* 吸顶批次导航轨：玻璃面（本页仅此处 + 里程碑高亮卡用 backdrop-filter） */
+      .cl-railnav {
+        position: sticky;
+        top: calc(var(--navbar-height, 4.5rem) + 0.6rem);
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.9rem;
+        border: 1px solid var(--line-color);
+        border-radius: 9999px;
+        padding: 0.35rem 0.6rem;
+        background: color-mix(in oklab, var(--card-bg) 78%, transparent);
+        backdrop-filter: blur(12px) saturate(1.3);
+        -webkit-backdrop-filter: blur(12px) saturate(1.3);
+      }
+      .cl-rail-years {
+        display: inline-flex;
+        gap: 0.25rem;
+        flex: none;
+      }
+      .cl-rail-years a {
+        border-radius: 9999px;
+        padding: 0.18rem 0.55rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--btn-content);
+        background: var(--btn-regular-bg);
+        transition: background-color 0.2s ease;
+      }
+      .cl-rail-years a:hover {
+        background: var(--btn-regular-bg-hover);
+      }
+      .cl-rail-chips {
+        display: flex;
+        gap: 0.3rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+        min-width: 0;
+      }
+      .cl-rail-chips::-webkit-scrollbar {
+        display: none;
+      }
+      .cl-chip {
+        flex: none;
+        border-radius: 9999px;
+        padding: 0.18rem 0.55rem;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--deep-text);
+        opacity: 0.75;
+        transition:
+          background-color 0.2s ease,
+          color 0.2s ease,
+          opacity 0.2s ease;
+      }
+      .cl-chip:hover {
+        opacity: 1;
+        background: var(--btn-regular-bg);
+      }
+      .cl-chip.is-active {
+        opacity: 1;
+        color: var(--on-primary);
+        background: var(--primary);
+      }
+      .cl-chip.is-filtered-out {
+        opacity: 0.3;
+      }
+
+      /* 时代横幅：与年月分组行同为 .cl-entry 的整行子节点（grid-column: 1/-1） */
+      .cl-era {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        grid-column: 1 / -1;
+        margin: 0.4rem 0 -0.2rem;
+      }
+      .cl-era-name {
+        font-size: 0.85rem;
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        color: var(--primary);
+        white-space: nowrap;
+      }
+      .cl-era-stats {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.68rem;
+        white-space: nowrap;
+        opacity: 0.7;
+      }
+      .cl-era i {
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(
+          to right,
+          color-mix(in oklab, var(--primary) 45%, transparent),
+          transparent
+        );
+      }
+
+      /* 里程碑：批次卡内的小旗（同批命中多个里程碑时只显示第一面）+ 节点内互链 */
+      .cl-ms-flag {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        padding: 0.08rem 0.55rem;
+        font-size: 0.66rem;
+        font-weight: 800;
+        letter-spacing: 0.03em;
+        color: var(--on-primary);
+        background: linear-gradient(
+          120deg,
+          var(--primary),
+          oklch(0.7 0.14 calc(var(--hue) + 60))
+        );
+      }
+      .cl-ms-flag ~ .cl-ms-flag {
+        display: none;
+      }
+      .cl-ms-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        margin-top: 0.55rem;
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--primary);
+      }
+      .cl-ms-link:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      /* 含里程碑的批次卡：高亮玻璃卡（渐变描边 + 半透面 + 模糊，每页至多 2 张） */
+      .cl-card:has(.cl-ms-flag) {
+        border: 1px solid transparent;
+        background:
+          linear-gradient(
+              color-mix(in oklab, var(--card-bg) 84%, transparent),
+              color-mix(in oklab, var(--card-bg) 84%, transparent)
+            )
+            padding-box,
+          linear-gradient(
+              135deg,
+              color-mix(in oklab, var(--primary) 65%, transparent),
+              color-mix(
+                in oklab,
+                oklch(0.7 0.14 calc(var(--hue) + 60)) 55%,
+                transparent
+              )
+            )
+            border-box;
+        backdrop-filter: blur(10px) saturate(1.25);
+        -webkit-backdrop-filter: blur(10px) saturate(1.25);
+      }
+      .cl-card:has(.cl-ms-flag) > p {
+        font-size: 0.95rem;
+        font-weight: 500;
+      }
+
+      /* 永久链接复制按钮：悬停/聚焦时出现，触屏常显半透明 */
+      .cl-copy {
+        margin-left: auto;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.7rem;
+        height: 1.7rem;
+        border-radius: 0.5rem;
+        color: var(--btn-content);
+        opacity: 0;
+        transition:
+          opacity 0.2s ease,
+          background-color 0.2s ease,
+          color 0.2s ease;
+      }
+      .cl-card:hover .cl-copy,
+      .cl-card:focus-within .cl-copy {
+        opacity: 1;
+      }
+      .cl-copy:hover {
+        background: var(--btn-regular-bg-hover);
+      }
+      .cl-copy.is-copied {
+        opacity: 1;
+        color: var(--timeline-current);
+      }
+      @media (hover: none) {
+        .cl-copy {
+          opacity: 0.65;
+        }
+      }
+
+      /* 批次日期（相对时间由 JS 追加到 .cl-rel） */
+      .cl-time {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        opacity: 0.65;
+      }
+      .cl-rel {
+        color: var(--primary);
+        font-weight: 700;
+        opacity: 1;
+      }
+
+      /* 分页信息条：页码上下文 + 首页/末页 + 跳页 */
+      .cl-pageinfo {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem 1rem;
+        margin-top: 1.4rem;
+        font-size: 0.75rem;
+        color: var(--deep-text);
+      }
+      .cl-pageinfo-links {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.3rem 0.8rem;
+      }
+      .cl-pageinfo-links a {
+        font-weight: 700;
+        color: var(--btn-content);
+      }
+      .cl-pageinfo-links a:hover {
+        color: var(--primary);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .cl-jump {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+      .cl-jump input {
+        width: 3.2rem;
+        border: 1px solid var(--line-color);
+        border-radius: 0.45rem;
+        padding: 0.14rem 0.35rem;
+        background: var(--card-bg);
+        font-size: 0.75rem;
+        color: var(--deep-text);
+        outline: 0;
+      }
+      .cl-jump input:focus {
+        border-color: color-mix(in oklab, var(--primary) 55%, transparent);
+      }
+      .cl-jump button {
+        font-weight: 700;
+        color: var(--btn-content);
+        cursor: pointer;
+      }
+      .cl-jump button:hover {
+        color: var(--primary);
+      }
+
+      /* 变更类型标签（extend-pages.js 渲染）：--cl-tag-c 由类型修饰类给出，
+         色源全部是主题既有语义色变量；正文文字保持中性以保对比度 */
+      .cl-tag--feature {
+        --cl-tag-c: var(--primary);
+      }
+      .cl-tag--improve {
+        --cl-tag-c: var(--admonitions-color-tip);
+      }
+      .cl-tag--fix {
+        --cl-tag-c: var(--admonitions-color-warning);
+      }
+      .cl-tag--breaking {
+        --cl-tag-c: var(--admonitions-color-caution);
+      }
+      .cl-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-color: color-mix(in oklab, var(--cl-tag-c) 45%, transparent);
+        background: color-mix(in oklab, var(--cl-tag-c) 9%, transparent);
+      }
+      .cl-tag-dot {
+        width: 0.45rem;
+        height: 0.45rem;
+        border-radius: 9999px;
+        background: var(--cl-tag-c);
+        flex: none;
+      }
+      /* 标签可点筛选：指针 + 命中态 */
+      .cl-card [data-lines-render="tags"] > span {
+        cursor: pointer;
+      }
+      .cl-card [data-lines-render="tags"] > span.is-tag-active {
+        border-color: var(--primary);
+        color: var(--primary);
+        font-weight: 700;
+      }
+
+      /* 焦点可见：统一走主题焦点环变量 */
+      .cl-copy:focus-visible,
+      .cl-chip:focus-visible,
+      .cl-toolbtn:focus-visible,
+      .cl-rail-years a:focus-visible,
+      .cl-ms-link:focus-visible {
+        outline: 2px solid var(--focus-ring);
+        outline-offset: 2px;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .cl-copy,
+        .cl-chip,
+        .cl-search,
+        .cl-toolbtn {
+          transition: none;
+        }
+      }
+      @media print {
+        .cl-railnav,
+        .cl-toolbar,
+        .cl-pageinfo,
+        .cl-copy {
+          display: none;
+        }
+      }
     </style>
   </Fragment>
 
@@ -380,6 +905,14 @@ import QueryPagination from "../components/control/QueryPagination.astro";
       pagedList=${pageSize gt 0 and dayCount gt 0 ? dayList.subList(startIndex, endIndex) : dayList}"
     th:remove="tag"
   >
+    <!-- 全量批次数据岛：(version, date) 隐藏列表，供 extend-pages.js 算节奏条 /
+         时代统计（模板侧无顺手的分组聚合手段，DOM 数据岛最稳、零表达式风险） -->
+    <div hidden aria-hidden="true" data-cl-dataset>
+      <span
+        th:each="b : ${dayList}"
+        th:data-v="${b?.version}"
+        th:data-d="${b?.date}"></span>
+    </div>
     <!-- ===== ① 页头（返回链接并入顶行，统计格「当前版本」主视觉） ===== -->
     <section class="card-base onload-animation mb-4 px-6 py-7 md:px-9">
       <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
@@ -392,7 +925,30 @@ import QueryPagination from "../components/control/QueryPagination.astro";
             aria-hidden="true"></span>
           <span>返回「关于我」</span>
         </a>
-        <span class="text-[0.7rem] text-30">按日倒序 · 建站以来</span>
+        <div class="flex items-center gap-3">
+          <a
+            class="inline-flex items-center gap-1 text-xs font-bold text-50 transition-colors hover:text-(--primary)"
+            th:if="${dayCount > 0}"
+            th:href="|${singlePage.status.permalink}?page=1#cl-${dayList[0].version}|"
+          >
+            <span
+              class="icon-[material-symbols--arrow-downward-rounded] text-base"
+              aria-hidden="true"></span>
+            <span>最新版本</span>
+            <span class="font-mono" th:text="${curVer}">v0.0.0</span>
+          </a>
+          <a
+            class="inline-flex items-center gap-1 text-xs font-bold text-50 transition-colors hover:text-(--primary)"
+            th:if="${pluginFinder.available('PluginFeed')}"
+            th:href="@{/rss.xml}"
+          >
+            <span
+              class="icon-[material-symbols--rss-feed-rounded] text-base"
+              aria-hidden="true"></span>
+            <span>订阅更新</span>
+          </a>
+          <span class="text-[0.7rem] text-30">按日倒序 · 建站以来</span>
+        </div>
       </div>
 
       <p
@@ -475,6 +1031,22 @@ import QueryPagination from "../components/control/QueryPagination.astro";
           </strong>
         </div>
       </div>
+
+      <!-- 更新节奏：按月聚合全部批次（口径 = 批次日期），条形与指标由 JS 按数据岛回填 -->
+      <div class="cl-cadence" th:if="${dayCount > 0}">
+        <div class="cl-cadence-head">
+          <span class="cl-cadence-title">更新节奏</span>
+          <span class="cl-cadence-metrics">
+            <span>最近更新 <strong data-cl-metric="last">—</strong></span>
+            <span>今年批次 <strong data-cl-metric="year">—</strong></span>
+            <span>平均间隔 <strong data-cl-metric="avg">—</strong></span>
+          </span>
+        </div>
+        <div class="cl-bars" data-cl-bars></div>
+        <p class="cl-cadence-note">
+          按批次日期按月聚合 · 全部 <span th:text="${dayCount}">0</span> 批
+        </p>
+      </div>
     </section>
 
     <!-- ===== ② 成长轨迹（横向轨道线 + 节点圆点，当前里程碑绿色高亮） ===== -->
@@ -530,6 +1102,24 @@ import QueryPagination from "../components/control/QueryPagination.astro";
             class="mt-1.5 block text-xs leading-snug text-75"
             th:text="${m?.label}">说明</span
           >
+          <!-- 互链：命中「批次 version 相等，或批次 entries 含『里程碑版本 ·』行」时
+               渲染指向该批次所在分页的永久链接；无对应批次的里程碑（初版 / v2.0.1）不渲染。
+               页码 = index / pageSize + 1（整数除，与 totalPages 同口径）。 -->
+          <span
+            class="contents"
+            th:each="d2, d2Stat : ${dayList}"
+            th:if="${m?.version != null and (d2?.version == m?.version or (d2?.entries != null and #strings.contains(d2.entries, (m?.version ?: '') + ' ·')))}"
+          >
+            <a
+              class="cl-ms-link"
+              th:href="|${singlePage.status.permalink}?page=${(d2Stat.index / pageSize) + 1}#cl-${d2?.version}|"
+            >
+              <span>查看该批次</span>
+              <span
+                class="icon-[material-symbols--arrow-outward-rounded] text-xs"
+                aria-hidden="true"></span>
+            </a>
+          </span>
         </li>
       </ol>
 
@@ -551,7 +1141,13 @@ import QueryPagination from "../components/control/QueryPagination.astro";
           >
             RELEASES
           </p>
-          <h2 class="mt-1 text-xl font-bold text-90">版本更新记录</h2>
+          <h2
+            id="cl-list-title"
+            tabindex="-1"
+            class="mt-1 text-xl font-bold text-90 outline-none"
+          >
+            版本更新记录
+          </h2>
         </div>
         <span class="text-xs text-50">
           最新在上 · 按日倒序 · 每页 <span th:text="${pageSize}">20</span> 条 · 点「详细记录」展开
@@ -562,12 +1158,92 @@ import QueryPagination from "../components/control/QueryPagination.astro";
         还没有记录，请到「主题设置 → 扩展页面 → 博客更新日志页面」里添加。
       </p>
 
+      <!-- 工具栏：本页搜索（明确标注本页口径）+ 变更类型图例 + 展开/收起全部 -->
+      <div class="cl-toolbar" th:if="${dayCount > 0}">
+        <label class="cl-search">
+          <span
+            class="icon-[material-symbols--search-rounded] text-base"
+            aria-hidden="true"></span>
+          <input
+            type="search"
+            data-cl-search
+            placeholder="搜索本页批次（标题 / 摘要 / 条目 / 标签）"
+            aria-label="搜索本页批次"
+          />
+        </label>
+        <div class="cl-legend" aria-label="变更类型图例">
+          <span><i class="cl-type-dot cl-tag--feature"></i>新功能</span>
+          <span><i class="cl-type-dot cl-tag--improve"></i>优化</span>
+          <span><i class="cl-type-dot cl-tag--fix"></i>修复</span>
+          <span><i class="cl-type-dot cl-tag--breaking"></i>破坏性</span>
+        </div>
+        <div class="cl-toolbtns">
+          <button type="button" class="cl-toolbtn" data-cl-expand-all>
+            展开全部
+          </button>
+          <button type="button" class="cl-toolbtn" data-cl-collapse-all>
+            收起全部
+          </button>
+        </div>
+        <p class="cl-filter-status" data-cl-status aria-live="polite"></p>
+        <div class="cl-empty" data-cl-empty hidden>
+          <span>本页没有命中的批次，换个关键词或翻到其他页继续找。</span>
+          <button type="button" class="cl-toolbtn" data-cl-clear>
+            清除筛选
+          </button>
+          <button type="button" class="cl-toolbtn" data-cl-goto-search>
+            去站内搜索
+          </button>
+        </div>
+      </div>
+
+      <!-- 吸顶导航轨：年份跳转（全量数据的年份分界 → 对应分页）+ 本页批次 chip（scrollspy） -->
+      <nav class="cl-railnav" aria-label="批次导航" th:if="${dayCount > 0}">
+        <span class="cl-rail-years">
+          <span
+            class="contents"
+            th:each="d3, d3Stat : ${dayList}"
+            th:if="${(d3?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
+              and (d3Stat.index == 0
+                ? true
+                : ((dayList[d3Stat.index - 1].date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
+                  ? #strings.substring(d3.date, 0, 4) != #strings.substring(dayList[d3Stat.index - 1].date, 0, 4)
+                  : true))}"
+          >
+            <a
+              th:href="|${singlePage.status.permalink}?page=${(d3Stat.index / pageSize) + 1}#cl-${d3?.version}|"
+              th:text="${#strings.substring(d3.date, 0, 4)}">2026</a
+            >
+          </span>
+        </span>
+        <span class="cl-rail-chips">
+          <a
+            class="cl-chip"
+            th:each="rc : ${pagedList}"
+            th:href="|#cl-${rc?.version}|"
+            th:data-cl-chip="${rc?.version}"
+            th:text="${rc?.version}">v0.0.0</a
+          >
+        </span>
+      </nav>
+
       <div class="cl-list flex flex-col gap-4">
         <div
           th:each="d, dStat : ${pagedList}"
           class="cl-entry"
+          th:id="|cl-${d?.version}|"
+          th:with="curEra=${(d?.version ?: '') matches 'v\d+\.\d+\.\d+' ? #strings.substring(d.version, 0, 4) : (d?.version ?: '')},
+            prevEra=${dStat.index == 0 ? '' : ((pagedList[dStat.index - 1].version ?: '') matches 'v\d+\.\d+\.\d+' ? #strings.substring(pagedList[dStat.index - 1].version, 0, 4) : (pagedList[dStat.index - 1].version ?: ''))}"
           th:classappend="${(dStat.index == 0 ? ' is-first' : '') + (dStat.last ? ' is-last' : '')}"
         >
+          <!-- 时代横幅：版本线（v主.次）变化时插一行；分页首条恒出 ⇒ 跨页时代在下一页续接。
+               时代的日期范围 / 批次数由 JS 按全量数据岛回填到 .cl-era-stats。 -->
+          <div class="cl-era" th:if="${dStat.index == 0 or curEra != prevEra}">
+            <span class="cl-era-name" th:text="|${curEra} 时代|">v1.7 时代</span
+            >
+            <span class="cl-era-stats" th:data-era-stats="${curEra}"></span>
+            <i aria-hidden="true"></i>
+          </div>
           <!-- 年月分组行：与「上一条的日期前 7 位」不同才输出。
                跨整行（grid-column: 1/-1）⇒ 不挤压日期列/轨道的网格行，竖线起点不受影响。
                ⚠️ th:if(3) 先于 th:with(4) ⇒ 这里只能用内联表达式，抽变量读不到。
@@ -650,14 +1326,37 @@ import QueryPagination from "../components/control/QueryPagination.astro";
               >
                 累积中
               </span>
+              <!-- 里程碑旗：本批含里程碑版本（同成长轨迹互链的命中口径）时渲染，
+                   CSS 用 :has 把整卡升为高亮玻璃卡；同批多命中只显示第一面 -->
               <span
-                class="rounded-md bg-(--btn-regular-bg) px-1.5 py-0.5 font-mono text-[0.7rem] text-(--btn-content) md:hidden"
-                th:text="${d?.date}">日期</span
+                class="cl-ms-flag"
+                th:each="m2 : ${ms}"
+                th:if="${m2?.version != null and (m2?.version == d?.version or (d?.entries != null and #strings.contains(d.entries, (m2?.version ?: '') + ' ·')))}"
+                >里程碑</span
+              >
+              <time
+                class="cl-time"
+                th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
+                th:attr="datetime=${#strings.replace(d.date, '.', '-')}"
+                th:data-cl-date="${d?.date}"
+                th:text="${d?.date}">2026.09.13</time
               >
               <span
                 class="rounded bg-green-500/10 px-1.5 py-px text-[0.62rem] font-bold text-green-600 md:hidden dark:text-green-400"
                 th:if="${dStat.index == 0 and curPage == 1}">最新</span
               >
+              <!-- 永久链接：href 本身就是完整深链（?page=N#cl-版本），JS 拦截点击改走剪贴板 -->
+              <a
+                class="cl-copy"
+                th:href="|${singlePage.status.permalink}?page=${curPage}#cl-${d?.version}|"
+                data-cl-copy
+                th:aria-label="|复制批次 ${d?.version} 的永久链接|"
+                title="复制永久链接"
+              >
+                <span
+                  class="icon-[material-symbols--link-rounded] text-base"
+                  aria-hidden="true"></span>
+              </a>
             </div>
 
             <p
@@ -705,11 +1404,63 @@ import QueryPagination from "../components/control/QueryPagination.astro";
                 th:if="${d?.tags != null and !#strings.isEmpty(d?.tags)}"
                 th:data-lines="${d?.tags}"
                 data-lines-render="tags"
+                data-tag-types
               >
               </div>
             </details>
           </div>
         </div>
+      </div>
+
+      <!-- 分页信息条：页码上下文 + 首页/末页 + 跳页（rel=prev/next 挂在自有锚点上；
+           head 槽位取不到正文 th:with 的 curPage/totalPages，故不另放 <link>） -->
+      <div class="cl-pageinfo" th:if="${dayCount > 0}">
+        <span
+          th:text="|第 ${curPage} / ${totalPages} 页 · 本页第 ${startIndex + 1}–${endIndex} 批 · 共 ${dayCount} 批|"
+          >第 1 / 1 页</span
+        >
+        <span class="cl-pageinfo-links">
+          <a
+            th:if="${curPage gt 1}"
+            th:href="|${singlePage.status.permalink}?page=1|">首页</a
+          >
+          <a
+            th:if="${curPage gt 1}"
+            rel="prev"
+            th:href="|${singlePage.status.permalink}?page=${curPage - 1}|"
+            >上一页</a
+          >
+          <a
+            th:if="${curPage lt totalPages}"
+            rel="next"
+            th:href="|${singlePage.status.permalink}?page=${curPage + 1}|"
+            >下一页</a
+          >
+          <a
+            th:if="${curPage lt totalPages}"
+            th:href="|${singlePage.status.permalink}?page=${totalPages}|"
+            >末页</a
+          >
+          <form
+            class="cl-jump"
+            method="get"
+            th:attr="action=${singlePage.status.permalink}"
+            th:if="${totalPages gt 1}"
+          >
+            <label>
+              跳至
+              <input
+                type="number"
+                name="page"
+                min="1"
+                th:attr="max=${totalPages}, value=${curPage}"
+                aria-label="跳至页码"
+              />
+              页
+            </label>
+            <button type="submit">跳转</button>
+          </form>
+        </span>
       </div>
 
       <!-- 分页：走查询参数式（?page=N），与技能页同一套组件 -->
