@@ -55,12 +55,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           RELEASE_EVENT_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_ID: ${{ github.event.release.id }}
           DISPATCH_TAG: ${{ github.event.client_payload.tag }}
           INPUT_TAG: ${{ github.event.inputs.tag }}
         run: |
           if [[ "$EVENT_NAME" == "release" ]]; then
             echo "tag=$RELEASE_EVENT_TAG" >> "$GITHUB_OUTPUT"
-            echo "release-id=${{ github.event.release.id }}" >> "$GITHUB_OUTPUT"
+            echo "release-id=$RELEASE_ID" >> "$GITHUB_OUTPUT"
           elif [[ "$EVENT_NAME" == "repository_dispatch" ]]; then
             TAG="$DISPATCH_TAG"
             echo "tag=$TAG" >> "$GITHUB_OUTPUT"
@@ -79,8 +80,9 @@ jobs:
         id: sync-check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
-          TAG="${{ steps.release.outputs.tag }}"
+          TAG="$RELEASE_TAG"
           BODY=$(gh release view "$TAG" --json body --jq .body)
           if echo "$BODY" | grep -q 'skip-halo-sync'; then
             echo "skipped=true" >> "$GITHUB_OUTPUT"
@@ -96,19 +98,21 @@ jobs:
         if: steps.sync-check.outputs.skipped == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release download "${{ steps.release.outputs.tag }}" --dir dist --pattern "*.zip"
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: gh release download "$RELEASE_TAG" --dir dist --pattern "*.zip"
 
       # 下载后校验：必须存在 zip 附件，缺失时列出该 Release 实际资产便于排查
       - name: 校验下载的附件
         if: steps.sync-check.outputs.skipped == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
         run: |
           ZIP_COUNT=$(ls dist/*.zip 2>/dev/null | wc -l)
           if [[ "$ZIP_COUNT" -eq 0 ]]; then
             echo "::error::Release 附件中没有 zip 文件，请先用 CI 构建并上传主题包"
             echo "当前 Release 的附件："
-            gh release view "${{ steps.release.outputs.tag }}" --json assets --jq '.assets[].name' 2>/dev/null || true
+            gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null || true
             exit 1
           fi
           ls -la dist/
