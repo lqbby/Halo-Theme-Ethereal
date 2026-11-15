@@ -73,34 +73,34 @@
 /* 入场动画延迟：hero→0 / summary→1 / 主栏 2、4、6 / 侧栏 3、5、7、8 /
    页脚 9（与全站 widget onload-animation 的 100–900ms 档位对齐） */
 #statistics-dashboard .stats-hero {
-  animation-delay: calc(var(--onload-animation-delay) + 0ms);
+  animation-delay: calc(var(--content-delay) + 0ms);
 }
 #statistics-dashboard .stats-summary {
-  animation-delay: calc(var(--onload-animation-delay) + 100ms);
+  animation-delay: calc(var(--content-delay) + 100ms);
 }
 #statistics-dashboard [data-panel="pulse"] {
-  animation-delay: calc(var(--onload-animation-delay) + 200ms);
+  animation-delay: calc(var(--content-delay) + 200ms);
 }
 #statistics-dashboard [data-panel="devices"] {
-  animation-delay: calc(var(--onload-animation-delay) + 300ms);
+  animation-delay: calc(var(--content-delay) + 300ms);
 }
 #statistics-dashboard [data-panel="push"] {
-  animation-delay: calc(var(--onload-animation-delay) + 400ms);
+  animation-delay: calc(var(--content-delay) + 400ms);
 }
 #statistics-dashboard [data-panel="regions"] {
-  animation-delay: calc(var(--onload-animation-delay) + 500ms);
+  animation-delay: calc(var(--content-delay) + 500ms);
 }
 #statistics-dashboard [data-panel="activity"] {
-  animation-delay: calc(var(--onload-animation-delay) + 600ms);
+  animation-delay: calc(var(--content-delay) + 600ms);
 }
 #statistics-dashboard [data-panel="sources"] {
-  animation-delay: calc(var(--onload-animation-delay) + 700ms);
+  animation-delay: calc(var(--content-delay) + 700ms);
 }
 #statistics-dashboard [data-panel="comments"] {
-  animation-delay: calc(var(--onload-animation-delay) + 800ms);
+  animation-delay: calc(var(--content-delay) + 800ms);
 }
 #statistics-dashboard .stats-footer {
-  animation-delay: calc(var(--onload-animation-delay) + 900ms);
+  animation-delay: calc(var(--content-delay) + 900ms);
 }
 
 /* ========== 共用小件 ========== */
@@ -1952,8 +1952,9 @@
   width: 100%;
   height: 100%;
 }
-/* 填色分档（对齐参考 5 档蓝阶）：有数据按 primary 混入浅底 #eef5fd 由浅入深；
-   无数据（data-level=none）为深灰蓝，与玻璃底拉开区分；台/港/澳（base）无数据时浅底 */
+/* 填色分档（对齐参考 5 档蓝阶）：有数据按 primary 混入卡底 token 由浅入深
+   （混 var(--card-bg) 与无数据底色同口径，深浅色模式自动跟随）；
+   无数据（data-level=none）为深灰蓝，与玻璃底拉开区分；台/港/澳（base）为最浅档 */
 #statistics-dashboard .stats-region-fill {
   fill: color-mix(in oklab, var(--deep-text) 18%, var(--card-bg));
   stroke: color-mix(in oklab, var(--primary) 35%, #ffffff);
@@ -1969,19 +1970,19 @@
     filter 0.52s cubic-bezier(0.42, 0, 0.58, 1);
 }
 #statistics-dashboard .stats-region-fill[data-level="base"] {
-  fill: color-mix(in oklab, var(--primary) 5%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 5%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-fill[data-level="0"] {
-  fill: color-mix(in oklab, var(--primary) 18%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 18%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-fill[data-level="1"] {
-  fill: color-mix(in oklab, var(--primary) 39%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 39%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-fill[data-level="2"] {
-  fill: color-mix(in oklab, var(--primary) 57%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 57%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-fill[data-level="3"] {
-  fill: color-mix(in oklab, var(--primary) 82%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 82%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-fill[data-level="4"] {
   fill: var(--primary);
@@ -2003,16 +2004,16 @@
   fill: var(--primary);
 }
 #statistics-dashboard .stats-region-point.is-rank-2 {
-  fill: color-mix(in oklab, var(--primary) 78%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 78%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-point.is-rank-3 {
-  fill: color-mix(in oklab, var(--primary) 56%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 56%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-point.is-rank-4 {
-  fill: color-mix(in oklab, var(--primary) 36%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 36%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-point.is-rank-5 {
-  fill: color-mix(in oklab, var(--primary) 20%, #eef5fd);
+  fill: color-mix(in oklab, var(--primary) 20%, var(--card-bg));
 }
 #statistics-dashboard .stats-region-point:hover,
 #statistics-dashboard .stats-region-point[data-active="true"] {

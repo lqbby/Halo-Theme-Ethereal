@@ -61,6 +61,7 @@ import Canonical from "../components/misc/Canonical.astro";
     umamiShareRaw=${theme.config?.extendPages?.statistics?.umamiShare},
     umamiShare=${umamiShareRaw == null ? '' : #strings.trim(umamiShareRaw)},
     umamiReady=${!#strings.isEmpty(umamiShare)},
+    umamiShareUrl=${#strings.isEmpty(umamiShare) ? '' : (#strings.contains(umamiShare, '://') ? umamiShare : umamiBase + '/share/' + umamiShare)},
     githubRepoRaw=${theme.config?.extendPages?.statistics?.githubRepo},
     githubRepo=${#strings.isEmpty(githubRepoRaw) ? 'lqbby/Halo-Theme-Ethereal' : #strings.trim(githubRepoRaw)}"
     th:data-umami-base="${umamiBase}"
@@ -910,7 +911,7 @@ import Canonical from "../components/misc/Canonical.astro";
             <footer class="stats-region-card__footer">
               <span data-region-status>按近 30 天国内访客统计</span>
               <a
-                th:href="${umamiShare}"
+                th:href="${umamiShareUrl}"
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label="在 Umami 中查看完整访客地域统计"
@@ -949,7 +950,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <a
             th:if="${umamiReady}"
             class="stats-sources__link"
-            th:href="${umamiShare}"
+            th:href="${umamiShareUrl}"
             target="_blank"
             rel="noopener noreferrer"
             aria-label="在 Umami 中查看详细来源"

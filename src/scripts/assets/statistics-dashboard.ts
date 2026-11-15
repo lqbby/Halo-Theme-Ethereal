@@ -152,6 +152,10 @@
   }
 
   function umamiGet(path) {
+    // Umami 未就绪（未配置 / 分享链接失效）时降级为 rejected Promise，
+    // 让各调用方的 .catch 走安静的失败提示；直接解引用 umami 会同步
+    // 抛 TypeError，发生在返回 Promise 之前、.catch 接不住，还会中断绑定。
+    if (!umami) return Promise.reject(new Error("Umami 尚未就绪"));
     return fetchJSON(
       umamiBase +
         "/api/websites/" +
@@ -1057,6 +1061,7 @@
   /* 贪吃蛇：在每日热力格上散步，吃掉访客点下的食物格增长。
      仅在 daily 模式 + 面板可见 + 文档可见时运行；减动效时不启动。 */
   var snake = null;
+  var snakeObserver = null;
 
   function initSnake(panel) {
     if (
@@ -1093,10 +1098,11 @@
       }
     }
     if (window.IntersectionObserver) {
-      new IntersectionObserver(function (entries) {
+      snakeObserver = new IntersectionObserver(function (entries) {
         snakeVisible = entries[0].isIntersecting;
         scheduleSnake();
-      }).observe(panel);
+      });
+      snakeObserver.observe(panel);
     } else {
       snakeVisible = true;
     }
@@ -2221,6 +2227,24 @@
         renderComments([], "评论暂时读不到，请稍后再看。");
       });
   }
+
+  /* Swup 换页清理：贪吃蛇的 document 级 visibilitychange 监听与
+     IntersectionObserver 在离开本页时一次性拆除，否则每次进看板都会
+     叠加一份历代闭包（先例：extend-pages.ts / post.astro 的
+     astro:before-swap 一次性清理）。回来时是新 DOM、脚本重执行，
+     initSnake 会重新注册，不受影响。 */
+  document.addEventListener(
+    "astro:before-swap",
+    function () {
+      stopSnake();
+      if (snakeObserver) {
+        snakeObserver.disconnect();
+        snakeObserver = null;
+      }
+      document.removeEventListener("visibilitychange", scheduleSnake);
+    },
+    { once: true },
+  );
 
   /* ---------------- 启动 ---------------- */
 

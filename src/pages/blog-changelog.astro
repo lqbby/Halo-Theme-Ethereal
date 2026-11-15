@@ -572,8 +572,14 @@ import QueryPagination from "../components/control/QueryPagination.astro";
         border-radius: 9999px;
         padding: 0.35rem 0.6rem;
         background: color-mix(in oklab, var(--card-bg) 78%, transparent);
-        backdrop-filter: blur(12px) saturate(1.3);
         -webkit-backdrop-filter: blur(12px) saturate(1.3);
+        backdrop-filter: blur(12px) saturate(1.3);
+      }
+      /* ③ 版本记录卡单独放行 overflow：.card-base 的 overflow-hidden 会把
+         .cl-railnav 的 sticky 参照废成卡片自身、永远吸不了顶；本卡子元素
+         都带内边距不贴边，放行不影响圆角裁剪观感。 */
+      .card-base.cl-releases-card {
+        overflow: visible;
       }
       .cl-rail-years {
         display: inline-flex;
@@ -712,8 +718,8 @@ import QueryPagination from "../components/control/QueryPagination.astro";
               )
             )
             border-box;
-        backdrop-filter: blur(10px) saturate(1.25);
         -webkit-backdrop-filter: blur(10px) saturate(1.25);
+        backdrop-filter: blur(10px) saturate(1.25);
       }
       .cl-card:has(.cl-ms-flag) > p {
         font-size: 0.95rem;
@@ -1105,14 +1111,20 @@ import QueryPagination from "../components/control/QueryPagination.astro";
           <!-- 互链：命中「批次 version 相等，或批次 entries 含『里程碑版本 ·』行」时
                渲染指向该批次所在分页的永久链接；无对应批次的里程碑（初版 / v2.0.1）不渲染。
                页码 = index / pageSize + 1（整数除，与 totalPages 同口径）。 -->
+          <!-- 首命中守卫：目标批次先在 th:with 里算唯一一个（version 全等
+               优先，其次 entries 首个命中），链接只渲染这一个；旧写法逐批
+               渲染、命中几批出几个链接。 -->
           <span
             class="contents"
-            th:each="d2, d2Stat : ${dayList}"
-            th:if="${m?.version != null and (d2?.version == m?.version or (d2?.entries != null and #strings.contains(d2.entries, (m?.version ?: '') + ' ·')))}"
+            th:with="msVer2=${m?.version ?: ''},
+              msEq=${(!#strings.isEmpty(msVer2) and dayList != null) ? dayList.^[version == msVer2] : null},
+              msHit=${msEq == null and !#strings.isEmpty(msVer2) and dayList != null ? dayList.^[entries != null and #strings.contains(entries, msVer2 + ' ·')] : null},
+              msTarget=${msEq != null ? msEq : msHit}"
           >
             <a
+              th:if="${msTarget != null}"
               class="cl-ms-link"
-              th:href="|${singlePage.status.permalink}?page=${(d2Stat.index / pageSize) + 1}#cl-${d2?.version}|"
+              th:href="|${singlePage.status.permalink}?page=${(dayList.indexOf(msTarget) / pageSize) + 1}#cl-${msTarget.version}|"
             >
               <span>查看该批次</span>
               <span
@@ -1133,7 +1145,9 @@ import QueryPagination from "../components/control/QueryPagination.astro";
     </section>
 
     <!-- ===== ③ 版本更新记录（服务端分页 + 年月分组 + 折叠卡片） ===== -->
-    <section class="card-base onload-animation mb-4 px-6 py-6 md:px-9">
+    <section
+      class="card-base cl-releases-card onload-animation mb-4 px-6 py-6 md:px-9"
+    >
       <div class="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p
@@ -1334,12 +1348,17 @@ import QueryPagination from "../components/control/QueryPagination.astro";
                 th:if="${m2?.version != null and (m2?.version == d?.version or (d?.entries != null and #strings.contains(d.entries, (m2?.version ?: '') + ' ·')))}"
                 >里程碑</span
               >
+              <!-- 绝对日期仅移动端显示：桌面端左列已有大号日 + 年月，同卡不
+                   再重复一遍。time 本体与 data-cl-date 钩子保留不动——
+                   「N 天前」由 JS 读 data-cl-date 后追加进 time 内部。 -->
               <time
                 class="cl-time"
                 th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
                 th:attr="datetime=${#strings.replace(d.date, '.', '-')}"
                 th:data-cl-date="${d?.date}"
-                th:text="${d?.date}">2026.09.13</time
+                ><span class="md:hidden" th:text="${d?.date}"
+                  >2026.09.13</span
+                ></time
               >
               <span
                 class="rounded bg-green-500/10 px-1.5 py-px text-[0.62rem] font-bold text-green-600 md:hidden dark:text-green-400"
