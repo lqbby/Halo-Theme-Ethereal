@@ -1404,7 +1404,13 @@ import Canonical from "../components/misc/Canonical.astro";
         hasSecondary=${!#strings.isEmpty(ident?.actionSecondaryLabel) and !#strings.isEmpty(ident?.actionSecondaryUrl)},
         showTagline=${!#strings.isEmpty(ident?.tagline) and (#strings.isEmpty(ident?.quote) or #strings.trim(ident?.tagline) != #strings.trim(ident?.quote))}"
     >
-      <div class="relative z-1 flex flex-col gap-5 sm:flex-row sm:items-center">
+      <!-- 移动端（<640px）：头像与姓名/身份/状态并排成一行（头像走 ⑱ 窄屏档的
+           4.75rem），按钮组靠 flex-wrap + 自身 width:100% 换到下一行整行并排；
+           ≥640px flex-nowrap 回到原来的单行三段（头像 | 信息 | 纵向按钮列）。
+           原先移动端是 flex-col 纵向堆叠，头像独占一行、右侧大片留空。 -->
+      <div
+        class="relative z-1 flex flex-row flex-wrap items-center gap-4 sm:flex-nowrap sm:gap-5"
+      >
         <span class="about-avatar" th:if="${!#strings.isEmpty(ident?.avatar)}">
           <img
             class="about-avatar__image"
