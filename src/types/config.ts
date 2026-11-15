@@ -40,6 +40,39 @@ export interface ExtendPages {
   skills?: Skills;
   /** 打赏页面（extendPages.reward，见 reward.astro） */
   reward?: Reward;
+  /** 数据看板页面（extendPages.statistics，见 statistics.astro） */
+  statistics?: Statistics;
+}
+
+/**
+ * 「数据看板」设置（settings.yaml 的 extendPages.statistics 组）。
+ * 逐面板开关缺省视为开启（模板侧 null → true）；Umami 走公开分享流，
+ * shareId/分享链接留空时流量面板渲染未配置占位。旧字段 siteCharts /
+ * umami / github 已被逐面板开关替代，历史值仅作惰性残留，不再读取。
+ */
+export interface Statistics {
+  /** 顶部统计卡（今日/总访客与浏览） */
+  summary?: boolean;
+  /** 访问脉冲（每日浏览/访客趋势） */
+  pulse?: boolean;
+  /** 推送节奏（GitHub 提交活动） */
+  pushRhythm?: boolean;
+  /** 访客活跃时间（星期 × 小时热力） */
+  activity?: boolean;
+  /** 设备与浏览器 */
+  devices?: boolean;
+  /** 访客地域分布 */
+  regions?: boolean;
+  /** 流量来源 */
+  sources?: boolean;
+  /** 最近评论 */
+  comments?: boolean;
+  /** Umami 实例根地址（默认 https://umami.lqbby.com:1443） */
+  umamiBaseUrl?: string;
+  /** Umami 分享链接或 shareId；留空 = 未配置 */
+  umamiShare?: string;
+  /** 推送节奏读取的 GitHub 仓库（owner/repo） */
+  githubRepo?: string;
 }
 
 // ========== 「打赏页面」设置（上游 0590a1a） ==========

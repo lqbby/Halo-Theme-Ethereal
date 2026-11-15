@@ -5,27 +5,35 @@ import PageHeader from "../components/control/PageHeader.astro";
 ---
 
 <!--
-  数据看板页面模板（Halo 自定义页面「数据看板」）。
-  依赖插件 acanyo/plugin-data-statistics（displayName「数据看板」）：
-  页面只放空容器 div，插件前台 JS 自动拉 REST API 渲染图表
-  （与 content-widgets 的挂载方式同类，非 Finder / 非插件页面路由）。
+  数据看板页面模板（Halo 自定义页面「数据看板」），版式移植自 rainzt.cn/analytics
+  的公开看板构成，按 Ethereal 习惯原创实现（玻璃卡 + hue 派生色 + 手写 SVG 图表，
+  不引入图表库、不引用对方任何素材）。
 
-  四类模块（各模块显隐由主题设置「扩展页面 → 数据看板」开关控制，
-  默认全开；Umami / Uptime Kuma / GitHub 需在插件后台配置外部服务，
-  未配置时对应容器会显示「加载失败 / 暂无数据」，关掉开关即可隐藏）：
-  1. 站内统计图表（标签/分类分布、文章发布热力图、评论排行、热门文章）——
-     siteCharts.min.js + Chart.js，容器 .xhhaocom-chartboard
-  2. Umami 流量（历史访问统计 + 近30分钟实时活动）——
-     dataStatistics.min.js，容器 .xhhaocom-dataStatistics-v2-traffic / -activity
-  3. Uptime Kuma 服务状态——容器 .xhhaocom-dataStatistics-v2-uptime-kuma
-  4. GitHub 活跃度（贡献图/统计卡/语言分布）——容器 .github-statistics-container
+  面板构成（自上而下，各面板显隐由主题设置「扩展页面 → 数据看板」的逐面板
+  开关控制，缺省全开）：
+  1. 顶部统计卡（今日访客 / 今日浏览 / 总访客 / 总浏览）—— Umami
+  2. 访问脉冲（每日 PV/UV 趋势，7/30/90 天切换）—— Umami pageviews
+  3. 推送节奏（GitHub 仓库提交活动密度）—— GitHub 公开 API（仓库名走设置）
+  4. 访客活跃时间（星期 × 小时热力，近 30 天）—— Umami pageviews 按小时聚合
+  5. 设备与浏览器 —— Umami metrics（device / browser）
+  6. 访客地域分布 —— Umami metrics（region，列表 + 占比条；对方原版是中国
+     省级地图，其地图素材为对方自有资产不可复用，故此处降级为列表呈现）
+  7. 流量来源 —— Umami metrics（channel，取不到时回退 referrer）
+  8. 最近评论 —— 与侧边栏同源：recent-comments 插件聚合端点
+     /apis/api.recent-comments.halo.run/v1alpha1/comments/latest
 
-  静态资源（chart.umd.min.js / siteCharts.min.js|css / dataStatistics.min.js|css）
-  由插件自身的 TemplateHeadProcessor（DataStatisticsProcess）在**全站每个页面**
-  head 里统一注入，且带 ?version=<插件版本> 缓存戳。因此本模板**不得再手动
-  引这些资源**——否则会二次加载，且无版本戳的 URL 命中 EdgeOne CDN 旧缓存，
-  导致换版后仍加载旧 CSS/JS（曾致「亮色不适配」）。脚本在 head 全局持久 +
-  插件内部 MutationObserver 兜底，Swup 换页后新容器也能渲染。
+  Umami 数据走「公开分享流」（与对方同一机制）：设置里填分享链接或 shareId，
+  客户端先 GET {base}/api/share/{id} 换 token + websiteId，再带
+  x-umami-share-token 头调 /api/websites/{id}/stats|pageviews|metrics。
+  分享字段留空 ⇒ 各 Umami 面板只渲染安静的「未配置」占位，整页照常打开。
+  全部取数与绘图在 src/scripts/assets/statistics-dashboard.ts（经典脚本管线）。
+
+  与旧版的关系：旧版页面只是 data-statistics 插件前台组件的空容器
+  （.xhhaocom-chartboard / .xhhaocom-dataStatistics-* / .github-statistics-*），
+  本版起这些容器整体移除。插件本体不卸载、不用禁用——它经
+  TemplateHeadProcessor 在全站 head 的注入保持原样，只是本页不再有它的挂载点；
+  旧设置开关 siteCharts / umami / github 已被逐面板开关替代，历史值在
+  ConfigMap 中作惰性残留、不再被读取。插件注入的全局脚本在本页闲置无副作用。
 -->
 <MainGridLayout
   title="${singlePage.spec.title + ' - ' + site.title}"
@@ -35,15 +43,29 @@ import PageHeader from "../components/control/PageHeader.astro";
     <!-- SEO：canonical（解决带/不带尾斜杠的重复内容） -->
     <Canonical path="${singlePage.status.permalink}" />
   </Fragment>
-  <!-- 作用域根容器：id 供 statistics.css 用高优先级选择器覆盖插件 CSS 变量
-       （--chartboard-* / --halo-data-statistics-* 映射到 Ethereal token），
-       实现数据看板深度主题化。不能 th:remove="tag"（否则 id 被移除）。 -->
+  <!-- 作用域根容器：id 供 statistics.css 挂新版式样式；data-* 把设置值传给
+       statistics-dashboard.js（脚本只读 DOM，不读 theme-config JSON）。 -->
   <div
     id="statistics-dashboard"
     th:with="
-    siteCharts=${theme.config?.extendPages?.statistics?.siteCharts == null ? true : theme.config?.extendPages?.statistics?.siteCharts},
-    umami=${theme.config?.extendPages?.statistics?.umami == null ? true : theme.config?.extendPages?.statistics?.umami},
-    github=${theme.config?.extendPages?.statistics?.github == null ? true : theme.config?.extendPages?.statistics?.github}"
+    swSummary=${theme.config?.extendPages?.statistics?.summary == null ? true : theme.config?.extendPages?.statistics?.summary},
+    swPulse=${theme.config?.extendPages?.statistics?.pulse == null ? true : theme.config?.extendPages?.statistics?.pulse},
+    swPush=${theme.config?.extendPages?.statistics?.pushRhythm == null ? true : theme.config?.extendPages?.statistics?.pushRhythm},
+    swActivity=${theme.config?.extendPages?.statistics?.activity == null ? true : theme.config?.extendPages?.statistics?.activity},
+    swDevices=${theme.config?.extendPages?.statistics?.devices == null ? true : theme.config?.extendPages?.statistics?.devices},
+    swRegions=${theme.config?.extendPages?.statistics?.regions == null ? true : theme.config?.extendPages?.statistics?.regions},
+    swSources=${theme.config?.extendPages?.statistics?.sources == null ? true : theme.config?.extendPages?.statistics?.sources},
+    swComments=${theme.config?.extendPages?.statistics?.comments == null ? true : theme.config?.extendPages?.statistics?.comments},
+    umamiBaseRaw=${theme.config?.extendPages?.statistics?.umamiBaseUrl},
+    umamiBase=${#strings.isEmpty(umamiBaseRaw) ? 'https://umami.lqbby.com:1443' : umamiBaseRaw},
+    umamiShareRaw=${theme.config?.extendPages?.statistics?.umamiShare},
+    umamiShare=${umamiShareRaw == null ? '' : #strings.trim(umamiShareRaw)},
+    umamiReady=${!#strings.isEmpty(umamiShare)},
+    githubRepoRaw=${theme.config?.extendPages?.statistics?.githubRepo},
+    githubRepo=${#strings.isEmpty(githubRepoRaw) ? 'lqbby/Halo-Theme-Ethereal' : #strings.trim(githubRepoRaw)}"
+    th:data-umami-base="${umamiBase}"
+    th:data-umami-share="${umamiShare}"
+    th:data-github-repo="${githubRepo}"
   >
     <!-- 页头：纯净玻璃卡，不加主色辉光 -->
     <div class="card-base page-head-card onload-animation mb-4">
@@ -56,145 +78,417 @@ import PageHeader from "../components/control/PageHeader.astro";
       />
     </div>
 
-    <!-- Umami 流量统计（历史访问 + 近30分钟实时活动） -->
+    <!-- 1. 顶部统计卡 -->
     <section
-      th:if="${umami}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      th:if="${swSummary}"
+      class="onload-animation mb-4"
+      data-panel="summary"
     >
-      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
-        <span
-          class="icon-[material-symbols--visibility-outline-rounded] text-(--primary)"
-        ></span>
-        <span th:text="#{page.statistics.umami}">访问统计</span>
-      </h2>
-      <div class="xhhaocom-dataStatistics-v2-traffic" data-type="weekly"></div>
-      <div class="xhhaocom-dataStatistics-v2-activity"></div>
-    </section>
-
-    <!-- 站内统计图表（标签/分类/文章热力图/评论排行/热门文章） -->
-    <section
-      th:if="${siteCharts}"
-      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
-    >
-      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
-        <span
-          class="icon-[material-symbols--waterfall-chart-rounded] text-(--primary)"
-        ></span>
-        <span th:text="#{page.statistics.siteCharts}">站点统计</span>
-      </h2>
-      <div
-        class="xhhaocom-chartboard"
-        data-types="tags,categories,articles,comments,topArticles"
-      >
+      <div class="stats-summary-grid">
+        <article class="card-base stats-summary-card">
+          <span class="stats-summary-card__label">今日访客</span>
+          <strong class="stats-summary-card__value" data-stat="todayVisitors"
+            >—</strong
+          >
+          <small class="stats-summary-card__note">TODAY · VISITORS</small>
+        </article>
+        <article class="card-base stats-summary-card">
+          <span class="stats-summary-card__label">今日浏览</span>
+          <strong class="stats-summary-card__value" data-stat="todayPageviews"
+            >—</strong
+          >
+          <small class="stats-summary-card__note">TODAY · PAGEVIEWS</small>
+        </article>
+        <article class="card-base stats-summary-card">
+          <span class="stats-summary-card__label">总访客</span>
+          <strong class="stats-summary-card__value" data-stat="totalVisitors"
+            >—</strong
+          >
+          <small class="stats-summary-card__note">ALL-TIME · VISITORS</small>
+        </article>
+        <article class="card-base stats-summary-card">
+          <span class="stats-summary-card__label">总浏览</span>
+          <strong class="stats-summary-card__value" data-stat="totalPageviews"
+            >—</strong
+          >
+          <small class="stats-summary-card__note">ALL-TIME · PAGEVIEWS</small>
+        </article>
+      </div>
+      <div th:if="${!umamiReady}" class="stats-unconfigured">
+        流量数据未配置：在主题设置「扩展页面 → 数据看板」填入 Umami
+        分享链接后，这里与下方流量面板会显示真实数据。
       </div>
     </section>
 
-    <!-- GitHub 贡献图（仅保留自建 gh-graph 的热力图/折线贡献图）。
-         刻意不启用插件内置的 stats / top-langs：这两张由第三方服务生成的
-         SVG 图片无法被主题 CSS 覆盖（深色实底统计卡 + 纯白底语言分布卡，在
-         深色主题上格外突兀），故 data-types 只留 graph。 -->
+    <!-- 2. 访问脉冲 -->
     <section
-      th:if="${github}"
+      th:if="${swPulse}"
       class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      data-panel="pulse"
     >
-      <h2 class="mb-4 flex items-center gap-2 text-lg font-bold text-90">
-        <span class="icon-[fa6-brands--github] text-(--primary)"></span>
-        <span>GitHub 贡献</span>
-      </h2>
-      <div
-        class="github-statistics-container"
-        data-types="graph"
-        data-graph-theme="minimal"
-      >
+      <header class="stats-panel-head">
+        <div>
+          <p class="stats-kicker">TRAFFIC / SIGNAL</p>
+          <h2 class="stats-panel-title">访问脉冲</h2>
+          <p class="stats-panel-desc">每天的浏览量与访客数</p>
+        </div>
+        <div class="stats-range" role="group" aria-label="选择统计时间范围">
+          <button type="button" data-range="7" aria-pressed="false">7 天</button
+          >
+          <button type="button" data-range="30" aria-pressed="true"
+            >30 天</button
+          >
+          <button type="button" data-range="90" aria-pressed="false"
+            >90 天</button
+          >
+        </div>
+      </header>
+      <div th:if="${!umamiReady}" class="stats-unconfigured">
+        未配置 Umami 分享链接，暂无趋势数据。
+      </div>
+      <div th:if="${umamiReady}" class="stats-chart-wrap">
+        <svg
+          class="stats-chart"
+          data-pulse-chart
+          viewBox="0 0 960 300"
+          role="img"
+          aria-label="最近 30 天的浏览量与访客趋势"
+        >
+          <defs>
+            <linearGradient
+              id="stats-area-gradient"
+              x1="0"
+              x2="0"
+              y1="0"
+              y2="1"
+            >
+              <stop offset="0%" class="stats-area-stop stats-area-stop--top"
+              ></stop>
+              <stop
+                offset="100%"
+                class="stats-area-stop stats-area-stop--bottom"></stop>
+            </linearGradient>
+          </defs>
+          <g class="stats-chart-grid" aria-hidden="true">
+            <line x1="42" y1="38" x2="944" y2="38"></line>
+            <line x1="42" y1="134" x2="944" y2="134"></line>
+            <line x1="42" y1="230" x2="944" y2="230"></line>
+          </g>
+          <text
+            class="stats-chart-ytext"
+            data-y="max"
+            x="34"
+            y="42"
+            text-anchor="end">—</text
+          >
+          <text
+            class="stats-chart-ytext"
+            data-y="mid"
+            x="34"
+            y="138"
+            text-anchor="end">—</text
+          >
+          <text class="stats-chart-ytext" x="34" y="234" text-anchor="end"
+            >0</text
+          >
+          <path
+            class="stats-chart-area"
+            data-chart-area
+            d="M 42 230 L 944 230 Z"></path>
+          <path
+            class="stats-chart-line stats-chart-line--views"
+            data-chart-line="views"
+            d="M 42 230 L 944 230"></path>
+          <path
+            class="stats-chart-line stats-chart-line--visitors"
+            data-chart-line="visitors"
+            d="M 42 230 L 944 230"></path>
+          <line
+            class="stats-chart-guide"
+            data-chart-guide
+            x1="42"
+            y1="24"
+            x2="42"
+            y2="230"
+            style="display:none"></line>
+          <g data-chart-points></g>
+        </svg>
+        <div class="stats-chart-tooltip" data-chart-tooltip hidden>
+          <strong data-tip-date>—</strong>
+          <span
+            ><i class="stats-dot stats-dot--views"></i><b data-tip-views>—</b> 浏览</span
+          >
+          <span
+            ><i class="stats-dot stats-dot--visitors"></i><b data-tip-visitors
+              >—</b
+            > 访客</span
+          >
+        </div>
+        <div class="stats-chart-x" aria-hidden="true">
+          <span data-x="start">—</span><span data-x="mid">—</span><span
+            data-x="end">今天</span
+          >
+        </div>
+        <div class="stats-empty" data-chart-empty hidden>
+          <strong>暂时没有可展示的趋势</strong>
+          <span>公开数据接口暂时没有返回这段时间的记录。</span>
+        </div>
+        <p class="stats-chart-legend" aria-hidden="true">
+          <span><i class="stats-dot stats-dot--views"></i>浏览量</span>
+          <span><i class="stats-dot stats-dot--visitors"></i>访客数</span>
+        </p>
       </div>
     </section>
 
-    <!-- 亮暗适配：GitHub 图片 theme 跟随 html.dark 切换。
-         容器/文字层已被插件 CSS 的 html.dark 选择器自动适配，无需处理；
-         但 GitHub 贡献图/统计卡是外部服务生成的图片，theme 由 data-* 属性
-         决定（插件 JS 硬编码默认 minimal 亮色），CSS 管不到，故主题侧用
-         MutationObserver 动态改 data-graph-theme / data-stats-theme 并触发
-         插件重渲染。脚本放 #swup-container 内、容器之后：首次直刷立即执行时
-         容器已解析而插件 defer 脚本尚未渲染，先设好 theme 避免「亮色闪一下」；
-         Swup 换页后本内联脚本不重执行，靠 body MutationObserver 兜底扫新容器。 -->
-    <script is:inline>
-      (function () {
-        var GRAPH_LIGHT = "minimal";
-        var GRAPH_DARK = "react-dark";
-        var STATS_DARK = "dark";
+    <!-- 3. 推送节奏 -->
+    <section
+      th:if="${swPush}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      data-panel="push"
+    >
+      <header class="stats-panel-head">
+        <div>
+          <p class="stats-kicker">OPERATIONS / RELEASES</p>
+          <h2 class="stats-panel-title">推送节奏</h2>
+          <p class="stats-panel-desc">
+            仓库 <span class="stats-mono" th:text="${githubRepo}"
+              >lqbby/Halo-Theme-Ethereal</span
+            > 的提交活动密度（近 15 周）
+          </p>
+        </div>
+        <span class="stats-badge" data-push-status>读取中</span>
+      </header>
+      <div class="stats-push-metrics">
+        <div class="stats-push-metric">
+          <span>最近一次提交</span>
+          <strong data-push-latest>—</strong>
+        </div>
+        <div class="stats-push-metric">
+          <span>近 30 天提交</span>
+          <strong data-push-30d>—</strong>
+        </div>
+        <div class="stats-push-metric">
+          <span>近 15 周活跃天数</span>
+          <strong data-push-active>—</strong>
+        </div>
+      </div>
+      <div
+        class="stats-push-grid"
+        data-push-grid
+        role="img"
+        aria-label="近 15 周每日提交活动密度"
+      >
+      </div>
+      <p class="stats-heat-legend" aria-hidden="true">
+        <span>少</span>
+        <i class="stats-heat-cell" data-level="0"></i>
+        <i class="stats-heat-cell" data-level="1"></i>
+        <i class="stats-heat-cell" data-level="2"></i>
+        <i class="stats-heat-cell" data-level="3"></i>
+        <i class="stats-heat-cell" data-level="4"></i>
+        <span>多</span>
+      </p>
+      <div class="stats-empty" data-push-empty hidden>
+        <strong>暂时读不到提交活动</strong>
+        <span
+          >GitHub 公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
+        >
+      </div>
+    </section>
 
-        function isDark() {
-          return document.documentElement.classList.contains("dark");
-        }
+    <!-- 4. 访客活跃时间 -->
+    <section
+      th:if="${swActivity}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      data-panel="activity"
+    >
+      <header class="stats-panel-head">
+        <div>
+          <p class="stats-kicker">VISITOR / ACTIVITY</p>
+          <h2 class="stats-panel-title">访客活跃时间</h2>
+          <p class="stats-panel-desc">看看大家通常在什么时候来这里</p>
+        </div>
+        <span class="stats-badge">近 30 天</span>
+      </header>
+      <div th:if="${!umamiReady}" class="stats-unconfigured">
+        未配置 Umami 分享链接，暂无活跃时间数据。
+      </div>
+      <div th:if="${umamiReady}" class="stats-activity">
+        <div class="stats-activity-hours" aria-hidden="true">
+          <span>00时</span><span>02时</span><span>04时</span><span>06时</span
+          ><span>08时</span><span>10时</span>
+          <span>12时</span><span>14时</span><span>16时</span><span>18时</span
+          ><span>20时</span><span>22时</span>
+        </div>
+        <div class="stats-activity-body">
+          <div class="stats-activity-days" aria-hidden="true">
+            <span>周一</span><span>周二</span><span>周三</span><span>周四</span
+            ><span>周五</span><span>周六</span><span>周日</span>
+          </div>
+          <div
+            class="stats-activity-grid"
+            data-activity-grid
+            role="grid"
+            aria-label="近 30 天访客按星期与小时的活跃分布"
+          >
+            <div
+              class="stats-activity-row"
+              th:each="wd : ${#numbers.sequence(0, 6)}"
+            >
+              <span
+                class="stats-heat-cell"
+                th:each="h : ${#numbers.sequence(0, 23)}"
+                th:data-wd="${wd}"
+                th:data-h="${h}"
+                data-level="0"></span>
+            </div>
+          </div>
+        </div>
+        <p class="stats-heat-legend" aria-hidden="true">
+          <span>少</span>
+          <i class="stats-heat-cell" data-level="0"></i>
+          <i class="stats-heat-cell" data-level="1"></i>
+          <i class="stats-heat-cell" data-level="2"></i>
+          <i class="stats-heat-cell" data-level="3"></i>
+          <i class="stats-heat-cell" data-level="4"></i>
+          <span>多</span>
+        </p>
+      </div>
+    </section>
 
-        // 幂等：仅当 theme 需要变化才改属性；已渲染过则重渲染，避免与插件自身
-        // MutationObserver 互相触发造成死循环
-        function applyTheme(container) {
-          if (!container) return;
-          var dark = isDark();
-          var wantGraph = dark ? GRAPH_DARK : GRAPH_LIGHT;
-          var curGraph = container.getAttribute("data-graph-theme");
-          var curStats = container.getAttribute("data-stats-theme");
-          var needGraph = curGraph !== wantGraph;
-          var needStats = dark ? curStats !== STATS_DARK : curStats !== null;
+    <!-- 5 + 6 + 7：设备与浏览器 / 地域 / 来源（两列区） -->
+    <div class="stats-duo">
+      <!-- 5. 设备与浏览器 -->
+      <section
+        th:if="${swDevices}"
+        class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+        data-panel="devices"
+      >
+        <header class="stats-panel-head">
+          <div>
+            <p class="stats-kicker">VISITORS / DEVICES</p>
+            <h2 class="stats-panel-title">设备与浏览器</h2>
+            <p class="stats-panel-desc">访客用什么来看</p>
+          </div>
+          <span class="stats-badge">近 30 天</span>
+        </header>
+        <div th:if="${!umamiReady}" class="stats-unconfigured">
+          未配置 Umami 分享链接，暂无设备数据。
+        </div>
+        <div th:if="${umamiReady}">
+          <div class="stats-donut-row">
+            <div class="stats-donut" role="img" aria-label="设备分布">
+              <svg viewBox="0 0 100 100" data-donut="device" aria-hidden="true"
+              ></svg>
+              <div class="stats-donut-label">
+                <strong data-donut-total="device">—</strong><span>访客</span>
+              </div>
+            </div>
+            <ul class="stats-legend" data-legend="device"></ul>
+          </div>
+          <h3 class="stats-subtitle">浏览器</h3>
+          <ul class="stats-bars" data-bars="browser"></ul>
+        </div>
+      </section>
 
-          if (needGraph) container.setAttribute("data-graph-theme", wantGraph);
-          if (dark) container.setAttribute("data-stats-theme", STATS_DARK);
-          else container.removeAttribute("data-stats-theme");
+      <!-- 6 + 7 的右列容器 -->
+      <div class="stats-duo-col">
+        <!-- 6. 访客地域分布 -->
+        <section
+          th:if="${swRegions}"
+          class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+          data-panel="regions"
+        >
+          <header class="stats-panel-head">
+            <div>
+              <p class="stats-kicker">VISITORS / REGIONS</p>
+              <h2 class="stats-panel-title">访客地域分布</h2>
+              <p class="stats-panel-desc">访客所在的地区（近 30 天）</p>
+            </div>
+            <span class="stats-badge">近 30 天</span>
+          </header>
+          <div th:if="${!umamiReady}" class="stats-unconfigured">
+            未配置 Umami 分享链接，暂无地域数据。
+          </div>
+          <ul th:if="${umamiReady}" class="stats-bars" data-region-list></ul>
+        </section>
 
-          if (
-            (needGraph || needStats) &&
-            container.hasAttribute("data-initialized")
-          ) {
-            container.removeAttribute("data-initialized");
-            container.innerHTML = "";
-            if (window.xhhaocomDataStatisticsV2Init) {
-              window.xhhaocomDataStatisticsV2Init();
-            }
-          }
-        }
+        <!-- 7. 流量来源 -->
+        <section
+          th:if="${swSources}"
+          class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+          data-panel="sources"
+        >
+          <header class="stats-panel-head">
+            <div>
+              <p class="stats-kicker">TRAFFIC / SOURCES</p>
+              <h2 class="stats-panel-title">流量来源</h2>
+              <p class="stats-panel-desc">访客从哪里点进来</p>
+            </div>
+            <span class="stats-badge">近 30 天</span>
+          </header>
+          <div th:if="${!umamiReady}" class="stats-unconfigured">
+            未配置 Umami 分享链接，暂无来源数据。
+          </div>
+          <div th:if="${umamiReady}" class="stats-donut-row">
+            <div class="stats-donut" role="img" aria-label="流量来源分布">
+              <svg viewBox="0 0 100 100" data-donut="source" aria-hidden="true"
+              ></svg>
+              <div class="stats-donut-label">
+                <strong data-donut-total="source">—</strong><span>访客</span>
+              </div>
+            </div>
+            <ul class="stats-legend" data-legend="source"></ul>
+          </div>
+        </section>
+      </div>
+    </div>
 
-        function scan() {
-          document
-            .querySelectorAll(".github-statistics-container")
-            .forEach(applyTheme);
-        }
-
-        // 首次直刷：容器已解析、插件 defer 尚未渲染，立即设 theme 避免闪烁
-        scan();
-
-        // 只绑一次：明暗切换 + Swup 换页/动态容器（避免换页后 N 份 observer 累积）
-        if (!window.__etherealStatsThemeBound) {
-          window.__etherealStatsThemeBound = true;
-          new MutationObserver(function (muts) {
-            for (var i = 0; i < muts.length; i++) {
-              if (muts[i].attributeName === "class") {
-                scan();
-                break;
-              }
-            }
-          }).observe(document.documentElement, {
-            attributes: true,
-            attributeFilter: ["class"],
-          });
-          // 🔴 原先观察整页 body 子树、每次变动都全量 scan（含 getComputedStyle 上色）
-          // ⇒ 统计页在 Swup 动态容器下持续无谓重算。改为：收窄到 #main-grid +
-          // rAF 合并（一帧内多次变动只扫一次）。
-          var scanFrame = null;
-          function scheduleScan() {
-            if (scanFrame) return;
-            scanFrame = requestAnimationFrame(function () {
-              scanFrame = null;
-              scan();
-            });
-          }
-          var scanRoot = document.getElementById("main-grid") || document.body;
-          new MutationObserver(scheduleScan).observe(scanRoot, {
-            childList: true,
-            subtree: true,
-          });
-        }
-      })();
-    </script>
+    <!-- 8. 最近评论 -->
+    <section
+      th:if="${swComments}"
+      class="card-base onload-animation mb-4 px-6 py-6 md:px-9"
+      data-panel="comments"
+    >
+      <header class="stats-panel-head">
+        <div>
+          <p class="stats-kicker">COMMUNITY / RECENT NOTES</p>
+          <h2 class="stats-panel-title">最近评论</h2>
+          <p class="stats-panel-desc">有人来过，也留下了几句值得被看见的话。</p>
+        </div>
+        <span class="stats-badge">最新 8 条</span>
+      </header>
+      <ul class="stats-comments" data-comments-list aria-live="polite">
+        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+          <span class="stats-comment__avatar"></span>
+          <span class="stats-comment__body">
+            <span class="stats-skel-line" style="width: 30%"></span>
+            <span class="stats-skel-line" style="width: 92%"></span>
+            <span class="stats-skel-line" style="width: 64%"></span>
+          </span>
+        </li>
+        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+          <span class="stats-comment__avatar"></span>
+          <span class="stats-comment__body">
+            <span class="stats-skel-line" style="width: 24%"></span>
+            <span class="stats-skel-line" style="width: 85%"></span>
+            <span class="stats-skel-line" style="width: 58%"></span>
+          </span>
+        </li>
+        <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+          <span class="stats-comment__avatar"></span>
+          <span class="stats-comment__body">
+            <span class="stats-skel-line" style="width: 34%"></span>
+            <span class="stats-skel-line" style="width: 88%"></span>
+            <span class="stats-skel-line" style="width: 61%"></span>
+          </span>
+        </li>
+      </ul>
+    </section>
   </div>
+
+  <script
+    is:inline
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/statistics-dashboard.js?v=${ASSET_VERSION}`}
+    defer></script>
 </MainGridLayout>

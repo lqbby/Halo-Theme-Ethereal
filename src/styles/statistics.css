@@ -1,349 +1,684 @@
 @reference "./global.css";
 
 /* ============================================================================
-   数据看板（statistics.html）深度主题化
+   数据看板（statistics.html）新版式样式
    ----------------------------------------------------------------------------
-   依赖插件 acanyo/plugin-data-statistics 的前台组件（站点图表 / Umami / Uptime
-   Kuma / GitHub）。插件自带一套蓝色系配色（--chartboard-* 定义在 siteCharts.css、
-   --halo-data-statistics-* 定义在 dataStatistics.css 的 :root / html.dark）。
+   版式构成借鉴公开看板的信息组织（统计卡 → 趋势 → 活动热力 → 分布 → 评论），
+   视觉语言完全按 Ethereal 自身规范实现：card-base 玻璃卡、--hue 派生色、
+   与「关于我」页同款的分区标题节奏（主色小号大写 label + 中文标题）。
+   不引用任何外部站点素材，图表为 statistics-dashboard.js 手写 SVG，
+   本文件只给几何上色，色值一律从 var(--primary) / var(--deep-text) /
+   var(--card-bg) 用 color-mix / oklch 相对色派生，深浅双模式自动成立。
 
-   本文件用 `#statistics-dashboard`（id 优先级 100，稳压插件的 :root/html.dark 的
-   10/11）把这些变量**全部重映射到 Ethereal 语义 token**：
-     - 卡片底     → var(--card-bg)
-     - 主色/强调  → var(--primary)（跟随后台「主题色」色相，亮暗自动切换）
-     - 文字       → var(--deep-text) 及其 color-mix 淡化变体
-     - 网格线/边框 → color-mix(in oklab, var(--primary) N%, transparent)
-   token 本身在 :root / :root.dark 各有一份，故此处**只需一套映射**，明暗自动跟随，
-   无需重复写 html.dark 分支（少数「热力图色阶 / 阴影」用 color-mix 让深浅也自适应）。
-
-   另给插件渲染出的卡片补 Ethereal 玻璃拟态（backdrop-filter，透明/壁纸模式下
-   自然生效）与圆角对齐 --radius-large，视觉与全站卡片统一。
+   旧版此文件的作用是把 data-statistics 插件的 --chartboard-* /
+   --halo-data-statistics-* 变量重映射到主题 token；新版模板已不再渲染
+   插件容器，这批映射随之移除（插件自身的全站 head 注入不受影响）。
    ============================================================================ */
 
 #statistics-dashboard {
-  /* ---- 站点图表 siteCharts.css 的 --chartboard-* ---- */
-  --chartboard-surface: var(--card-bg);
-  --chartboard-border: color-mix(in oklab, var(--primary) 16%, transparent);
-  --chartboard-shadow: none;
-  --chartboard-title-color: var(--deep-text);
-  --chartboard-subtitle-color: color-mix(
-    in oklab,
-    var(--deep-text) 55%,
-    transparent
-  );
-  /* 图表小卡：卡片底色向主色轻轻靠拢，区分于外层分区卡 */
-  --chartboard-card-bg: color-mix(in oklab, var(--card-bg) 92%, var(--primary));
-  --chartboard-card-border: color-mix(
-    in oklab,
-    var(--primary) 14%,
-    transparent
-  );
-  --chartboard-card-shadow: none;
-  --chartboard-card-hover-shadow: 0 14px 30px -18px
-    color-mix(in oklab, var(--primary) 48%, transparent);
-  --chartboard-text-primary: var(--deep-text);
-  --chartboard-text-secondary: color-mix(
-    in oklab,
-    var(--deep-text) 72%,
-    transparent
-  );
-  --chartboard-text-muted: color-mix(
-    in oklab,
-    var(--deep-text) 52%,
-    transparent
-  );
-  --chartboard-loading-bg: var(--btn-regular-bg);
-  --chartboard-loading-border: var(--line-color);
-  --chartboard-error-bg: color-mix(
-    in oklab,
-    var(--upvote-error) 12%,
-    transparent
-  );
-  --chartboard-error-border: color-mix(
-    in oklab,
-    var(--upvote-error) 38%,
-    transparent
-  );
-  --chartboard-error-color: var(--upvote-error);
-  /* 热力图：空位淡色 + 色阶从 card-bg 渐变到主色（明暗自适应） */
-  --chartboard-heatmap-cell-bg: color-mix(
-    in oklab,
-    var(--deep-text) 10%,
-    transparent
-  );
-  --chartboard-heatmap-level-1: color-mix(
-    in oklab,
-    var(--primary) 22%,
-    var(--card-bg)
-  );
-  --chartboard-heatmap-level-2: color-mix(
-    in oklab,
-    var(--primary) 45%,
-    var(--card-bg)
-  );
-  --chartboard-heatmap-level-3: color-mix(
-    in oklab,
-    var(--primary) 70%,
-    var(--card-bg)
-  );
-  --chartboard-heatmap-level-4: var(--primary);
-  --chartboard-heatmap-hover-shadow: color-mix(
-    in oklab,
-    var(--primary) 45%,
-    transparent
-  );
-  --chartboard-heatmap-tooltip-bg: var(--float-panel-bg);
-  --chartboard-heatmap-tooltip-border: var(--line-color);
-  --chartboard-heatmap-tooltip-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.3);
-  --chartboard-heatmap-tooltip-text: var(--deep-text);
-  --chartboard-heatmap-tooltip-strong: var(--deep-text);
-  --chartboard-heatmap-tooltip-span: color-mix(
-    in oklab,
-    var(--deep-text) 70%,
-    transparent
-  );
-  --chartboard-legend-color: color-mix(
-    in oklab,
-    var(--deep-text) 80%,
-    transparent
-  );
-  --chartboard-legend-value-color: color-mix(
-    in oklab,
-    var(--deep-text) 55%,
-    transparent
-  );
-  --chartboard-grid: var(--line-color);
-  /* 图表主色（siteCharts.js 的 cssVar 读取，驱动折线/主数据色） */
-  --chartboard-accent: var(--primary);
-  --chartboard-accent-soft: color-mix(
-    in oklab,
-    var(--primary) 15%,
-    transparent
-  );
+  /* 第二数据系列（访客线 / 环形分段的对照色）：主色色相旋转派生，
+     不支持相对色语法时回退到主色与卡底的混合。 */
+  --stats-series-2: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
+  --stats-series-2: oklch(from var(--primary) 0.72 0.13 calc(h + 150));
+  --stats-text-muted: color-mix(in oklab, var(--deep-text) 55%, transparent);
+  --stats-text-faint: color-mix(in oklab, var(--deep-text) 38%, transparent);
+  --stats-track: color-mix(in oklab, var(--deep-text) 9%, transparent);
 
-  /* ---- 流量/状态/GitHub dataStatistics.css 的 --halo-data-statistics-* ---- */
-  --halo-data-statistics-section-surface: var(--card-bg);
-  --halo-data-statistics-section-border: color-mix(
-    in oklab,
-    var(--primary) 16%,
-    transparent
-  );
-  --halo-data-statistics-section-shadow: none;
-  --halo-data-statistics-title-color: var(--deep-text);
-  --halo-data-statistics-subtitle-color: color-mix(
-    in oklab,
-    var(--deep-text) 55%,
-    transparent
-  );
-  --halo-data-statistics-badge-bg: color-mix(
-    in oklab,
-    var(--primary) 15%,
-    transparent
-  );
-  --halo-data-statistics-badge-text: var(--primary);
-  --halo-data-statistics-card-surface: color-mix(
-    in oklab,
-    var(--card-bg) 92%,
-    var(--primary)
-  );
-  --halo-data-statistics-card-border: color-mix(
-    in oklab,
-    var(--primary) 14%,
-    transparent
-  );
-  --halo-data-statistics-card-shadow: none;
-  --halo-data-statistics-card-hover-border: color-mix(
-    in oklab,
-    var(--primary) 30%,
-    transparent
-  );
-  --halo-data-statistics-card-hover-shadow: 0 8px 18px -10px
-    color-mix(in oklab, var(--primary) 35%, transparent);
-  --halo-data-statistics-card-icon-bg: color-mix(
-    in oklab,
-    var(--primary) 14%,
-    transparent
-  );
-  --halo-data-statistics-card-icon-color: var(--primary);
-  --halo-data-statistics-number-color: var(--primary);
-  --halo-data-statistics-label-color: color-mix(
-    in oklab,
-    var(--deep-text) 70%,
-    transparent
-  );
-  --halo-data-statistics-activity-surface: var(--card-bg);
-  --halo-data-statistics-activity-border: color-mix(
-    in oklab,
-    var(--primary) 16%,
-    transparent
-  );
-  --halo-data-statistics-activity-shadow: none;
-  --halo-data-statistics-metric-surface: color-mix(
-    in oklab,
-    var(--card-bg) 92%,
-    var(--primary)
-  );
-  --halo-data-statistics-metric-border: color-mix(
-    in oklab,
-    var(--primary) 14%,
-    transparent
-  );
-  --halo-data-statistics-metric-icon-bg: color-mix(
-    in oklab,
-    var(--primary) 14%,
-    transparent
-  );
-  --halo-data-statistics-metric-icon-color: var(--primary);
-  --halo-data-statistics-metric-value-color: var(--primary);
-  --halo-data-statistics-metric-label-color: color-mix(
-    in oklab,
-    var(--deep-text) 70%,
-    transparent
-  );
-  --halo-data-statistics-list-item-border: var(--line-color);
-  --halo-data-statistics-text-primary: var(--deep-text);
-  --halo-data-statistics-text-secondary: color-mix(
-    in oklab,
-    var(--deep-text) 72%,
-    transparent
-  );
-  --halo-data-statistics-text-muted: color-mix(
-    in oklab,
-    var(--deep-text) 52%,
-    transparent
-  );
-  --halo-data-statistics-time-text: color-mix(
-    in oklab,
-    var(--deep-text) 70%,
-    transparent
-  );
-  --halo-data-statistics-scrollbar-thumb: color-mix(
-    in oklab,
-    var(--deep-text) 35%,
-    transparent
-  );
-  --halo-data-statistics-scrollbar-thumb-hover: color-mix(
-    in oklab,
-    var(--deep-text) 55%,
-    transparent
-  );
-  --halo-data-statistics-tooltip-bg: var(--float-panel-bg);
-  --halo-data-statistics-tooltip-text: var(--deep-text);
-}
+  /* ---------- 分区标题（对齐 about 页 about-section-label 节奏） ---------- */
+  .stats-kicker {
+    margin: 0;
+    color: var(--primary);
+    font-size: 0.6rem;
+    font-weight: 780;
+    letter-spacing: 0.12em;
+    line-height: 1.3;
+    text-transform: uppercase;
+  }
+  .stats-panel-title {
+    margin: 0.25rem 0 0;
+    color: var(--deep-text);
+    font-size: 1.125rem;
+    font-weight: 800;
+    line-height: 1.35;
+  }
+  .stats-panel-desc {
+    margin: 0.3rem 0 0;
+    color: var(--stats-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+  .stats-panel-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.1rem;
+  }
+  .stats-badge {
+    flex-shrink: 0;
+    padding: 0.28rem 0.65rem;
+    border-radius: 999px;
+    background: var(--btn-regular-bg);
+    color: var(--stats-text-muted);
+    font-size: 0.72rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .stats-mono {
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.85em;
+  }
+  .stats-subtitle {
+    margin: 1.25rem 0 0.6rem;
+    color: var(--deep-text);
+    font-size: 0.875rem;
+    font-weight: 700;
+  }
 
-/* ---- 玻璃拟态 + 圆角对齐（插件渲染出的卡片跟随全站卡片的磨砂质感）----
-   插件卡片默认是纯色/渐变，这里补 backdrop-filter，在透明/壁纸模式下
-   与 .card-base 的磨砂一致；纯色背景下 backdrop-filter 无副作用。 */
-#statistics-dashboard .xhhaocom-chartboard-section,
-#statistics-dashboard .xhhaocom-chartboard-card,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-activity,
-#statistics-dashboard .github-statistics-container {
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  backdrop-filter: saturate(180%) blur(20px);
-  border-radius: var(--radius-large);
-}
+  /* ---------- 未配置 / 空状态（安静占位，不报错不白屏） ---------- */
+  .stats-unconfigured {
+    margin-top: 0.9rem;
+    padding: 0.8rem 1rem;
+    border: 1px dashed var(--line-color);
+    border-radius: var(--radius-large, 1rem);
+    color: var(--stats-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+  section > .stats-unconfigured:first-of-type {
+    margin-top: 0;
+  }
+  .stats-empty {
+    padding: 1.6rem 1rem;
+    text-align: center;
+    color: var(--stats-text-muted);
+  }
+  .stats-empty strong {
+    display: block;
+    margin-bottom: 0.3rem;
+    color: var(--deep-text);
+    font-size: 0.9rem;
+  }
+  .stats-empty span {
+    font-size: 0.8125rem;
+  }
 
-/* ============================================================================
-   视觉升级（2026-09-10）
-   ----------------------------------------------------------------------------
-   逐项诊断与对策：
-   1) 插件图表的 COLOR_PALETTE 是硬编码彩虹色（#3b82f6/#10b981/#f59e0b/#ef4444…），
-      与 Ethereal「深色玻璃 + 青色渐变」主调冲突
-      → 定义 --chartboard-series-1..10 青→蓝→紫渐进色阶，插件 siteCharts.js
-        通过 cssVar 读取（配套插件改动），替代彩虹色。
-   2) 插件自带「面板容器」（-traffic-section / -activity / chartboard-section）
-      又套一层实色底和自己的标题 → 与外层 section 的玻璃卡形成「双层贴片」+ 标题重复
-      → 面板透明化 + 隐藏重复标题。
-   3) 子图表小卡是实色底，与外层半透明玻璃卡不一致 → 半透明化 + hover 主色描边。
-   4) 指标卡图标与数字未主题化（灰/白）→ 统一 var(--primary)。
-   5) 空状态（暂无活动）是实色深块，像视觉黑洞 → 虚线描边占位。
-   6) 热力图空位格子偏灰 → 改为主色极淡调。
-   ============================================================================ */
+  /* ---------- 1. 顶部统计卡 ---------- */
+  .stats-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (min-width: 768px) {
+    .stats-summary-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+  }
+  .stats-summary-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 1.1rem 1.25rem;
+  }
+  .stats-summary-card__label {
+    color: var(--stats-text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .stats-summary-card__value {
+    color: var(--deep-text);
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1.15;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-summary-card__note {
+    color: var(--stats-text-faint);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+  }
 
-#statistics-dashboard {
-  /* 图表分类色板：色相 190°(青) → 250°(蓝) → 290°(紫) 渐进、明度相近，
-     在深色底上相邻项仍可区分；替代插件硬编码的彩虹色 */
-  --chartboard-series-1: #67e8f9;
-  --chartboard-series-2: #22d3ee;
-  --chartboard-series-3: #06b6d4;
-  --chartboard-series-4: #38bdf8;
-  --chartboard-series-5: #0ea5e9;
-  --chartboard-series-6: #3b82f6;
-  --chartboard-series-7: #6366f1;
-  --chartboard-series-8: #818cf8;
-  --chartboard-series-9: #a78bfa;
-  --chartboard-series-10: #c084fc;
+  /* ---------- 2. 访问脉冲 ---------- */
+  .stats-range {
+    display: flex;
+    flex-shrink: 0;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    border-radius: 0.65rem;
+    background: var(--btn-regular-bg);
+  }
+  .stats-range button {
+    padding: 0.32rem 0.7rem;
+    border: 0;
+    border-radius: 0.45rem;
+    background: transparent;
+    color: var(--stats-text-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition:
+      background 0.18s ease,
+      color 0.18s ease;
+  }
+  .stats-range button[aria-pressed="true"] {
+    background: var(--card-bg);
+    color: var(--primary);
+    box-shadow: 0 1px 4px rgb(0 0 0 / 0.08);
+  }
+  .stats-chart-wrap {
+    position: relative;
+  }
+  .stats-chart {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+  .stats-chart-grid line {
+    stroke: var(--line-color);
+    stroke-width: 1;
+  }
+  .stats-chart-ytext {
+    fill: var(--stats-text-faint);
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-area-stop--top {
+    stop-color: var(--primary);
+    stop-opacity: 0.24;
+  }
+  .stats-area-stop--bottom {
+    stop-color: var(--primary);
+    stop-opacity: 0;
+  }
+  .stats-chart-area {
+    fill: url("#stats-area-gradient");
+  }
+  .stats-chart-line {
+    fill: none;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .stats-chart-line--views {
+    stroke: var(--primary);
+  }
+  .stats-chart-line--visitors {
+    stroke: var(--stats-series-2);
+  }
+  .stats-chart-point {
+    fill: var(--card-bg);
+    stroke: var(--primary);
+    stroke-width: 1.6;
+  }
+  .stats-chart-guide {
+    stroke: var(--primary);
+    stroke-width: 1;
+    stroke-dasharray: 3 4;
+    opacity: 0.55;
+  }
+  .stats-chart-x {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.35rem;
+    color: var(--stats-text-faint);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-chart-legend {
+    display: flex;
+    gap: 1.1rem;
+    margin: 0.7rem 0 0;
+    color: var(--stats-text-muted);
+    font-size: 0.78rem;
+  }
+  .stats-dot {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-right: 0.35rem;
+    border-radius: 999px;
+    background: var(--primary);
+    vertical-align: 0.08em;
+  }
+  .stats-dot--views {
+    background: var(--primary);
+  }
+  .stats-dot--visitors {
+    background: var(--stats-series-2);
+  }
+  .stats-chart-tooltip {
+    position: absolute;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 8.5rem;
+    padding: 0.55rem 0.7rem;
+    border: 1px solid var(--line-color);
+    border-radius: 0.7rem;
+    background: var(--card-bg);
+    box-shadow: 0 10px 28px -12px rgb(0 0 0 / 0.28);
+    color: var(--stats-text-muted);
+    font-size: 0.75rem;
+    pointer-events: none;
+    transform: translate(-50%, 0.4rem);
+  }
+  .stats-chart-tooltip[hidden] {
+    display: none;
+  }
+  .stats-chart-tooltip strong {
+    color: var(--deep-text);
+    font-size: 0.78rem;
+  }
+  .stats-chart-tooltip b {
+    color: var(--deep-text);
+    font-variant-numeric: tabular-nums;
+  }
 
-  /* 热力图空位：主色极淡，避免灰调突兀 */
-  --chartboard-heatmap-cell-bg: color-mix(
-    in oklab,
-    var(--primary) 9%,
-    transparent
-  );
-}
+  /* ---------- 热力格（推送节奏 / 活跃时间共用） ---------- */
+  .stats-heat-cell {
+    display: block;
+    border-radius: 3px;
+    background: var(--stats-track);
+  }
+  .stats-heat-cell[data-level="1"] {
+    background: color-mix(in oklab, var(--primary) 26%, var(--card-bg));
+  }
+  .stats-heat-cell[data-level="2"] {
+    background: color-mix(in oklab, var(--primary) 48%, var(--card-bg));
+  }
+  .stats-heat-cell[data-level="3"] {
+    background: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
+  }
+  .stats-heat-cell[data-level="4"] {
+    background: var(--primary);
+  }
+  .stats-heat-cell--future {
+    background: transparent;
+  }
+  .stats-heat-legend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin: 0.7rem 0 0;
+    color: var(--stats-text-faint);
+    font-size: 0.72rem;
+  }
+  .stats-heat-legend .stats-heat-cell {
+    width: 0.72rem;
+    height: 0.72rem;
+  }
 
-/* --- 页头：保持纯净玻璃拟态，不加主色辉光 ---
-   （2026-09-10 依反馈移除：原双层径向辉光在深色卡上呈弥散光斑，观感不干净） */
+  /* ---------- 3. 推送节奏 ---------- */
+  .stats-push-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.8rem;
+    margin-bottom: 1.1rem;
+  }
+  @media (max-width: 640px) {
+    .stats-push-metrics {
+      grid-template-columns: 1fr;
+    }
+  }
+  .stats-push-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.8rem 1rem;
+    border-radius: var(--radius-large, 1rem);
+    background: color-mix(in oklab, var(--card-bg) 88%, var(--primary));
+  }
+  .stats-push-metric span {
+    color: var(--stats-text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .stats-push-metric strong {
+    color: var(--deep-text);
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-push-grid {
+    display: grid;
+    grid-template-rows: repeat(7, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 3px;
+  }
+  .stats-push-grid .stats-heat-cell {
+    aspect-ratio: 1;
+    width: 100%;
+  }
 
-/* --- 插件「面板容器」透明化（消除双层贴片与重复标题） --- */
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-section,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-activity,
-#statistics-dashboard .xhhaocom-chartboard-section {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  padding-left: 0 !important;
-  padding-right: 0 !important;
-}
+  /* ---------- 4. 访客活跃时间 ---------- */
+  .stats-activity-hours {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    margin-left: 2.4rem;
+    margin-bottom: 0.35rem;
+    color: var(--stats-text-faint);
+    font-size: 0.68rem;
+  }
+  .stats-activity-body {
+    display: grid;
+    grid-template-columns: 2.4rem 1fr;
+  }
+  .stats-activity-days {
+    display: grid;
+    grid-template-rows: repeat(7, 1fr);
+    align-items: center;
+    color: var(--stats-text-faint);
+    font-size: 0.72rem;
+  }
+  .stats-activity-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .stats-activity-row {
+    display: grid;
+    grid-template-columns: repeat(24, 1fr);
+    gap: 3px;
+  }
+  .stats-activity-row .stats-heat-cell {
+    aspect-ratio: 1;
+    width: 100%;
+  }
 
-/* 外层 section 已有标题，隐藏插件内重复标题与空泛说明 */
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-title-box,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-subtitle {
-  display: none !important;
-}
+  /* ---------- 5/6/7. 分布区（环形 + 图例 / 条形） ---------- */
+  .stats-duo {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+  @media (min-width: 1024px) {
+    .stats-duo {
+      grid-template-columns: 1fr 1fr;
+      column-gap: 1rem;
+    }
+  }
+  .stats-donut-row {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+  }
+  .stats-donut {
+    position: relative;
+    width: 8.5rem;
+    height: 8.5rem;
+    flex-shrink: 0;
+  }
+  .stats-donut svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .stats-donut-track {
+    fill: none;
+    stroke: var(--stats-track);
+    stroke-width: 13;
+  }
+  .stats-donut-seg {
+    fill: none;
+    stroke-width: 13;
+  }
+  .stats-seg-1 {
+    stroke: var(--primary);
+  }
+  .stats-seg-2 {
+    stroke: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
+    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 45));
+  }
+  .stats-seg-3 {
+    stroke: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
+    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 95));
+  }
+  .stats-seg-4 {
+    stroke: var(--stats-series-2);
+  }
+  .stats-seg-5 {
+    stroke: color-mix(in oklab, var(--primary) 38%, var(--card-bg));
+    stroke: oklch(from var(--primary) 0.72 0.13 calc(h + 215));
+  }
+  .stats-seg-6 {
+    stroke: color-mix(in oklab, var(--deep-text) 32%, transparent);
+  }
+  .stats-seg-bg-1 {
+    background: var(--primary);
+  }
+  .stats-seg-bg-2 {
+    background: color-mix(in oklab, var(--primary) 72%, var(--card-bg));
+    background: oklch(from var(--primary) 0.72 0.13 calc(h + 45));
+  }
+  .stats-seg-bg-3 {
+    background: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
+    background: oklch(from var(--primary) 0.72 0.13 calc(h + 95));
+  }
+  .stats-seg-bg-4 {
+    background: var(--stats-series-2);
+  }
+  .stats-seg-bg-5 {
+    background: color-mix(in oklab, var(--primary) 38%, var(--card-bg));
+    background: oklch(from var(--primary) 0.72 0.13 calc(h + 215));
+  }
+  .stats-seg-bg-6 {
+    background: color-mix(in oklab, var(--deep-text) 32%, transparent);
+  }
+  .stats-donut-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    pointer-events: none;
+  }
+  .stats-donut-label strong {
+    color: var(--deep-text);
+    font-size: 1.3rem;
+    font-weight: 800;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-donut-label span {
+    color: var(--stats-text-faint);
+    font-size: 0.7rem;
+  }
+  .stats-legend {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 10rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats-legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: var(--stats-text-muted);
+    font-size: 0.8125rem;
+  }
+  .stats-legend__name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .stats-legend b {
+    color: var(--deep-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .stats-legend__empty,
+  .stats-bars__empty {
+    color: var(--stats-text-faint);
+    font-size: 0.8125rem;
+  }
+  .stats-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats-bars li {
+    display: grid;
+    grid-template-columns: 6.2rem 1fr auto;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.8125rem;
+  }
+  .stats-bars__name {
+    overflow: hidden;
+    color: var(--stats-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .stats-bars__track {
+    display: block;
+    height: 0.5rem;
+    border-radius: 999px;
+    background: var(--stats-track);
+    overflow: hidden;
+  }
+  .stats-bars__fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
+    background: var(--primary);
+  }
+  .stats-bars b {
+    color: var(--deep-text);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
 
-/* --- 子图表小卡：半透明融入 + hover 主色描边 --- */
-#statistics-dashboard .xhhaocom-chartboard-card,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-card {
-  background: color-mix(in oklab, var(--card-bg) 42%, transparent) !important;
-  border-color: color-mix(in oklab, var(--primary) 13%, transparent) !important;
-  backdrop-filter: blur(10px);
-  border-radius: 14px !important;
-  transition:
-    border-color 0.22s ease,
-    box-shadow 0.22s ease,
-    transform 0.22s ease;
-}
-
-#statistics-dashboard .xhhaocom-chartboard-card:hover,
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-card:hover {
-  border-color: color-mix(in oklab, var(--primary) 34%, transparent) !important;
-  box-shadow: 0 14px 32px -20px
-    color-mix(in oklab, var(--primary) 60%, transparent);
-  transform: translateY(-2px);
-}
-
-/* --- 指标卡：图标与数字统一主色 --- */
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-icon {
-  color: var(--primary) !important;
-}
-
-#statistics-dashboard .xhhaocom-dataStatistics-v2-traffic-value {
-  color: var(--primary) !important;
-  letter-spacing: -0.02em;
-}
-
-/* --- 空状态：虚线占位取代实色块 --- */
-#statistics-dashboard .xhhaocom-dataStatistics-v2-activity-empty {
-  background: color-mix(in oklab, var(--primary) 5%, transparent) !important;
-  border: 1px dashed color-mix(in oklab, var(--primary) 26%, transparent) !important;
-  border-radius: var(--radius-large);
-  color: color-mix(in oklab, var(--deep-text) 45%, transparent) !important;
-}
-
-/* --- 图表卡底部说明文字淡化 --- */
-#statistics-dashboard .xhhaocom-chartboard-card__footer {
-  color: color-mix(in oklab, var(--deep-text) 48%, transparent) !important;
+  /* ---------- 8. 最近评论 ---------- */
+  .stats-comments {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .stats-comment {
+    border-top: 1px solid var(--line-color);
+  }
+  .stats-comment:first-child {
+    border-top: 0;
+  }
+  .stats-comment__link {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.8rem 0.4rem;
+    border-radius: 0.7rem;
+    text-decoration: none;
+    transition: background 0.18s ease;
+  }
+  .stats-comment__link:hover {
+    background: var(--btn-regular-bg);
+  }
+  .stats-comment__avatar {
+    width: 2.4rem;
+    height: 2.4rem;
+    flex-shrink: 0;
+    border-radius: 999px;
+    object-fit: cover;
+  }
+  .stats-comment__avatar--initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .stats-comment__body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+  .stats-comment__meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+  }
+  .stats-comment__meta b {
+    overflow: hidden;
+    color: var(--deep-text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .stats-comment__meta i {
+    flex-shrink: 0;
+    color: var(--stats-text-faint);
+    font-size: 0.72rem;
+    font-style: normal;
+  }
+  .stats-comment__text {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--stats-text-muted);
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+  .stats-comments__empty {
+    padding: 1rem 0.4rem;
+    color: var(--stats-text-faint);
+    font-size: 0.8125rem;
+    text-align: center;
+  }
+  /* 骨架屏（与侧边栏最近评论同款脉冲） */
+  .stats-comment--skeleton {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.8rem 0.4rem;
+  }
+  .stats-comment--skeleton .stats-comment__avatar {
+    background: var(--stats-track);
+    animation: stats-skel-pulse 1.6s ease-in-out infinite;
+  }
+  .stats-comment--skeleton .stats-comment__body {
+    gap: 0.45rem;
+    justify-content: center;
+  }
+  .stats-skel-line {
+    display: block;
+    height: 0.7rem;
+    border-radius: 0.3rem;
+    background: var(--stats-track);
+    animation: stats-skel-pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes stats-skel-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.55;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .stats-comment--skeleton .stats-comment__avatar,
+    .stats-skel-line {
+      animation: none;
+    }
+  }
 }

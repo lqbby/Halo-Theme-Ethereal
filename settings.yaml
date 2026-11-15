@@ -3065,23 +3065,63 @@ spec:
         - $formkit: group
           name: statistics
           label: 数据看板页面
-          help: "请先在「页面 → 自定义页面」中创建「数据看板」页面，然后在此开关各统计模块（需安装 data-statistics 插件）"
+          help: "请先在「页面 → 自定义页面」中创建「数据看板」页面（模板选「数据看板」）。流量类面板走 Umami 公开分享数据：先在 Umami 后台为站点开启「分享」并把分享链接填到下方，留空时对应面板只显示未配置占位、页面照常打开。旧版 siteCharts / umami / github 三个开关已被下方逐面板开关替代，历史值保留在配置里但不再生效。"
           children:
             - $formkit: switch
-              name: siteCharts
-              label: 站内统计图表
+              name: summary
+              label: 顶部统计卡（今日/总访客与浏览）
               value: true
-              help: "标签/分类分布、文章发布热力图、评论排行、热门文章（无需外部配置）"
+              help: "数据来自 Umami；未填分享链接时显示占位"
             - $formkit: switch
-              name: umami
-              label: Umami 流量统计
+              name: pulse
+              label: 访问脉冲（每日浏览/访客趋势）
               value: true
-              help: "访问量/访客数 + 近30分钟实时活动（需在插件后台配置 Umami）"
+              help: "数据来自 Umami，可切换近 7 / 30 / 90 天"
             - $formkit: switch
-              name: github
-              label: GitHub 活跃度
+              name: pushRhythm
+              label: 推送节奏（GitHub 提交活动）
               value: true
-              help: "贡献图/统计卡/语言分布（需在插件后台配置 GitHub 用户名）"
+              help: "经 GitHub 公开 API 读取下方仓库的提交活动，无需令牌"
+            - $formkit: switch
+              name: activity
+              label: 访客活跃时间（星期 × 小时热力）
+              value: true
+              help: "数据来自 Umami，近 30 天按小时聚合"
+            - $formkit: switch
+              name: devices
+              label: 设备与浏览器
+              value: true
+              help: "数据来自 Umami，近 30 天"
+            - $formkit: switch
+              name: regions
+              label: 访客地域分布
+              value: true
+              help: "数据来自 Umami 的地区指标，近 30 天列表占比"
+            - $formkit: switch
+              name: sources
+              label: 流量来源
+              value: true
+              help: "数据来自 Umami 的渠道/来源指标，近 30 天"
+            - $formkit: switch
+              name: comments
+              label: 最近评论
+              value: true
+              help: "与侧边栏「最近评论」同源（recent-comments 插件聚合端点），最新 8 条"
+            - $formkit: text
+              name: umamiBaseUrl
+              label: Umami 基础地址
+              value: https://umami.lqbby.com:1443
+              help: "Umami 实例根地址（不带末尾斜杠），分享接口与数据接口都从这里取"
+            - $formkit: text
+              name: umamiShare
+              label: Umami 分享链接或 shareId
+              value: ""
+              help: "在 Umami 后台「网站 → 分享」生成公开分享链接后粘贴整条链接（或只填 shareId）；留空 = 流量面板显示未配置占位"
+            - $formkit: text
+              name: githubRepo
+              label: GitHub 仓库（推送节奏）
+              value: lqbby/Halo-Theme-Ethereal
+              help: "形如 owner/repo；推送节奏面板读它的提交活动"
         - $formkit: group
           name: about
           label: 关于我页面
