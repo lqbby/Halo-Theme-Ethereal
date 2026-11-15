@@ -3072,6 +3072,15 @@ body.banner-title-disabled #banner-links,
     transform 0.2s ease;
 }
 
+/* 滚动让行（navbar.ts 在滚动期间给 <html> 挂 .is-scrolling，停稳 120ms
+   摘除）：backdrop-filter 需逐帧重采样背衬（整屏壁纸 + 波浪动画），滚动
+   时合成跟不上、表现为磨砂迟到。滚动期间临时关掉磨砂，半透明底 + 描边
+   保留呈静态胶囊；状态类摘除后磨砂恢复，静止观感与无本规则时一致 */
+html.is-scrolling .banner-link {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
 /* 🔴 2026-10-11 修复「显示错误」：以下 4 条规则在主线从未写入（v1.7.0 包A 移植时
    只落了圆钮基样式），而模板在填了名称的条目上会追加 .banner-link-text 类 ⇒
    胶囊不生效、图标+文字挤在 44px 圆钮里互相重叠（首次配置 banner 链接即暴露）。

@@ -236,9 +236,11 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           th:with="series=${recentCommentsSeriesFinder.get(seriesName)}"
           class="onload-animation series-post-nav mb-5 overflow-hidden rounded-xl"
         >
-          <!-- 移动端折叠开关（纯 CSS checkbox 方案，零 JS）：与 header / list
-               同级，靠 ~ 选择器联动；桌面端 CSS 不显示切换钮、列表照旧全展开。
-               仅系列多于 3 篇时渲染（≤3 篇收起态已全露，无折叠意义）。 -->
+          <!-- 折叠开关（纯 CSS checkbox 方案，零 JS）：与 header / list
+               同级，靠 ~ 选择器联动。收起态窗口按断点分：移动端露 3 条、
+               桌面端露 6 条（均以当前篇为中心）。开关在系列多于 3 篇时
+               渲染（移动端需要）；桌面端 ≤6 篇时收起态已全露，由 CSS
+               隐藏开关（见下方桌面段 :has 规则）。 -->
           <input
             type="checkbox"
             id="series-post-nav-toggle"
@@ -373,12 +375,14 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           background: var(--primary);
           color: var(--on-primary);
         }
-        /* ── 系列导航移动端折叠（2026-11-15 批次 #1，晚间纠正改三条）：
+        /* ── 系列导航折叠（2026-11-15 批次 #1，晚间纠正：双断点窗口）：
            系列只增不减，全清单平铺会随篇数无限变长。纯 CSS checkbox
            方案：隐藏的 checkbox 与 header / list 同级，~ 选择器联动
-           展开态与钮文案；桌面端切换钮不显示、列表照旧全展开，移动端
-           收起态默认露以当前篇为中心的三条（当前篇 + 渲染序前后各一，
-           当前篇居首/居尾时顺延补满三条），其余折叠在展开开关后。 ── */
+           展开态与钮文案（全端共用，写在本基础段）；收起态窗口按断点
+           分：移动端露以当前篇为中心的三条（当前篇 + 渲染序前后各一，
+           居首/居尾时顺延补满），桌面端露六条（前三 + 当前篇 + 后二，
+           居前三位取前六条、居末两位取后六条）。桌面端系列 ≤6 篇时
+           收起态已全露，由桌面段的 :has 规则隐藏切换钮。 ── */
         .series-post-nav {
           position: relative;
         }
@@ -388,45 +392,48 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           pointer-events: none;
         }
         .series-post-nav-toggle-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.15rem;
+          margin-left: 0.5rem;
+          padding: 0.3rem 0.15rem;
+          flex-shrink: 0;
+          font-size: 0.8rem;
+          font-weight: 600;
+          line-height: 1;
+          color: var(--primary);
+          cursor: pointer;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .series-post-nav-toggle-icon {
+          font-size: 1rem;
+          transition: transform 0.2s ease;
+        }
+        .series-post-nav-toggle-collapse {
           display: none;
         }
-        @media (max-width: 767.98px) {
-          .series-post-nav-toggle-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.15rem;
-            margin-left: 0.5rem;
-            padding: 0.3rem 0.15rem;
-            flex-shrink: 0;
-            font-size: 0.8rem;
-            font-weight: 600;
-            line-height: 1;
-            color: var(--primary);
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-          }
-          .series-post-nav-toggle-icon {
-            font-size: 1rem;
-            transition: transform 0.2s ease;
-          }
+        .series-post-nav-toggle:checked
+          ~ .series-post-nav-header
           .series-post-nav-toggle-collapse {
-            display: none;
-          }
-          .series-post-nav-toggle:checked
-            ~ .series-post-nav-header
-            .series-post-nav-toggle-collapse {
-            display: inline;
-          }
-          .series-post-nav-toggle:checked
-            ~ .series-post-nav-header
-            .series-post-nav-toggle-expand {
-            display: none;
-          }
-          .series-post-nav-toggle:checked
-            ~ .series-post-nav-header
-            .series-post-nav-toggle-icon {
-            transform: rotate(180deg);
-          }
+          display: inline;
+        }
+        .series-post-nav-toggle:checked
+          ~ .series-post-nav-header
+          .series-post-nav-toggle-expand {
+          display: none;
+        }
+        .series-post-nav-toggle:checked
+          ~ .series-post-nav-header
+          .series-post-nav-toggle-icon {
+          transform: rotate(180deg);
+        }
+        .series-post-nav-toggle:checked
+          ~ .series-post-nav-list
+          .series-post-nav-item {
+          display: block;
+        }
+        /* 移动端收起态窗口：三条（当前篇 ± 相邻，居首/居尾顺延补满） */
+        @media (max-width: 767.98px) {
           .series-post-nav-list .series-post-nav-item {
             display: none;
           }
@@ -455,9 +462,55 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             > .series-post-nav-item:nth-last-child(3) {
             display: block;
           }
-          .series-post-nav-toggle:checked
-            ~ .series-post-nav-list
-            .series-post-nav-item {
+        }
+        /* 桌面端收起态窗口：六条（当前篇前三 + 当前篇 + 后二，居前
+           三位取前六条、居末两位取后六条）；系列 ≤6 篇时收起态已
+           全露，隐藏切换钮（列表无第 7 条即命中） */
+        @media (min-width: 768px) {
+          .series-post-nav:not(:has(.series-post-nav-item:nth-child(7)))
+            .series-post-nav-toggle-btn {
+            display: none;
+          }
+          .series-post-nav-list .series-post-nav-item {
+            display: none;
+          }
+          .series-post-nav-list .series-post-nav-item.is-current {
+            display: block;
+          }
+          /* 当前篇的前三条（:has 相邻链）与后两条（相邻兄弟链）。
+             与 is-current 规则分开写，不支持 :has 的老浏览器会丢掉
+             前向三条、退化为当前篇 + 后两条。 */
+          .series-post-nav-list
+            .series-post-nav-item:has(+ .series-post-nav-item.is-current),
+          .series-post-nav-list
+            .series-post-nav-item:has(
+              + .series-post-nav-item + .series-post-nav-item.is-current
+            ),
+          .series-post-nav-list
+            .series-post-nav-item:has(
+              + .series-post-nav-item
+                + .series-post-nav-item
+                + .series-post-nav-item.is-current
+            ),
+          .series-post-nav-list
+            .series-post-nav-item.is-current
+            + .series-post-nav-item,
+          .series-post-nav-list
+            .series-post-nav-item.is-current
+            + .series-post-nav-item
+            + .series-post-nav-item {
+            display: block;
+          }
+          /* 当前篇居前三位时窗口取前六条、居末两位时取后六条，
+             与邻条规则叠加后恰好补满六条 */
+          .series-post-nav-list:has(
+              > .series-post-nav-item.is-current:nth-child(-n + 3)
+            )
+            > .series-post-nav-item:nth-child(-n + 6),
+          .series-post-nav-list:has(
+              > .series-post-nav-item.is-current:nth-last-child(-n + 2)
+            )
+            > .series-post-nav-item:nth-last-child(-n + 6) {
             display: block;
           }
         }
