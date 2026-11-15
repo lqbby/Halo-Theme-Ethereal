@@ -432,6 +432,14 @@ import Canonical from "../components/misc/Canonical.astro";
             <div class="stats-deployment__art" aria-hidden="true">
               <p>持续更新，<br />保持热爱</p>
               <span>♥</span>
+              <img
+                src="/upload/stats/dafeiyu-push-art.webp"
+                alt=""
+                width="640"
+                height="592"
+                loading="lazy"
+                decoding="async"
+              />
             </div>
             <span class="stats-panel__badge" data-push-status>读取中</span>
           </header>
@@ -446,9 +454,9 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <span class="stats-deployment__metric-copy">
                 <span>最近一次推送</span>
+                <strong data-push-latest>—</strong>
                 <small data-push-latest-date>—</small>
               </span>
-              <strong data-push-latest>—</strong>
             </div>
             <div
               class="stats-deployment__metric stats-deployment__metric--v5"
@@ -460,9 +468,9 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <span class="stats-deployment__metric-copy">
                 <span>最近间隔</span>
+                <strong data-push-interval>—</strong>
                 <small>与上一次推送相隔</small>
               </span>
-              <strong data-push-interval>—</strong>
             </div>
             <div
               class="stats-deployment__metric stats-deployment__metric--v1"
@@ -474,9 +482,9 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <span class="stats-deployment__metric-copy">
                 <span>平均节奏</span>
+                <strong data-push-cadence>—</strong>
                 <small>活跃日之间的平均间隔</small>
               </span>
-              <strong data-push-cadence>—</strong>
             </div>
             <div
               class="stats-deployment__metric stats-deployment__metric--v4"
@@ -488,16 +496,16 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <span class="stats-deployment__metric-copy">
                 <span>连续推送</span>
+                <strong data-push-streak>—</strong>
                 <small>当前连续记录</small>
               </span>
-              <strong data-push-streak>—</strong>
             </div>
           </div>
           <div class="stats-deployment__heatmap">
             <div class="stats-deployment__heatmap-head">
               <div class="stats-deployment__heatmap-title">
                 <strong>推送活动</strong>
-                <span title="近 15 周的每日提交密度，颜色越深提交越多">
+                <span title="近 12 个月的每日提交密度，颜色越深提交越多">
                   <span
                     class="icon-[material-symbols--info-rounded]"
                     aria-hidden="true"></span>
@@ -602,7 +610,7 @@ import Canonical from "../components/misc/Canonical.astro";
                   class="stats-push-grid"
                   data-push-grid
                   role="img"
-                  aria-label="近 15 周提交活动密度"
+                  aria-label="近 12 个月提交活动密度"
                 >
                 </div>
                 <div
@@ -614,9 +622,12 @@ import Canonical from "../components/misc/Canonical.astro";
               </div>
             </div>
             <div class="stats-deployment__heatmap-foot">
-              <span class="stats-deployment__source"
-                >数据来自 GitHub 公开接口</span
-              >
+              <span class="stats-deployment__source">
+                <span
+                  class="icon-[material-symbols--code-rounded]"
+                  aria-hidden="true"></span>
+                数据来自 GitHub 公开接口
+              </span>
               <span class="stats-heat-legend" aria-hidden="true">
                 <span>少</span>
                 <i class="stats-heat-cell" data-level="0"></i>
@@ -626,18 +637,22 @@ import Canonical from "../components/misc/Canonical.astro";
                 <i class="stats-heat-cell" data-level="4"></i>
                 <span>多</span>
               </span>
+              <strong data-push-total></strong>
             </div>
-            <div class="stats-deployment__message">
-              <span class="stats-deployment__message-icon">
-                <span
-                  class="icon-[material-symbols--pets-rounded]"
-                  aria-hidden="true"></span>
-              </span>
-              <span>小蛇正在提交格子上散步——点任意格子，可以喂它一个食物。</span>
+          </div>
+          <div class="stats-deployment__message">
+            <span class="stats-deployment__message-icon">
               <span
-                class="icon-[material-symbols--send-rounded] stats-deployment__message-plane"
+                class="icon-[material-symbols--pets-rounded]"
                 aria-hidden="true"></span>
-            </div>
+            </span>
+            <span class="stats-deployment__message-copy">
+              <strong data-push-heatmap-detail>近 12 个月的推送活动</strong>
+              <span>小蛇正在提交格子上散步——点任意格子，可以喂它一个食物。</span>
+            </span>
+            <span
+              class="icon-[material-symbols--send-rounded] stats-deployment__message-plane"
+              aria-hidden="true"></span>
           </div>
           <div class="stats-empty" data-push-empty hidden>
             <strong>暂时读不到提交活动</strong>
@@ -862,7 +877,15 @@ import Canonical from "../components/misc/Canonical.astro";
           </div>
           <div th:if="${umamiReady}">
             <div class="stats-region-card__body">
-              <ul class="stats-region-bars" data-region-list></ul>
+              <div class="stats-region-card__map-wrap">
+                <div
+                  class="stats-region-card__map"
+                  data-region-map
+                  role="img"
+                  aria-label="中国省级访客地域分布图"
+                >
+                </div>
+              </div>
               <div class="stats-region-card__ranking">
                 <p>TOP 5 地区</p>
                 <ol data-region-ranking>
@@ -884,9 +907,22 @@ import Canonical from "../components/misc/Canonical.astro";
                 </ol>
               </div>
             </div>
+            <ul class="stats-region-bars" data-region-list></ul>
             <footer class="stats-region-card__footer">
               <span>按近 30 天访客统计</span>
-              <span data-region-total></span>
+              <span class="stats-region-card__footer-right">
+                <span data-region-total></span>
+                <a
+                  th:href="${umamiShare}"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="在 Umami 中查看完整访客地域统计"
+                  >查看数据
+                  <span
+                    class="icon-[material-symbols--arrow-outward-rounded]"
+                    aria-hidden="true"></span>
+                </a>
+              </span>
             </footer>
           </div>
         </section>
@@ -914,6 +950,19 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
             <ol class="stats-legend" data-legend="source"></ol>
           </div>
+          <a
+            th:if="${umamiReady}"
+            class="stats-sources__link"
+            th:href="${umamiShare}"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="在 Umami 中查看详细来源"
+          >
+            <span>查看详细来源</span>
+            <span
+              class="icon-[material-symbols--arrow-outward-rounded]"
+              aria-hidden="true"></span>
+          </a>
         </section>
 
         <!-- ⑦ 最近评论（侧栏变体） -->

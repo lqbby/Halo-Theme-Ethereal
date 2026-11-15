@@ -379,12 +379,17 @@
     var g = panel.querySelector("[data-chart-points]");
     while (g.firstChild) g.removeChild(g.firstChild);
     function addPoints(pts, cls) {
-      pts.forEach(function (p) {
+      pts.forEach(function (p, idx) {
         var c = document.createElementNS(NS, "circle");
         c.setAttribute("cx", p.x);
         c.setAttribute("cy", p.y);
         c.setAttribute("r", "3");
-        c.setAttribute("class", "stats-chart-point " + cls);
+        c.setAttribute(
+          "class",
+          "stats-chart-point " +
+            cls +
+            (idx === pts.length - 1 ? " stats-chart-point--endpoint" : ""),
+        );
         g.appendChild(c);
       });
     }
@@ -464,21 +469,30 @@
         path.style.transition = "none";
         path.style.strokeDasharray = String(len);
         path.style.strokeDashoffset = String(len);
-        // 强制回流后启动过渡
+        // 强制回流后启动过渡（d 一并过渡，切换范围时线形平滑变形）
         void path.getBoundingClientRect();
-        path.style.transition = "stroke-dashoffset 0.9s ease";
+        path.style.transition =
+          "stroke-dashoffset 0.9s ease, d 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
         path.style.strokeDashoffset = "0";
+        if (key === "visitors") {
+          // 会话线终态是虚线：动画结束后撤掉内联 dash，交回 CSS 的 5 6 虚线
+          setTimeout(function () {
+            path.style.strokeDasharray = "";
+            path.style.strokeDashoffset = "";
+          }, 950);
+        }
       } catch (e) {}
     });
   }
 
-  /* 热门排行子块：Umami metrics 的 URL 排行（近 30 天，与对方同口径） */
+  /* 热门排行子块：Umami metrics 的路径排行（近 30 天，与对方同口径）。
+     Umami v3 起 metrics 的 type 由 url 改名为 path（url 返回 400）。 */
   function loadRanking() {
     var panel = panelEl("pulse");
     if (!panel) return;
     var list = panel.querySelector("[data-ranking-list]");
     if (!list) return;
-    metricsList("url", 50)
+    metricsList("path", 50)
       .then(function (rows) {
         var clean = rows.filter(function (r) {
           return (
@@ -613,6 +627,10 @@
     var refresh = panel.querySelector("[data-pulse-refresh]");
     if (refresh) {
       refresh.addEventListener("click", function () {
+        refresh.classList.add("is-spinning");
+        setTimeout(function () {
+          refresh.classList.remove("is-spinning");
+        }, 900);
         delete pulseCache[pulseRange];
         loadPulse(pulseRange);
       });
@@ -696,7 +714,8 @@
     return Promise.resolve(null);
   }
 
-  // 近 15 周窗口：从 15 周前的周一开始，逐页拉 commits（至多 3 页 × 100）
+  // 近 12 个月窗口：从 12 个月前那天所在周的周一开始逐页拉 commits。
+  // 全年提交可能上千：至多 10 页 × 100，且整页都早于窗口起点时提前停。
   function fetchGhCommits() {
     var start = ghWindowStart();
     var sinceISO = start.toISOString();
@@ -715,14 +734,18 @@
         12000,
       ).then(function (list) {
         if (!Array.isArray(list)) throw new Error("bad response");
+        var oldest = Infinity;
         list.forEach(function (c) {
           var date = c && c.commit && (c.commit.committer || c.commit.author);
           var t = date && (date.date || null);
           if (!t) return;
-          var k = dayKey(new Date(t).getTime());
+          var ts = new Date(t).getTime();
+          if (ts < oldest) oldest = ts;
+          var k = dayKey(ts);
           byDay[k] = (byDay[k] || 0) + 1;
         });
-        if (list.length === 100 && page < 3) return pull(page + 1);
+        if (list.length === 100 && page < 10 && oldest >= start.getTime())
+          return pull(page + 1);
         return byDay;
       });
     }
@@ -731,21 +754,53 @@
     });
   }
 
+  function mondayOf(d) {
+    var x = new Date(d.getTime());
+    x.setHours(0, 0, 0, 0);
+    return new Date(x.getTime() - ((x.getDay() + 6) % 7) * DAY_MS);
+  }
+
+  // 窗口起点：12 个月前那天所在周的周一（与 gen_push_data.py 同口径）
   function ghWindowStart() {
     var d = new Date();
     d.setHours(0, 0, 0, 0);
-    var monday = new Date(d.getTime() - ((d.getDay() + 6) % 7) * DAY_MS);
-    return new Date(monday.getTime() - 14 * 7 * DAY_MS);
+    if (d.getMonth() === 1 && d.getDate() === 29) d.setDate(28);
+    d.setFullYear(d.getFullYear() - 1);
+    return mondayOf(d);
   }
 
-  var pushState = null; // { byDay, mode }
-  var PUSH_WEEKS = 15;
+  var pushState = null; // { byDay, mode, start, weeks }
+  // 周数由数据起点（startISO）到本周实际算出，不写死，避免把未来周算进去
+  function pushWeeks() {
+    return pushState && pushState.weeks ? pushState.weeks : 53;
+  }
 
   function renderPush(data) {
     var panel = panelEl("push");
     if (!panel || !data) return;
-    pushState = { byDay: data.byDay || {}, mode: "daily" };
+    var start = data.startISO
+      ? new Date(data.startISO + "T00:00:00")
+      : ghWindowStart();
+    if (isNaN(start.getTime())) start = ghWindowStart();
+    var weeks = Math.max(
+      1,
+      Math.round((mondayOf(new Date()).getTime() - start.getTime()) / (7 * DAY_MS)) + 1,
+    );
+    pushState = {
+      byDay: data.byDay || {},
+      mode: "daily",
+      start: start,
+      weeks: weeks,
+    };
     fillPushMetrics(panel, pushState.byDay);
+    var totalEl = panel.querySelector("[data-push-total]");
+    if (totalEl) {
+      var total = 0;
+      Object.keys(pushState.byDay).forEach(function (k) {
+        total += pushState.byDay[k] || 0;
+      });
+      totalEl.textContent = "共 " + fmtNum(total) + " 次推送";
+    }
     renderPushGrid();
     bindPushControls(panel);
     initSnake(panel);
@@ -838,7 +893,8 @@
     while (grid.firstChild) grid.removeChild(grid.firstChild);
     if (months) while (months.firstChild) months.removeChild(months.firstChild);
     var byDay = pushState.byDay;
-    var start = ghWindowStart();
+    var start = pushState.start || ghWindowStart();
+    var weeks = pushWeeks();
     var today = new Date();
     today.setHours(0, 0, 0, 0);
     var mode = pushState.mode;
@@ -861,7 +917,7 @@
       grid.style.gridTemplateRows = "repeat(1, 0.56rem)";
       var weekTotals = [];
       var wmax = 1;
-      for (var w = 0; w < PUSH_WEEKS; w++) {
+      for (var w = 0; w < weeks; w++) {
         var sum = 0;
         for (var wd = 0; wd < 7; wd++) {
           var d = new Date(start.getTime() + (w * 7 + wd) * DAY_MS);
@@ -889,7 +945,7 @@
     var counts = [];
     var cmax = 1;
     var running = 0;
-    for (var i = 0; i < PUSH_WEEKS * 7; i++) {
+    for (var i = 0; i < weeks * 7; i++) {
       var day = new Date(start.getTime() + i * DAY_MS);
       var future = day.getTime() > today.getTime();
       var c = future ? 0 : byDay[dayKey(day.getTime())] || 0;
@@ -913,17 +969,19 @@
         idx,
       );
       if (row.future) cell.classList.add("stats-heat-cell--future");
+      else if (dayKey(row.day.getTime()) === dayKey(today.getTime()))
+        cell.classList.add("is-today");
     });
-    // 月份行：每列（周一）月份变化时打一个标签
+    // 月份行：每列（周一）月份变化时打一个标签，按列比例定位
     if (months) {
       var lastMonth = -1;
-      for (var w2 = 0; w2 < PUSH_WEEKS; w2++) {
+      for (var w2 = 0; w2 < weeks; w2++) {
         var monday = new Date(start.getTime() + w2 * 7 * DAY_MS);
         if (monday.getMonth() !== lastMonth) {
           lastMonth = monday.getMonth();
           var label = document.createElement("span");
           label.textContent = monday.getMonth() + 1 + "月";
-          label.style.left = w2 * 0.72 + "rem";
+          label.style.left = (w2 * 100) / weeks + "%";
           months.appendChild(label);
         }
       }
@@ -979,6 +1037,20 @@
         else if (!snake.bodySet.has(idx)) snake.foods.add(idx);
         paintSnake();
       });
+      // 悬浮格子时 message 明细行同步显示该日计数，离开恢复默认句
+      var detail = panel.querySelector("[data-push-heatmap-detail]");
+      if (detail) {
+        var detailDefault = detail.textContent;
+        grid.addEventListener("mouseover", function (evt) {
+          var cell = evt.target.closest
+            ? evt.target.closest("[data-cell-idx]")
+            : null;
+          if (cell && cell.title) detail.textContent = cell.title;
+        });
+        grid.addEventListener("mouseleave", function () {
+          detail.textContent = detailDefault;
+        });
+      }
     }
   }
 
@@ -1066,7 +1138,7 @@
 
   function snakeTick() {
     if (!snake || !snake.running) return;
-    var cols = PUSH_WEEKS;
+    var cols = pushWeeks();
     var rows = 7;
     var head = snake.body[0];
     var hc = Math.floor(head / rows);
@@ -1359,6 +1431,8 @@
       c.setAttribute("cx", "50");
       c.setAttribute("cy", "50");
       c.setAttribute("r", "40");
+      c.setAttribute("class", "stats-donut-segment");
+      c.setAttribute("data-seg-index", String(i));
       c.setAttribute("stroke", segColor(r, i));
       c.setAttribute("stroke-dasharray", Math.max(0, frac * C - 1.5) + " " + C);
       c.setAttribute("stroke-dashoffset", String(-offset * C));
@@ -1375,6 +1449,7 @@
     rows.forEach(function (r, i) {
       var li = document.createElement("li");
       li.className = "stats-legend__item";
+      li.setAttribute("data-seg-index", String(i));
       var dot = document.createElement("i");
       dot.style.background = segColor(r, i);
       var name = document.createElement("span");
@@ -1396,6 +1471,47 @@
     }
   }
 
+  // donut 扇区 ↔ 图例项双向悬浮同步（同 data-seg-index 两侧同置 data-active）
+  function syncDonutHover(svg, ul) {
+    if (!svg || !ul) return;
+    function setActive(idx, on) {
+      [svg, ul].forEach(function (root) {
+        root
+          .querySelectorAll('[data-seg-index="' + idx + '"]')
+          .forEach(function (el) {
+            if (on) el.setAttribute("data-active", "true");
+            else el.removeAttribute("data-active");
+          });
+      });
+    }
+    function wire(el) {
+      var idx = el.getAttribute("data-seg-index");
+      el.addEventListener("mouseenter", function () {
+        setActive(idx, true);
+      });
+      el.addEventListener("mouseleave", function () {
+        setActive(idx, false);
+      });
+    }
+    svg.querySelectorAll(".stats-donut-segment").forEach(wire);
+    ul.querySelectorAll(".stats-legend__item").forEach(wire);
+  }
+
+  // Umami region 码（CN-XX）→ 省级 adcode（ISO 3166-2:CN），供中国地图上色/联动
+  var REGION_ADCODE = {
+    BJ: "110000", TJ: "120000", HE: "130000", SX: "140000", NM: "150000",
+    LN: "210000", JL: "220000", HL: "230000", SH: "310000", JS: "320000",
+    ZJ: "330000", AH: "340000", FJ: "350000", JX: "360000", SD: "370000",
+    HA: "410000", HB: "420000", HN: "430000", GD: "440000", GX: "450000",
+    HI: "460000", CQ: "500000", SC: "510000", GZ: "520000", YN: "530000",
+    XZ: "540000", SN: "610000", GS: "620000", QH: "630000", NX: "640000",
+    XJ: "650000", TW: "710000", HK: "810000", MO: "820000",
+  };
+  function regionAdcode(label) {
+    var m = /^CN-([A-Z]{2})$/.exec(label || "");
+    return m ? REGION_ADCODE[m[1]] || null : null;
+  }
+
   // 地域卡左列：名称 + 数值行 与 占比条（占比条按最大值归一）
   function renderRegionBars(ul, rows, total) {
     if (!ul) return;
@@ -1406,6 +1522,8 @@
     rows.forEach(function (r) {
       var li = document.createElement("li");
       li.className = "stats-region-bar";
+      var ad = regionAdcode(r.label);
+      if (ad) li.setAttribute("data-adcode", ad);
       var head = document.createElement("div");
       head.className = "stats-region-bar__head";
       var name = document.createElement("span");
@@ -1441,6 +1559,11 @@
     rows.slice(0, 5).forEach(function (r, i) {
       var li = document.createElement("li");
       li.className = "stats-region-card__item";
+      var ad = regionAdcode(r.label);
+      if (ad) {
+        li.setAttribute("data-adcode", ad);
+        li.tabIndex = 0;
+      }
       var idx = document.createElement("i");
       idx.textContent = String(i + 1);
       var name = document.createElement("span");
@@ -1490,6 +1613,10 @@
         var totalEl = panel.querySelector('[data-donut-total="device"]');
         if (totalEl) totalEl.textContent = fmtNum(total);
         renderLegend(panel.querySelector('[data-legend="device"]'), top, total);
+        syncDonutHover(
+          panel.querySelector('[data-donut="device"]'),
+          panel.querySelector('[data-legend="device"]'),
+        );
       })
       .catch(function () {
         noteFailure("devices", "Umami 数据暂时读不到，请稍后再看。");
@@ -1506,6 +1633,10 @@
           top,
           total,
         );
+        syncDonutHover(
+          panel.querySelector('[data-donut="browser"]'),
+          panel.querySelector('[data-legend="browser"]'),
+        );
       })
       .catch(function () {});
   }
@@ -1518,6 +1649,13 @@
         var total = rows.reduce(function (a, r) {
           return a + r.value;
         }, 0);
+        var counts = {};
+        rows.forEach(function (r) {
+          var ad = regionAdcode(r.label);
+          if (ad) counts[ad] = (counts[ad] || 0) + r.value;
+        });
+        regionCounts = counts;
+        paintRegionMap();
         renderRegionBars(
           panel.querySelector("[data-region-list]"),
           rows.slice(0, 8),
@@ -1533,6 +1671,106 @@
       .catch(function () {
         noteFailure("regions", "Umami 数据暂时读不到，请稍后再看。");
       });
+  }
+
+  /* 中国地图：省份路径放站内 upload（DataV 行政区划投影生成），
+     初始化时 fetch；失败则静默退回纯列表。填色按访客数分档，
+     与条形列表 / TOP5 排名按 data-adcode 双向联动高亮。 */
+  var regionMapData = null;
+  var regionCounts = null;
+
+  function loadRegionMap() {
+    var panel = panelEl("regions");
+    if (!panel) return;
+    fetchJSON("/upload/stats/china-provinces.json", { cache: "force-cache" }, 10000)
+      .then(function (data) {
+        if (!data || !data.provinces) return;
+        regionMapData = data;
+        buildRegionMap();
+      })
+      .catch(function () {});
+  }
+
+  function buildRegionMap() {
+    var panel = panelEl("regions");
+    if (!panel || !regionMapData) return;
+    var wrap = panel.querySelector("[data-region-map]");
+    if (!wrap || wrap.getAttribute("data-built")) return;
+    wrap.setAttribute("data-built", "1");
+    var NS = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(NS, "svg");
+    svg.setAttribute("viewBox", regionMapData.viewBox || "0 0 1000 696");
+    svg.setAttribute("aria-hidden", "true");
+    Object.keys(regionMapData.provinces).forEach(function (adcode) {
+      var prov = regionMapData.provinces[adcode];
+      if (!prov || !prov.d) return;
+      var path = document.createElementNS(NS, "path");
+      path.setAttribute("d", prov.d);
+      if (adcode === "100000_JD") {
+        // 南海诸岛九段线：只描边、不上色不交互
+        path.setAttribute("class", "stats-region-line");
+      } else {
+        path.setAttribute("class", "stats-region-fill");
+        path.setAttribute("data-adcode", adcode);
+        path.setAttribute("data-level", "0");
+        var title = document.createElementNS(NS, "title");
+        title.textContent = prov.name || adcode;
+        path.appendChild(title);
+      }
+      svg.appendChild(path);
+    });
+    wrap.appendChild(svg);
+    paintRegionMap();
+    bindRegionSync(panel);
+  }
+
+  function paintRegionMap() {
+    var panel = panelEl("regions");
+    if (!panel || !regionMapData || !regionCounts) return;
+    var max = 0;
+    Object.keys(regionCounts).forEach(function (k) {
+      if (regionCounts[k] > max) max = regionCounts[k];
+    });
+    panel.querySelectorAll(".stats-region-fill").forEach(function (path) {
+      var ad = path.getAttribute("data-adcode");
+      var v = regionCounts[ad] || 0;
+      var level = !v || !max ? 0 : Math.min(4, Math.ceil((v / max) * 4));
+      path.setAttribute("data-level", String(level));
+      var prov = regionMapData.provinces[ad];
+      var title = path.querySelector("title");
+      if (title && prov)
+        title.textContent = (prov.name || ad) + " · " + fmtNum(v) + " 人";
+    });
+  }
+
+  function bindRegionSync(panel) {
+    if (panel.getAttribute("data-region-sync")) return;
+    panel.setAttribute("data-region-sync", "1");
+    function setActive(ad, on) {
+      if (!ad) return;
+      panel
+        .querySelectorAll('[data-adcode="' + ad + '"]')
+        .forEach(function (el) {
+          if (on) el.setAttribute("data-active", "true");
+          else el.removeAttribute("data-active");
+        });
+    }
+    function fromEvent(e) {
+      var t = e.target && e.target.closest ? e.target.closest("[data-adcode]") : null;
+      return t ? t.getAttribute("data-adcode") : null;
+    }
+    panel.addEventListener("mouseover", function (e) {
+      setActive(fromEvent(e), true);
+    });
+    panel.addEventListener("mouseout", function (e) {
+      setActive(fromEvent(e), false);
+    });
+    panel.addEventListener("focusin", function (e) {
+      setActive(fromEvent(e), true);
+    });
+    panel.addEventListener("focusout", function (e) {
+      setActive(fromEvent(e), false);
+    });
   }
 
   function loadSources() {
@@ -1552,6 +1790,10 @@
       var totalEl = panel.querySelector('[data-donut-total="source"]');
       if (totalEl) totalEl.textContent = fmtNum(total);
       renderLegend(panel.querySelector('[data-legend="source"]'), top, total);
+      syncDonutHover(
+        panel.querySelector('[data-donut="source"]'),
+        panel.querySelector('[data-legend="source"]'),
+      );
     }
     metricsList("channel", 10)
       .then(function (rows) {
@@ -1955,6 +2197,7 @@
       loadActivity();
       loadDevices();
       loadRegions();
+      loadRegionMap();
       loadSources();
     });
   }

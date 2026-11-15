@@ -648,6 +648,18 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
         }
       })();
     </script>
+    <!-- 外部字体 CSS 模式：服务端直出样式表链接，字体 CSS 随 HTML 一起
+         开始下载，避免等 JS 注入才拉字体导致的整页重排（先备用字体排版、
+         字体到位后再重排）。下方脚本仍会按同 URL 注入（浏览器走缓存、
+         不重复下载），并负责 font-family 应用、宿主校验与字体文件模式；
+         本链接不打 data-ethereal-external-font 标记，否则脚本会误判
+         已注入而跳过 font-family。CSS 模式判定与脚本同口径的近似：
+         URL 含 .css 或为 Google Fonts。 -->
+    <link
+      rel="stylesheet"
+      th:href="${theme.config.style.externalFont.fontFile}"
+      th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile) and (#strings.contains(theme.config.style.externalFont.fontFile, '.css') or #strings.contains(theme.config.style.externalFont.fontFile, 'fonts.googleapis.com'))}"
+    />
     <!-- 外部字体：CSS-link 模式用静态 <link> + 非阻塞加载；字体文件模式维持 JS 注入 -->
     <script
       th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile)}"
@@ -667,6 +679,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           "fonts.googleapis.com",
           "fonts.gstatic.com",
           "cdn.bootcdn.net",
+          "box.lqbby.com",
         ];
 
         function isTrustedHost(hostname) {

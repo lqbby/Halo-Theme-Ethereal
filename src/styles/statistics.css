@@ -18,6 +18,11 @@
 
 /* ========== 作用域根与色相变体 ========== */
 #statistics-dashboard {
+  /* 文字亮度三档：此前全站未定义、引用处全部失效（文字同亮度平铺），
+     在本页作用域内按参考比例（92% / 58% / 38%）补齐。 */
+  --text-primary: color-mix(in oklab, var(--deep-text) 92%, transparent);
+  --text-secondary: color-mix(in oklab, var(--deep-text) 58%, transparent);
+  --text-tertiary: color-mix(in oklab, var(--deep-text) 38%, transparent);
   /* 五个色相角色（v1 蓝=主色 / v2 薄荷 / v3 金 / v4 紫 / v5 粉），全部由
      主题色相 --hue 旋转派生，换主题色相时整页跟随。 */
   --stats-v1: var(--primary);
@@ -25,6 +30,44 @@
   --stats-v3: oklch(0.76 0.15 calc(var(--hue) - 185));
   --stats-v4: oklch(0.68 0.18 calc(var(--hue) + 60));
   --stats-v5: oklch(0.7 0.19 calc(var(--hue) - 45));
+}
+
+/* 关键帧：状态点呼吸 / 刷新加载旋转 / 骨架 shimmer / 蛇食呼吸 */
+@keyframes stats-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+}
+@keyframes stats-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes stats-skeleton {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+@keyframes stats-snake-food {
+  0%,
+  100% {
+    opacity: 0.78;
+    filter: saturate(0.92);
+  }
+  50% {
+    opacity: 1;
+    filter: saturate(1.18);
+  }
 }
 
 /* 入场动画延迟：hero→0 / summary→1 / 主栏 2、4、6 / 侧栏 3、5、7、8 /
@@ -136,7 +179,49 @@
 
 /* ========== Hero ========== */
 #statistics-dashboard .stats-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   padding: clamp(1rem, 2vw, 1.5rem);
+}
+/* 纯 CSS 装饰：斜置圆环（右上）+ 点阵（右下），色值走主色混色 */
+#statistics-dashboard .stats-hero::before {
+  content: "";
+  position: absolute;
+  top: -5rem;
+  right: -3rem;
+  z-index: -1;
+  width: 25rem;
+  height: 15rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 23%, transparent);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1.6rem color-mix(in oklab, var(--primary) 4%, transparent),
+    0 0 0 3.2rem color-mix(in oklab, var(--primary) 3%, transparent);
+  transform: rotate(-14deg);
+  pointer-events: none;
+}
+#statistics-dashboard .stats-hero::after {
+  content: "";
+  position: absolute;
+  right: 2.7rem;
+  bottom: 2.4rem;
+  z-index: -1;
+  width: 8rem;
+  height: 3.5rem;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--primary) 30%, transparent) 0.7px,
+    transparent 0.9px
+  );
+  background-size: 0.65rem 0.65rem;
+  opacity: 0.6;
+  mask-image: linear-gradient(90deg, transparent, #000);
+  pointer-events: none;
+}
+#statistics-dashboard .stats-hero .stats-kicker {
+  gap: 0.55rem;
+  font-size: 0.72rem;
 }
 #statistics-dashboard .stats-hero__grid {
   display: grid;
@@ -149,20 +234,20 @@
   color: var(--text-primary);
   font-size: clamp(1.55rem, 3vw, 2.55rem);
   font-weight: 850;
-  line-height: 1.08;
+  line-height: 1;
   letter-spacing: -0.035em;
 }
 #statistics-dashboard .stats-hero__lead {
   max-width: 42rem;
   margin: 0.72rem 0 0;
   color: var(--text-secondary);
-  font-size: 0.92rem;
-  line-height: 1.75;
+  font-size: clamp(0.78rem, 1.1vw, 0.92rem);
+  line-height: 1.55;
 }
 #statistics-dashboard .stats-hero__notes {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem 1rem;
+  gap: 0.6rem 1rem;
   margin-top: 0.9rem;
   color: var(--text-tertiary, var(--text-secondary));
   font-size: 0.68rem;
@@ -173,7 +258,8 @@
   gap: 0.32rem;
 }
 #statistics-dashboard .stats-hero__notes [class*="icon-"] {
-  font-size: 0.95rem;
+  color: var(--primary);
+  font-size: 1rem;
 }
 #statistics-dashboard .stats-hero__meta {
   display: grid;
@@ -181,17 +267,18 @@
   gap: 0.7rem;
   min-width: 9rem;
 }
-/* 状态胶囊：点 + 文案（TS 按 Umami 连接状态切换 data-state） */
+/* 状态胶囊：点 + 文案（TS 按 Umami 连接状态切换 data-state）。
+   默认/连接中 = 主色系，在线 = v2 薄荷，离线 = caution 红系。 */
 #statistics-dashboard .stats-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.45rem;
+  gap: 0.55rem;
   min-height: 2rem;
-  padding: 0.42rem 0.72rem;
-  border: 1px solid var(--line-divider);
+  padding: 0.45rem 0.7rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 26%, transparent);
   border-radius: 999px;
-  background: color-mix(in oklab, var(--card-bg) 72%, transparent);
-  color: var(--text-secondary);
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+  color: var(--primary);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -200,29 +287,45 @@
   height: 0.48rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: var(--text-tertiary, var(--text-secondary));
+  background: var(--primary);
+}
+#statistics-dashboard .stats-status[data-state="loading"] .stats-status__dot {
+  animation: stats-pulse 1.2s ease-in-out infinite;
 }
 #statistics-dashboard .stats-status[data-state="online"] {
   border-color: color-mix(in oklab, var(--stats-v2) 32%, transparent);
   background: color-mix(in oklab, var(--stats-v2) 10%, transparent);
-  color: var(--text-primary);
+  color: color-mix(in oklab, var(--stats-v2) 62%, var(--deep-text));
 }
 #statistics-dashboard .stats-status[data-state="online"] .stats-status__dot {
   background: var(--stats-v2);
   box-shadow: 0 0 0 0.22rem color-mix(in oklab, var(--stats-v2) 18%, transparent);
 }
 #statistics-dashboard .stats-status[data-state="offline"] {
-  border-color: color-mix(in oklab, var(--stats-v3) 34%, transparent);
-  background: color-mix(in oklab, var(--stats-v3) 10%, transparent);
+  border-color: color-mix(
+    in oklab,
+    var(--admonitions-color-caution) 34%,
+    transparent
+  );
+  background: color-mix(
+    in oklab,
+    var(--admonitions-color-caution) 10%,
+    transparent
+  );
+  color: color-mix(
+    in oklab,
+    var(--admonitions-color-caution) 78%,
+    var(--deep-text)
+  );
 }
 #statistics-dashboard .stats-status[data-state="offline"] .stats-status__dot {
-  background: var(--stats-v3);
+  background: var(--admonitions-color-caution);
 }
 /* 右侧 stamp：DATA SOURCE / Umami / 小字 */
 #statistics-dashboard .stats-hero__stamp {
   display: grid;
   justify-items: end;
-  gap: 0.16rem;
+  gap: 0.28rem;
   text-align: right;
 }
 #statistics-dashboard .stats-hero__stamp span {
@@ -299,6 +402,7 @@
 #statistics-dashboard .stats-summary-card__topline [class*="icon-"] {
   color: var(--stats-accent);
   font-size: 1.3rem;
+  opacity: 0.8;
 }
 #statistics-dashboard .stats-summary-card > strong {
   display: block;
@@ -307,21 +411,21 @@
   font-size: clamp(1.3rem, 2.25vw, 1.85rem);
   font-weight: 850;
   line-height: 1;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
 #statistics-dashboard .stats-summary-card > span {
   display: block;
   margin-top: 0.38rem;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 0.72rem;
   font-weight: 750;
 }
 #statistics-dashboard .stats-summary-card > small {
   display: block;
-  margin-top: 0.1rem;
+  margin-top: 0.22rem;
   color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.68rem;
+  font-size: 0.62rem;
 }
 
 /* ========== 两栏布局 ========== */
@@ -365,7 +469,15 @@
   margin: 0.45rem 0 0;
   color: var(--text-secondary);
   font-size: 0.82rem;
-  line-height: 1.65;
+  line-height: 1.55;
+}
+/* 访问脉冲面板头是紧凑变体：上距收紧、描述更小 */
+#statistics-dashboard [data-panel="pulse"] .stats-panel__header {
+  padding-top: 1.05rem;
+}
+#statistics-dashboard [data-panel="pulse"] .stats-panel__description {
+  margin-top: 0.3rem;
+  font-size: 0.74rem;
 }
 #statistics-dashboard .stats-panel__controls {
   display: flex;
@@ -374,57 +486,72 @@
   flex: 0 0 auto;
 }
 
-/* 范围切换按钮组（7/30/90 天） */
+/* 范围切换按钮组（7/30/90 天）：无边框文字钮，悬浮带主色浅底 */
 #statistics-dashboard .stats-range {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.1rem;
 }
 #statistics-dashboard .stats-range button {
   min-width: 2.8rem;
   padding: 0.4rem 0.52rem;
-  border: 1px solid var(--line-divider);
-  border-radius: 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
   background: transparent;
   color: var(--text-secondary);
   font-size: 0.68rem;
   font-weight: 700;
   cursor: pointer;
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    border-color 0.2s ease;
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 #statistics-dashboard .stats-range button:hover {
-  color: var(--text-primary);
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+  color: var(--primary);
+}
+#statistics-dashboard .stats-range button:active {
+  transform: scale(0.95);
+}
+#statistics-dashboard .stats-range button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
 }
 #statistics-dashboard .stats-range button[aria-pressed="true"] {
-  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
   background: color-mix(in oklab, var(--primary) 12%, transparent);
   color: var(--primary);
 }
-/* 刷新按钮（重播折线动画） */
+/* 刷新按钮（重播折线动画）：悬浮轻转 18°，重拉时图标 spin（TS 加 .is-spinning） */
 #statistics-dashboard .stats-refresh {
   display: grid;
   place-items: center;
   width: 2rem;
   height: 2rem;
-  border: 1px solid var(--line-divider);
-  border-radius: 0.55rem;
+  border: 0;
+  border-radius: 0.45rem;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--primary);
   font-size: 1.05rem;
   cursor: pointer;
   transition:
-    color 0.2s ease,
-    border-color 0.2s ease,
-    transform 0.3s ease;
+    background 0.2s ease,
+    transform 0.3s ease,
+    opacity 0.2s ease;
 }
 #statistics-dashboard .stats-refresh:hover {
-  border-color: color-mix(in oklab, var(--primary) 30%, transparent);
-  color: var(--primary);
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+  transform: rotate(18deg);
 }
-#statistics-dashboard .stats-refresh:active {
-  transform: rotate(120deg);
+#statistics-dashboard .stats-refresh:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+#statistics-dashboard .stats-refresh:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+#statistics-dashboard .stats-refresh.is-spinning [class*="icon-"] {
+  animation: stats-spin 0.8s linear infinite;
 }
 
 /* ========== ① 访问脉冲：折线图 ========== */
@@ -455,12 +582,17 @@
   display: block;
   width: 100%;
   height: auto;
+  cursor: crosshair;
 }
 #statistics-dashboard .stats-chart-grid line {
   stroke: var(--line-divider);
   stroke-width: 1;
-  stroke-dasharray: 3 5;
+  stroke-dasharray: 2 7;
   vector-effect: non-scaling-stroke;
+}
+#statistics-dashboard .stats-chart-grid line:last-child {
+  stroke: var(--text-tertiary);
+  stroke-dasharray: none;
 }
 #statistics-dashboard .stats-chart-area {
   fill: url(#stats-area-gradient);
@@ -479,30 +611,63 @@
   stroke-linejoin: round;
   stroke-width: 2.4;
   vector-effect: non-scaling-stroke;
+  transition: d 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+#statistics-dashboard .stats-chart-area {
+  transition: d 0.42s cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 #statistics-dashboard .stats-chart-line--views {
   stroke: var(--primary);
+  stroke-width: 3;
+  filter: drop-shadow(
+    0 0 0.18rem color-mix(in oklab, var(--primary) 28%, transparent)
+  );
 }
 #statistics-dashboard .stats-chart-line--visitors {
   stroke: var(--stats-v3);
+  stroke-width: 2.2;
+  stroke-dasharray: 5 6;
+  opacity: 0.86;
 }
 #statistics-dashboard .stats-chart-guide {
-  stroke: var(--text-tertiary, var(--text-secondary));
+  stroke: color-mix(in oklab, var(--primary) 42%, transparent);
   stroke-width: 1;
   stroke-dasharray: 3 4;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
 }
+/* 数据点：空心点（卡面色填充 + 系列色描边），平时隐藏、图悬浮时显形，
+   每条线最后一个点（端点）常显并带辉光 */
 #statistics-dashboard .stats-chart-point {
-  stroke: var(--card-bg);
-  stroke-width: 1.6;
+  fill: var(--card-bg);
+  stroke-width: 2;
+  opacity: 0;
+  transition: opacity 0.2s ease;
   pointer-events: none;
 }
 #statistics-dashboard .stats-chart-point--views {
-  fill: var(--primary);
+  stroke: var(--primary);
 }
 #statistics-dashboard .stats-chart-point--visitors {
-  fill: var(--stats-v3);
+  stroke: var(--stats-v3);
+}
+#statistics-dashboard .stats-chart:hover .stats-chart-point {
+  opacity: 0.85;
+}
+#statistics-dashboard .stats-chart-point--endpoint {
+  opacity: 1;
+}
+#statistics-dashboard
+  .stats-chart-point--endpoint.stats-chart-point--views {
+  filter: drop-shadow(
+    0 0 0.2rem color-mix(in oklab, var(--primary) 32%, transparent)
+  );
+}
+#statistics-dashboard
+  .stats-chart-point--endpoint.stats-chart-point--visitors {
+  filter: drop-shadow(
+    0 0 0.2rem color-mix(in oklab, var(--stats-v3) 32%, transparent)
+  );
 }
 #statistics-dashboard .stats-chart-hit {
   fill: transparent;
@@ -517,15 +682,17 @@
   padding: 0.6rem 0.7rem;
   border: 1px solid var(--line-divider);
   border-radius: 0.65rem;
-  background: var(--card-bg);
-  box-shadow: var(--shadow);
+  background: color-mix(in oklab, var(--card-bg) 93%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 0.8rem 1.6rem
+    color-mix(in oklab, var(--deep-text) 12%, transparent);
   color: var(--text-secondary);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   pointer-events: none;
 }
 #statistics-dashboard .stats-chart__tooltip strong {
   color: var(--text-primary);
-  font-size: 0.74rem;
+  font-size: 0.68rem;
 }
 #statistics-dashboard .stats-chart__tooltip span {
   display: flex;
@@ -605,14 +772,14 @@
 /* 本周期 snapshot：标题行 + 2×2 指标格 */
 #statistics-dashboard .stats-traffic__period-heading {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   min-height: 2.1rem;
 }
 #statistics-dashboard .stats-period__intro {
   display: flex;
-  align-items: baseline;
-  gap: 0.45rem;
+  flex-direction: column;
+  align-items: flex-start;
 }
 #statistics-dashboard .stats-period__intro strong {
   color: var(--text-primary);
@@ -620,6 +787,7 @@
   font-weight: 800;
 }
 #statistics-dashboard .stats-period__intro span {
+  margin-top: 0.14rem;
   color: var(--text-tertiary, var(--text-secondary));
   font-size: 0.57rem;
 }
@@ -631,12 +799,48 @@
 }
 #statistics-dashboard .stats-period__metric {
   --stats-accent: var(--stats-v1);
+  position: relative;
   display: grid;
   grid-template-columns: 1.2rem minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.34rem;
   padding: 0.24rem 0.2rem;
   border-radius: 0.52rem;
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+/* 悬浮：accent 浅底 + 阴影 + 左侧 accent 竖条展开 + 图标轻转 */
+#statistics-dashboard .stats-period__metric::before {
+  content: "";
+  position: absolute;
+  top: 0.24rem;
+  bottom: 0.24rem;
+  left: 0;
+  width: 0.16rem;
+  border-radius: 999px;
+  background: var(--stats-accent);
+  opacity: 0;
+  transform: scaleY(0.35);
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+#statistics-dashboard .stats-period__metric:hover {
+  background: color-mix(in oklab, var(--stats-accent) 6%, transparent);
+  box-shadow: 0 0.5rem 1.15rem
+    color-mix(in oklab, var(--stats-accent) 13%, transparent);
+  transform: translateY(-1px);
+}
+#statistics-dashboard .stats-period__metric:hover::before {
+  opacity: 0.78;
+  transform: scaleY(1);
+}
+#statistics-dashboard .stats-period__metric:hover .stats-period__metric-icon {
+  box-shadow: 0 0.35rem 0.75rem
+    color-mix(in oklab, var(--stats-accent) 16%, transparent);
+  transform: scale(1.08) rotate(-3deg);
 }
 #statistics-dashboard .stats-period__metric--v2 {
   --stats-accent: var(--stats-v2);
@@ -659,6 +863,9 @@
   background: color-mix(in oklab, var(--stats-accent) 13%, transparent);
   color: var(--stats-accent);
   font-size: 0.78rem;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 #statistics-dashboard .stats-period__metric-copy {
   display: grid;
@@ -687,9 +894,8 @@
 /* 热门排行：ol 链接行 + 底部占比进度线 */
 #statistics-dashboard .stats-traffic__section-heading {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
+  flex-direction: column;
+  align-items: flex-start;
   min-height: 2.1rem;
 }
 #statistics-dashboard .stats-traffic__section-heading strong {
@@ -698,13 +904,15 @@
   font-weight: 800;
 }
 #statistics-dashboard .stats-traffic__section-heading span {
+  margin-top: 0.14rem;
   color: var(--text-tertiary, var(--text-secondary));
   font-size: 0.57rem;
   white-space: nowrap;
 }
 #statistics-dashboard .stats-ranking {
   display: grid;
-  gap: 0.1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.2rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -721,16 +929,26 @@
   border-radius: 0.52rem;
   color: inherit;
   text-decoration: none;
-  transition: background 0.2s ease;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 #statistics-dashboard a.stats-ranking__item:hover {
   background: color-mix(in oklab, var(--primary) 7%, transparent);
+  box-shadow: 0 0.5rem 1.15rem
+    color-mix(in oklab, var(--primary) 14%, transparent);
+  transform: translateY(-1px);
+}
+#statistics-dashboard a.stats-ranking__item:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 54%, transparent);
+  outline-offset: 2px;
 }
 #statistics-dashboard .stats-ranking__item::before {
   content: "";
   position: absolute;
   right: 0.32rem;
-  bottom: 0.14rem;
+  bottom: 0.18rem;
   left: 0.32rem;
   height: 0.1rem;
   border-radius: 999px;
@@ -805,44 +1023,136 @@
 /* ========== ② 推送节奏 ========== */
 #statistics-dashboard .stats-deployment__header {
   position: relative;
+  isolation: isolate;
+  min-height: 9.8rem;
+  padding: 1.55rem 1.45rem 0.9rem;
+  align-items: flex-start;
 }
-#statistics-dashboard .stats-deployment__heading {
-  max-width: 66%;
-}
-/* 标题右侧的文字 art（对方是吉祥物图，我方用纯文字构成，不引用其素材） */
-#statistics-dashboard .stats-deployment__art {
+/* 面板头纯 CSS 装饰：斜环 + 点阵（与 hero 同语言） */
+#statistics-dashboard .stats-deployment__header::before {
+  content: "";
   position: absolute;
-  top: 0.4rem;
+  top: -5.6rem;
   right: 5.2rem;
-  display: grid;
-  justify-items: end;
-  gap: 0.1rem;
-  color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.66rem;
-  line-height: 1.5;
-  text-align: right;
+  z-index: -1;
+  width: 14rem;
+  height: 9rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 16%, transparent);
+  border-radius: 50%;
+  opacity: 0.7;
+  transform: rotate(-13deg);
   pointer-events: none;
 }
+#statistics-dashboard .stats-deployment__header::after {
+  content: "";
+  position: absolute;
+  right: 1.45rem;
+  bottom: 0.2rem;
+  z-index: -1;
+  width: 7rem;
+  height: 3rem;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in oklab, var(--primary) 30%, transparent) 0.7px,
+    transparent 0.9px
+  );
+  background-size: 0.62rem 0.62rem;
+  opacity: 0.46;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-deployment__heading {
+  position: relative;
+  z-index: 1;
+  max-width: 66%;
+}
+#statistics-dashboard .stats-deployment .stats-panel__header h2 {
+  font-size: clamp(1.45rem, 3.2vw, 2.05rem);
+  letter-spacing: -0.045em;
+}
+#statistics-dashboard .stats-deployment .stats-panel__badge {
+  position: relative;
+  z-index: 3;
+}
+/* 标题右侧 art：斜排文字 + 爱心 + 大肥鱼图（站内 upload，不进仓库）。
+   图略溢出头部下沿，面板悬浮时轻浮起。 */
+#statistics-dashboard .stats-deployment__art {
+  position: absolute;
+  top: 0;
+  right: 1.1rem;
+  bottom: 0;
+  width: min(40%, 15rem);
+  overflow: hidden;
+  pointer-events: none;
+}
+#statistics-dashboard .stats-deployment__art::after {
+  content: "";
+  position: absolute;
+  right: 10%;
+  bottom: 0.25rem;
+  left: 10%;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  filter: blur(0.6rem);
+}
 #statistics-dashboard .stats-deployment__art p {
+  position: absolute;
+  top: 0.65rem;
+  left: 0.2rem;
+  z-index: 2;
   margin: 0;
+  color: color-mix(in oklab, var(--primary) 72%, var(--deep-text));
+  font-size: 0.86rem;
+  font-weight: 750;
+  letter-spacing: 0.07em;
+  line-height: 1.55;
+  text-align: center;
+  transform: rotate(-7deg);
 }
 #statistics-dashboard .stats-deployment__art span {
+  position: absolute;
+  top: 0.22rem;
+  right: 2.2rem;
+  z-index: 2;
   color: var(--stats-v5);
-  font-size: 0.8rem;
+  font-size: 1.15rem;
+  transform: rotate(12deg);
 }
-/* 4 个 metric 块 */
+#statistics-dashboard .stats-deployment__art img {
+  position: absolute;
+  right: -0.25rem;
+  bottom: -1.2rem;
+  z-index: 1;
+  width: min(100%, 14rem);
+  max-height: 12.2rem;
+  object-fit: contain;
+  object-position: bottom center;
+  filter: drop-shadow(
+    0 0.75rem 0.9rem color-mix(in oklab, var(--primary) 12%, transparent)
+  );
+  transition:
+    transform 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 0.5s ease;
+}
+#statistics-dashboard .stats-deployment:hover .stats-deployment__art img {
+  transform: translateY(-0.22rem) rotate(1deg);
+  filter: drop-shadow(
+    0 0.9rem 1.1rem color-mix(in oklab, var(--primary) 20%, transparent)
+  );
+}
+/* 4 个 metric 块：幽灵图标 + 纵排文案（标签 → 值 → 注） */
 #statistics-dashboard .stats-deployment__metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.65rem;
-  margin: 0.85rem 1.35rem 0;
+  margin: 0 1.35rem;
 }
 #statistics-dashboard .stats-deployment__metric {
   --stats-accent: var(--stats-v1);
   display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) auto;
+  grid-template-columns: 2.12rem minmax(0, 1fr);
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.46rem;
   min-height: 4.8rem;
   padding: 0.72rem 0.7rem;
   border-radius: 0.78rem;
@@ -863,43 +1173,45 @@
 #statistics-dashboard .stats-deployment__metric-icon {
   display: grid;
   place-items: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.55rem;
-  background: color-mix(in oklab, var(--stats-accent) 14%, transparent);
+  width: 2.12rem;
+  height: 2.12rem;
   color: var(--stats-accent);
-  font-size: 1.1rem;
+  font-size: 1.58rem;
 }
 #statistics-dashboard .stats-deployment__metric-copy {
   display: grid;
   min-width: 0;
 }
 #statistics-dashboard .stats-deployment__metric-copy > span {
-  color: var(--text-primary);
-  font-size: 0.68rem;
-  font-weight: 750;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
   white-space: nowrap;
 }
-#statistics-dashboard .stats-deployment__metric-copy small {
-  overflow: hidden;
-  color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.56rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-#statistics-dashboard .stats-deployment__metric > strong {
+#statistics-dashboard .stats-deployment__metric-copy strong {
+  display: block;
+  margin-top: 0.25rem;
   color: var(--text-primary);
-  font-size: 0.92rem;
+  font-size: 1.02rem;
   font-weight: 850;
+  letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-/* 热力图块（带顶分隔线的内层块） */
+#statistics-dashboard .stats-deployment__metric-copy small {
+  display: block;
+  margin-top: 0.22rem;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 热力图块（带填充底的内层块） */
 #statistics-dashboard .stats-deployment__heatmap {
   margin: 1.1rem 1.35rem 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--line-divider);
+  padding: 1rem 0 0.35rem;
   border-radius: 0.82rem;
+  background: color-mix(in oklab, var(--primary) 4%, var(--card-bg));
 }
 #statistics-dashboard .stats-deployment__heatmap-head {
   display: grid;
@@ -915,15 +1227,19 @@
 }
 #statistics-dashboard .stats-deployment__heatmap-title strong {
   color: var(--text-primary);
-  font-size: 0.82rem;
-  font-weight: 820;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 #statistics-dashboard .stats-deployment__heatmap-title > span {
-  display: inline-flex;
+  display: grid;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
   color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.85rem;
+  font-size: 0.98rem;
+  cursor: help;
 }
-/* 贪吃蛇控件（居中两组小选项） */
+/* 贪吃蛇控件（居中两组胶囊选项） */
 #statistics-dashboard .stats-deployment__snake-controls {
   display: flex;
   flex-wrap: wrap;
@@ -934,63 +1250,97 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  color: var(--text-secondary);
-  font-size: 0.62rem;
-  font-weight: 700;
+  color: var(--text-tertiary);
+  font-size: 0.58rem;
 }
 #statistics-dashboard .stats-deployment__snake-options {
   display: inline-flex;
-  gap: 0.22rem;
+  gap: 0.12rem;
+  padding: 0.12rem;
+  border: 1px solid color-mix(in oklab, var(--line-divider) 78%, transparent);
+  border-radius: 0.38rem;
+  background: color-mix(in oklab, var(--primary) 4%, transparent);
 }
-#statistics-dashboard .stats-deployment__snake-options button,
-#statistics-dashboard .stats-deployment__heatmap-tabs button {
-  padding: 0.24rem 0.42rem;
-  border: 0;
-  border-radius: 0.4rem;
+#statistics-dashboard .stats-deployment__snake-options button {
+  min-width: 1.45rem;
+  padding: 0.2rem 0.26rem;
+  border: 1px solid var(--line-divider);
+  border-radius: 0.24rem;
   background: transparent;
-  color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.62rem;
+  color: var(--primary);
+  font-size: 0.58rem;
   font-weight: 700;
+  line-height: 1;
   cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease;
+  transition: border-color 0.18s ease;
 }
-#statistics-dashboard .stats-deployment__snake-options button:hover,
-#statistics-dashboard .stats-deployment__heatmap-tabs button:hover {
-  color: var(--text-primary);
+#statistics-dashboard .stats-deployment__snake-options button:hover {
+  border-color: var(--primary);
 }
 #statistics-dashboard
   .stats-deployment__snake-options
   button[aria-pressed="true"] {
-  background: color-mix(in oklab, var(--primary) 13%, transparent);
-  color: var(--primary);
+  border-color: var(--primary);
+  font-weight: 800;
 }
+#statistics-dashboard .stats-deployment__snake-options button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--stats-v5) 72%, transparent);
+  outline-offset: 2px;
+}
+/* 热力图粒度 tab：无边框文字钮 */
 #statistics-dashboard .stats-deployment__heatmap-tabs {
   display: inline-flex;
-  gap: 0.22rem;
+  gap: 0.7rem;
+}
+#statistics-dashboard .stats-deployment__heatmap-tabs button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.16s ease;
+}
+#statistics-dashboard .stats-deployment__heatmap-tabs button:hover {
+  color: var(--text-primary);
 }
 #statistics-dashboard
   .stats-deployment__heatmap-tabs
   button[aria-pressed="true"] {
   color: var(--text-primary);
-  font-weight: 850;
+  font-weight: 700;
 }
-/* 热力图滚动区 + 网格 + 月份行 */
+#statistics-dashboard .stats-deployment__heatmap-tabs button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 72%, transparent);
+  outline-offset: 3px;
+  border-radius: 0.15rem;
+}
+/* 热力图滚动区 + 网格 + 月份行：网格撑满容器宽度（周列等分、格子
+   保持方形）；窄屏时 min-width 保底格宽、由滚动区横向滚动不压扁 */
 #statistics-dashboard .stats-deployment__heatmap-scroll {
   margin-top: 0.82rem;
   padding: 0.24rem 1rem 0.34rem;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 #statistics-dashboard .stats-deployment__heatmap-main {
-  min-width: max-content;
+  width: 100%;
+  min-width: 34rem;
 }
 #statistics-dashboard .stats-push-grid {
   display: grid;
   grid-auto-flow: column;
-  grid-template-rows: repeat(7, 0.56rem);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(7, auto);
   gap: 0.16rem;
-  width: max-content;
+  width: 100%;
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: 0.3rem;
 }
 #statistics-dashboard .stats-push-months {
   position: relative;
@@ -1015,8 +1365,20 @@
   border-top: 1px solid var(--line-divider);
 }
 #statistics-dashboard .stats-deployment__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
   color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.56rem;
+}
+#statistics-dashboard .stats-deployment__source [class*="icon-"] {
+  font-size: 1.05rem;
+}
+#statistics-dashboard .stats-deployment__heatmap-foot > strong {
+  color: var(--primary);
   font-size: 0.62rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 /* message 条：左图标 + 文案 + 右飞机图标 */
 #statistics-dashboard .stats-deployment__message {
@@ -1046,10 +1408,21 @@
   color: var(--primary);
   font-size: 1.05rem;
 }
+#statistics-dashboard .stats-deployment__message-copy {
+  display: grid;
+  min-width: 0;
+}
+#statistics-dashboard .stats-deployment__message-copy strong {
+  color: var(--text-primary);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
 #statistics-dashboard .stats-deployment__message-plane {
   justify-self: end;
   color: var(--primary);
-  font-size: 1.15rem;
+  font-size: 1.8rem;
+  opacity: 0.72;
+  transform: rotate(-22deg);
 }
 
 /* 热力格共用（推送网格 / 活跃网格 / legend 小格）：
@@ -1074,13 +1447,34 @@
 #statistics-dashboard .stats-heat-cell[data-level="4"] {
   background: var(--primary);
 }
-/* 推送网格上的食物与蛇身（TS 切换类名） */
+/* 推送网格上的格子交互（悬浮光圈 / 今日内圈 / 食物与蛇身） */
 #statistics-dashboard .stats-push-grid .stats-heat-cell {
   cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    filter 0.16s ease;
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell:hover,
+#statistics-dashboard .stats-push-grid .stats-heat-cell:focus-visible {
+  z-index: 1;
+  box-shadow:
+    0 0 0 2px var(--card-bg),
+    0 0 0 3px color-mix(in oklab, var(--primary) 72%, transparent);
+  filter: saturate(1.2);
+  transform: scale(1.18);
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+#statistics-dashboard .stats-push-grid .stats-heat-cell.is-today {
+  box-shadow: inset 0 0 0 1px var(--primary);
 }
 #statistics-dashboard .stats-push-grid .stats-heat-cell.is-food {
   background: var(--stats-v3);
   box-shadow: 0 0 0 0.14rem color-mix(in oklab, var(--stats-v3) 30%, transparent);
+  animation: stats-snake-food 1.45s ease-in-out infinite;
 }
 #statistics-dashboard .stats-push-grid .stats-heat-cell.is-snake {
   background: var(--stats-v5);
@@ -1130,7 +1524,7 @@
   grid-column: 2;
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-secondary);
   font-size: 0.62rem;
   text-align: center;
 }
@@ -1139,7 +1533,7 @@
   display: grid;
   grid-template-rows: repeat(7, minmax(0, 1fr));
   align-items: center;
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-secondary);
   font-size: 0.62rem;
 }
 #statistics-dashboard .stats-activity__grid {
@@ -1154,64 +1548,86 @@
   gap: clamp(0.18rem, 0.45vw, 0.28rem);
 }
 #statistics-dashboard .stats-activity__cell {
+  position: relative;
   width: auto;
   height: auto;
   aspect-ratio: 1;
   border-radius: 0.24rem;
   cursor: pointer;
-  transition: transform 0.15s ease;
+  transition:
+    background-color 0.16s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
 }
-#statistics-dashboard .stats-activity__cell:hover {
-  transform: scale(1.18);
+#statistics-dashboard .stats-activity__cell:hover,
+#statistics-dashboard .stats-activity__cell:focus-visible {
+  z-index: 1;
+  box-shadow:
+    0 0 0 2px var(--card-bg),
+    0 0 0 3px color-mix(in oklab, var(--primary) 58%, transparent);
+  filter: saturate(1.08);
 }
 #statistics-dashboard .stats-activity__note {
-  margin: 0.55rem 0 0;
-  color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.68rem;
-  line-height: 1.6;
+  min-height: 0.9rem;
+  margin: 0.35rem 0 0;
+  color: var(--text-secondary);
+  font-size: 0.64rem;
+  line-height: 1.4;
 }
-/* 右侧 art 块：轨道圆环 + 居中文字（纯 CSS 构成） */
+/* 右侧 art 块：椭圆轨道 + 右上斜排文字 + 底部模糊影（纯 CSS 构成） */
 #statistics-dashboard .stats-activity__art {
   position: relative;
-  display: grid;
-  place-items: center;
   min-height: 14.2rem;
   overflow: hidden;
   border-radius: 1rem;
   background:
     radial-gradient(
-      circle at 78% 18%,
-      color-mix(in oklab, var(--stats-v3) 20%, transparent),
-      transparent 46%
-    ),
-    radial-gradient(
-      circle at 18% 82%,
-      color-mix(in oklab, var(--primary) 16%, transparent),
-      transparent 52%
+      circle at 50% 64%,
+      color-mix(in oklab, var(--primary) 14%, transparent),
+      transparent 58%
     ),
     color-mix(in oklab, var(--primary) 5%, transparent);
-  text-align: center;
+}
+#statistics-dashboard .stats-activity__art::after {
+  content: "";
+  position: absolute;
+  right: 12%;
+  bottom: 0.62rem;
+  left: 12%;
+  height: 0.72rem;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  filter: blur(0.6rem);
 }
 #statistics-dashboard .stats-activity__art-orbit {
   position: absolute;
-  width: 9.5rem;
-  height: 9.5rem;
-  border: 1px dashed color-mix(in oklab, var(--primary) 30%, transparent);
-  border-radius: 999px;
+  top: 2.3rem;
+  left: 50%;
+  width: 10rem;
+  height: 5.8rem;
+  border: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
+  border-radius: 50%;
+  opacity: 0.65;
+  transform: translateX(-50%) rotate(-12deg);
 }
 #statistics-dashboard .stats-activity__art-orbit--2 {
-  width: 6.2rem;
-  height: 6.2rem;
-  border-style: solid;
+  top: 3.4rem;
+  width: 6.4rem;
+  height: 3.6rem;
+  border-style: dashed;
   border-color: color-mix(in oklab, var(--stats-v3) 26%, transparent);
 }
 #statistics-dashboard .stats-activity__art p {
-  position: relative;
+  position: absolute;
+  top: 0.35rem;
+  right: 0.85rem;
   margin: 0;
-  color: var(--text-primary);
-  font-size: 0.86rem;
-  font-weight: 800;
-  line-height: 1.7;
+  color: color-mix(in oklab, var(--primary) 72%, var(--deep-text));
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  line-height: 1.55;
+  transform: rotate(3deg);
 }
 /* 4 个 stat 色块 */
 #statistics-dashboard .stats-activity__stats {
@@ -1247,26 +1663,25 @@
   place-items: center;
   width: 2.12rem;
   height: 2.12rem;
-  border-radius: 0.6rem;
-  background: color-mix(in oklab, var(--stats-accent) 14%, transparent);
   color: var(--stats-accent);
-  font-size: 1.12rem;
+  font-size: 1.58rem;
 }
 #statistics-dashboard .stats-activity__stat-copy {
   display: grid;
   min-width: 0;
 }
 #statistics-dashboard .stats-activity__stat-copy > span {
-  color: var(--text-secondary);
-  font-size: 0.6rem;
-  font-weight: 700;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
   white-space: nowrap;
 }
 #statistics-dashboard .stats-activity__stat-copy strong {
+  margin-top: 0.25rem;
   overflow: hidden;
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: 1.02rem;
   font-weight: 850;
+  letter-spacing: -0.025em;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
@@ -1304,6 +1719,10 @@
   justify-content: space-between;
   gap: 0.75rem;
 }
+#statistics-dashboard .stats-snapshot__header .stats-kicker {
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+}
 #statistics-dashboard .stats-snapshot__header p:last-child {
   margin: 0.3rem 0 0;
   color: var(--text-tertiary, var(--text-secondary));
@@ -1336,7 +1755,7 @@
 #statistics-dashboard .stats-donut {
   position: relative;
   width: 100%;
-  max-width: 6.8rem;
+  max-width: 6.1rem;
   aspect-ratio: 1;
   justify-self: center;
 }
@@ -1344,6 +1763,28 @@
   display: block;
   width: 100%;
   height: 100%;
+  overflow: visible;
+}
+/* 扇区悬浮：整圆描边以 fill-box 为原点外凸（CSS transform 接管 TS 的
+   rotate 属性，故基础态也要把 -90° 写进 CSS，两态才能平滑过渡） */
+#statistics-dashboard .stats-donut-segment {
+  cursor: pointer;
+  opacity: 0.96;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: rotate(-90deg);
+  transition:
+    opacity 0.3s ease,
+    filter 0.45s cubic-bezier(0.42, 0, 0.58, 1),
+    transform 0.45s cubic-bezier(0.42, 0, 0.58, 1);
+}
+#statistics-dashboard .stats-donut-segment:hover,
+#statistics-dashboard .stats-donut-segment[data-active="true"] {
+  opacity: 1;
+  filter: drop-shadow(
+    0 0.18rem 0.26rem color-mix(in srgb, var(--deep-text) 18%, transparent)
+  );
+  transform: rotate(-90deg) scale(1.07);
 }
 #statistics-dashboard .stats-donut-track {
   stroke: color-mix(in oklab, var(--text-primary) 8%, transparent);
@@ -1368,7 +1809,7 @@
   inset: 0;
   display: grid;
   place-content: center;
-  gap: 0.1rem;
+  gap: 0.25rem;
   text-align: center;
   pointer-events: none;
 }
@@ -1377,6 +1818,7 @@
   font-size: 0.9rem;
   font-weight: 850;
   line-height: 1;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
 #statistics-dashboard .stats-donut-label span {
@@ -1386,7 +1828,7 @@
 /* legend 列表（设备/浏览器/来源共用） */
 #statistics-dashboard .stats-legend {
   display: grid;
-  gap: 0.12rem;
+  gap: 0.3rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1400,11 +1842,28 @@
   border-radius: 0.48rem;
   color: var(--text-secondary);
   font-size: 0.64rem;
+  transition:
+    background 0.3s ease,
+    box-shadow 0.3s ease,
+    transform 0.3s ease;
+}
+/* 图例项悬浮/激活与 donut 扇区同步（TS 同置 data-active） */
+#statistics-dashboard .stats-legend__item:hover,
+#statistics-dashboard .stats-legend__item[data-active="true"] {
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  box-shadow: 0 0.3rem 0.7rem
+    color-mix(in oklab, var(--primary) 12%, transparent);
+  transform: translateY(-1px);
 }
 #statistics-dashboard .stats-legend__item i {
   width: 0.42rem;
   height: 0.42rem;
   border-radius: 999px;
+  transition: transform 0.3s ease;
+}
+#statistics-dashboard .stats-legend__item:hover i,
+#statistics-dashboard .stats-legend__item[data-active="true"] i {
+  transform: scale(1.18);
 }
 #statistics-dashboard .stats-legend__item span {
   overflow: hidden;
@@ -1451,24 +1910,91 @@
   justify-content: space-between;
   gap: 0.75rem;
 }
+#statistics-dashboard .stats-region-card__header .stats-kicker {
+  font-size: 0.5rem;
+}
+#statistics-dashboard .stats-region-card__header h2 {
+  font-size: 0.86rem;
+}
 #statistics-dashboard .stats-region-card__header p:last-child {
   margin: 0.3rem 0 0;
   color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.62rem;
+  font-size: 0.58rem;
 }
 #statistics-dashboard .stats-region-card__header-icon {
   flex: 0 0 auto;
   color: var(--primary);
-  font-size: 1.2rem;
+  font-size: 1.1rem;
+  opacity: 0.72;
 }
 #statistics-dashboard .stats-region-card__body {
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(6.7rem, 0.88fr);
   gap: 0.55rem;
-  align-items: center;
+  align-items: start;
   margin-top: 0.62rem;
 }
-/* 左列：地区列表 + 占比条 */
+/* 左列：中国地图（省份路径由 TS 注入 svg，按访客数分档上色） */
+#statistics-dashboard .stats-region-card__map-wrap {
+  min-width: 0;
+}
+#statistics-dashboard .stats-region-card__map {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1000 / 696;
+  border-radius: 0.55rem;
+}
+#statistics-dashboard .stats-region-card__map svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+#statistics-dashboard .stats-region-fill {
+  fill: color-mix(in oklab, var(--primary) 8%, transparent);
+  stroke: color-mix(in oklab, var(--primary) 38%, transparent);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.92;
+  cursor: pointer;
+  transition:
+    opacity 0.52s cubic-bezier(0.42, 0, 0.58, 1),
+    transform 0.52s cubic-bezier(0.42, 0, 0.58, 1),
+    filter 0.52s cubic-bezier(0.42, 0, 0.58, 1);
+}
+#statistics-dashboard .stats-region-fill[data-level="1"] {
+  fill: color-mix(in oklab, var(--primary) 26%, transparent);
+}
+#statistics-dashboard .stats-region-fill[data-level="2"] {
+  fill: color-mix(in oklab, var(--primary) 45%, transparent);
+}
+#statistics-dashboard .stats-region-fill[data-level="3"] {
+  fill: color-mix(in oklab, var(--primary) 66%, transparent);
+}
+#statistics-dashboard .stats-region-fill[data-level="4"] {
+  fill: color-mix(in oklab, var(--primary) 87%, transparent);
+}
+#statistics-dashboard .stats-region-fill:hover,
+#statistics-dashboard .stats-region-fill[data-active="true"] {
+  filter: drop-shadow(
+    0 0.18rem 0.22rem color-mix(in srgb, var(--primary) 28%, transparent)
+  );
+  transform: scale(1.08);
+  opacity: 1;
+}
+#statistics-dashboard .stats-region-line {
+  fill: none;
+  stroke: color-mix(in oklab, var(--primary) 45%, transparent);
+  stroke-width: 1.4;
+  stroke-dasharray: 5 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+/* 下方整行：地区列表 + 占比条 */
+#statistics-dashboard .stats-region-card__body + .stats-region-bars {
+  margin-top: 0.62rem;
+}
 #statistics-dashboard .stats-region-bars {
   display: grid;
   gap: 0.42rem;
@@ -1479,6 +2005,12 @@
 #statistics-dashboard .stats-region-bar {
   display: grid;
   gap: 0.2rem;
+  padding: 0.18rem 0.24rem;
+  border-radius: 0.46rem;
+  transition: background 0.3s ease;
+}
+#statistics-dashboard .stats-region-bar[data-active="true"] {
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
 }
 #statistics-dashboard .stats-region-bar__head {
   display: flex;
@@ -1513,7 +2045,7 @@
 }
 /* 右列：TOP 5 排行 */
 #statistics-dashboard .stats-region-card__ranking > p {
-  margin: 0 0 0.3rem;
+  margin: 0 0 0.38rem;
   color: var(--text-tertiary, var(--text-secondary));
   font-size: 0.5rem;
   font-weight: 800;
@@ -1521,7 +2053,7 @@
 }
 #statistics-dashboard .stats-region-card__ranking ol {
   display: grid;
-  gap: 0.1rem;
+  gap: 0.38rem;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -1535,6 +2067,23 @@
   border-radius: 0.46rem;
   color: var(--text-secondary);
   font-size: 0.6rem;
+  cursor: pointer;
+  transition:
+    transform 0.52s cubic-bezier(0.42, 0, 0.58, 1),
+    background-color 0.46s ease-in-out,
+    box-shadow 0.52s cubic-bezier(0.42, 0, 0.58, 1);
+}
+/* 排名项悬浮/激活与地图省份同步（TS 同置 data-active） */
+#statistics-dashboard .stats-region-card__item:hover,
+#statistics-dashboard .stats-region-card__item[data-active="true"] {
+  background: color-mix(in srgb, var(--primary) 9%, transparent);
+  box-shadow: 0 0.32rem 0.78rem
+    color-mix(in srgb, var(--primary) 13%, transparent);
+  transform: translateY(-1px) scale(1.025);
+}
+#statistics-dashboard .stats-region-card__item:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 54%, transparent);
+  outline-offset: 2px;
 }
 #statistics-dashboard .stats-region-card__item i {
   display: grid;
@@ -1558,7 +2107,7 @@
   white-space: nowrap;
 }
 #statistics-dashboard .stats-region-card__item strong {
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: 0.56rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
@@ -1591,7 +2140,29 @@
   padding-top: 0.52rem;
   border-top: 1px solid var(--line-divider);
   color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.6rem;
+  font-size: 0.55rem;
+}
+#statistics-dashboard .stats-region-card__footer-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+#statistics-dashboard .stats-region-card__footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.16rem;
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 0.55rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+#statistics-dashboard .stats-region-card__footer a:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.16rem;
+}
+#statistics-dashboard .stats-region-card__footer a [class*="icon-"] {
+  font-size: 0.7rem;
 }
 
 /* ⑥ 流量来源 */
@@ -1606,16 +2177,19 @@
 }
 #statistics-dashboard .stats-sources__header h2 {
   margin: 0;
+  font-size: 0.86rem;
+  font-weight: 800;
 }
 #statistics-dashboard .stats-sources__header h2 span {
+  margin-left: 0.32rem;
   color: var(--primary);
-  font-size: 0.63rem;
+  font-size: 0.5rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
 }
 #statistics-dashboard .stats-sources__range {
   color: var(--text-tertiary, var(--text-secondary));
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   white-space: nowrap;
 }
 #statistics-dashboard .stats-sources__body {
@@ -1629,7 +2203,32 @@
   max-width: 5.5rem;
 }
 #statistics-dashboard .stats-sources .stats-legend__item {
+  grid-template-columns: 0.48rem minmax(0, 1fr) auto;
   font-size: 0.61rem;
+}
+#statistics-dashboard .stats-sources .stats-legend__item i {
+  width: 0.46rem;
+  height: 0.46rem;
+}
+/* 来源卡底部外链（Umami 分享页，未配置时模板不渲染） */
+#statistics-dashboard .stats-sources__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.28rem;
+  width: 100%;
+  margin-top: 0.52rem;
+  color: var(--primary);
+  font-size: 0.59rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+#statistics-dashboard .stats-sources__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18rem;
+}
+#statistics-dashboard .stats-sources__link [class*="icon-"] {
+  font-size: 0.78rem;
 }
 
 /* ⑦ 最近评论（侧栏变体） */
@@ -1667,10 +2266,20 @@
   border-radius: 0.75rem;
   color: inherit;
   text-decoration: none;
-  transition: background 0.2s ease;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 #statistics-dashboard a.stats-comment:hover {
   background: color-mix(in oklab, var(--primary) 6%, transparent);
+  box-shadow: 0 0.5rem 1.15rem
+    color-mix(in oklab, var(--primary) 14%, transparent);
+  transform: translate3d(0.32rem, -0.1rem, 0) scale(1.01);
+}
+#statistics-dashboard a.stats-comment:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--primary) 54%, transparent);
+  outline-offset: 2px;
 }
 #statistics-dashboard .stats-comment__avatar {
   width: 2.3rem;
@@ -1679,6 +2288,14 @@
   border-radius: 999px;
   object-fit: cover;
   background: color-mix(in oklab, var(--text-primary) 8%, transparent);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+#statistics-dashboard a.stats-comment:hover .stats-comment__avatar {
+  box-shadow: 0 0.35rem 0.75rem
+    color-mix(in oklab, var(--primary) 20%, transparent);
+  transform: scale(1.04);
 }
 #statistics-dashboard .stats-comment__body {
   display: grid;
@@ -1719,7 +2336,7 @@
   overflow: hidden;
   color: var(--text-secondary);
   font-size: 0.7rem;
-  line-height: 1.55;
+  line-height: 1.45;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
 }
@@ -1774,6 +2391,7 @@
 }
 #statistics-dashboard .stats-footer__link:hover {
   text-decoration: underline;
+  text-underline-offset: 0.2rem;
 }
 
 /* ========== 响应式（断点照参考页 CSS 度量） ========== */
@@ -1857,13 +2475,22 @@
   }
 }
 
-/* 减动效：关图表描线/蛇的过渡（描线动画本身在 TS 里也会跳过） */
+/* 减动效：页内全局关停动画/过渡（与参考同策略），格子与蛇食再单独兜底 */
 @media (prefers-reduced-motion: reduce) {
-  #statistics-dashboard .stats-chart-line,
-  #statistics-dashboard .stats-chart-area,
-  #statistics-dashboard .stats-activity__cell,
-  #statistics-dashboard .stats-refresh {
+  #statistics-dashboard *,
+  #statistics-dashboard *::before,
+  #statistics-dashboard *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  #statistics-dashboard .stats-push-grid .stats-heat-cell,
+  #statistics-dashboard .stats-activity__cell {
     transition: none;
+  }
+  #statistics-dashboard .stats-push-grid .stats-heat-cell.is-food {
+    animation: none;
   }
 }
 
@@ -1912,4 +2539,135 @@
   color: #fff;
   font-size: 0.82rem;
   font-weight: 800;
+}
+/* 骨架屏 shimmer：排行 / 图例 / 地域 / 评论四处占位统一呼吸 */
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy i,
+#statistics-dashboard .stats-skeleton-row .stats-ranking__copy em,
+#statistics-dashboard .stats-legend__skeleton i,
+#statistics-dashboard .stats-legend__skeleton span,
+#statistics-dashboard .stats-region-card__item--skeleton i,
+#statistics-dashboard .stats-region-card__item--skeleton span,
+#statistics-dashboard .stats-region-card__item--skeleton strong,
+#statistics-dashboard .stats-comment--skeleton .stats-comment__avatar,
+#statistics-dashboard .stats-skel-line {
+  animation: stats-skeleton 1.3s ease-in-out infinite;
+}
+
+/* ========== 响应式补充（680px，细节打磨轮） ========== */
+@media (max-width: 680px) {
+  /* 紧凑面板头保持横排（推送节奏），其余面板头才纵排 */
+  #statistics-dashboard .stats-panel__header--compact {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  #statistics-dashboard .stats-hero__meta {
+    grid-template-columns: auto auto;
+    align-items: end;
+  }
+  #statistics-dashboard .stats-traffic__details {
+    gap: 1.2rem;
+    margin: 0 1rem 0.72rem;
+  }
+  #statistics-dashboard .stats-ranking {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #statistics-dashboard .stats-traffic__section-heading strong,
+  #statistics-dashboard .stats-period__intro strong {
+    font-size: 0.88rem;
+  }
+  #statistics-dashboard .stats-traffic__section-heading span,
+  #statistics-dashboard .stats-period__intro span {
+    font-size: 0.62rem;
+  }
+  #statistics-dashboard .stats-period__metric {
+    grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+  }
+  #statistics-dashboard .stats-period__metric-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    font-size: 0.85rem;
+  }
+  #statistics-dashboard .stats-period__metric-copy > span {
+    font-size: 0.72rem;
+  }
+  #statistics-dashboard .stats-period__metric > strong {
+    font-size: 0.84rem;
+  }
+  #statistics-dashboard .stats-ranking__item {
+    grid-template-columns: 1.35rem minmax(0, 1fr) auto;
+    padding: 0.34rem 0.38rem 0.48rem;
+  }
+  #statistics-dashboard .stats-ranking__index {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  #statistics-dashboard .stats-ranking__copy strong {
+    font-size: 0.72rem;
+  }
+  #statistics-dashboard .stats-ranking__item > strong {
+    font-size: 0.84rem;
+  }
+  #statistics-dashboard .stats-chart-wrap {
+    padding: 0.06rem 0.8rem 0 2rem;
+  }
+  #statistics-dashboard .stats-chart-labels {
+    width: calc(2rem + 4.375%);
+  }
+  /* 推送节奏：面板头压低、art 缩小不隐藏、热力图头两行排布 */
+  #statistics-dashboard .stats-deployment__header {
+    min-height: 8.8rem;
+    padding-top: 1.3rem;
+  }
+  #statistics-dashboard .stats-deployment__heading {
+    max-width: 62%;
+  }
+  #statistics-dashboard .stats-deployment__art {
+    display: block;
+    right: 0.7rem;
+    width: min(42%, 11rem);
+    opacity: 0.86;
+  }
+  #statistics-dashboard .stats-deployment__art p {
+    top: 0.5rem;
+    left: 0;
+    font-size: 0.7rem;
+  }
+  #statistics-dashboard .stats-deployment__art span {
+    right: 1.25rem;
+  }
+  #statistics-dashboard .stats-deployment__art img {
+    bottom: -0.9rem;
+    max-height: 10.8rem;
+  }
+  #statistics-dashboard .stats-deployment__heatmap {
+    margin-inline: 1rem;
+  }
+  #statistics-dashboard .stats-deployment__heatmap-head {
+    grid-template-columns: minmax(0, 1fr) auto;
+    justify-items: stretch;
+  }
+  #statistics-dashboard .stats-deployment__heatmap-tabs {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  #statistics-dashboard .stats-deployment__snake-controls {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+  }
+  #statistics-dashboard .stats-deployment__heatmap-foot {
+    margin-inline: 0.72rem;
+  }
+  #statistics-dashboard .stats-deployment__message {
+    grid-template-columns: 1.8rem minmax(0, 1fr) 1.6rem;
+    margin-inline: 0.72rem;
+  }
+  #statistics-dashboard .stats-activity__art {
+    min-height: 12rem;
+  }
+  #statistics-dashboard .stats-activity__footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.48rem;
+  }
 }
