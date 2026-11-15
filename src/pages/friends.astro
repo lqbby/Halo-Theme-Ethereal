@@ -121,7 +121,7 @@ import Canonical from "../components/misc/Canonical.astro";
                     <div class="relative shrink-0">
                       <img
                         th:if="${not #strings.isEmpty(item.authorLogo)}"
-                        th:src="${item.authorLogo != null and (item.authorLogo.startsWith('http') or item.authorLogo.startsWith('//') or item.authorLogo.startsWith('/')) ? item.authorLogo : null}"
+                        th:attr="src=${item.authorLogo != null and (item.authorLogo.startsWith('http') or item.authorLogo.startsWith('//') or item.authorLogo.startsWith('/')) ? item.authorLogo : null}"
                         th:alt="${item.author}"
                         class="friends-avatar h-13 w-13 rounded-xl bg-(--btn-regular-bg) object-cover"
                       />
@@ -162,7 +162,7 @@ import Canonical from "../components/misc/Canonical.astro";
                   <!-- 内容：桌面缩进对齐昵称、移动端全宽（同瞬间卡片的缩进轨道） -->
                   <div class="friends-card-body mt-3.5 md:ml-[4.25rem]">
                     <a
-                      th:href="${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
+                      th:attr="href=${item.url != null and (item.url.startsWith('http') or item.url.startsWith('//') or item.url.startsWith('/')) ? item.url : null}"
                       target="_blank"
                       rel="noopener noreferrer"
                       class="friends-item-title block line-clamp-2 text-[15px] font-semibold text-90 leading-snug transition hover:text-(--primary)"

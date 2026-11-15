@@ -119,11 +119,14 @@ export function bannerThWith(): string {
     imageSuffixThWith("p?.banner_width ?: 1920") +
     ", " +
     // pat：srcset 分档用的后缀模板；wn：banner_width 的数值形态——FormKit
-    // number 在配置里可能是字符串，比较前统一转 Integer（空值回退 0）
+    // number 在配置里可能是字符串，比较前统一转 Integer（空值回退 0）。
+    // 转换前先 matches 纯数字（同 param.page 的仓库惯例）：非数字串直接
+    // convert 会抛 ConversionException，而本 th:with 挂在全站 <html> 上，
+    // 一炸整站 500；不可解析时回退 0（顶档不追加，单档 src 不受影响）
     "pat=${" +
     CDN_PATTERN_RAW +
     "}, " +
-    "wn=${#strings.isEmpty('' + w) ? 0 : #conversions.convert(w, 'java.lang.Integer')}, " +
+    "wn=${('' + w) matches '-?\\d+' ? #conversions.convert(w, 'java.lang.Integer') : 0}, " +
     bannerSrcsetTokens() +
     ", " +
     bannerMediaVars(

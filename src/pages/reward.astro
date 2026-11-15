@@ -216,7 +216,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <div
             th:if="${#strings.isEmpty(sponsor.avatar)}"
             class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-(--btn-regular-bg) text-sm font-bold text-(--primary)"
-            th:text="${#strings.substring(sponsor.name ?: '?', 0, 1)}"
+            th:text="${#strings.isEmpty(sponsor.name) ? '?' : #strings.substring(sponsor.name, 0, 1)}"
           >
             A
           </div>

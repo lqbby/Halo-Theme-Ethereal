@@ -46,7 +46,7 @@ export function postListContainerThWith(): string {
     //
     // ⚠️ 变量必须声明在本属性里（容器上），卡片组件用**祖先作用域**读取 ——
     //    同 `SeriesStrip` 的 `seriesList` 由 `th:with` 声明、`<section>` 在子层读，是同一套语义。
-    "seriesAll=${pluginFinder != null and pluginFinder.available('ethereal-companion', '>=1.1.0') ? recentCommentsSeriesFinder.listAll() : null}"
+    "seriesAll=${pluginFinder != null and pluginFinder.available('ethereal-companion', '>=1.1.0') and recentCommentsSeriesFinder != null ? recentCommentsSeriesFinder.listAll() : null}"
   );
 }
 

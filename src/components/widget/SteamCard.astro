@@ -87,7 +87,7 @@ const style = Astro.props.style || undefined;
           />
           <span
             class="steam-w-avatar__dot"
-            th:classappend="${p?.playing ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
+            th:classappend="${p?.playing == true ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
             th:title="${p?.statusText}"></span>
         </span>
 
@@ -99,7 +99,7 @@ const style = Astro.props.style || undefined;
           <!-- 状态行：离线时把「上次在线」放进 title 提示，保持单行不换行 -->
           <span
             class="truncate text-xs"
-            th:classappend="${p?.playing
+            th:classappend="${p?.playing == true
               ? ' font-medium text-neutral-700 dark:text-neutral-300'
               : ' text-neutral-500 dark:text-neutral-400'}"
             th:with="lastOnline=${p?.summary?.lastLogoff != null

@@ -507,7 +507,8 @@ import { Icon } from "astro-icon/components";
       // 读 CSS 变量 --toc-popup-duration 作为时长唯一来源（与弹窗动画同源），
       // 兜底用 TOC_POPUP_ANIM_MS，不再依赖 transition 短写在级联中的胜出者
       var raw = getComputedStyle(card).getPropertyValue("--toc-popup-duration");
-      var parsed = parseFloat(raw) * 1000;
+      var parsed = parseFloat(raw);
+      if (raw.indexOf("ms") === -1) parsed = parsed * 1000;
       if (!isNaN(parsed)) delay = parsed + 30;
     }
     window.setTimeout(function () {

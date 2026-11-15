@@ -1,0 +1,23 @@
+---
+/**
+ * content-widgets 插件「基础样式」注入（单点维护）。
+ *
+ * 背景：插件 HeadProcessor 只注入 loader 脚本（懒加载版 chunk 里带 css），
+ * 立即挂载版（iife.js 单 bundle）css 独立成文件，需主题补注入；主题侧的
+ * content-widgets.css 是变量 alias/覆盖适配层，不重复提供基础样式。
+ *
+ * 凡是会输出组件标记的页面都要引：文章页（post 正文）、独立页面
+ * （singlePage 正文）、瞬间详情/列表（MomentCard 的 th:utext HTML）。
+ * 此前只有 post.astro 引了，独立页面与瞬间里的组件标记没有基础样式。
+ *
+ * ⚠️ 不带 ?version= 查询串：原先写死 ?version=1.0.3，插件升级后这个
+ *    版本号不会跟着变，等于把旧版 CSS 钉死在缓存里。模板侧读不到插件的
+ *    运行时版本号（pluginFinder 只有可用性检查），资产路径本身跨版本稳定，
+ *    故去掉查询串，让插件升级后直接拿到新文件。
+ */
+---
+
+<link
+  rel="stylesheet"
+  href="/plugins/content-widgets/assets/static/content-widgets.css"
+/>

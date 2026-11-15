@@ -26,6 +26,7 @@ spec:
           id: mods_cardPatternOpacity
           key: mods_cardPatternOpacity
           if: "$get(mods_cardPattern).value"
+          preserve: true
           label: 纹理淡化程度
           min: 0.01
           max: 0.10
@@ -45,6 +46,7 @@ spec:
           id: mods_pagePatternOpacity
           key: mods_pagePatternOpacity
           if: "$get(mods_pagePattern).value"
+          preserve: true
           label: 底纹浓度
           min: 0.02
           max: 0.60
@@ -133,6 +135,7 @@ spec:
               id: banner_fullscreenLayout
               key: banner_fullscreenLayout
               if: "$get(banner_displayMode).value === 'fullscreen'"
+              preserve: true
               label: 全屏布局
               value: classic
               options:
@@ -146,6 +149,7 @@ spec:
               id: banner_transparent_wallpaperOpacity
               key: banner_transparent_wallpaperOpacity
               if: "$get(banner_displayMode).value === 'transparent'"
+              preserve: true
               label: 壁纸透明度
               min: 0.3
               max: 1
@@ -158,6 +162,7 @@ spec:
               id: banner_transparent_wallpaperBlur
               key: banner_transparent_wallpaperBlur
               if: "$get(banner_displayMode).value === 'transparent' || ($get(banner_displayMode).value === 'fullscreen' && $get(banner_fullscreenLayout).value === 'hero')"
+              preserve: true
               label: 背景模糊度
               min: 0
               max: 24
@@ -170,6 +175,7 @@ spec:
               id: banner_transparent_cardOpacity
               key: banner_transparent_cardOpacity
               if: "$get(banner_displayMode).value === 'transparent' || ($get(banner_displayMode).value === 'fullscreen' && $get(banner_fullscreenLayout).value === 'hero')"
+              preserve: true
               label: 卡片透明度
               min: 0.3
               max: 1
@@ -212,6 +218,7 @@ spec:
               id: postList_coverPosition
               key: postList_coverPosition
               if: "$get(postList_defaultMode).value === 'list'"
+              preserve: true
               label: 列表模式封面位置
               value: right
               help: "仅列表布局生效：封面显示在卡片右侧或左侧"
@@ -240,6 +247,7 @@ spec:
               id: postList_grid
               key: postList_grid
               if: "$get(postList_defaultMode).value === 'grid'"
+              preserve: true
               label: 网格设置
               help: "以下设置仅网格布局生效"
               children:
@@ -262,6 +270,7 @@ spec:
                   name: coverAutoHeight
                   key: postList_grid_coverAutoHeight
                   if: "$get(postList_grid_masonry).value !== true"
+                  preserve: true
                   label: 封面高度自适应
                   value: true
                   help: "开启后封面自动拉伸填满卡片剩余高度，等高网格下同排卡片封面等高、摘要下方不留白；关闭后封面固定 2:1 高度，摘要下方留白（仅等高网格生效，瀑布流下自动隐藏）"
@@ -294,6 +303,7 @@ spec:
               id: postList_featuredSource
               key: postList_featuredSource
               if: "$get(postList_featuredPostDisplay).value !== 'off'"
+              preserve: true
               label: 右侧卡片来源
               value: recent
               help: "「最近文章」按发布时间取最新一篇；「热门文章」按站点统计的访问量取最高的一篇（与侧栏「热门文章」小组件同一口径）"
@@ -342,6 +352,7 @@ spec:
               id: postList_seriesCount
               key: postList_seriesCount
               if: "$get(postList_seriesDisplay).value !== 'off'"
+              preserve: true
               label: 系列数量（切换按钮）
               min: 1
               max: 24
@@ -450,6 +461,7 @@ spec:
                   id: visitorStyle_appearance
                   key: visitorStyle_appearance
                   if: "$get(visitorStyle_enable).value"
+                  preserve: true
                   label: 外观切换
                   value: true
                   help: "访客可在「外观」标签页调整主题色相、文章布局（列表/网格）与卡片样式（悬浮效果/高级材质/纹理/外壳/瀑布流）；后台各项设置仍作为默认值"
@@ -458,6 +470,7 @@ spec:
                   id: visitorStyle_wallpaper
                   key: visitorStyle_wallpaper
                   if: "$get(visitorStyle_enable).value"
+                  preserve: true
                   label: 壁纸切换
                   value: true
                   help: "访客可在「壁纸」标签页调整壁纸模式（纯色/横幅/全屏/全屏透明）与相关设置（波浪、首页壁纸标题、透明度）；后台各项设置仍作为默认值"
@@ -466,6 +479,7 @@ spec:
                   id: visitorStyle_effects
                   key: visitorStyle_effects
                   if: "$get(visitorStyle_enable).value"
+                  preserve: true
                   label: 特效切换
                   value: true
                   help: "访客可在「特效」标签页开关樱花等全站特效；后台「样式开关 → 樱花特效」仍作为默认值"
@@ -537,6 +551,7 @@ spec:
               id: welcome_position
               key: welcome_position
               if: "$get(welcome_enable).value"
+              preserve: true
               label: 弹窗位置
               value: bottom-right
               help: "电脑端弹窗显示在所选角落；移动端固定显示在底部居中"
@@ -552,18 +567,21 @@ spec:
             - $formkit: text
               name: title
               if: "$get(welcome_enable).value"
+              preserve: true
               label: 欢迎标题
               value: "欢迎来到我的博客！"
               help: "弹窗标题文字"
             - $formkit: textarea
               name: template
               if: "$get(welcome_enable).value"
+              preserve: true
               label: 欢迎语模板
               value: "来自 {location} 的小伙伴，很高兴遇见你！"
               help: "弹窗正文，{location} 会替换为访客 IP 定位（如：北京市）；未配置 Key 或定位失败时替换为下方的降级文案"
             - $formkit: text
               name: fallbackLocation
               if: "$get(welcome_enable).value"
+              preserve: true
               label: 定位失败文案
               value: "未知星球"
               help: "未配置腾讯位置服务 Key 或定位失败时，替换 {location} 的地点文字（请填写地点名词，如：未知星球）。模板为「来自 {location} 的小伙伴」时，将显示「来自未知星球的小伙伴」"
@@ -607,6 +625,7 @@ spec:
               id: banner_src
               key: banner_src
               if: "$get(banner_mode).value === 'single'"
+              preserve: true
               label: 图片/视频
               value: "/themes/Ethereal/assets/images/demo-banner.webp"
               accepts:
@@ -619,6 +638,7 @@ spec:
               id: banner_darkSrc
               key: banner_darkSrc
               if: "$get(banner_mode).value === 'single'"
+              preserve: true
               label: 暗色壁纸（电脑端）
               value: ""
               accepts:
@@ -629,6 +649,7 @@ spec:
               id: banner_showPauseBtn
               key: banner_showPauseBtn
               if: "$get(banner_mode).value === 'single'"
+              preserve: true
               label: 显示暂停按钮
               value: true
               help: "视频模式下在右下角显示播放/暂停按钮；关闭后视频仅自动静音循环播放，无手动控制（移动端同样生效）"
@@ -637,6 +658,7 @@ spec:
               id: banner_carousel
               key: banner_carousel
               if: "$get(banner_mode).value === 'carousel'"
+              preserve: true
               label: 轮播设置
               value:
                 images: []
@@ -706,6 +728,7 @@ spec:
               id: banner_mobile
               key: banner_mobile
               if: "$get(banner_useMobileSrc).value"
+              preserve: true
               label: 移动端设置
               value:
                 mode: single
@@ -730,6 +753,7 @@ spec:
                   id: banner_mobile_src
                   key: banner_mobile_src
                   if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'single'"
+                  preserve: true
                   label: 图片/视频（移动端）
                   value: ""
                   accepts:
@@ -742,6 +766,7 @@ spec:
                   id: banner_mobile_darkSrc
                   key: banner_mobile_darkSrc
                   if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'single'"
+                  preserve: true
                   label: 暗色壁纸（移动端）
                   value: ""
                   accepts:
@@ -752,6 +777,7 @@ spec:
                   id: banner_mobile_images
                   key: banner_mobile_images
                   if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'carousel'"
+                  preserve: true
                   label: 轮播图片（移动端）
                   multiple: true
                   accepts:
@@ -763,6 +789,7 @@ spec:
                   id: banner_mobile_darkImages
                   key: banner_mobile_darkImages
                   if: "$get(banner_useMobileSrc).value && $get(banner_mobile_mode).value === 'carousel'"
+                  preserve: true
                   label: 暗色壁纸（移动端轮播）
                   multiple: true
                   accepts:
@@ -811,7 +838,7 @@ spec:
                 - $formkit: url
                   name: url
                   label: 链接
-                  value:
+                  value: ""
         - $formkit: group
           name: bannerText
           label: 标题与副标题
@@ -835,30 +862,35 @@ spec:
             - $formkit: text
               name: title
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 标题
               value: "Hello,Ethereal!"
               help: "Banner 中间显示的标题文字"
             - $formkit: text
               name: titleFontSize
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 标题字号
               value: "3.5rem"
               help: "标题字体大小，支持 CSS 单位（如 3.5rem、48px）"
             - $formkit: textarea
               name: subtitles
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 副标题
               value: "生而为人，爱而无畏\n心之所向，素履以往\n保持热爱，奔赴山海"
               help: "每行一条文本，将循环展示"
             - $formkit: text
               name: subtitleFontSize
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 副标题字号
               value: "1.5rem"
               help: "副标题字体大小，支持 CSS 单位（如 1.5rem、20px）"
             - $formkit: group
               name: links
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: Banner 链接
               help: "在标题与副标题下方显示一排链接按钮；下方列表留空则不显示"
               children:
@@ -890,6 +922,7 @@ spec:
             - $formkit: select
               name: subtitleEffect
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 副标题动效
               value: "typewriter"
               options:
@@ -900,6 +933,7 @@ spec:
             - $formkit: select
               name: fontPreset
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 标题/副标题字体
               value: "serif"
               options:
@@ -915,12 +949,14 @@ spec:
             - $formkit: text
               name: fontFamily
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 自定义字体族（可选）
               value: ""
               help: "留空则用上面的预设。填任意 CSS font-family 列表即覆盖预设，例如：'Playfair Display', Georgia, serif（前提是该字体已被加载）。"
             - $formkit: text
               name: letterSpacing
               if: "$get(bannerText_enable).value"
+              preserve: true
               label: 字间距（可选）
               value: ""
               help: "留空不改。英文标语建议 0.02em ~ 0.06em，衬线体配宽字距会更舒展。"
@@ -1002,6 +1038,7 @@ spec:
                   name: angle
                   id: angle
                   if: "$get(style).value === 'wipe'"
+                  preserve: true
                   label: 擦除角度（度）
                   min: 0
                   max: 360
@@ -1100,6 +1137,7 @@ spec:
             - $formkit: group
               name: speedCustom
               if: "$get(speedTier).value === 'custom'"
+              preserve: true
               label: 自定义动画时长
               help: "仅在速度档位选择「自定义」时展示；单位毫秒"
               value:
@@ -1219,6 +1257,7 @@ spec:
             - $formkit: attachment
               name: fontFile
               if: "$get(externalFont_enable).value"
+              preserve: true
               label: 字体资源
               value: ""
               validation: required
@@ -1226,6 +1265,7 @@ spec:
             - $formkit: text
               name: family
               if: "$get(externalFont_enable).value"
+              preserve: true
               label: font-family 名称
               value: ""
               validation: required
@@ -2251,6 +2291,22 @@ spec:
           value:
             enable_profile: true
             display_position: left
+            avatar: /themes/Ethereal/assets/images/demo-avatar.webp
+            name: NanNan
+            bio: "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
+            url: /about
+            social_media: []
+            statusSettings:
+              enable: true
+              status: online
+              online: ""
+              energetic: ""
+              emo: ""
+              study: ""
+              busy: ""
+              dnd: ""
+              sleep: ""
+              away: ""
           children:
             - $formkit: switch
               name: enable_profile
@@ -2261,6 +2317,7 @@ spec:
             - $formkit: select
               name: display_position
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 个人简介小组件显示位置
               value: left
               help: "选择个人简介小组件显示在左侧还是右侧侧边栏，两栏布局时仅显示在左侧"
@@ -2272,26 +2329,31 @@ spec:
             - $formkit: attachment
               name: avatar
               if: "$get(enable_profile_switch).value"
+              preserve: true
               value: /themes/Ethereal/assets/images/demo-avatar.webp
               label: 头像
             - $formkit: text
               name: name
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 昵称
               value: NanNan
             - $formkit: text
               name: bio
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 简介
               value: "Lorem ipsum dolor sit amet, consectetur adipiscing elit."
             - $formkit: url
               name: url
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 链接(点击跳转登录和后台可使用 /login )
               value: /about
             - $formkit: array
               name: social_media
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 社交媒体
               children:
                 - $formkit: iconify
@@ -2309,6 +2371,7 @@ spec:
             - $formkit: group
               name: statusSettings
               if: "$get(enable_profile_switch).value"
+              preserve: true
               label: 在线状态
               help: "昵称右侧的状态表情与展示文案；「关于我」页身份卡的状态胶囊也读取这里（启用后取代该页的「状态行」）"
               value:
@@ -2333,6 +2396,7 @@ spec:
                   name: status
                   id: profile_status
                   if: "$get(status_settings_enable).value"
+                  preserve: true
                   label: 当前状态
                   value: online
                   help: "显示在昵称右侧的状态表情，登录管理员账号后也可在前端点击切换"
@@ -2359,6 +2423,7 @@ spec:
                   # 否则 Vue 切换时复用组件实例导致文案值丢失（Halo FormKit 已知坑）
                   key: status_text_online
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'online'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2367,6 +2432,7 @@ spec:
                   name: energetic
                   key: status_text_energetic
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'energetic'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2375,6 +2441,7 @@ spec:
                   name: emo
                   key: status_text_emo
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'emo'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2383,6 +2450,7 @@ spec:
                   name: study
                   key: status_text_study
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'study'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2391,6 +2459,7 @@ spec:
                   name: busy
                   key: status_text_busy
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'busy'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2399,6 +2468,7 @@ spec:
                   name: dnd
                   key: status_text_dnd
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'dnd'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2407,6 +2477,7 @@ spec:
                   name: sleep
                   key: status_text_sleep
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'sleep'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2415,6 +2486,7 @@ spec:
                   name: away
                   key: status_text_away
                   if: "$get(status_settings_enable).value && $get(profile_status).value === 'away'"
+                  preserve: true
                   label: 状态文案
                   value: ""
                   maxlength: 10
@@ -2426,6 +2498,8 @@ spec:
             enable: false
             position: left
             content: "欢迎来到我的博客！这是一则示例公告。"
+            enable_html: false
+            content_height: 640
             closable: true
             link:
               enable: false
@@ -2442,6 +2516,7 @@ spec:
             - $formkit: select
               name: position
               if: "$get(announcement_enable).value"
+              preserve: true
               label: 显示位置
               value: left
               help: "公告仅可显示在左侧边栏或右侧边栏，两栏布局时仅显示在左侧。选择右侧栏时，主题为手机端保留一份左侧兜底实例（桌面端隐藏，仅移动端显示），自定义 HTML 需按类选择器逐实例初始化，避免重复 ID 导致的脚本失效（详见「呈现为HTML」说明）"
@@ -2453,6 +2528,7 @@ spec:
             - $formkit: textarea
               name: content
               if: "$get(announcement_enable).value"
+              preserve: true
               label: 公告内容
               value: "欢迎来到我的博客！这是一则示例公告。"
             - $formkit: switch
@@ -2460,6 +2536,7 @@ spec:
               id: announcement_enable_html
               key: announcement_enable_html
               if: "$get(announcement_enable).value"
+              preserve: true
               label: 内容呈现为HTML
               value: false
               help: "开启后公告内容按 HTML 渲染，可写入链接、图标、富文本等自定义内容；关闭时内容按纯文本显示。注意：公告控件宽度随显示位置而变——桌面端左侧栏与右侧栏宽度一致（侧栏列 17.5rem≈280px，内容区约 236px），手机视图为单栏全宽（接近整页宽度，明显更宽）。建议不要使用视口自适应宽度/高度（vw/vh、clamp、百分比宽高、aspect-ratio 等）的 HTML，否则在不同的位置或屏幕尺寸下呈现不同的效果；如需精确控制请使用固定值（px/rem）。另注意：显示位置为「右侧栏」时，桌面端页面会同时渲染一份仅供手机显示的左侧兜底公告（隐藏），因此自定义 HTML 内不要依赖全局唯一 ID（getElementById 只会命中第一份实例），应使用类选择器并逐实例初始化（如 document.querySelectorAll('.neon-wrapper').forEach(...)）"
@@ -2467,7 +2544,8 @@ spec:
               name: content_height
               id: announcement_content_height
               key: announcement_content_height
-              if: "$get(announcement_enable_html).value"
+              if: "$get(announcement_enable).value && $get(announcement_enable_html).value"
+              preserve: true
               label: 内容最大高度(px)
               value: 640
               min: 40
@@ -2476,12 +2554,14 @@ spec:
             - $formkit: switch
               name: closable
               if: "$get(announcement_enable).value"
+              preserve: true
               label: 允许关闭
               value: true
               help: "开启后访客可点击关闭按钮隐藏公告"
             - $formkit: group
               name: link
               if: "$get(announcement_enable).value"
+              preserve: true
               label: 链接设置
               children:
                 - $formkit: switch
@@ -2492,16 +2572,19 @@ spec:
                 - $formkit: text
                   name: text
                   if: "$get(announcement_link_enable).value"
+                  preserve: true
                   label: 链接文本
                   value: "了解更多"
                 - $formkit: url
                   name: url
                   if: "$get(announcement_link_enable).value"
+                  preserve: true
                   label: 链接地址
                   value: ""
                 - $formkit: switch
                   name: external
                   if: "$get(announcement_link_enable).value"
+                  preserve: true
                   label: 外部链接
                   value: false
                   help: "开启后在新标签页打开"
@@ -2525,11 +2608,13 @@ spec:
             - $formkit: text
               name: name
               if: "$get(license_enable).value"
+              preserve: true
               label: 名称
               value: CC BY-NC-SA 4.0
             - $formkit: url
               name: url
               if: "$get(license_enable).value"
+              preserve: true
               label: 链接
               value: https://creativecommons.org/licenses/by-nc-sa/4.0/
         - $formkit: group
@@ -2593,6 +2678,7 @@ spec:
               name: position
               id: toc_position
               if: "$get(toc_enable).value"
+              preserve: true
               label: 目录位置
               value: right
               options:
@@ -2604,6 +2690,7 @@ spec:
             - $formkit: number
               name: toc_depth
               if: "$get(toc_enable).value"
+              preserve: true
               label: 目录最大深度
               value: 2
               help: "目录的最大深度"
@@ -2624,12 +2711,14 @@ spec:
             - $formkit: text
               name: summary_title
               if: "$get(summary_enable).value"
+              preserve: true
               label: 摘要标题
               value: "文章摘要"
               help: "摘要框显示的标题文字，留空则不显示标题"
             - $formkit: select
               name: summaryEffect
               if: "$get(summary_enable).value"
+              preserve: true
               label: 摘要文字动效
               value: "typewriter"
               options:
@@ -2649,6 +2738,8 @@ spec:
               title: "如果这篇文章对你有帮助，可以请我喝杯咖啡！"
               wechat_qr: ""
               alipay_qr: ""
+              page_enable: false
+              page_url: "/reward"
           children:
             - $formkit: switch
               name: enable
@@ -2659,12 +2750,14 @@ spec:
             - $formkit: switch
               name: like
               if: "$get(actionbar_enable).value"
+              preserve: true
               label: 启用点赞
               value: true
               help: "关闭后点赞图标仅展示、不可交互"
             - $formkit: switch
               name: share
               if: "$get(actionbar_enable).value"
+              preserve: true
               label: 启用分享
               value: true
               help: "显示分享按钮，点击生成分享海报"
@@ -2672,13 +2765,15 @@ spec:
               name: reward
               id: actionbar_reward
               if: "$get(actionbar_enable).value"
+              preserve: true
               label: 启用打赏
               value: true
               help: "显示打赏按钮，点击弹出微信/支付宝收款二维码"
             - $formkit: group
               name: rewardSetting
               label: 打赏设置
-              if: "$get(actionbar_reward).value"
+              if: "$get(actionbar_enable).value && $get(actionbar_reward).value"
+              preserve: true
               value:
                 title: "如果这篇文章对你有帮助，可以请我喝杯咖啡！"
                 wechat_qr: ""
@@ -2717,6 +2812,7 @@ spec:
                   name: page_url
                   label: 打赏页面路径
                   if: "$get(actionbar_reward_page_enable).value"
+                  preserve: true
                   value: "/reward"
                   help: "打赏页面路径，如 /reward（需先在「页面 → 自定义页面」中创建对应页面并选「打赏页面」模板）"
     - group: extendPages
@@ -2803,7 +2899,7 @@ spec:
               name: pageSize
               label: 每页数量
               value: 10
-              min: 1
+              min: 0
               max: 50
               step: 1
               help: "每页显示的时间轴条目数量，设为 0 或留空则不分页"
@@ -3187,6 +3283,7 @@ spec:
                   name: moreLabel
                   key: about_projects_moreLabel
                   if: "$get(about_projects_enable).value"
+                  preserve: true
                   label: 右上角链接文字
                   value: "全部项目 →"
                   help: "留空则不显示"
@@ -3194,12 +3291,14 @@ spec:
                   name: moreUrl
                   key: about_projects_moreUrl
                   if: "$get(about_projects_enable).value"
+                  preserve: true
                   label: 右上角链接地址
                   value: ""
                 - $formkit: array
                   name: items
                   key: about_projects_items
                   if: "$get(about_projects_enable).value"
+                  preserve: true
                   label: 项目列表
                   help: "按顺序展示，建议 3~6 个；全部删除则卡片自动隐藏"
                   children:
@@ -3252,6 +3351,7 @@ spec:
                   name: moreLabel
                   key: about_highlights_moreLabel
                   if: "$get(about_highlights_enable).value"
+                  preserve: true
                   label: 右上角链接文字
                   value: "按日查看 →"
                   help: "留空则不显示"
@@ -3259,12 +3359,14 @@ spec:
                   name: moreUrl
                   key: about_highlights_moreUrl
                   if: "$get(about_highlights_enable).value"
+                  preserve: true
                   label: 右上角链接地址
                   value: "/blog-changelog"
                 - $formkit: number
                   name: count
                   key: about_highlights_count
                   if: "$get(about_highlights_enable).value"
+                  preserve: true
                   label: 显示条数
                   value: 3
                   min: 1
@@ -3274,6 +3376,7 @@ spec:
                   name: items
                   key: about_highlights_items
                   if: "$get(about_highlights_enable).value"
+                  preserve: true
                   label: 兜底条目
                   help: "正常情况下卡片会自动同步更新日志，用不到这里；仅当更新日志没有任何记录时才回退显示这些手填条目，全部留空则卡片隐藏"
                   children:
@@ -3329,6 +3432,7 @@ spec:
                   name: subtitle
                   key: about_activity_subtitle
                   if: "$get(about_activity_enable).value"
+                  preserve: true
                   label: 标题下小字
                   value: "写下来的，才会留下"
                   help: "留空则不显示"
@@ -3336,6 +3440,7 @@ spec:
                   name: count
                   key: about_activity_count
                   if: "$get(about_activity_enable).value"
+                  preserve: true
                   label: 各取几条
                   value: 5
                   min: 2
@@ -3360,6 +3465,7 @@ spec:
                   name: count
                   key: about_friends_count
                   if: "$get(about_friends_enable).value"
+                  preserve: true
                   label: 展示数量
                   value: 6
                   min: 3
@@ -3370,6 +3476,7 @@ spec:
                   name: note
                   key: about_friends_note
                   if: "$get(about_friends_enable).value"
+                  preserve: true
                   label: 卡片底部小字
                   value: "各自折腾，互相串门。"
                   help: "留空则不显示"
@@ -3398,6 +3505,7 @@ spec:
                   name: badge
                   key: about_server_badge
                   if: "$get(about_server_enable).value"
+                  preserve: true
                   label: 状态小标签
                   value: "待接入"
                   help: "标题右侧小圆标；取到数据后会被数据源里的状态文案替换，留空则自动生成"
@@ -3405,6 +3513,7 @@ spec:
                   name: rows
                   key: about_server_rows
                   if: "$get(about_server_enable).value"
+                  preserve: true
                   label: 监控指标
                   value: "处理器\n内存\n存储"
                   help: "每行一个指标名；也可写「名称|key」把这一行绑到数据源的某个字段。可用 key：cpu（处理器）/ mem（内存）/ disk（存储）/ system（系统）/ net（网络）/ load（负载）/ temp（温度）/ swap（交换分区）/ uptime（运行时长）——图标按 key 自动匹配，未列出的 key 用默认图标。system 行不显示进度条。不写 key 时按行序对应 cpu / mem / disk。指标占用 ≥85% 转琥珀、≥95% 转红"
@@ -3412,6 +3521,7 @@ spec:
                   name: dataUrl
                   key: about_server_dataUrl
                   if: "$get(about_server_enable).value"
+                  preserve: true
                   label: 数据源地址
                   value: "https://sun.lqbby.com/custom/server-status.json"
                   help: "只读 JSON 的地址，留空则保持占位（— / 0%）。形状：{status: 状态文案, online: true/false, updated: unix 时间戳（秒或毫秒，用于算「更新于 N 分钟前」，超过 10 分钟没更新脚注转琥珀）, updatedText: 绝对时间文案（鼠标悬停显示）, uptimeDays: 运行天数, items: [{key, label, percent, text, detail}]}。items 里 key 对应上面的指标 key，percent 驱动进度条，text 是右侧数值，detail 是指标名下的小字"
@@ -3586,6 +3696,7 @@ spec:
             privacy_url: "/privacy"
             enable_rss: true
             enable_sitemap: true
+            enable_theme_credit: true
           children:
             - $formkit: switch
               name: enable_privacy
@@ -3596,6 +3707,7 @@ spec:
             - $formkit: text
               name: privacy_url
               if: "$get(privacy_enable).value"
+              preserve: true
               label: 隐私政策链接
               value: /privacy
               help: "隐私政策页面地址"
@@ -3642,6 +3754,7 @@ spec:
             is_home_only: false
             show_apply_btn: true
             max_items: 0
+            mobile_hidden: true
           children:
             - $formkit: switch
               name: enable_friend_links
@@ -3722,6 +3835,7 @@ spec:
             - $formkit: textarea
               name: random_visit_groups
               if: "$get(random_visit_enable).value"
+              preserve: true
               label: 随机访问分组
               value: ""
               help: "限制随机访问的友链分组，每行输入一个分组名称。留空则表示所有分组都参与随机访问"
@@ -3832,6 +3946,7 @@ spec:
         - $formkit: number
           name: redirect_delay
           if: "$get(redirect_enable).value"
+          preserve: true
           label: 自动跳转时间（秒）
           min: 0
           max: 30
@@ -3841,23 +3956,27 @@ spec:
         - $formkit: textarea
           name: redirect_prompt
           if: "$get(redirect_enable).value"
+          preserve: true
           label: 自定义提示文本
           value: "您即将访问外部链接，请注意保护个人隐私和信息安全"
           help: "自定义外链跳转模态框中显示的提示语句"
         - $formkit: attachment
           name: avatar
           if: "$get(redirect_enable).value"
+          preserve: true
           label: 提示页头像
           help: "留空则使用默认图标"
         - $formkit: textarea
           name: whitelist
           if: "$get(redirect_enable).value"
+          preserve: true
           label: 域名白名单
           value: ""
           help: "白名单内的域名不显示跳转提示，直接跳转。每行一个域名，支持通配符如 *.example.com"
         - $formkit: switch
           name: open_new_window
           if: "$get(redirect_enable).value"
+          preserve: true
           label: 新窗口打开
           value: true
           help: "开启后将在新标签页打开外部链接"
@@ -3905,12 +4024,14 @@ spec:
             - $formkit: text
               name: custom_format
               if: "$get(image_processing_provider).value === 'custom'"
+              preserve: true
               label: 自定义参数格式
               value: ""
               help: "使用 {width} 作为宽度占位符。例如：?image_process=resize,w_{width}"
             - $formkit: number
               name: card_cover_width
               if: "$get(image_processing_provider).value !== 'none'"
+              preserve: true
               label: 首页卡片封面宽度 (px)
               value: 400
               min: 0
@@ -3920,6 +4041,7 @@ spec:
             - $formkit: number
               name: article_image_width
               if: "$get(image_processing_provider).value !== 'none'"
+              preserve: true
               label: 文章页图片宽度 (px)
               value: 1200
               min: 0
@@ -3929,6 +4051,7 @@ spec:
             - $formkit: number
               name: banner_width
               if: "$get(image_processing_provider).value !== 'none'"
+              preserve: true
               label: Banner 图片宽度 (px)
               value: 1920
               min: 0
@@ -3938,6 +4061,7 @@ spec:
             - $formkit: number
               name: avatar_size
               if: "$get(image_processing_provider).value !== 'none'"
+              preserve: true
               label: 头像尺寸 (px)
               value: 512
               min: 0

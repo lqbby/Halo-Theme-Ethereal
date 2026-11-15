@@ -1,6 +1,7 @@
 // @ts-nocheck —— legacy 手写脚本迁入源码目录（保持 ES5 原样，不做类型改造）
 // 注意：@ts-nocheck 必须在文件最顶端（任何 import 之前）才生效。
 import { guardOnce } from "../../utils/once";
+import { isHomePath } from "../../utils/banner-sync";
 // Banner 叠加层：首页可见 + 空间不足隐藏
 // （字号已改为「首帧定档」：模板输出 CSS 变量、components.css 用媒体查询收窄，
 //  本脚本不再运行期写字号 —— 旧实现先按桌面字号渲染、defer 脚本执行后才收窄，
@@ -12,15 +13,9 @@ import { guardOnce } from "../../utils/once";
     return document.getElementById(id);
   }
 
-  function isHomepage() {
-    var p = window.location.pathname;
-    return (
-      (p
-        .replace(/\/+$/, "")
-        .replace(/\/index\.html$/, "")
-        .replace(/\/index$/, "") || "/") === "/"
-    );
-  }
+  // 首页判定统一走 utils/banner-sync 的 isHomePath（本文件旧实现不剥部署
+  // base 路径，带 base 部署时首页会被误判成非首页、横幅标题被误隐藏；
+  // isHomePath 是 Layout/app.ts 同源的权威实现，勿再本地复制一份）
 
   function positionOverlay() {
     var overlay = getEl("banner-overlay");
@@ -37,7 +32,7 @@ import { guardOnce } from "../../utils/once";
   function updateVisibility() {
     var overlay = getEl("banner-overlay");
     if (!overlay) return;
-    if (!isHomepage()) {
+    if (!isHomePath()) {
       // 非首页：淡出
       overlay.classList.add("banner-text-hidden");
       return;

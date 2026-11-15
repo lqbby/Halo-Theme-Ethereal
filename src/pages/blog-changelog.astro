@@ -576,13 +576,17 @@ import QueryPagination from "../components/control/QueryPagination.astro";
                   永远匹配不上 `2026.09.13` ⇒ 分组行整块静默不渲染（1.5.0 踩过）。
                ⚠️ `pagedList[index - 1]` 用三元兜住 index==0 —— 同 friends.astro 的
                   `iterStat.index > 0 ? allItems.items[iterStat.index - 1] : null`
-                  日期格式不符（含空日期）时整行不渲染，后面的 substring 不会被求值。 -->
+                  日期格式不符（含空日期）时整行不渲染，后面的 substring 不会被求值。
+                  ⚠️ 比较用的「上一条日期」也要先过同样的 matches 守卫：上一条日期
+                  为空/格式不符时对其 substring(0, 7) 同样越界 ⇒ 不可比时直接视为不同（出分组行）。 -->
           <div
             class="cl-grouphdr"
             th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
               and (dStat.index == 0
                 ? true
-                : #strings.substring(d?.date ?: '', 0, 7) != #strings.substring(pagedList[dStat.index - 1].date ?: '', 0, 7))}"
+                : ((pagedList[dStat.index - 1].date ?: '') matches '\d{4}\D\d{2}\D\d{2}'
+                  ? #strings.substring(d?.date ?: '', 0, 7) != #strings.substring(pagedList[dStat.index - 1].date ?: '', 0, 7)
+                  : true))}"
           >
             <span th:text="${#strings.substring(d?.date ?: '', 0, 7)}"
               >2026.09</span

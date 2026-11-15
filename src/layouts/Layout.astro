@@ -652,11 +652,15 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
     <script
       th:if="${theme.config?.style?.externalFont?.enable and not #strings.isEmpty(theme.config?.style?.externalFont?.fontFile)}"
       th:inline="javascript"
-      data-swup-ignore-script
     >
       (function () {
-        if (window.__etherealExternalFontLoaded) return;
-        window.__etherealExternalFontLoaded = true;
+        // 换页存活（对齐 footer-friends.ts 先例）：SwupHeadPlugin 换页会摘掉不在
+        // 新页 head 里的运行时注入节点，原实现又挂了 data-swup-ignore-script +
+        // window 一次性守卫 ⇒ 脚本永不重跑、字体第二页起丢失。改法：不挂 ignore，
+        // 让 scripts 插件每次换页重执行；注入节点统一打 data-ethereal-external-font
+        // 标记，执行时先查标记——还在就跳过，被摘掉才重新注入。
+        if (document.head.querySelector("[data-ethereal-external-font]"))
+          return;
         var rawUrl = /*[[${theme.config.style.externalFont.fontFile}]]*/ "";
         var rawFamily = /*[[${theme.config.style.externalFont.family}]]*/ "";
         var trustedHosts = [
@@ -733,6 +737,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           var link = document.createElement("link");
           link.rel = "stylesheet";
           link.href = url;
+          link.setAttribute("data-ethereal-external-font", "");
           link.media = "print";
           link.onload = function () {
             this.media = "all";
@@ -740,12 +745,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           document.head.appendChild(link);
           // noscript fallback
           var noscript = document.createElement("noscript");
+          noscript.setAttribute("data-ethereal-external-font", "");
           var fallbackLink = document.createElement("link");
           fallbackLink.rel = "stylesheet";
           fallbackLink.href = url;
           noscript.appendChild(fallbackLink);
           document.head.appendChild(noscript);
           var fs = document.createElement("style");
+          fs.setAttribute("data-ethereal-external-font", "");
           fs.textContent = "body{font-family:" + family + "}";
           document.head.appendChild(fs);
         } else {
@@ -761,6 +768,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           };
           var fmt = fmtMap[ext] || "woff2";
           var s = document.createElement("style");
+          s.setAttribute("data-ethereal-external-font", "");
           s.textContent =
             '@font-face{font-family:"EtherealCustomFont";src:url("' +
             cssString(url) +

@@ -155,7 +155,7 @@ import PageHeader from "../components/control/PageHeader.astro";
                 <span
                   th:unless="${skill.icon != null and skill.icon.value != null}"
                   class="text-xl font-bold"
-                  th:text="${#strings.substring(skill.name ?: '?', 0, 1)}"
+                  th:text="${#strings.isEmpty(skill.name) ? '?' : #strings.substring(skill.name, 0, 1)}"
                   >S</span
                 >
               </div>

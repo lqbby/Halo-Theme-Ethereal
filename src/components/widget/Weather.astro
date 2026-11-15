@@ -461,11 +461,17 @@ const className = Astro.props.class;
         wcCfg.rightWidgets || [],
         wcCfg.mobileWidgets || [],
       );
+      // 取第一个填了腾讯地图 Key 的天气部件：同一部件可同时配在桌面/移动端多处，
+      // 排在前面的实例没填 Key 时不能遮蔽后面填了的（否则误报「未配置 Key」）。
+      // 全部没填时退回第一个天气部件，走原 showErrorKey 提示路径。
       var wc = null;
       for (var i = 0; i < widgets.length; i++) {
         if (widgets[i].value === "weather") {
-          wc = widgets[i];
-          break;
+          if (!wc) wc = widgets[i];
+          if (widgets[i].tencent_key) {
+            wc = widgets[i];
+            break;
+          }
         }
       }
       var key = wc && wc.tencent_key;

@@ -1,4 +1,5 @@
 import { getVisitorSwitches, carrierBool } from "./visitor-switches";
+import { storageGet, storageRemove, storageSet } from "./storage";
 import { applyPostListMasonry, getDefaultPostListMasonry } from "./post-list";
 
 /* ── 卡片样式（悬浮效果 / 高级材质） ── */
@@ -13,12 +14,12 @@ export function getDefaultNavbarBlur(): boolean {
 
 export function getStoredNavbarBlur(): boolean {
   if (!getVisitorSwitches().appearance) return getDefaultNavbarBlur();
-  const stored = localStorage.getItem("navbarBlur");
+  const stored = storageGet("navbarBlur");
   return stored == null ? getDefaultNavbarBlur() : stored === "true";
 }
 
 export function setNavbarBlur(enabled: boolean): void {
-  localStorage.setItem("navbarBlur", String(enabled));
+  storageSet("navbarBlur", String(enabled));
   document.body.classList.toggle("navbar-blur-enabled", enabled);
 }
 
@@ -35,18 +36,18 @@ export function getDefaultPageWide(): boolean {
 // 独立存储：UI 放在「卡片样式」区显示，但存储与生命周期不与 card_hover_lift/navbar_blur
 // 联动（cardStyle 后台关闭仅隐藏开关，pageWide 已存偏好仍生效）
 export function getStoredPageWide(): boolean {
-  const stored = localStorage.getItem("pageWide");
+  const stored = storageGet("pageWide");
   return stored == null ? getDefaultPageWide() : stored === "true";
 }
 
 export function setPageWide(enabled: boolean): void {
-  localStorage.setItem("pageWide", String(enabled));
+  storageSet("pageWide", String(enabled));
   // 与服务端 th:classappend 同类名 mods-page-wide（挂在 <html>）
   document.documentElement.classList.toggle("mods-page-wide", enabled);
 }
 
 export function resetPageWide(): void {
-  localStorage.removeItem("pageWide");
+  storageRemove("pageWide");
   setPageWide(getDefaultPageWide());
 }
 
@@ -61,18 +62,18 @@ export function getDefaultCardPattern(): boolean {
 // （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
 export function getStoredCardPattern(): boolean {
   if (!getVisitorSwitches().appearance) return getDefaultCardPattern();
-  const stored = localStorage.getItem("cardPattern");
+  const stored = storageGet("cardPattern");
   return stored == null ? getDefaultCardPattern() : stored === "true";
 }
 
 export function setCardPattern(enabled: boolean): void {
-  localStorage.setItem("cardPattern", String(enabled));
+  storageSet("cardPattern", String(enabled));
   // 与服务端 th:classappend 同类名 mods-card-pattern（挂在 <html>）
   document.documentElement.classList.toggle("mods-card-pattern", enabled);
 }
 
 export function resetCardPattern(): void {
-  localStorage.removeItem("cardPattern");
+  storageRemove("cardPattern");
   setCardPattern(getDefaultCardPattern());
 }
 
@@ -88,28 +89,28 @@ export function getDefaultCardShell(): boolean {
 // （cardStyle 后台关闭时隐藏开关，但已存偏好仍由首帧脚本生效，同 pageWide）。
 export function getStoredCardShell(): boolean {
   if (!getVisitorSwitches().appearance) return getDefaultCardShell();
-  const stored = localStorage.getItem("cardShell");
+  const stored = storageGet("cardShell");
   return stored == null ? getDefaultCardShell() : stored === "true";
 }
 
 export function setCardShell(enabled: boolean): void {
-  localStorage.setItem("cardShell", String(enabled));
+  storageSet("cardShell", String(enabled));
   // 与服务端 th:classappend 同类名 mods-card-shell（挂在 <html>）
   document.documentElement.classList.toggle("mods-card-shell", enabled);
 }
 
 export function resetCardShell(): void {
-  localStorage.removeItem("cardShell");
+  storageRemove("cardShell");
   setCardShell(getDefaultCardShell());
 }
 
 /* ── 分区恢复默认 ── */
 
 export function resetCardStyle(): void {
-  localStorage.removeItem("cardHoverLift");
-  localStorage.removeItem("navbarBlur");
-  localStorage.removeItem("postListMasonry");
-  localStorage.removeItem("cardShell");
+  storageRemove("cardHoverLift");
+  storageRemove("navbarBlur");
+  storageRemove("postListMasonry");
+  storageRemove("cardShell");
   document.body.classList.toggle(
     "card-hover-lift-enabled",
     getDefaultCardHoverLift(),

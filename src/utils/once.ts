@@ -17,7 +17,15 @@ export function onceBound(key: string, fn: () => void): void {
   const s = state();
   if (s[key]) return;
   s[key] = true;
-  fn();
+  try {
+    fn();
+  } catch (e) {
+    // 先标记是防 fn 内部重入；但执行抛错不算「已绑定」——撤掉标记，
+    // 让后续调用还能重试（否则一次初始化失败就永久不再执行），
+    // 异常照常上抛，保持原有报错语义。
+    delete s[key];
+    throw e;
+  }
 }
 
 type SwupLike = {

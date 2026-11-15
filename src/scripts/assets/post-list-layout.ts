@@ -61,14 +61,19 @@ import { guardOnce } from "../../utils/once";
 
     // 🔴 三趟走，避免 layout thrashing：原先在 forEach 里「写 style → 读 offsetHeight」
     // 交错，每张卡都触发一次强制同步布局（N 张卡 = N 次 reflow，列表页连续长任务来源）。
-    // 第一趟只写（清 transform / height 复位），第二趟只读（一次性拿全部高度），第三趟只写位置。
-    // 高度在第二趟量：此时卡片宽度仍是 grid 列宽 = 下面的 itemWidth（同一条公式），
-    // 量得的 offsetHeight 与旧实现「设完 absolute+width 再量」等价。
+    // 第一趟只写（清 transform / height 复位 / 定宽），第二趟只读（一次性拿全部高度），
+    // 第三趟只写位置。
+    // 🔴 宽度必须在第一趟就定到 itemWidth：此刻容器已被切成 display:block、卡片又被
+    // .masonry-active 的 CSS 置为 position:absolute（width:auto = 收缩适配），不定宽
+    // 直接量高，量到的是收缩宽下的高度；封面是 aspect-ratio 16/9 按宽算高，宽度差
+    // 一截高度就差一截（可达几百 px），列高累加会整体错位。
     items.forEach(function (item) {
       // 清掉可能残留的入场 transform，避免影响 offsetHeight
       item.style.transform = "";
       // 高度回归内容自定，覆盖 grid 模式的 height:100%（Firefly 同款处理）
       item.style.setProperty("height", "auto", "important");
+      // 定宽到最终列宽，保证第二趟量到的是最终宽度下的高度
+      item.style.width = itemWidth + "px";
     });
     // 第二趟：统一读取（连续读之间浏览器复用同一份布局，不会反复重排）
     var itemHeights = [];

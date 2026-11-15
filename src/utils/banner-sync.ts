@@ -24,7 +24,16 @@ export function bannerHomeHeight(): number {
   return bannerHomeVh(isFullscreenBanner());
 }
 
-const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
+// try/catch 兜底：经典脚本管线（esbuild IIFE）会把 import.meta 置空，
+// banner-responsive.js 导入本模块时 BASE_URL 取不到 ⇒ 按无 base 处理即可，
+// 不能让这一行在模块求值期抛错把整份脚本带崩（Vite 构建会把表达式静态
+// 替换为字面量，不走 catch）。
+let basePath = "";
+try {
+  basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
+} catch {
+  basePath = "";
+}
 
 // 按路径判定是否首页（供 syncHomeClass 与换页前预判 is-home 变化共用）
 function isHomePath(pathname = window.location.pathname): boolean {

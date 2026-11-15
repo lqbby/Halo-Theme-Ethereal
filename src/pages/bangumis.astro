@@ -41,11 +41,16 @@ const stats = [
   <!-- 头部卡：新版页头（modern，含图标水印）+ 类型/状态两条胶囊池——
        氛围渐变由卡片级 .page-head-card 承载（页头与池之间无缝）。
        curType/curStatus 供两条池的链接拼接与激活判定（原定义在 section 上，
-       拆分后随头部卡走） -->
+       拆分后随头部卡走）
+       ⚠️ bangumis 可为 null（下方空态就是按它为 null 设计的）⇒ 这里三处取值
+       必须走 ?. + ?: 兜底，直接 bangumis.typeNum 在 null 时 EL1001E 整页 500，
+       下方精心写的空态永远到不了。默认值 = 插件固定枚举的缺省（类型 1 追番 /
+       状态 0 全部 / 总数 0）。 -->
   <div
     th:with="
-      curType=${bangumis.typeNum},
-      curStatus=${bangumis.status}"
+      curType=${bangumis?.typeNum ?: 1},
+      curStatus=${bangumis?.status ?: 0},
+      totalBangumi=${bangumis?.total ?: 0}"
     class="card-base page-head-card onload-animation mb-4 bangumi-page"
   >
     <PageHeader
@@ -56,7 +61,7 @@ const stats = [
       eyebrow="BANGUMI"
       stats={[
         {
-          valueExpr: "${bangumis.total}",
+          valueExpr: "${totalBangumi}",
           value: "0",
           labelExpr: "#{common.stat.bangumi}",
           label: "追番",

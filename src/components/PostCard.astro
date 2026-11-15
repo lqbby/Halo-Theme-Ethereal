@@ -35,7 +35,7 @@ import { imageSuffixThWith } from "../utils/image-suffix";
  */
 const cardThWith: string =
   "coverEmpty=${#strings.isEmpty(post.spec.cover)}, " +
-  "postWordCount=${pluginFinder != null and pluginFinder.available('extra-api', '3.*') " +
+  "postWordCount=${pluginFinder != null and pluginFinder.available('extra-api', '3.*') and extraApiStatsFinder != null " +
   "? extraApiStatsFinder.getPostWordCount({name: post.metadata.name}) : 0}, " +
   "readMinutes=${(postWordCount + 399) div 400}, " +
   "seriesName=${post.metadata.annotations != null ? post.metadata.annotations['series'] : null}";

@@ -53,10 +53,20 @@ function isVisitorSwitchable(): boolean {
   return d.visitorEnable !== "false" && d.visitorEffects !== "false";
 }
 
+/** localStorage 安全读：隐私模式/禁存储下 getItem 会抛 SecurityError，
+ *  裸调会把整个樱花脚本的初始化带崩 ⇒ 读不到按「未存」处理 */
+function storageGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 function getEnabledOnLoad(): boolean {
   const def = getDefaultEnabled();
   if (!isVisitorSwitchable()) return def;
-  const stored = localStorage.getItem("sakuraEnabled");
+  const stored = storageGet("sakuraEnabled");
   return stored == null ? def : stored === "true";
 }
 

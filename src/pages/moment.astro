@@ -2,6 +2,7 @@
 import MomentCard from "../components/MomentCard.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import ContentWidgetsStyle from "../components/misc/ContentWidgetsStyle.astro";
 ---
 
 <MainGridLayout
@@ -13,6 +14,8 @@ import Canonical from "../components/misc/Canonical.astro";
          复制链接的 @{.../moments/{name}} 同源）。此前写死的 /moment 不是真实路由，
          所有瞬间详情页会共用一个指向不存在地址的 canonical -->
     <Canonical path="${'/moments/' + moment.metadata.name}" />
+    <!-- 瞬间 HTML 正文可含 content-widgets 组件标记，需插件基础样式 -->
+    <ContentWidgetsStyle />
   </Fragment>
 
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->

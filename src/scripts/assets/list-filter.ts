@@ -211,6 +211,11 @@ import { guardOnce } from "../../utils/once";
     // 缓存命中：瞬时切换（无请求、无 loading 态）
     var cached = cacheGet(url);
     if (cached != null) {
+      // 缓存切换同样是「最新一次加载」：必须递增 seq 作废在途请求，否则旧
+      // 请求回来时 mySeq === seq 仍成立、会把刚切好的缓存结果覆盖掉；
+      // 同时接手收尾在途请求留下的 is-swapping（它被作废后不会自己 settle）。
+      ++seq;
+      region.classList.remove("is-swapping");
       applyHtml(cached, url, href, nth);
       return;
     }

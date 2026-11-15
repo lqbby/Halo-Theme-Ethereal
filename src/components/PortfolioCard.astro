@@ -54,7 +54,7 @@
     th:if="${#strings.isEmpty(project.cover)}"
     class="pf-card__cover pf-card__cover--empty"
     aria-hidden="true"
-    th:text="${#strings.substring(project.title, 0, 1)}">P</span
+    th:text="${#strings.isEmpty(project.title) ? 'P' : #strings.substring(project.title, 0, 1)}">P</span
   >
 
   <div class="pf-card__body">

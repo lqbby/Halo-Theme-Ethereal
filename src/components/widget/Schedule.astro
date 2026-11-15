@@ -20,7 +20,7 @@ const className = Astro.props.class;
 >
   <div
     th:remove="tag"
-    th:with="schedulePluginAvailable=${pluginFinder.available('schedule-calendar')}"
+    th:with="schedulePluginAvailable=${pluginFinder != null and pluginFinder.available('schedule-calendar') and scheduleCalendarFinder != null}"
   >
     <!-- 插件可用：渲染最近日程列表 -->
     <div

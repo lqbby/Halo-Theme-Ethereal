@@ -395,6 +395,10 @@ const layoutId = `${widgetId}-layout`;
 </div>
 
 <script define:vars={{ widgetId }} is:inline>
+  // 实例作用域：与 Weather/Hitokoto 等小部件一致包 IIFE。本脚本 is:inline 且可多处
+  // 放置（桌面/移动端各一份），顶层 var/function 会漏到全局并互相覆盖 widgetRoot，
+  // 先注册的懒加载回调会读到后一份实例的根节点，导致前一份永远初始化不了。
+  (function () {
   var widgetRoot =
     (document.currentScript && document.currentScript.parentElement) ||
     document;
@@ -1061,4 +1065,5 @@ const layoutId = `${widgetId}-layout`;
     widgetRoot.querySelector(".firefly-music-player") || widgetId,
     initFirefly,
   );
+  })();
 </script>

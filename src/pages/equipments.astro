@@ -72,9 +72,12 @@ import Canonical from "../components/misc/Canonical.astro";
       th:if="${equipments != null and not #lists.isEmpty(equipments.items)}"
       class="grid grid-cols-[repeat(auto-fill,minmax(min(240px,100%),1fr))] gap-5"
     >
+      <!-- href 走 th:attr 而非 th:href：本栈实测 th:href 求值为 null 时写出 href=""
+           （点一下刷新当前页），th:attr 遇 null 才真正删属性（SeriesStripCard /
+           FeaturedCards 先例）。无有效外链时整卡保留展示、只是不可点。 -->
       <a
         th:each="equipment, equipStat : ${equipments.items}"
-        th:href="${equipment.spec.url != null and (equipment.spec.url.startsWith('http') or equipment.spec.url.startsWith('//') or equipment.spec.url.startsWith('/')) ? equipment.spec.url : null}"
+        th:attr="href=${equipment.spec.url != null and (equipment.spec.url.startsWith('http') or equipment.spec.url.startsWith('//') or equipment.spec.url.startsWith('/')) ? equipment.spec.url : null}"
         th:title="${equipment.spec.displayName}"
         target="_blank"
         rel="noopener noreferrer"

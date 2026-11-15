@@ -8,6 +8,7 @@
  * 本模块无模块级副作用，可被经典脚本安全导入（同 visitor-switches 的约定）。
  */
 import { carrierBool, getVisitorSwitches } from "./visitor-switches";
+import { storageGet, storageRemove, storageSet } from "./storage";
 
 /** 后台「样式开关 → 樱花特效」（缺省 false = 关闭） */
 export function getDefaultSakuraEnabled(): boolean {
@@ -17,7 +18,7 @@ export function getDefaultSakuraEnabled(): boolean {
 /** 当前生效值：可切换时 localStorage 覆盖默认，否则跟随默认 */
 export function getStoredSakuraEnabled(): boolean {
   if (!getVisitorSwitches().effects) return getDefaultSakuraEnabled();
-  const stored = localStorage.getItem("sakuraEnabled");
+  const stored = storageGet("sakuraEnabled");
   return stored == null ? getDefaultSakuraEnabled() : stored === "true";
 }
 
@@ -29,12 +30,12 @@ export function applySakura(enabled: boolean): void {
 }
 
 export function setSakuraEnabled(enabled: boolean): void {
-  localStorage.setItem("sakuraEnabled", String(enabled));
+  storageSet("sakuraEnabled", String(enabled));
   applySakura(enabled);
 }
 
 /** 恢复默认：清掉 localStorage 覆盖，交回全局默认（与 sakura.js 的忽略语义一致） */
 export function resetSakura(): void {
-  localStorage.removeItem("sakuraEnabled");
+  storageRemove("sakuraEnabled");
   applySakura(getDefaultSakuraEnabled());
 }

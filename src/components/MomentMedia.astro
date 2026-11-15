@@ -12,7 +12,7 @@
 >
   <div class="contents" th:each="momentItem : ${content.medium}">
     <figure
-      th:if="${momentItem.type.name == 'PHOTO'}"
+      th:if="${momentItem.type.name == 'PHOTO' and not #strings.isEmpty(momentItem.url)}"
       class="moment-media-item group relative"
     >
       <img
@@ -35,18 +35,19 @@
       >
     </figure>
     <video
-      th:if="${momentItem.type.name == 'VIDEO'}"
+      th:if="${momentItem.type.name == 'VIDEO' and not #strings.isEmpty(momentItem.url)}"
       th:src="${momentItem.url}"
       controls
       class="moment-media-nonphoto rounded-xl bg-black"></video>
     <audio
-      th:if="${momentItem.type.name == 'AUDIO'}"
+      th:if="${momentItem.type.name == 'AUDIO' and not #strings.isEmpty(momentItem.url)}"
       th:src="${momentItem.url}"
       controls
       class="moment-media-nonphoto"></audio>
+    <!-- POST 链接同 equipments 口径走 th:attr：无效 URL 时删 href 而非写出 href="" -->
     <a
       th:if="${momentItem.type.name == 'POST'}"
-      th:href="${momentItem.url != null and (momentItem.url.startsWith('http') or momentItem.url.startsWith('//') or momentItem.url.startsWith('/')) ? momentItem.url : null}"
+      th:attr="href=${momentItem.url != null and (momentItem.url.startsWith('http') or momentItem.url.startsWith('//') or momentItem.url.startsWith('/')) ? momentItem.url : null}"
       class="moment-media-nonphoto btn-regular min-h-20 rounded-xl px-4 font-bold"
     >
       <span

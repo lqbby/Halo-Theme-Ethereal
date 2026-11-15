@@ -5,6 +5,7 @@ import {
   LIGHT_MODE,
 } from "../../constants/constants.ts";
 import type { LIGHT_DARK_MODE } from "../../types/config";
+import { storageGet, storageSet } from "./storage";
 
 let restoreTransitionFrame = 0;
 
@@ -46,14 +47,14 @@ export function getHue(): number {
   if (isHueFixed()) {
     return getDefaultHue();
   }
-  const stored = localStorage.getItem("hue");
+  const stored = storageGet("hue");
   return stored ? Number.parseInt(stored, 10) : getDefaultHue();
 }
 
 export function setHue(hue: number): void {
   const nextHue = isHueFixed() ? getDefaultHue() : hue;
   if (!isHueFixed()) {
-    localStorage.setItem("hue", String(nextHue));
+    storageSet("hue", String(nextHue));
   }
   const r = document.querySelector(":root") as HTMLElement;
   if (!r) {
@@ -109,8 +110,8 @@ let currentColorScheme: LIGHT_DARK_MODE = DEFAULT_THEME;
 export function setTheme(theme: LIGHT_DARK_MODE, store = false): void {
   currentColorScheme = theme;
   if (store) {
-    localStorage.setItem("theme", theme);
-    localStorage.setItem("__user_chose_theme", "1");
+    storageSet("theme", theme);
+    storageSet("__user_chose_theme", "1");
   }
   applyThemeToDocument(theme);
 }
@@ -147,8 +148,8 @@ export function getStoredTheme(): LIGHT_DARK_MODE {
   }
 
   // 允许切换时：仅当用户手动选择过才读取 localStorage，否则始终用后台默认
-  if (localStorage.getItem("__user_chose_theme")) {
-    return (localStorage.getItem("theme") as LIGHT_DARK_MODE) || defaultScheme;
+  if (storageGet("__user_chose_theme")) {
+    return (storageGet("theme") as LIGHT_DARK_MODE) || defaultScheme;
   }
   return defaultScheme;
 }

@@ -501,6 +501,14 @@
   }
 
   #toc-inner-wrapper {
+    /* -webkit- 前缀供 Chromium<120 的老内核（同文件 .seg-scroll 先例） */
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0%,
+      black 2rem,
+      black calc(100% - 2rem),
+      transparent 100%
+    );
     mask-image: linear-gradient(
       to bottom,
       transparent 0%,
@@ -917,6 +925,7 @@
     height: 100vh !important;
     height: 100lvh !important;
     z-index: 0 !important;
+    pointer-events: none !important;
     /* v1.7.43 起**恢复整屏壁纸**（1.5.66–1.7.42 期间曾压成 opacity: 0）。
        原因：本模式的定位就是「整屏壁纸作页面背景 + 卡片半透明磨砂透出壁纸」，
        压掉壁纸会让「壁纸透明度 / 背景模糊度」两个参数全场景空转、整页发白
@@ -924,6 +933,13 @@
        ⚠️ 想重新停用：把本行换回 `opacity: 0 !important;`，并把页面底纹的生效模式
        加回 transparent（见上方底纹「生效范围」注释）。 */
     opacity: var(--transparent-wallpaper-opacity, 0.8) !important;
+  }
+
+  /* 壁纸层本体点击穿透（见上）；层内真正可点的元素单独恢复：视频暂停按钮与横幅链接。 */
+  html[data-banner-display="transparent"] #banner-play-btn,
+  html[data-banner-display="transparent"] #banner-play-btn-mobile,
+  html[data-banner-display="transparent"] #banner-links a {
+    pointer-events: auto !important;
   }
 
   html[data-banner-display="transparent"] #banner,
@@ -1393,13 +1409,19 @@
   /* 注：抽屉打开时的滚动锁定由 navbar.js 内联管理（模态框同款，仅
      body overflow hidden），无 CSS 版本 */
 
+  /* 浮动按钮容器的基础过渡：挂常态规则，抽屉开/关两程都有淡变；
+     若只写在下方 body.nav-menu-open 规则里，关抽屉时规则整体失效、
+     opacity 会无过渡直接弹回 */
+  .floating-controls {
+    transition: opacity var(--dur-swup, 200ms) ease;
+  }
+
   /* 抽屉打开时隐藏右下角浮动按钮（回顶/首页/评论/自定义）：
      它们 z-index 999 高于抽屉，会遮挡抽屉右下角；滚动锁定后回顶按钮
      虽会收起，但首页/评论/自定义按钮仍显示，故统一隐藏 */
   body.nav-menu-open .floating-controls {
     opacity: 0;
     pointer-events: none;
-    transition: opacity var(--dur-swup, 200ms) ease;
   }
 
   /* 桌面端（≥1024px / lg）不使用抽屉，防止跨断点残留；
@@ -1408,6 +1430,15 @@
     #nav-menu-root #nav-menu-overlay,
     #nav-menu-root #nav-menu-panel {
       display: none !important;
+    }
+
+    /* 开着抽屉时把窗口拉宽到桌面端：抽屉被上面的规则隐藏，但 body 的
+       nav-menu-open 状态类不会随断点自动清除，上面的隐藏浮动按钮规则
+       若继续生效，按钮会在桌面端永久消失 ⇒ 此处同特异性后置恢复。
+       pointer-events 不动：容器常态即 none，按钮各自 auto（见
+       BackToTop.astro 的 .floating-controls / .floating-btn） */
+    body.nav-menu-open .floating-controls {
+      opacity: 1;
     }
   }
 
@@ -1592,10 +1623,15 @@
   background-color: var(--primary) !important;
 }
 
+/* TOC 目录项标题的基础过渡：挂常态规则，hover 进/出两程都平滑；
+   只写在 :hover 规则里时，移出瞬间规则失效、颜色直接跳回 */
+[data-toc-entry] .toc-title {
+  transition: color var(--toc-transition-duration) ease;
+}
+
 /* TOC 目录项 hover 动效 - 文字变主题色 */
 [data-toc-entry]:hover .toc-title {
   color: var(--primary);
-  transition: color var(--toc-transition-duration) ease;
 }
 
 /* 三栏 TOC hover 左内边距增加（覆盖 px-2 被 !important 重写的 padding） */
@@ -1856,10 +1892,20 @@ body.pswp-transition #photo-detail-image {
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
   backdrop-filter: blur(8px) saturate(1.1);
   opacity: 0;
-  transition: opacity 0.35s ease;
+  /* 隐藏态不能只靠 opacity：节点在 .show 挂上前（双 rAF 窗口、后台标签
+     rAF 被节流时更久）仍是全屏 fixed + z-index 9999，会把整页点击吞掉。
+     visibility/pointer-events 一并关掉，.show 时恢复 */
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    visibility 0s linear 0.35s;
 }
 .random-fish-overlay.show {
   opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: opacity 0.35s ease;
 }
 .random-fish-overlay-card {
   display: flex;
@@ -2319,10 +2365,11 @@ body.pswp-transition #photo-detail-image {
    （含 .friends-timeline* 纵向时间轴 + .friends-article-separator/-item 同博主分组）
    ========================================================================== */
 
-.friends-timeline {
-  display: flex;
-  flex-direction: column;
-}
+/* ⚠️ .friends-timeline 容器不在此处声明 display：它由前段「朋友圈动态
+   列表」一节统一管理（首帧 columns 多列兜底 + .masonry-active 时 flex
+   覆盖）。此处原有一条 display:flex（与前段同特异性、后置胜出），会让
+   column-count 整体失效、首帧双栏兜底永不生效，故删除；纵向时间轴的
+   单列堆叠在 block 容器下与 flex-column 等价，不受影响。 */
 
 /* 时间轴一行 */
 .friends-timeline-row {
@@ -3122,6 +3169,19 @@ html.modal-scroll-locked {
   transition: filter 0.35s ease;
 }
 
+/* 例外：全屏 hero 的壁纸模糊由脚本逐帧直写 --hero-wallpaper-blur
+   （见前段 ⑧，滚动斜坡有过渡会拖尾），上面的 filter 过渡只应服务于
+   亮暗切换 ⇒ hero 下关掉。.hero-blur-transitioning 的切换窗口由其
+   自身规则接管，故用 :not 把它排除在外，不与它争特异性；
+   .banner-mode-transitioning 的过渡带 !important，亦不受影响。 */
+html[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]:not(
+    .hero-blur-transitioning
+  )
+  #banner-wrapper
+  img {
+  transition: none;
+}
+
 :root.dark #banner-wrapper img,
 :root.dark #post-list-container .post-card-cover img {
   filter: brightness(0.88);
@@ -3134,4 +3194,30 @@ html.modal-scroll-locked {
 :root.dark[data-banner-display="transparent"] #banner img,
 :root.dark[data-banner-display="transparent"] #banner-mobile img {
   filter: blur(var(--transparent-wallpaper-blur, 10px)) brightness(0.88);
+}
+
+/* 同理：全屏 hero 的壁纸 filter 由 hero 规则整条给出（blur(var(--hero-
+   wallpaper-blur))），其特异性 (1,2,2) 高于上面的暗色规则 (1,2,1)，
+   filter 又是单值属性、整条替换 ⇒ 暗色下只剩模糊、没有压暗。此处按
+   hero 的两个模糊回退（首页 0px / 非首页最大值）各补一条合并滤镜，
+   blur 与压暗并存；video 按既有约定不压暗，不在此列。 */
+:root.dark[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner
+  img,
+:root.dark[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  #banner-mobile
+  img {
+  filter: blur(var(--hero-wallpaper-blur, 0px)) brightness(0.88);
+}
+
+:root.dark[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  body:not(.is-home)
+  #banner
+  img,
+:root.dark[data-banner-display="fullscreen"][data-fullscreen-layout="hero"]
+  body:not(.is-home)
+  #banner-mobile
+  img {
+  filter: blur(var(--hero-wallpaper-blur, var(--wallpaper-blur-max, 10px)))
+    brightness(0.88);
 }

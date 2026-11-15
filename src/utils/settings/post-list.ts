@@ -3,6 +3,7 @@ import {
   carrierBool,
   carrierStr,
 } from "./visitor-switches";
+import { storageGet, storageRemove, storageSet } from "./storage";
 
 export type PostListLayoutMode = "list" | "grid";
 
@@ -76,7 +77,7 @@ function triggerContentTransition(afterExit: () => void): void {
 
 export function getStoredPostListLayout(): PostListLayoutMode | null {
   if (!getVisitorSwitches().appearance) return null;
-  const stored = localStorage.getItem("postListLayout");
+  const stored = storageGet("postListLayout");
   return stored === "list" || stored === "grid" ? stored : null;
 }
 
@@ -101,7 +102,7 @@ export function applyPostListLayout(mode: PostListLayoutMode): void {
 }
 
 export function setPostListLayout(mode: PostListLayoutMode): void {
-  localStorage.setItem("postListLayout", mode);
+  storageSet("postListLayout", mode);
   applyPostListLayout(mode);
 }
 
@@ -113,7 +114,7 @@ export function getDefaultPostListMasonry(): boolean {
 
 export function getStoredPostListMasonry(): boolean {
   if (!getVisitorSwitches().appearance) return getDefaultPostListMasonry();
-  const stored = localStorage.getItem("postListMasonry");
+  const stored = storageGet("postListMasonry");
   return stored == null ? getDefaultPostListMasonry() : stored === "true";
 }
 
@@ -137,7 +138,7 @@ export function applyPostListMasonry(enabled: boolean): void {
 }
 
 export function setPostListMasonry(enabled: boolean): void {
-  localStorage.setItem("postListMasonry", String(enabled));
+  storageSet("postListMasonry", String(enabled));
   applyPostListMasonry(enabled);
 }
 
@@ -147,7 +148,7 @@ export function setPostListMasonry(enabled: boolean): void {
  *  （不依赖容器是否已入 DOM；data-server-layout 仅作兜底）。
  *  已是默认布局时 applyPostListLayout 内部会跳过，无需在此重复判断 */
 export function resetPostListLayout(): void {
-  localStorage.removeItem("postListLayout");
+  storageRemove("postListLayout");
   const container = document.getElementById("post-list-container");
   const server = container?.dataset.serverLayout;
   const target =

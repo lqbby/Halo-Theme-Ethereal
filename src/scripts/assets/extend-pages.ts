@@ -230,6 +230,7 @@
     var section = el.closest("section") || el.parentNode;
     var timer = null;
     var failures = 0;
+    var inFlight = false;
 
     function stop() {
       if (timer) {
@@ -263,6 +264,10 @@
         schedule(SERVER_INTERVAL);
         return;
       }
+      // 并发守卫：上一笔还没回来就不再叠发（回前台的 onVisible 会直调 load，
+      // 与定时器的一笔撞车会重复请求，且旧响应可能后到、覆盖新数据）
+      if (inFlight) return;
+      inFlight = true;
       var bust = (url.indexOf("?") < 0 ? "?" : "&") + "t=" + Date.now();
       fetch(url + bust, { credentials: "omit", cache: "no-store" })
         .then(function (res) {
@@ -270,15 +275,19 @@
           return res.json();
         })
         .then(function (data) {
+          inFlight = false;
           failures = 0;
           paintServerStatus(el, section, data);
           schedule(SERVER_INTERVAL);
         })
         .catch(function () {
+          inFlight = false;
           markServerOffline(el, section);
           failures += 1;
+          // failures 已自增，下标取 failures-1：首败 60s → 次败 120s → 300s 封顶
+          // （原写法从 BACKOFF[1] 起步，第一档 60s 永远用不上）
           schedule(
-            SERVER_BACKOFF[Math.min(failures, SERVER_BACKOFF.length - 1)],
+            SERVER_BACKOFF[Math.min(failures - 1, SERVER_BACKOFF.length - 1)],
           );
         });
     }

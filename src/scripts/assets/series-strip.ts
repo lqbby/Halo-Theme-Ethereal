@@ -94,7 +94,10 @@
 
     /** 切到第 i 个系列；focus=true 时把焦点也移过去（键盘操作路径） */
     function select(i, focus) {
-      if (i < 0 || i >= panels.length) return;
+      // NaN 必须单独拦：tab 的 data-series-tab 缺失/非数字时 parseInt 给 NaN，
+      // 而 NaN 的两个范围比较都是 false、会穿过守卫 ⇒ active 变 NaN 后
+      // sync() 里 i === active 永不成立，所有面板被一起加上 is-hidden。
+      if (isNaN(i) || i < 0 || i >= panels.length) return;
       if (i !== active) {
         active = i;
         var vp = viewportOf(active);

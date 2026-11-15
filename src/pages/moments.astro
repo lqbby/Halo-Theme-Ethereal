@@ -5,6 +5,7 @@ import PageHeader from "../components/control/PageHeader.astro";
 import MomentCard from "../components/MomentCard.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import ContentWidgetsStyle from "../components/misc/ContentWidgetsStyle.astro";
 ---
 
 <MainGridLayout
@@ -14,6 +15,8 @@ import Canonical from "../components/misc/Canonical.astro";
   <Fragment slot="head">
     <!-- SEO：canonical（本地保留，上游无此项） -->
     <Canonical path="/moments" />
+    <!-- 瞬间 HTML 正文可含 content-widgets 组件标记，需插件基础样式 -->
+    <ContentWidgetsStyle />
   </Fragment>
 
   <!-- 页面 <title> 由 Layout.astro 统一输出，此处不再重复定义 -->

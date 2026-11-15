@@ -10,6 +10,7 @@ import {
   carrierBool,
   carrierStr,
 } from "./visitor-switches";
+import { storageGet, storageRemove, storageSet } from "./storage";
 
 /* ── 壁纸参数（全屏透明模式） ── */
 
@@ -39,15 +40,15 @@ export function getStoredWallpaperParams(): WallpaperParams {
   if (!getVisitorSwitches().wallpaper) return defaults;
   return {
     opacity: parseNum(
-      localStorage.getItem("wallpaperOpacity") ?? undefined,
+      storageGet("wallpaperOpacity") ?? undefined,
       defaults.opacity,
     ),
     blur: parseNum(
-      localStorage.getItem("wallpaperBlur") ?? undefined,
+      storageGet("wallpaperBlur") ?? undefined,
       defaults.blur,
     ),
     cardAlpha: parseNum(
-      localStorage.getItem("wallpaperCardAlpha") ?? undefined,
+      storageGet("wallpaperCardAlpha") ?? undefined,
       defaults.cardAlpha,
     ),
   };
@@ -68,7 +69,7 @@ export function setWallpaperParam(
   key: "wallpaperOpacity" | "wallpaperBlur" | "wallpaperCardAlpha",
   value: number,
 ): void {
-  localStorage.setItem(key, String(value));
+  storageSet(key, String(value));
   applyWallpaperParams(getStoredWallpaperParams());
 }
 
@@ -98,7 +99,7 @@ export function getDefaultBannerDisplay(): BannerDisplayMode {
 
 export function getStoredBannerDisplay(): BannerDisplayMode {
   if (!getVisitorSwitches().wallpaper) return getDefaultBannerDisplay();
-  const stored = localStorage.getItem("bannerDisplay");
+  const stored = storageGet("bannerDisplay");
   return isBannerDisplayMode(stored) ? stored : getDefaultBannerDisplay();
 }
 
@@ -146,7 +147,7 @@ export function applyBannerDisplay(mode: BannerDisplayMode): void {
 }
 
 export function setBannerDisplay(mode: BannerDisplayMode): void {
-  localStorage.setItem("bannerDisplay", mode);
+  storageSet("bannerDisplay", mode);
   applyBannerDisplay(mode);
 }
 
@@ -158,7 +159,7 @@ export function getDefaultWave(): boolean {
 
 export function getStoredWave(): boolean {
   if (!getVisitorSwitches().wallpaper) return getDefaultWave();
-  const stored = localStorage.getItem("bannerWave");
+  const stored = storageGet("bannerWave");
   return stored == null ? getDefaultWave() : stored === "true";
 }
 
@@ -171,7 +172,7 @@ export function applyWave(enabled: boolean): void {
 }
 
 export function setWave(enabled: boolean): void {
-  localStorage.setItem("bannerWave", String(enabled));
+  storageSet("bannerWave", String(enabled));
   applyWave(enabled);
 }
 
@@ -183,7 +184,7 @@ export function getDefaultBannerTitle(): boolean {
 
 export function getStoredBannerTitle(): boolean {
   if (!getVisitorSwitches().wallpaper) return getDefaultBannerTitle();
-  const stored = localStorage.getItem("bannerTitle");
+  const stored = storageGet("bannerTitle");
   return stored == null ? getDefaultBannerTitle() : stored === "true";
 }
 
@@ -236,31 +237,31 @@ export function applyBannerTitle(enabled: boolean): void {
 }
 
 export function setBannerTitle(enabled: boolean): void {
-  localStorage.setItem("bannerTitle", String(enabled));
+  storageSet("bannerTitle", String(enabled));
   applyBannerTitle(enabled);
 }
 
 /* ── 分区恢复默认 ── */
 
 export function resetWallpaperParams(): void {
-  localStorage.removeItem("wallpaperOpacity");
-  localStorage.removeItem("wallpaperBlur");
-  localStorage.removeItem("wallpaperCardAlpha");
+  storageRemove("wallpaperOpacity");
+  storageRemove("wallpaperBlur");
+  storageRemove("wallpaperCardAlpha");
   applyWallpaperParams(getDefaultWallpaperParams());
 }
 
 export function resetWallpaperMode(): void {
-  localStorage.removeItem("bannerDisplay");
+  storageRemove("bannerDisplay");
   applyBannerDisplay(getDefaultBannerDisplay());
 }
 
 export function resetWave(): void {
-  localStorage.removeItem("bannerWave");
+  storageRemove("bannerWave");
   applyWave(getDefaultWave());
 }
 
 export function resetBannerTitle(): void {
-  localStorage.removeItem("bannerTitle");
+  storageRemove("bannerTitle");
   applyBannerTitle(getDefaultBannerTitle());
 }
 
@@ -288,7 +289,7 @@ export function getDefaultFullscreenLayout(): FullscreenLayoutMode {
 export function getStoredFullscreenLayout(): FullscreenLayoutMode {
   if (!getVisitorSwitches().fullscreenLayout)
     return getDefaultFullscreenLayout();
-  const stored = localStorage.getItem("fullscreenLayout");
+  const stored = storageGet("fullscreenLayout");
   return isFullscreenLayoutMode(stored) ? stored : getDefaultFullscreenLayout();
 }
 
@@ -311,12 +312,12 @@ export function applyFullscreenLayout(mode: FullscreenLayoutMode): void {
 }
 
 export function setFullscreenLayout(mode: FullscreenLayoutMode): void {
-  localStorage.setItem("fullscreenLayout", mode);
+  storageSet("fullscreenLayout", mode);
   applyFullscreenLayout(mode);
 }
 
 /** 恢复后台默认布局（面板 Reset；清 localStorage 后应用默认值） */
 export function resetFullscreenLayout(): void {
-  localStorage.removeItem("fullscreenLayout");
+  storageRemove("fullscreenLayout");
   applyFullscreenLayout(getDefaultFullscreenLayout());
 }

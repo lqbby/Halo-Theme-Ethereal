@@ -112,7 +112,7 @@ import Canonical from "../components/misc/Canonical.astro";
           ></span>
           <span
             class="font-bold text-90"
-            th:text="${scheduleSummary.current.busy ? #messages.msg('page.schedule.statusBusy') : #messages.msg('page.schedule.statusIdle')}"
+            th:text="${scheduleSummary.current.busy == true ? #messages.msg('page.schedule.statusBusy') : #messages.msg('page.schedule.statusIdle')}"
           >
             空闲中
           </span>

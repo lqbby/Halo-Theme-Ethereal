@@ -2,6 +2,7 @@
 import PostMeta from "../components/PostMeta.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import ContentWidgetsStyle from "../components/misc/ContentWidgetsStyle.astro";
 import {
   imageSuffixThWith,
   CDN_SUFFIX_PATTERNS,
@@ -21,13 +22,8 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
   showToc={true}
 >
   <Fragment slot="head">
-    <!-- content-widgets 插件基础样式：插件 HeadProcessor 只注入 loader 脚本（懒加载版
-         chunk 里带 css），立即挂载版（iife.js 单 bundle）css 独立成文件，需主题补注入；
-        主题侧的 content-widgets.css 是变量 alias/覆盖适配层，不重复提供基础样式。 -->
-    <link
-      rel="stylesheet"
-      href="/plugins/content-widgets/assets/static/content-widgets.css?version=1.0.3"
-    />
+    <!-- content-widgets 插件基础样式（单点维护在 ContentWidgetsStyle 组件） -->
+    <ContentWidgetsStyle />
     <!-- og:title 由 Layout.astro 统一输出；此处仅保留文章特有 og 元数据 -->
     <!-- SEO：canonical（Halo 核心不会自动注入，需主题输出） -->
     <Canonical path="${post.status.permalink}" />
@@ -54,7 +50,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
          插件不可用时前端数 DOM 兜底。 -->
     <meta
       name="post-word-count"
-      th:if="${pluginFinder.available('extra-api', '3.*')}"
+      th:if="${pluginFinder != null and pluginFinder.available('extra-api', '3.*') and extraApiStatsFinder != null}"
       th:content="${extraApiStatsFinder.getContentWordCount({htmlContent: post.content.content})}"
     />
     <!-- 结构化数据：BlogPosting（支持富媒体摘要） -->

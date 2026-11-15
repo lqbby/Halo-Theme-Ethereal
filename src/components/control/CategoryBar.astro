@@ -657,7 +657,7 @@
         try {
           var cs = window.getComputedStyle(liquid);
           var t = cs.transform || "";
-          var nums = t.match(/-?[\d.]+/g);
+          var nums = (t.slice(t.indexOf("(") + 1) || "").match(/-?[\d.]+/g);
           if (nums && t.indexOf("matrix3d") === 0 && nums.length >= 13) {
             return {
               x: parseFloat(nums[12]) || 0,
