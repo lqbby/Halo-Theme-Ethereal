@@ -158,7 +158,14 @@
         encodeURIComponent(umami.websiteId) +
         "/" +
         path,
-      { headers: { "x-umami-share-token": umami.token } },
+      {
+        headers: {
+          "x-umami-share-token": umami.token,
+          // Umami v3 数据接口除 token 外还要求带分享上下文（shareId 明文），
+          // 缺了它 stats / pageviews / metrics 全部 401；v2 只需 token。
+          "x-umami-share-context": shareId,
+        },
+      },
       12000,
     );
   }
