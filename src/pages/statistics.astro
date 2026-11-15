@@ -866,7 +866,7 @@ import Canonical from "../components/misc/Canonical.astro";
             <div>
               <p class="stats-kicker">VISITORS / MAP</p>
               <h2>访客地域分布</h2>
-              <p>访客所在的地区</p>
+              <p>国内访客分布 <span>· 国外暂不展示</span></p>
             </div>
             <span
               class="icon-[material-symbols--map-rounded] stats-region-card__header-icon"
@@ -887,7 +887,7 @@ import Canonical from "../components/misc/Canonical.astro";
                 </div>
               </div>
               <div class="stats-region-card__ranking">
-                <p>TOP 5 地区</p>
+                <p>TOP 5 省区</p>
                 <ol data-region-ranking>
                   <li class="stats-region-card__item--skeleton">
                     <i></i><span></span><strong></strong>
@@ -907,22 +907,18 @@ import Canonical from "../components/misc/Canonical.astro";
                 </ol>
               </div>
             </div>
-            <ul class="stats-region-bars" data-region-list></ul>
             <footer class="stats-region-card__footer">
-              <span>按近 30 天访客统计</span>
-              <span class="stats-region-card__footer-right">
-                <span data-region-total></span>
-                <a
-                  th:href="${umamiShare}"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label="在 Umami 中查看完整访客地域统计"
-                  >查看数据
-                  <span
-                    class="icon-[material-symbols--arrow-outward-rounded]"
-                    aria-hidden="true"></span>
-                </a>
-              </span>
+              <span data-region-status>按近 30 天国内访客统计</span>
+              <a
+                th:href="${umamiShare}"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="在 Umami 中查看完整访客地域统计"
+                >查看数据
+                <span
+                  class="icon-[material-symbols--arrow-outward-rounded]"
+                  aria-hidden="true"></span>
+              </a>
             </footer>
           </div>
         </section>

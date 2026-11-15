@@ -1512,65 +1512,50 @@
     return m ? REGION_ADCODE[m[1]] || null : null;
   }
 
-  // 地域卡左列：名称 + 数值行 与 占比条（占比条按最大值归一）
-  function renderRegionBars(ul, rows, total) {
-    if (!ul) return;
-    while (ul.firstChild) ul.removeChild(ul.firstChild);
-    var max = rows.reduce(function (a, r) {
-      return Math.max(a, r.value);
-    }, 0);
-    rows.forEach(function (r) {
-      var li = document.createElement("li");
-      li.className = "stats-region-bar";
-      var ad = regionAdcode(r.label);
-      if (ad) li.setAttribute("data-adcode", ad);
-      var head = document.createElement("div");
-      head.className = "stats-region-bar__head";
-      var name = document.createElement("span");
-      name.textContent = r.label;
-      name.title = r.label;
-      var val = document.createElement("strong");
-      var pct = total ? Math.round((r.value / total) * 100) : 0;
-      val.textContent = fmtNum(r.value) + " · " + pct + "%";
-      head.appendChild(name);
-      head.appendChild(val);
-      var track = document.createElement("span");
-      track.className = "stats-region-bar__track";
-      var fill = document.createElement("i");
-      fill.className = "stats-region-bar__fill";
-      fill.style.width = max ? Math.max(2, (r.value / max) * 100) + "%" : "0%";
-      track.appendChild(fill);
-      li.appendChild(head);
-      li.appendChild(track);
-      ul.appendChild(li);
-    });
-    if (!rows.length) {
-      var li = document.createElement("li");
-      li.className = "stats-legend__empty";
-      li.textContent = "暂无数据";
-      ul.appendChild(li);
-    }
+  // adcode → 短省名（排名 / 地图 title / 标记点共用，与参考同口径）
+  var REGION_NAMES = {
+    "110000": "北京", "120000": "天津", "130000": "河北", "140000": "山西",
+    "150000": "内蒙古", "210000": "辽宁", "220000": "吉林", "230000": "黑龙江",
+    "310000": "上海", "320000": "江苏", "330000": "浙江", "340000": "安徽",
+    "350000": "福建", "360000": "江西", "370000": "山东", "410000": "河南",
+    "420000": "湖北", "430000": "湖南", "440000": "广东", "450000": "广西",
+    "460000": "海南", "500000": "重庆", "510000": "四川", "520000": "贵州",
+    "530000": "云南", "540000": "西藏", "610000": "陕西", "620000": "甘肃",
+    "630000": "青海", "640000": "宁夏", "650000": "新疆", "710000": "台湾",
+    "810000": "香港", "820000": "澳门",
+  };
+  function regionShortName(adcode) {
+    return REGION_NAMES[adcode] || adcode;
+  }
+  // 国内占比百分比（1 位小数，分母为国内访客总和）
+  function fmtRegionPct(value, total) {
+    return (total ? (Math.max(0, value) / total) * 100 : 0).toFixed(1) + "%";
+  }
+  function setRegionStatus(panel, text) {
+    var el = panel ? panel.querySelector("[data-region-status]") : null;
+    if (el) el.textContent = text;
   }
 
-  // 地域卡右列：TOP 5 排行
-  function renderRegionRanking(ol, rows) {
+  // 地域卡右列：TOP 5 排行（国内省区，短名 + 国内占比百分比）
+  function renderRegionRanking(ol, rows, total) {
     if (!ol) return;
     while (ol.firstChild) ol.removeChild(ol.firstChild);
     rows.slice(0, 5).forEach(function (r, i) {
       var li = document.createElement("li");
       li.className = "stats-region-card__item";
-      var ad = regionAdcode(r.label);
-      if (ad) {
-        li.setAttribute("data-adcode", ad);
+      if (r.adcode) {
+        li.setAttribute("data-adcode", r.adcode);
         li.tabIndex = 0;
       }
+      var pct = fmtRegionPct(r.value, total);
+      li.setAttribute("aria-label", r.name + " " + pct);
       var idx = document.createElement("i");
-      idx.textContent = String(i + 1);
+      idx.textContent = String(i + 1).padStart(2, "0");
       var name = document.createElement("span");
-      name.textContent = r.label;
-      name.title = r.label;
+      name.textContent = r.name;
+      name.title = r.name;
       var val = document.createElement("strong");
-      val.textContent = fmtNum(r.value);
+      val.textContent = pct;
       li.appendChild(idx);
       li.appendChild(name);
       li.appendChild(val);
@@ -1579,7 +1564,7 @@
     if (!rows.length) {
       var li = document.createElement("li");
       li.className = "stats-legend__empty";
-      li.textContent = "暂无数据";
+      li.textContent = "暂无国内地域数据";
       ol.appendChild(li);
     }
   }
@@ -1644,40 +1629,58 @@
   function loadRegions() {
     var panel = panelEl("regions");
     if (!panel) return;
-    metricsList("region", 30)
+    metricsList("region", 100)
       .then(function (rows) {
-        var total = rows.reduce(function (a, r) {
-          return a + r.value;
-        }, 0);
+        // 只保留国内省区（CN-XX），境外不展示；百分比以国内总和为分母
         var counts = {};
         rows.forEach(function (r) {
           var ad = regionAdcode(r.label);
           if (ad) counts[ad] = (counts[ad] || 0) + r.value;
         });
+        var cnRows = Object.keys(counts)
+          .map(function (ad) {
+            return { adcode: ad, name: regionShortName(ad), value: counts[ad] };
+          })
+          .sort(function (a, b) {
+            return b.value - a.value;
+          });
+        var total = cnRows.reduce(function (a, r) {
+          return a + r.value;
+        }, 0);
         regionCounts = counts;
+        regionDomesticTotal = total;
         paintRegionMap();
-        renderRegionBars(
-          panel.querySelector("[data-region-list]"),
-          rows.slice(0, 8),
-          total,
-        );
         renderRegionRanking(
           panel.querySelector("[data-region-ranking]"),
-          rows,
+          cnRows,
+          total,
         );
-        var totalEl = panel.querySelector("[data-region-total]");
-        if (totalEl) totalEl.textContent = "共 " + fmtNum(total) + " 人";
+        setRegionStatus(
+          panel,
+          cnRows.length
+            ? "按近 30 天国内访客统计 · 国外暂不展示"
+            : "暂未返回国内省区数据 · 国外暂不展示",
+        );
       })
       .catch(function () {
-        noteFailure("regions", "Umami 数据暂时读不到，请稍后再看。");
+        setRegionStatus(panel, "国内地域数据暂不可用 · 国外暂不展示");
+        var ol = panel.querySelector("[data-region-ranking]");
+        if (ol) {
+          while (ol.firstChild) ol.removeChild(ol.firstChild);
+          var li = document.createElement("li");
+          li.className = "stats-legend__empty";
+          li.textContent = "暂时没有可展示的国内地域数据";
+          ol.appendChild(li);
+        }
       });
   }
 
   /* 中国地图：省份路径放站内 upload（DataV 行政区划投影生成），
-     初始化时 fetch；失败则静默退回纯列表。填色按访客数分档，
-     与条形列表 / TOP5 排名按 data-adcode 双向联动高亮。 */
+     初始化时 fetch；失败则静默只留排名。填色按国内占比分 5 档，
+     与 TOP5 排名 / 标记点按 data-adcode 双向联动高亮。 */
   var regionMapData = null;
   var regionCounts = null;
+  var regionDomesticTotal = 0;
 
   function loadRegionMap() {
     var panel = panelEl("regions");
@@ -1712,13 +1715,22 @@
       } else {
         path.setAttribute("class", "stats-region-fill");
         path.setAttribute("data-adcode", adcode);
-        path.setAttribute("data-level", "0");
+        path.setAttribute(
+          "data-level",
+          adcode === "710000" || adcode === "810000" || adcode === "820000"
+            ? "base"
+            : "none",
+        );
         var title = document.createElementNS(NS, "title");
-        title.textContent = prov.name || adcode;
+        title.textContent = regionShortName(adcode);
         path.appendChild(title);
       }
       svg.appendChild(path);
     });
+    // TOP 5 标记点层（置于所有省份之上，paint 时按形心生成）
+    var points = document.createElementNS(NS, "g");
+    points.setAttribute("data-region-points", "");
+    svg.appendChild(points);
     wrap.appendChild(svg);
     paintRegionMap();
     bindRegionSync(panel);
@@ -1731,15 +1743,74 @@
     Object.keys(regionCounts).forEach(function (k) {
       if (regionCounts[k] > max) max = regionCounts[k];
     });
+    var total = regionDomesticTotal || 0;
     panel.querySelectorAll(".stats-region-fill").forEach(function (path) {
       var ad = path.getAttribute("data-adcode");
       var v = regionCounts[ad] || 0;
-      var level = !v || !max ? 0 : Math.min(4, Math.ceil((v / max) * 4));
-      path.setAttribute("data-level", String(level));
-      var prov = regionMapData.provinces[ad];
       var title = path.querySelector("title");
-      if (title && prov)
-        title.textContent = (prov.name || ad) + " · " + fmtNum(v) + " 人";
+      if (!v || !max) {
+        // 无数据：台/港/澳浅底，其余省份深灰蓝；title 只留短名
+        path.setAttribute(
+          "data-level",
+          ad === "710000" || ad === "810000" || ad === "820000"
+            ? "base"
+            : "none",
+        );
+        if (title) title.textContent = regionShortName(ad);
+        return;
+      }
+      // 5 档：round(值/最大值 × 4) → 0..4（与参考同公式）
+      var level = Math.min(4, Math.max(0, Math.round((v / max) * 4)));
+      path.setAttribute("data-level", String(level));
+      if (title)
+        title.textContent =
+          regionShortName(ad) + " · " + fmtRegionPct(v, total);
+    });
+    renderRegionPoints(panel, total);
+  }
+
+  // TOP 5 标记点：以省份路径包围盒中心为锚点（参考为固定坐标，我方画布不同，
+  // 改用自有几何形心），半径随占比，data-adcode 参与面板联动高亮
+  function renderRegionPoints(panel, total) {
+    var group = panel.querySelector("[data-region-points]");
+    if (!group || !regionCounts) return;
+    while (group.firstChild) group.removeChild(group.firstChild);
+    var NS = "http://www.w3.org/2000/svg";
+    var top = Object.keys(regionCounts)
+      .map(function (ad) {
+        return { adcode: ad, value: regionCounts[ad] };
+      })
+      .filter(function (r) {
+        return r.value > 0;
+      })
+      .sort(function (a, b) {
+        return b.value - a.value;
+      })
+      .slice(0, 5);
+    top.forEach(function (r, i) {
+      var path = panel.querySelector(
+        '.stats-region-fill[data-adcode="' + r.adcode + '"]',
+      );
+      if (!path || typeof path.getBBox !== "function") return;
+      var box;
+      try {
+        box = path.getBBox();
+      } catch (e) {
+        return;
+      }
+      if (!box || !box.width || !box.height) return;
+      var ratio = total ? r.value / total : 0;
+      var circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("class", "stats-region-point is-rank-" + (i + 1));
+      circle.setAttribute("data-adcode", r.adcode);
+      circle.setAttribute("cx", String(box.x + box.width / 2));
+      circle.setAttribute("cy", String(box.y + box.height / 2));
+      circle.setAttribute("r", String(2.4 + Math.min(3.8, ratio * 12)));
+      var title = document.createElementNS(NS, "title");
+      title.textContent =
+        regionShortName(r.adcode) + " " + fmtRegionPct(r.value, total);
+      circle.appendChild(title);
+      group.appendChild(circle);
     });
   }
 

@@ -1908,7 +1908,7 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.6rem;
 }
 #statistics-dashboard .stats-region-card__header .stats-kicker {
   font-size: 0.5rem;
@@ -1918,8 +1918,11 @@
 }
 #statistics-dashboard .stats-region-card__header p:last-child {
   margin: 0.3rem 0 0;
-  color: var(--text-tertiary, var(--text-secondary));
+  color: var(--text-secondary);
   font-size: 0.58rem;
+}
+#statistics-dashboard .stats-region-card__header p:last-child span {
+  color: var(--text-tertiary, var(--text-secondary));
 }
 #statistics-dashboard .stats-region-card__header-icon {
   flex: 0 0 auto;
@@ -1931,7 +1934,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.12fr) minmax(6.7rem, 0.88fr);
   gap: 0.55rem;
-  align-items: start;
+  align-items: center;
   margin-top: 0.62rem;
 }
 /* 左列：中国地图（省份路径由 TS 注入 svg，按访客数分档上色） */
@@ -1949,9 +1952,11 @@
   width: 100%;
   height: 100%;
 }
+/* 填色分档（对齐参考 5 档蓝阶）：有数据按 primary 混入浅底 #eef5fd 由浅入深；
+   无数据（data-level=none）为深灰蓝，与玻璃底拉开区分；台/港/澳（base）无数据时浅底 */
 #statistics-dashboard .stats-region-fill {
-  fill: color-mix(in oklab, var(--primary) 8%, transparent);
-  stroke: color-mix(in oklab, var(--primary) 38%, transparent);
+  fill: color-mix(in oklab, var(--deep-text) 18%, var(--card-bg));
+  stroke: color-mix(in oklab, var(--primary) 35%, #ffffff);
   stroke-width: 1.2;
   vector-effect: non-scaling-stroke;
   transform-box: fill-box;
@@ -1963,17 +1968,58 @@
     transform 0.52s cubic-bezier(0.42, 0, 0.58, 1),
     filter 0.52s cubic-bezier(0.42, 0, 0.58, 1);
 }
+#statistics-dashboard .stats-region-fill[data-level="base"] {
+  fill: color-mix(in oklab, var(--primary) 5%, #eef5fd);
+}
+#statistics-dashboard .stats-region-fill[data-level="0"] {
+  fill: color-mix(in oklab, var(--primary) 18%, #eef5fd);
+}
 #statistics-dashboard .stats-region-fill[data-level="1"] {
-  fill: color-mix(in oklab, var(--primary) 26%, transparent);
+  fill: color-mix(in oklab, var(--primary) 39%, #eef5fd);
 }
 #statistics-dashboard .stats-region-fill[data-level="2"] {
-  fill: color-mix(in oklab, var(--primary) 45%, transparent);
+  fill: color-mix(in oklab, var(--primary) 57%, #eef5fd);
 }
 #statistics-dashboard .stats-region-fill[data-level="3"] {
-  fill: color-mix(in oklab, var(--primary) 66%, transparent);
+  fill: color-mix(in oklab, var(--primary) 82%, #eef5fd);
 }
 #statistics-dashboard .stats-region-fill[data-level="4"] {
-  fill: color-mix(in oklab, var(--primary) 87%, transparent);
+  fill: var(--primary);
+}
+/* TOP 5 标记点（TS 按省份形心生成，色阶随名次递减） */
+#statistics-dashboard .stats-region-point {
+  stroke: var(--card-bg);
+  stroke-width: 3.2;
+  vector-effect: non-scaling-stroke;
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0.94;
+  cursor: pointer;
+  transition:
+    transform 0.52s cubic-bezier(0.42, 0, 0.58, 1),
+    filter 0.52s cubic-bezier(0.42, 0, 0.58, 1);
+}
+#statistics-dashboard .stats-region-point.is-rank-1 {
+  fill: var(--primary);
+}
+#statistics-dashboard .stats-region-point.is-rank-2 {
+  fill: color-mix(in oklab, var(--primary) 78%, #eef5fd);
+}
+#statistics-dashboard .stats-region-point.is-rank-3 {
+  fill: color-mix(in oklab, var(--primary) 56%, #eef5fd);
+}
+#statistics-dashboard .stats-region-point.is-rank-4 {
+  fill: color-mix(in oklab, var(--primary) 36%, #eef5fd);
+}
+#statistics-dashboard .stats-region-point.is-rank-5 {
+  fill: color-mix(in oklab, var(--primary) 20%, #eef5fd);
+}
+#statistics-dashboard .stats-region-point:hover,
+#statistics-dashboard .stats-region-point[data-active="true"] {
+  filter: drop-shadow(
+    0 0.16rem 0.2rem color-mix(in srgb, var(--primary) 30%, transparent)
+  );
+  transform: scale(1.3);
 }
 #statistics-dashboard .stats-region-fill:hover,
 #statistics-dashboard .stats-region-fill[data-active="true"] {
@@ -1990,58 +2036,6 @@
   stroke-dasharray: 5 4;
   vector-effect: non-scaling-stroke;
   pointer-events: none;
-}
-/* 下方整行：地区列表 + 占比条 */
-#statistics-dashboard .stats-region-card__body + .stats-region-bars {
-  margin-top: 0.62rem;
-}
-#statistics-dashboard .stats-region-bars {
-  display: grid;
-  gap: 0.42rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-#statistics-dashboard .stats-region-bar {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.18rem 0.24rem;
-  border-radius: 0.46rem;
-  transition: background 0.3s ease;
-}
-#statistics-dashboard .stats-region-bar[data-active="true"] {
-  background: color-mix(in oklab, var(--primary) 7%, transparent);
-}
-#statistics-dashboard .stats-region-bar__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-size: 0.62rem;
-}
-#statistics-dashboard .stats-region-bar__head span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-#statistics-dashboard .stats-region-bar__head strong {
-  color: var(--text-primary);
-  font-size: 0.62rem;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-#statistics-dashboard .stats-region-bar__track {
-  height: 0.3rem;
-  overflow: hidden;
-  border-radius: 999px;
-  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
-}
-#statistics-dashboard .stats-region-bar__fill {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--primary);
 }
 /* 右列：TOP 5 排行 */
 #statistics-dashboard .stats-region-card__ranking > p {
@@ -2091,15 +2085,11 @@
   width: 0.78rem;
   height: 0.78rem;
   border-radius: 0.22rem;
-  background: color-mix(in oklab, var(--primary) 10%, transparent);
-  color: var(--text-secondary);
+  background: color-mix(in oklab, var(--primary) 11%, transparent);
+  color: var(--primary);
   font-size: 0.45rem;
   font-style: normal;
   font-weight: 800;
-}
-#statistics-dashboard .stats-region-card__item:first-child i {
-  background: color-mix(in oklab, var(--primary) 18%, transparent);
-  color: var(--primary);
 }
 #statistics-dashboard .stats-region-card__item span {
   overflow: hidden;
@@ -2109,7 +2099,7 @@
 #statistics-dashboard .stats-region-card__item strong {
   color: var(--text-secondary);
   font-size: 0.56rem;
-  font-weight: 800;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 #statistics-dashboard .stats-region-card__item--skeleton {
@@ -2141,11 +2131,6 @@
   border-top: 1px solid var(--line-divider);
   color: var(--text-tertiary, var(--text-secondary));
   font-size: 0.55rem;
-}
-#statistics-dashboard .stats-region-card__footer-right {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
 }
 #statistics-dashboard .stats-region-card__footer a {
   display: inline-flex;
