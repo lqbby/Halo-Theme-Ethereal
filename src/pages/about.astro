@@ -3,7 +3,7 @@
 // 数据来自主题设置「扩展页面 → 关于我页面」→ theme.config.extendPages.about。
 //
 // 布局：身份卡（横跨）→ 顶部导航（横跨）→ 两栏
-//   主列：关于我 / 本人项目 / 更新摘要 / 最近的提交
+//   主列：关于我 / 本人项目 / GitHub 活跃度 / 更新摘要 / 最近的提交
 //   侧列：技术轨迹 / 我的朋友 / 保持联系 / 服务器状态
 //   （2026-09-13：「我的朋友」由技术轨迹**上方**移到下方，并改版为带头像卡片墙）
 // 两栏按**容器宽度**分档（≥880px 才分栏），不跟视口走 —— 见 .about-cols-wrap。
@@ -1745,6 +1745,47 @@ import Canonical from "../components/misc/Canonical.astro";
                   aria-hidden="true"></span>
               </a>
             </div>
+          </section>
+
+          <!-- GitHub 活跃度：贡献图贪吃蛇（GitHub Action Platane/snk 定时生成的
+               图片，地址在设置「扩展页面 → 关于我页面 → ④ GitHub 活跃度」维护）。
+               明暗切换跟随全站 .dark 类 + Tailwind dark: 变体：两张图都渲染、
+               靠 CSS 显隐，不用 JS 换 src；深色图地址留空时浅色图不加
+               dark:hidden，深色模式下回落显示浅色图。 -->
+          <section
+            class="card-base onload-animation"
+            th:if="${cfg?.githubSnake?.enable != false and (!#strings.isEmpty(cfg?.githubSnake?.lightUrl) or !#strings.isEmpty(cfg?.githubSnake?.darkUrl))}"
+          >
+            <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p class="about-section-label">
+                  <span
+                    class="icon-[mdi--github]"
+                    aria-hidden="true"></span>
+                  <span>GITHUB ACTIVITY</span>
+                </p>
+                <h2 class="about-card-title mt-1 text-90">GitHub 活跃度</h2>
+              </div>
+            </div>
+            <img
+              class="h-auto w-full"
+              th:if="${!#strings.isEmpty(cfg?.githubSnake?.lightUrl)}"
+              th:classappend="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl) ? ' dark:hidden' : ''}"
+              th:src="${cfg?.githubSnake?.lightUrl}"
+              src=""
+              alt="GitHub 贡献热力图"
+              loading="lazy"
+              decoding="async"
+            />
+            <img
+              class="hidden h-auto w-full dark:block"
+              th:if="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl)}"
+              th:src="${cfg?.githubSnake?.darkUrl}"
+              src=""
+              alt="GitHub 贡献热力图"
+              loading="lazy"
+              decoding="async"
+            />
           </section>
 
           <!-- 更新摘要：**自动同步**「博客更新日志」页的最新批次记录

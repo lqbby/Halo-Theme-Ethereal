@@ -3085,7 +3085,7 @@ spec:
         - $formkit: group
           name: about
           label: 关于我页面
-          help: "配置项按页面卡片顺序排列：① 身份卡与简介 ② 顶部导航 ③ 本人项目 ④ 更新摘要 ⑤ 最近的提交 ⑥ 我的朋友 / 保持联系 ⑦ 服务器状态 ⑧ 页脚。首次使用请先在「页面 → 自定义页面」新建一个页面，并把「自定义模板」选为「关于我」，然后回到这里配置内容。各卡片的「显示」开关关闭后，其下方的从属设置项会自动隐藏"
+          help: "配置项按页面卡片顺序排列：① 身份卡与简介 ② 顶部导航 ③ 本人项目 ④ GitHub 活跃度 ⑤ 更新摘要 ⑥ 最近的提交 ⑦ 我的朋友 / 保持联系 ⑧ 服务器状态 ⑨ 页脚。首次使用请先在「页面 → 自定义页面」新建一个页面，并把「自定义模板」选为「关于我」，然后回到这里配置内容。各卡片的「显示」开关关闭后，其下方的从属设置项会自动隐藏"
           value:
             identity:
               avatar: https://avatars.githubusercontent.com/u/93820952?v=4
@@ -3119,6 +3119,10 @@ spec:
               enable: true
               moreLabel: 全部项目 →
               moreUrl: ""
+            githubSnake:
+              enable: true
+              lightUrl: https://cdn.jsdelivr.net/gh/lqbby/Halo-Theme-Ethereal@output/github-contribution-grid-snake.svg
+              darkUrl: https://cdn.jsdelivr.net/gh/lqbby/Halo-Theme-Ethereal@output/github-contribution-grid-snake-dark.svg
             highlights:
               enable: true
               moreLabel: 按日查看 →
@@ -3334,10 +3338,40 @@ spec:
                       label: 链接
                       help: "留空则卡片不可点击"
 
-            # ─────────── ④ 更新摘要 ───────────
+            # ─────────── ④ GitHub 活跃度 ───────────
+            - $formkit: group
+              name: githubSnake
+              label: ④ GitHub 活跃度
+              help: "GitHub 贡献图贪吃蛇动画图（由 GitHub Action Platane/snk 定时生成），显示在「本人项目」卡片下方；浅色 / 深色各一张，按站点明暗模式自动切换显示"
+              children:
+                - $formkit: switch
+                  name: enable
+                  id: about_githubSnake_enable
+                  key: about_githubSnake_enable
+                  label: 显示「GitHub 活跃度」
+                  value: true
+                  help: "关闭后整张卡片隐藏；图片地址会保留，重新打开即恢复"
+                - $formkit: text
+                  name: lightUrl
+                  key: about_githubSnake_lightUrl
+                  if: "$get(about_githubSnake_enable).value"
+                  preserve: true
+                  label: 浅色模式图片地址
+                  value: "https://cdn.jsdelivr.net/gh/lqbby/Halo-Theme-Ethereal@output/github-contribution-grid-snake.svg"
+                  help: "浅色模式下显示的贪吃蛇图地址；留空则不显示浅色图"
+                - $formkit: text
+                  name: darkUrl
+                  key: about_githubSnake_darkUrl
+                  if: "$get(about_githubSnake_enable).value"
+                  preserve: true
+                  label: 深色模式图片地址
+                  value: "https://cdn.jsdelivr.net/gh/lqbby/Halo-Theme-Ethereal@output/github-contribution-grid-snake-dark.svg"
+                  help: "深色模式下显示的贪吃蛇图地址；留空则深色模式下回落显示浅色图"
+
+            # ─────────── ⑤ 更新摘要 ───────────
             - $formkit: group
               name: highlights
-              label: ④ 更新摘要
+              label: ⑤ 更新摘要
               help: "卡片自动同步「博客更新日志」页的最新批次记录（同一个数据源），通常不需要在这里维护条目"
               children:
                 - $formkit: switch
@@ -3416,10 +3450,10 @@ spec:
                       label: 链接
                       help: "一般指向更新日志页面"
 
-            # ─────────── ⑤ 最近的提交 ───────────
+            # ─────────── ⑥ 最近的提交 ───────────
             - $formkit: group
               name: activity
-              label: ⑤ 最近的提交
+              label: ⑥ 最近的提交
               help: "数据自动取自本站最新文章 + 最新瞬间，无需手填；客户端按发布时间归并成一条时间线"
               children:
                 - $formkit: switch
@@ -3448,10 +3482,10 @@ spec:
                   step: 1
                   help: "文章、瞬间各取这么多条后合并排序。取多了卡片会变长"
 
-            # ─────────── ⑥ 我的朋友 / 保持联系 ───────────
+            # ─────────── ⑦ 我的朋友 / 保持联系 ───────────
             - $formkit: group
               name: friends
-              label: ⑥ 我的朋友 / 保持联系
+              label: ⑦ 我的朋友 / 保持联系
               help: "「我的朋友」数据取自本站友情链接（由配套插件端点服务端随机下发，每次进页自然不同）；「保持联系」数据取自「侧边栏 → 个人简介小组件 → 社交媒体」，在那边增删即可，这里不用重复维护"
               children:
                 - $formkit: switch
@@ -3488,10 +3522,10 @@ spec:
                   value: true
                   help: "数据源同上；社交媒体为空时卡片自动隐藏"
 
-            # ─────────── ⑦ 服务器状态 ───────────
+            # ─────────── ⑧ 服务器状态 ───────────
             - $formkit: group
               name: server
-              label: ⑦ 服务器状态
+              label: ⑧ 服务器状态
               help: "数据源是一份只读 JSON；未配置时卡片保持占位（— / 0%）"
               children:
                 - $formkit: switch
@@ -3526,10 +3560,10 @@ spec:
                   value: "https://sun.lqbby.com/custom/server-status.json"
                   help: "只读 JSON 的地址，留空则保持占位（— / 0%）。形状：{status: 状态文案, online: true/false, updated: unix 时间戳（秒或毫秒，用于算「更新于 N 分钟前」，超过 10 分钟没更新脚注转琥珀）, updatedText: 绝对时间文案（鼠标悬停显示）, uptimeDays: 运行天数, items: [{key, label, percent, text, detail}]}。items 里 key 对应上面的指标 key，percent 驱动进度条，text 是右侧数值，detail 是指标名下的小字"
 
-            # ─────────── ⑧ 页脚 ───────────
+            # ─────────── ⑨ 页脚 ───────────
             - $formkit: group
               name: footer
-              label: ⑧ 页脚
+              label: ⑨ 页脚
               children:
                 - $formkit: text
                   name: eyebrow
