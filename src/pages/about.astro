@@ -1333,6 +1333,22 @@ import Canonical from "../components/misc/Canonical.astro";
         }
       }
 
+      /* ================= ⑳ GitHub 活跃度热力图：移动端放大 =================
+         snake SVG 是整年（约 53 周）图，手机全宽挤压时格子太小太密。
+         移动端把图放大到 200% 宽、右对齐裁剪，只露最近约 26 周，格子
+         随之放大一倍；裁剪靠 wrapper 的 overflow:hidden，SVG 本体与
+         每日生成工作流都不动，深浅两图同理。桌面端保持整年全图。 */
+      @media (max-width: 767.98px) {
+        .about-snake-wrap {
+          overflow: hidden;
+        }
+        .about-snake-wrap > img {
+          width: 200%;
+          max-width: none;
+          transform: translateX(-50%);
+        }
+      }
+
       /* ================= ⑲ 尊重「减少动态效果」 ================= */
       @media (prefers-reduced-motion: reduce) {
         .about-friend,
@@ -1773,25 +1789,28 @@ import Canonical from "../components/misc/Canonical.astro";
                 <h2 class="about-card-title mt-1 text-90">GitHub 活跃度</h2>
               </div>
             </div>
-            <img
-              class="h-auto w-full"
-              th:if="${!#strings.isEmpty(cfg?.githubSnake?.lightUrl)}"
-              th:classappend="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl) ? ' dark:hidden' : ''}"
-              th:src="${cfg?.githubSnake?.lightUrl}"
-              src=""
-              alt="GitHub 贡献热力图"
-              loading="lazy"
-              decoding="async"
-            />
-            <img
-              class="hidden h-auto w-full dark:block"
-              th:if="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl)}"
-              th:src="${cfg?.githubSnake?.darkUrl}"
-              src=""
-              alt="GitHub 贡献热力图"
-              loading="lazy"
-              decoding="async"
-            />
+            <!-- 移动端放大裁剪的 wrapper（见样式块 ⑳）：桌面端无任何效果 -->
+            <div class="about-snake-wrap">
+              <img
+                class="h-auto w-full"
+                th:if="${!#strings.isEmpty(cfg?.githubSnake?.lightUrl)}"
+                th:classappend="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl) ? ' dark:hidden' : ''}"
+                th:src="${cfg?.githubSnake?.lightUrl}"
+                src=""
+                alt="GitHub 贡献热力图"
+                loading="lazy"
+                decoding="async"
+              />
+              <img
+                class="hidden h-auto w-full dark:block"
+                th:if="${!#strings.isEmpty(cfg?.githubSnake?.darkUrl)}"
+                th:src="${cfg?.githubSnake?.darkUrl}"
+                src=""
+                alt="GitHub 贡献热力图"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
           </section>
 
           <!-- 更新摘要：**自动同步**「博客更新日志」页的最新批次记录

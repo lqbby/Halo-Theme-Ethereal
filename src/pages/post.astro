@@ -236,6 +236,15 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           th:with="series=${recentCommentsSeriesFinder.get(seriesName)}"
           class="onload-animation series-post-nav mb-5 overflow-hidden rounded-xl"
         >
+          <!-- 移动端折叠开关（纯 CSS checkbox 方案，零 JS）：与 header / list
+               同级，靠 ~ 选择器联动；桌面端 CSS 不显示切换钮、列表照旧全展开。
+               仅系列多于 1 篇时渲染（1 篇时无折叠意义）。 -->
+          <input
+            type="checkbox"
+            id="series-post-nav-toggle"
+            class="series-post-nav-toggle"
+            th:if="${series != null and #lists.size(series.posts) > 1}"
+          />
           <div class="series-post-nav-header">
             <span
               class="series-post-nav-icon icon-[mdi--book-open-page-variant-outline]"
@@ -248,6 +257,17 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
               th:if="${series != null}"
               th:text="|共 ${#lists.size(series.posts)} 篇|">共 N 篇</span
             >
+            <label
+              for="series-post-nav-toggle"
+              class="series-post-nav-toggle-btn"
+              th:if="${series != null and #lists.size(series.posts) > 1}"
+            >
+              <span class="series-post-nav-toggle-expand">展开</span>
+              <span class="series-post-nav-toggle-collapse">收起</span>
+              <span
+                class="series-post-nav-toggle-icon icon-[mdi--chevron-down]"
+                aria-hidden="true"></span>
+            </label>
           </div>
           <ol th:if="${series != null}" class="series-post-nav-list">
             <li
@@ -352,6 +372,70 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           border-radius: 9999px;
           background: var(--primary);
           color: var(--on-primary);
+        }
+        /* ── 系列导航移动端折叠（2026-11-15 批次 #1）：系列只增不减，全清单
+           平铺会随篇数无限变长。纯 CSS checkbox 方案：隐藏的 checkbox 与
+           header / list 同级，~ 选择器联动展开态与钮文案；桌面端切换钮
+           不显示、列表照旧全展开，移动端默认只露当前篇。 ── */
+        .series-post-nav {
+          position: relative;
+        }
+        .series-post-nav-toggle {
+          position: absolute;
+          opacity: 0;
+          pointer-events: none;
+        }
+        .series-post-nav-toggle-btn {
+          display: none;
+        }
+        @media (max-width: 767.98px) {
+          .series-post-nav-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.15rem;
+            margin-left: 0.5rem;
+            padding: 0.3rem 0.15rem;
+            flex-shrink: 0;
+            font-size: 0.8rem;
+            font-weight: 600;
+            line-height: 1;
+            color: var(--primary);
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+          }
+          .series-post-nav-toggle-icon {
+            font-size: 1rem;
+            transition: transform 0.2s ease;
+          }
+          .series-post-nav-toggle-collapse {
+            display: none;
+          }
+          .series-post-nav-toggle:checked
+            ~ .series-post-nav-header
+            .series-post-nav-toggle-collapse {
+            display: inline;
+          }
+          .series-post-nav-toggle:checked
+            ~ .series-post-nav-header
+            .series-post-nav-toggle-expand {
+            display: none;
+          }
+          .series-post-nav-toggle:checked
+            ~ .series-post-nav-header
+            .series-post-nav-toggle-icon {
+            transform: rotate(180deg);
+          }
+          .series-post-nav-list .series-post-nav-item {
+            display: none;
+          }
+          .series-post-nav-list .series-post-nav-item.is-current {
+            display: block;
+          }
+          .series-post-nav-toggle:checked
+            ~ .series-post-nav-list
+            .series-post-nav-item {
+            display: block;
+          }
         }
       </style>
 
@@ -844,6 +928,36 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           font-size: 0.78rem;
           font-variant-numeric: tabular-nums;
           color: color-mix(in oklab, var(--deep-text) 55%, transparent);
+        }
+        /* 移动端改纯文字紧凑列表（2026-11-15 批次 #2，哥哥拍板不显示图片）：
+           隐藏封面区，卡片变单行——标题单行省略、日期靠右，3 篇总高从三张
+           16/9 大卡压到三行；桌面（≥768px 三列带图卡）不受影响。 */
+        @media (max-width: 767.98px) {
+          .related-card {
+            flex-direction: row;
+          }
+          .related-card-cover {
+            display: none;
+          }
+          .related-card-body {
+            flex: 1;
+            min-width: 0;
+            flex-direction: row;
+            align-items: baseline;
+            gap: 0.6rem;
+            padding: 0.7rem 0.9rem;
+          }
+          .related-card-title {
+            display: block;
+            flex: 1;
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .related-card-date {
+            flex-shrink: 0;
+          }
         }
       </style>
     </section>
