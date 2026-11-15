@@ -3103,25 +3103,6 @@ body.banner-title-disabled #banner-links,
   font-size: 0.9rem;
 }
 
-/* 移动端磨砂降成本（2026-11-15 批次 #4）：.banner-link 的 backdrop-filter
-   只有 blur(8px)、无 saturate，单看不重；真正的成本主因是按钮位于随页面
-   滚动的 #banner-overlay 内、身后是整屏壁纸图——滚动时按钮下方的背景
-   像素每帧都在变，移动端 Safari 必须每帧重跑模糊合成，表现为磨砂慢
-   半拍才糊上（哥哥真机报）。移动端 / 粗指针改静态半透明填充 + 原描边
-   模拟磨砂：填充略提亮，补偿失去模糊后的融合感，实时 backdrop-filter
-   彻底去掉，每帧重算随之消失；桌面端保留真磨砂。 */
-@media (width <= 767px), (hover: none) and (pointer: coarse) {
-  .banner-link {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-    background: rgba(255, 255, 255, 0.22);
-  }
-
-  .banner-link:hover {
-    background: rgba(255, 255, 255, 0.3);
-  }
-}
-
 /* 弹层滚动锁：锁 html 不锁 body（原因见 utils/scroll-lock.ts）；!important 用于压过
    自定义滚动条写在 html 上的 overflow-y: var(--os-viewport-overflow-y)。 */
 html.modal-scroll-locked {

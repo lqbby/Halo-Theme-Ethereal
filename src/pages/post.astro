@@ -238,12 +238,12 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
         >
           <!-- 移动端折叠开关（纯 CSS checkbox 方案，零 JS）：与 header / list
                同级，靠 ~ 选择器联动；桌面端 CSS 不显示切换钮、列表照旧全展开。
-               仅系列多于 1 篇时渲染（1 篇时无折叠意义）。 -->
+               仅系列多于 3 篇时渲染（≤3 篇收起态已全露，无折叠意义）。 -->
           <input
             type="checkbox"
             id="series-post-nav-toggle"
             class="series-post-nav-toggle"
-            th:if="${series != null and #lists.size(series.posts) > 1}"
+            th:if="${series != null and #lists.size(series.posts) > 3}"
           />
           <div class="series-post-nav-header">
             <span
@@ -260,7 +260,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             <label
               for="series-post-nav-toggle"
               class="series-post-nav-toggle-btn"
-              th:if="${series != null and #lists.size(series.posts) > 1}"
+              th:if="${series != null and #lists.size(series.posts) > 3}"
             >
               <span class="series-post-nav-toggle-expand">展开</span>
               <span class="series-post-nav-toggle-collapse">收起</span>
@@ -373,10 +373,12 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
           background: var(--primary);
           color: var(--on-primary);
         }
-        /* ── 系列导航移动端折叠（2026-11-15 批次 #1）：系列只增不减，全清单
-           平铺会随篇数无限变长。纯 CSS checkbox 方案：隐藏的 checkbox 与
-           header / list 同级，~ 选择器联动展开态与钮文案；桌面端切换钮
-           不显示、列表照旧全展开，移动端默认只露当前篇。 ── */
+        /* ── 系列导航移动端折叠（2026-11-15 批次 #1，晚间纠正改三条）：
+           系列只增不减，全清单平铺会随篇数无限变长。纯 CSS checkbox
+           方案：隐藏的 checkbox 与 header / list 同级，~ 选择器联动
+           展开态与钮文案；桌面端切换钮不显示、列表照旧全展开，移动端
+           收起态默认露以当前篇为中心的三条（当前篇 + 渲染序前后各一，
+           当前篇居首/居尾时顺延补满三条），其余折叠在展开开关后。 ── */
         .series-post-nav {
           position: relative;
         }
@@ -429,6 +431,28 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
             display: none;
           }
           .series-post-nav-list .series-post-nav-item.is-current {
+            display: block;
+          }
+          /* 收起态窗口的另两条：当前篇在渲染序上的前一条（:has 相邻）
+             与后一条（相邻兄弟）。与上面的 is-current 规则分开写，
+             不支持 :has 的老浏览器只会丢掉这两条、退化为只露当前篇。 */
+          .series-post-nav-list
+            .series-post-nav-item:has(+ .series-post-nav-item.is-current),
+          .series-post-nav-list
+            .series-post-nav-item.is-current
+            + .series-post-nav-item {
+            display: block;
+          }
+          /* 当前篇居首 / 居尾时顺延补满第三条（首篇窗口取第 3 条、
+             尾篇窗口取倒数第 3 条） */
+          .series-post-nav-list:has(
+              > .series-post-nav-item.is-current:first-child
+            )
+            > .series-post-nav-item:nth-child(3),
+          .series-post-nav-list:has(
+              > .series-post-nav-item.is-current:last-child
+            )
+            > .series-post-nav-item:nth-last-child(3) {
             display: block;
           }
           .series-post-nav-toggle:checked
