@@ -538,6 +538,97 @@
     });
   }
 
+  // 「技术栈」折叠：分组与芯片都由服务端直出（数据 = 技能页 entries.items），
+  // 分组数 > 2 时模板给容器打 is-foldable 并渲染切换按钮（默认 hidden）。
+  // 这里只做显示侧收短：把容器高度钉在前 2 组底部，按钮切换展开/收起；
+  // 不增删任何节点，后台数据一条不动。Swup 换页后 init 重跑，守卫防重复布防。
+  function initSkillFold() {
+    var box = document.querySelector(
+      ".about-skill-groups.is-foldable:not([data-fold-ready])",
+    );
+    if (!box) return;
+    box.setAttribute("data-fold-ready", "true");
+
+    var section = box.closest("section");
+    var btn = section ? section.querySelector("[data-skill-toggle]") : null;
+    if (!btn) return;
+    var groups = Array.prototype.slice.call(
+      box.querySelectorAll(".about-skill-group"),
+    );
+    if (groups.length <= 2) return;
+
+    var label = btn.querySelector("[data-skill-toggle-text]");
+    var total =
+      box.getAttribute("data-skill-total") ||
+      String(box.querySelectorAll(".about-skill-chip").length);
+    var expanded = false;
+    var animTimer = null;
+
+    function collapsedHeight() {
+      // 前 2 组底部相对容器顶部的距离（rect 差值不受入场动画位移影响）
+      var top = box.getBoundingClientRect().top;
+      var g = groups[1].getBoundingClientRect();
+      return Math.max(0, Math.round(g.bottom - top));
+    }
+
+    function setHiddenGroups(hidden) {
+      groups.slice(2).forEach(function (g) {
+        g.classList.toggle("is-fold-hidden", hidden);
+      });
+    }
+
+    function afterAnim(fn) {
+      if (animTimer) clearTimeout(animTimer);
+      // 高度过渡走 --dur-entry（缺省 300ms），留余量兜底（不单靠 transitionend）
+      animTimer = setTimeout(fn, 380);
+    }
+
+    function fold(animate) {
+      var h = collapsedHeight();
+      if (!animate) {
+        box.style.height = h + "px";
+        setHiddenGroups(true);
+        return;
+      }
+      box.style.height = box.offsetHeight + "px";
+      // 强制回流后再设目标高度，transition 才跑得起来
+      void box.offsetHeight;
+      box.style.height = h + "px";
+      afterAnim(function () {
+        if (!expanded) setHiddenGroups(true);
+      });
+    }
+
+    function unfold() {
+      setHiddenGroups(false);
+      // scrollHeight 是被 overflow 裁剪前的完整内容高
+      box.style.height = box.scrollHeight + "px";
+      afterAnim(function () {
+        if (expanded) box.style.height = "";
+      });
+    }
+
+    btn.addEventListener("click", function () {
+      expanded = !expanded;
+      btn.setAttribute("aria-expanded", expanded ? "true" : "false");
+      if (label) {
+        label.textContent = expanded ? "收起" : "展开全部 " + total + " 项";
+      }
+      if (expanded) unfold();
+      else fold(true);
+    });
+
+    // 视口宽度变化会让芯片重排、折叠高度失效 ⇒ 折叠态下重算
+    window.addEventListener("resize", function () {
+      if (!expanded && document.contains(box)) {
+        box.style.height = collapsedHeight() + "px";
+      }
+    });
+
+    fold(false);
+    btn.hidden = false;
+  }
+
   function init() {
     var nodes = document.querySelectorAll("[data-lines]:not([data-rendered])");
     Array.prototype.slice.call(nodes).forEach(function (el) {
@@ -546,6 +637,7 @@
     });
     loadRandomFriends();
     sortTimeline();
+    initSkillFold();
   }
 
   if (document.readyState === "loading") {

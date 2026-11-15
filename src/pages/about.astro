@@ -255,8 +255,17 @@ import Canonical from "../components/misc/Canonical.astro";
         transform: translateY(-1px);
       }
 
-      /* ================= ④ 顶部导航（长条菜单）= 参考站 .profile-tabs ================= */
+      /* ================= ④ 顶部导航（长条菜单）= 参考站 .profile-tabs =================
+         吸顶：与全站侧栏吸顶同一套让位规则 —— 非首页 top = 导航栏高 + 1rem，
+         导航栏随滚动隐藏（body.dynamic-navbar-hidden）时回退到 1rem，
+         top 变化跟 --dur-banner 与侧栏同帧过渡（Layout.astro 侧栏同款）。
+         ⚠️ 本导航四项是**跨页链接**（个人资料=本页 / 博客日志 / 友链 / 朋友圈），
+         不是页内锚点 ⇒ 没有可供 scrollspy 追踪的页内区块，「个人资料」恒为
+         is-active（当前页）即正确状态，不要按滚动位置改高亮。 */
       .about-subnav {
+        position: sticky;
+        top: calc(var(--navbar-height) + 1rem);
+        z-index: 20;
         display: flex;
         flex-direction: row;
         align-items: stretch;
@@ -269,6 +278,10 @@ import Canonical from "../components/misc/Canonical.astro";
         background: color-mix(in srgb, var(--card-bg) 94%, transparent);
         box-shadow: none;
         scrollbar-width: none;
+        transition: top var(--dur-banner, 700ms) ease;
+      }
+      body.dynamic-navbar-hidden .about-subnav {
+        top: 1rem;
       }
       .about-subnav::-webkit-scrollbar {
         display: none;
@@ -872,6 +885,43 @@ import Canonical from "../components/misc/Canonical.astro";
       .about-skill-more-icon {
         font-size: 0.8rem;
       }
+      /* 技术栈折叠（显示侧收短，不删后台数据）：分组数 > 2 时服务端给容器打
+         is-foldable，extend-pages.js 把容器高度钉在前 2 组处并接管切换按钮；
+         高度过渡时长走 --dur-entry，跟随主题动效档位。无 JS 时不折叠（按钮
+         保持 hidden），内容完整可见。 */
+      .about-skill-groups.is-foldable {
+        overflow: hidden;
+        transition: height var(--dur-entry, 300ms) ease;
+      }
+      .about-skill-group.is-fold-hidden {
+        visibility: hidden;
+      }
+      .about-skill-toggle {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 0.15rem;
+        padding: 0;
+        border: none;
+        background: none;
+        color: var(--content-meta);
+        font-size: 0.66rem;
+        font-family: inherit;
+        cursor: pointer;
+        transition: color 0.18s;
+      }
+      .about-skill-toggle:hover,
+      .about-skill-toggle:focus-visible {
+        color: var(--primary);
+        outline: none;
+      }
+      .about-skill-toggle-icon {
+        font-size: 0.85rem;
+        transition: transform var(--dur-entry, 300ms) ease;
+      }
+      .about-skill-toggle[aria-expanded="true"] .about-skill-toggle-icon {
+        transform: rotate(180deg);
+      }
 
       /* ================= ⑬ 保持联系 = 参考站 .profile-connect-list ================= */
       .about-connect-list {
@@ -1289,7 +1339,10 @@ import Canonical from "../components/misc/Canonical.astro";
         .about-connect,
         .about-proj,
         .about-tile,
+        .about-subnav,
         .about-subnav-item,
+        .about-skill-groups.is-foldable,
+        .about-skill-toggle-icon,
         .about-footer-links > a,
         .about-stub-bar > i {
           transition: none;
@@ -1348,7 +1401,8 @@ import Canonical from "../components/misc/Canonical.astro";
       th:with="ident=${cfg?.identity},
         sts=${theme.config?.sidebar?.profile?.statusSettings},
         hasPrimary=${!#strings.isEmpty(ident?.actionPrimaryLabel) and !#strings.isEmpty(ident?.actionPrimaryUrl)},
-        hasSecondary=${!#strings.isEmpty(ident?.actionSecondaryLabel) and !#strings.isEmpty(ident?.actionSecondaryUrl)}"
+        hasSecondary=${!#strings.isEmpty(ident?.actionSecondaryLabel) and !#strings.isEmpty(ident?.actionSecondaryUrl)},
+        showTagline=${!#strings.isEmpty(ident?.tagline) and (#strings.isEmpty(ident?.quote) or #strings.trim(ident?.tagline) != #strings.trim(ident?.quote))}"
     >
       <div class="relative z-1 flex flex-col gap-5 sm:flex-row sm:items-center">
         <span class="about-avatar" th:if="${!#strings.isEmpty(ident?.avatar)}">
@@ -1374,9 +1428,13 @@ import Canonical from "../components/misc/Canonical.astro";
           >
             身份
           </p>
+          <!-- 座右铭去重：tagline 与「关于我」引言块 quote 是同一句时（去空白后
+               相等），身份卡这行不再单独渲染 —— 引言块是设计位，保留那边；
+               两者不同则照常都显示。判定在 section 的 th:with 里算（showTagline），
+               只改渲染、不动任何设置值。 -->
           <p
             class="about-tagline text-75"
-            th:if="${!#strings.isEmpty(ident?.tagline)}"
+            th:if="${showTagline}"
             th:text="${ident?.tagline}"
           >
             一句话简介
@@ -1918,7 +1976,8 @@ import Canonical from "../components/misc/Canonical.astro";
               dbCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'database' ? 1 : 0]) : 0},
               toolCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'tools' ? 1 : 0]) : 0},
               otherCount=${skillItems != null ? #aggregates.sum(skillItems.![category == 'other' ? 1 : 0]) : 0},
-              skillTotal=${skillItems != null ? #lists.size(skillItems) : 0}"
+              skillTotal=${skillItems != null ? #lists.size(skillItems) : 0},
+              skillGroups=${(feCount > 0 ? 1 : 0) + (beCount > 0 ? 1 : 0) + (dbCount > 0 ? 1 : 0) + (toolCount > 0 ? 1 : 0) + (otherCount > 0 ? 1 : 0)}"
           >
             <div class="about-card-head">
               <span class="about-head-icon">
@@ -1929,7 +1988,11 @@ import Canonical from "../components/misc/Canonical.astro";
               <h2 class="about-card-title text-90">技术栈</h2>
             </div>
 
-            <div class="about-skill-groups">
+            <div
+              class="about-skill-groups"
+              th:classappend="${skillGroups > 2 ? 'is-foldable' : ''}"
+              th:data-skill-total="${skillTotal}"
+            >
               <!-- 前端开发 -->
               <div class="about-skill-group" th:if="${feCount > 0}">
                 <div class="about-skill-group-head">
@@ -2118,6 +2181,23 @@ import Canonical from "../components/misc/Canonical.astro";
 
             <div class="about-skill-foot">
               <p class="about-skill-note">工具会变化，解决问题的方式会留下。</p>
+              <!-- 折叠开关：只在分组数 > 2 时渲染；默认 hidden，由 extend-pages.js
+                   完成折叠布防后才亮出（无 JS = 不折叠 = 不需要按钮） -->
+              <button
+                type="button"
+                class="about-skill-toggle"
+                th:if="${skillGroups > 2}"
+                data-skill-toggle
+                aria-expanded="false"
+                hidden
+              >
+                <span data-skill-toggle-text th:text="|展开全部 ${skillTotal} 项|"
+                  >展开全部 23 项</span
+                >
+                <span
+                  class="about-skill-toggle-icon icon-[material-symbols--expand-more-rounded]"
+                  aria-hidden="true"></span>
+              </button>
               <a class="about-skill-more" th:href="@{/skills}">
                 <span>全部 <span th:text="${skillTotal}">23</span> 项</span>
                 <span
