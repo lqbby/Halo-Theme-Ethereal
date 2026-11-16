@@ -1,11 +1,11 @@
-// 导航栏「滚动收缩」（aemeath 机制）。
+// 导航栏「滚动收缩」（aemeath 机制，仅 floating_pill 模式）。
 // 收拢机制参考 Firefly（MIT）aemeath 导航栏实现，按本站结构改写：
 // rainzt.cn 线上实测 —— 下滚超 50px 后整条导航栏不滑走，只收中间菜单胶囊，
 // 仅剩当前页那一项（Logo / 搜索 / 工具组原地不动）；上滚超 2px 临时全展开，
-// 5 秒不碰自动再收回；悬停 / 聚焦收拢后的胶囊也展开。
-// 与本站旧实现的区别：旧 scroll-manager 是整条滑走（navbar-hidden，banner
-// 阈值约半屏）；此处只收菜单、阈值固定 50px，整条滑走逻辑已删除（见
-// scroll-manager.ts），导航栏在 auto_hide 下始终可见。
+// 5 秒不碰自动再收回；悬停 / 聚焦收拢后的胶囊也展开；下滚时临时展开态
+// 立即收回（旧 scroll-manager 的方向重算，见 onScrollFrame）。
+// classic 模式不走本模块：整条滑走（navbar-hidden，banner 阈值约半屏），
+// 见 scroll-manager.ts——两模式滚动行为互不干扰（2026-11-16 用户定规）。
 // 门控：仅桌面端（≥1024px，菜单本身 lg 才可见）+ auto_hide 模式
 // （html[data-navbar-fixed]="false"）；always 模式（"true"）永不收拢。
 // 宽度与位置用 JS 实测：expanded 宽 / compact 宽 / 每项偏移量
@@ -87,9 +87,7 @@ function foldAnimate(
   const items = Array.from(
     links.querySelectorAll<HTMLElement>(".dropdown-container"),
   );
-  const activeItem = links.querySelector<HTMLElement>(
-    ".nav-compact-active",
-  );
+  const activeItem = links.querySelector<HTMLElement>(".nav-compact-active");
   const activeIndex = activeItem ? items.indexOf(activeItem) : -1;
   if (
     !links.classList.contains("is-layout-ready") ||
@@ -114,8 +112,9 @@ function foldAnimate(
   );
   const itemOffsets = items.map(
     (g) =>
-      Number.parseFloat(g.style.getPropertyValue("--nav-item-expanded-offset")) ||
-      0,
+      Number.parseFloat(
+        g.style.getPropertyValue("--nav-item-expanded-offset"),
+      ) || 0,
   );
   const activeCenter = itemCenters[activeIndex];
   const activeOffset = itemOffsets[activeIndex];
@@ -146,13 +145,33 @@ function foldAnimate(
   foldingEl = links;
   const activeKeyframes: Keyframe[] = expand
     ? [
-        { left: leftAt(activeOffset), transform: translateAt(activeCenter - activeOffset), offset: 0, easing: ease },
-        { left: leftAt(activeOffset), transform: translateAt(0), offset: 0.46, easing: ease },
+        {
+          left: leftAt(activeOffset),
+          transform: translateAt(activeCenter - activeOffset),
+          offset: 0,
+          easing: ease,
+        },
+        {
+          left: leftAt(activeOffset),
+          transform: translateAt(0),
+          offset: 0.46,
+          easing: ease,
+        },
         { left: leftAt(activeOffset), transform: translateAt(0), offset: 1 },
       ]
     : [
-        { left: leftAt(0), transform: translateAt(activeCenter), offset: 0, easing: ease },
-        { left: leftAt(0), transform: translateAt(activeCenter), offset: FOLD_FADE_END, easing: ease },
+        {
+          left: leftAt(0),
+          transform: translateAt(activeCenter),
+          offset: 0,
+          easing: ease,
+        },
+        {
+          left: leftAt(0),
+          transform: translateAt(activeCenter),
+          offset: FOLD_FADE_END,
+          easing: ease,
+        },
         { left: leftAt(0), transform: translateAt(0), offset: 1 },
       ];
   const activeAnim = activeItem.animate(activeKeyframes, opts);
@@ -164,15 +183,35 @@ function foldAnimate(
       const fadePoint = Math.min(0.51, 0.29 + dist * 0.03);
       const keyframes: Keyframe[] = expand
         ? [
-            { left: leftAt(itemCenters[i]), opacity: itemOpacities[i], offset: 0, easing: ease },
+            {
+              left: leftAt(itemCenters[i]),
+              opacity: itemOpacities[i],
+              offset: 0,
+              easing: ease,
+            },
             { left: leftAt(activeOffset), opacity: 0, offset: 0.46 },
-            { left: leftAt(activeOffset), opacity: 0.12, offset: 1 - fadePoint, easing: ease },
+            {
+              left: leftAt(activeOffset),
+              opacity: 0.12,
+              offset: 1 - fadePoint,
+              easing: ease,
+            },
             { left: leftAt(itemOffsets[i]), opacity: 1, offset: 1 },
           ]
         : [
-            { left: leftAt(itemCenters[i]), opacity: itemOpacities[i], offset: 0, easing: ease },
+            {
+              left: leftAt(itemCenters[i]),
+              opacity: itemOpacities[i],
+              offset: 0,
+              easing: ease,
+            },
             { left: leftAt(activeCenter), opacity: 0.12, offset: fadePoint },
-            { left: leftAt(activeCenter), opacity: 0, offset: FOLD_FADE_END, easing: ease },
+            {
+              left: leftAt(activeCenter),
+              opacity: 0,
+              offset: FOLD_FADE_END,
+              easing: ease,
+            },
             { left: leftAt(0), opacity: 0, offset: 1 },
           ];
       return [g.animate(keyframes, opts)];
@@ -215,19 +254,14 @@ function updateRevealDelay(links: HTMLElement): void {
 
 /** 子菜单展开跟踪（rainzt h）：悬停/聚焦到带子菜单的顶级项时标记
  *  .nav-submenu-open，离开时清除；揭示延迟按折叠动画剩余时间算。 */
-function trackSubmenuOpen(
-  links: HTMLElement,
-  target: Element | null,
-): void {
+function trackSubmenuOpen(links: HTMLElement, target: Element | null): void {
   const open =
     target?.matches(".dropdown-container") &&
     links.contains(target) &&
     target.querySelector(":scope > .submenu-panel")
       ? target
       : null;
-  const current = links.querySelector(
-    ".dropdown-container.nav-submenu-open",
-  );
+  const current = links.querySelector(".dropdown-container.nav-submenu-open");
   if (current === open) return;
   if (current) current.classList.remove("nav-submenu-open");
   if (!open) return;
@@ -298,6 +332,9 @@ export function remeasureNavbarCollapse(): void {
   const nav = navbar();
   const links = navLinks();
   if (!nav || !links) return;
+  // 仅胶囊模式量宽/收拢；classic 下本函数是空操作（init 已门控，此处
+  // 再守一道，防外部直接调用时给 classic 菜单打上收拢标记）。
+  if (!nav.classList.contains("navbar-style-floating-pill")) return;
   if (window.innerWidth < DESKTOP_MIN_WIDTH) {
     links.classList.remove("is-layout-ready");
     return;
@@ -371,7 +408,10 @@ export function remeasureNavbarCollapse(): void {
   links.style.setProperty("--nav-links-compact-width", `${compactWidth}px`);
   markCompactActive(links);
   items.forEach((g, i) => {
-    g.style.setProperty("--nav-item-expanded-offset", `${itemOffsets[i] || 0}px`);
+    g.style.setProperty(
+      "--nav-item-expanded-offset",
+      `${itemOffsets[i] || 0}px`,
+    );
   });
   links.classList.add("is-layout-ready");
   // 换页后菜单项可能换过节点：把当前各项重新交给 ResizeObserver
@@ -504,6 +544,21 @@ function onScrollFrame(): void {
     if (links) foldAnimate(links, !shouldCollapse, apply);
     else apply();
   }
+  // 收拢态下滚（delta > 0 且已过收拢阈值）：临时展开态立即收回。
+  // 旧 scroll-manager 每帧按方向重算显隐（下滚即收）；现实现只在
+  // shouldCollapse 翻转时才动，撞上临时展开窗口期（上滚/悬停刚展开）的
+  // 下滚什么都不做、只能等 5 秒定时器——这就是用户报的「有时候下滚收不了」。
+  // 悬停/聚焦中不强制收（用户正在用菜单；定时器与 onPointerLeave 接手）。
+  if (
+    nav.classList.contains("scrolled") &&
+    delta > 0 &&
+    shouldCollapse &&
+    links?.classList.contains("is-hover-expanded") &&
+    !links.matches(":hover, :focus-within")
+  ) {
+    clearRecollapseTimer();
+    revealMenu(nav, false);
+  }
   // 收拢态下上滚超 2px：临时全展开（5 秒后自动收回）
   if (nav.classList.contains("scrolled") && delta < SCROLL_UP_DELTA_PX) {
     tempExpand(nav, false);
@@ -544,15 +599,26 @@ function resetOnBehaviorChange(): void {
   onScrollFrame();
 }
 
-/** 初始化（rainzt T + 事件接线）：app.ts 调用一次；重复调用空转。 */
+/** 初始化（rainzt T + 事件接线）：app.ts 调用一次；重复调用空转。
+ *  模式门控：收拢机制只在 floating_pill 下生效（rainzt 胶囊机制）；
+ *  classic 用旧整条滑走（scroll-manager.ts），本模块不接管——
+ *  两模式滚动行为互不干扰（2026-11-16 用户定规）。样式由
+ *  theme.config 渲染进 #navbar 的 navbar-style-floating-pill 类，
+ *  后台改样式要重载主题，故首帧判定一次即可。 */
 export function initNavbarCollapse(): void {
   const nav = navbar();
   const links = navLinks();
   if (!nav || !links) return;
-  if ((window as unknown as { __etherealNavbarCollapseBound?: boolean }).__etherealNavbarCollapseBound) {
+  if (!nav.classList.contains("navbar-style-floating-pill")) return;
+  if (
+    (window as unknown as { __etherealNavbarCollapseBound?: boolean })
+      .__etherealNavbarCollapseBound
+  ) {
     return;
   }
-  (window as unknown as { __etherealNavbarCollapseBound?: boolean }).__etherealNavbarCollapseBound = true;
+  (
+    window as unknown as { __etherealNavbarCollapseBound?: boolean }
+  ).__etherealNavbarCollapseBound = true;
 
   links.addEventListener("pointerenter", () => {
     tempExpand(nav, false);

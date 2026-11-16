@@ -1004,13 +1004,13 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
       }
 
       /* 桌面端导航栏统一 fixed 定位固定在顶部（固定/非固定模式共用）。
-         整条导航栏永不滑走（aemeath 机制：auto_hide 只收菜单胶囊，
-         navbar-hidden 整条滑走逻辑已删，scroll-manager 不再加该类）；
-         两模式的区别仅在「菜单是否随滚动收拢」：固定模式（always）永不收拢，
-         非固定模式（auto_hide）由 navbar-collapse.ts 按滚动加/移除
-         #navbar.scrolled。若只让固定模式 fixed、非固定模式保持 sticky，
-         非固定模式下导航栏 sticky 范围仅 #top-row 高度（72px），滚动后随容器
-         滚出视口、上滑回不来——故必须统一 fixed。 */
+         滚动行为按样式模式分流（两模式互不干扰）：floating_pill 下整条永不
+         滑走（aemeath：auto_hide 只收菜单胶囊，navbar-hidden 被中和）；
+         classic 下 auto_hide 整条滑走（navbar-hidden，scroll-manager.ts
+         方向判定）。固定模式（always）两种样式都永不收拢/滑走。
+         若只让固定模式 fixed、非固定模式保持 sticky，非固定模式下导航栏
+         sticky 范围仅 #top-row 高度（72px），滚动后随容器滚出视口、上滑
+         回不来——故必须统一 fixed。 */
       @media (min-width: 1024px) {
         #navbar-wrapper {
           position: fixed !important;
@@ -1035,10 +1035,14 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
           opacity: 1 !important;
           visibility: visible !important;
         }
-        /* 非固定模式（auto_hide）同样永不滑走：aemeath 只收菜单胶囊，
-           scroll-manager 已不再加 navbar-hidden；此处与固定模式同款中和，
-           防其它代码残留该类时导航栏被藏起 */
-        html[data-navbar-fixed="false"] #navbar-wrapper.navbar-hidden {
+        /* 非固定模式（auto_hide）+ 胶囊模式：整条永不滑走（aemeath 只收菜单
+           胶囊），中和残留的 navbar-hidden；classic 模式下 navbar-hidden
+           是正常滑走（scroll-manager.ts 方向判定），不得中和——:has 限定
+           只命中胶囊模式的 wrapper */
+        html[data-navbar-fixed="false"]
+          #navbar-wrapper:has(
+            #navbar.navbar-style-floating-pill
+          ).navbar-hidden {
           translate: none !important;
           opacity: 1 !important;
           visibility: visible !important;
@@ -1069,11 +1073,10 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
         #right-sidebar-sticky:has(#toc-inner-wrapper-right) {
           max-height: calc(100vh - var(--navbar-height) - 2rem) !important;
         }
-        /* body.dynamic-navbar-hidden 回退规则（保留为兜底，当前不再触发）：
-           旧机制里导航栏整条滑走时（scroll-manager 给 body 加该类），侧边栏
-           回退到「无导航栏」基准，否则顶部空出一大块；aemeath 下导航栏永不滑走、
-           该类不再被加上（setNavbarScroll 仍会在切换时清它，B2），三类页面
-           的回退值保留原样，万一将来某处重加该类仍能正确回退。
+        /* body.dynamic-navbar-hidden 回退规则（classic + auto_hide 时触发）：
+           classic 模式导航栏整条滑走时（scroll-manager 给 body 加该类），侧边栏
+           回退到「无导航栏」基准，否则顶部空出一大块；floating_pill 下导航栏
+           永不滑走、该类不被加上（setNavbarScroll 仍会在切换时清它，B2）。
            原始 top：非首页 1rem / 首页有 banner 重叠 1rem-extend /
            首页无 banner 1rem。固定模式永不隐藏（class 不会被加），本块
            不命中，保持 72px 下移。 */

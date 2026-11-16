@@ -1,14 +1,29 @@
-// 滚动 & 窗口调整处理（back-to-top、TOC）。
+// 滚动 & 窗口调整处理（back-to-top、TOC、导航栏）。
 // banner/波浪/is-home 同步逻辑在 banner-sync.ts（含 resize 重算延伸高度）。
-// 导航栏滚动行为不在此：auto_hide 下只收菜单胶囊、整条导航栏永不滑走，
-// 见 navbar-collapse.ts（aemeath 机制）；旧整条滑走（navbar-hidden、
-// banner 阈值约半屏）已删除。
-import { BANNER_HEIGHT } from "../constants/constants";
+// 导航栏滚动行为按模式分流（两模式互不干扰，2026-11-16 用户定规）：
+// floating_pill 下只收菜单胶囊、整条永不滑走，见 navbar-collapse.ts
+// （aemeath 机制）；classic 下整条滑走（navbar-hidden，banner 阈值约半屏，
+// 旧实现，df49578 误删后于第四轮恢复），见下方 scrollFunction 末尾。
+import {
+  BANNER_HEIGHT,
+  MAIN_PANEL_OVERLAPS_BANNER_HEIGHT,
+} from "../constants/constants";
 import { bannerHomeHeight } from "./banner-sync";
 import { readDurBannerMs } from "./dur-banner";
 
 // 语义化常量，替代硬编码魔法数字
-// （导航栏滚动收拢的 1024px 桌面断点在 navbar-collapse.ts 内自管）
+// 导航栏高度（4.5rem × 16px），与 CSS 变量 --navbar-height 对应（variables.css）
+const NAVBAR_HEIGHT_PX = 72;
+const BASE_SPACING_PX = 16; // 基础间距（1rem = 16px）
+// 移动/平板（<1024px / lg）共用抽屉菜单，导航栏不随滚动隐藏；
+// 桌面端（≥lg）才启用 classic 整条滑走（胶囊收拢的 1024px 桌面断点
+// 在 navbar-collapse.ts 内自管）
+const MOBILE_BREAKPOINT = 1024;
+
+const bannerEnabled = Boolean(document.getElementById("banner-wrapper"));
+
+// 上次滚动位置，用于 classic 滑走的方向感知（delta = scrollY - lastScrollY）
+let lastScrollY = window.scrollY;
 
 // 缓存 DOM 引用，避免每次 scroll 帧重复 getElementById
 // 使用 isConnected 自动检测 Swup 页面切换后的失效引用
@@ -39,6 +54,7 @@ function getGrid() {
 function scrollFunction() {
   const backToTopBtn = getBackToTopBtn();
   const toc = getToc();
+  const navbar = getNavbar();
   const currentBannerHeight = document.body.classList.contains("is-home")
     ? bannerHomeHeight()
     : BANNER_HEIGHT;
@@ -71,6 +87,40 @@ function scrollFunction() {
     );
   }
 
+  // classic 模式整条滑走（旧实现，df49578 误删后恢复）：每帧按方向重算显隐，
+  // 上滑（delta<0）或仍在顶部（scrollY<=threshold）显示，下滑且离开顶部
+  // （delta>0 && scrollY>threshold）隐藏（对齐 firefly dynamic 模式）。
+  // threshold = banner 高 − 导航栏高 − 主面板重叠 − 基础间距（约半屏）。
+  // floating_pill 下跳过（胶囊收拢由 navbar-collapse.ts 管，整条永不滑走）；
+  // 固定导航栏模式（always）跳过，始终显示；移动端跳过。
+  // 导航栏隐藏时给 body 加类，供侧边栏吸顶位置回退（Layout.astro 消费）。
+  const delta = scrollY - lastScrollY;
+  lastScrollY = scrollY;
+  const navbarEl = document.getElementById("navbar");
+  const isPill =
+    navbarEl?.classList.contains("navbar-style-floating-pill") ?? false;
+  if (
+    window.innerWidth >= MOBILE_BREAKPOINT &&
+    bannerEnabled &&
+    navbar &&
+    !isPill &&
+    document.documentElement.dataset.navbarFixed !== "true"
+  ) {
+    const threshold =
+      bannerHeightPx -
+      NAVBAR_HEIGHT_PX -
+      MAIN_PANEL_OVERLAPS_BANNER_HEIGHT * BASE_SPACING_PX -
+      BASE_SPACING_PX;
+    if (delta < 0 || scrollY <= threshold) {
+      navbar.classList.remove("navbar-hidden");
+    } else if (delta > 0 && scrollY > threshold) {
+      navbar.classList.add("navbar-hidden");
+    }
+    document.body.classList.toggle(
+      "dynamic-navbar-hidden",
+      navbar.classList.contains("navbar-hidden"),
+    );
+  }
 }
 
 // 全屏首页向下箭头（#scroll-down-indicator）点击目标：手算平滑滚动到内容区。
@@ -78,8 +128,9 @@ function scrollFunction() {
 // 使"页面背景顶部边缘"（banner 底边，100vh）对齐视口顶部而非网格顶边。
 // Chrome 平滑 scrollIntoView 会忽略 scroll-margin，故必须手算；间距直接读
 // CSS 变量（rem）按根字号换算 px，不再借用 scroll-margin-top 传值（语义扭曲）。
-// 导航栏在两种模式下都常驻顶部（aemeath：auto_hide 只收菜单胶囊、整条永不滑走；
-// always 同样常驻），落点一律再上移导航栏高度使"导航栏底边"对齐页面背景顶部边缘；
+// 落点是否让位给导航栏按模式分流：classic + auto_hide 时导航栏滚动后会滑走
+// （无需让位，偏移 0）；其余情况（floating_pill / always / 移动端）导航栏
+// 常驻顶部，落点再上移导航栏高度使"导航栏底边"对齐页面背景顶部边缘；
 // 高度动态测量（移动端强制固定，断点间可能不同）
 export function scrollDownToContent(): void {
   const grid = getGrid();
@@ -88,7 +139,15 @@ export function scrollDownToContent(): void {
   const gap =
     (parseFloat(cs.getPropertyValue("--banner-home-content-gap")) || 0) *
     (parseFloat(cs.fontSize) || 16);
-  const navbarOffset = getNavbar()?.getBoundingClientRect().height || 0;
+  const navbarEl = document.getElementById("navbar");
+  const classicHides =
+    window.innerWidth >= MOBILE_BREAKPOINT &&
+    navbarEl &&
+    !navbarEl.classList.contains("navbar-style-floating-pill") &&
+    document.documentElement.dataset.navbarFixed !== "true";
+  const navbarOffset = classicHides
+    ? 0
+    : getNavbar()?.getBoundingClientRect().height || 0;
   // 向下箭头：从 banner 到内容约 65vh，属跳转类滚动 ⇒ 走距离门控（短则平滑）
   smartScrollTo(
     window.scrollY + grid.getBoundingClientRect().top - gap - navbarOffset,

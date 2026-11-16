@@ -26,7 +26,8 @@ const className = Astro.props.class;
   <div class="navbar-blur absolute left-0 right-0 -top-8 h-8 transition"></div>
 
   <!-- 分离的模糊背景层：承载 backdrop-filter，避免 Backdrop Root 阻断子元素；
-       navbar-blur-main 供 classic 壳底边圆角（0 0 .75rem .75rem）单独命中，
+       navbar-blur-main 供 classic 壳底边圆角单独命中（--radius-large = 1rem，
+       df49578 曾改为 0.75rem 对齐 rainzt 外壳，第四轮恢复经典值），
        与上方 -top-8 延伸层区分 -->
   <div
     class="navbar-blur navbar-blur-main absolute left-0 right-0 top-0 h-[4.5rem] rounded-(--radius-large) !rounded-t-none transition"
@@ -70,8 +71,9 @@ const className = Astro.props.class;
       </div>
     </a>
 
-    <!-- 菜单胶囊（aemeath 收拢的目标）：nav-links 类供 navbar-collapse.ts
-         量宽/收拢；col-start-2 只定未量宽前的流内位置，量宽后
+    <!-- 菜单胶囊（aemeath 收拢的目标，仅 floating_pill 模式）：
+         nav-links 类供 navbar-collapse.ts 量宽/收拢（classic 下该模块不启动，
+         菜单是通栏内流式 flex）；col-start-2 只定未量宽前的流内位置，量宽后
          is-layout-ready 以 grid-column:auto 脱 grid 定位、按整卡居中
          （带 col-start-2 时绝对定位的包含块是其中间列 grid 区域，
          left:50% 只能对中间列居中、偏右约 72px）。每项 .group 再挂

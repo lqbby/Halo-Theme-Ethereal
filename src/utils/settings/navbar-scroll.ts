@@ -6,9 +6,9 @@ import { storageGet, storageRemove, storageSet } from "./storage";
  * 老 navbarFixed 开关已彻底移除，不再兼容兜底（缺失时默认 auto_hide）。
  * 访客在显示设置面板「外观 → 导航栏」切换后写入 localStorage；
  * VisitorStyleBoot.astro 首帧把生效值换算进 html[data-navbar-fixed]，
- * navbar-collapse.ts 只读该属性的 "true"/"false"（true=always 永不收拢，
- * false=auto_hide 下滚收菜单胶囊）。
- * 取值与后台 select 的 auto_hide / always 对齐。 */
+ * navbar-collapse.ts 与 scroll-manager.ts 只读该属性的 "true"/"false"
+ * （true=always 永不收拢/滑走；false=auto_hide：floating_pill 下滚收菜单
+ * 胶囊，classic 下滚整条滑走）。取值与后台 select 的 auto_hide / always 对齐。 */
 
 export type NavbarScrollMode = "auto_hide" | "always";
 
@@ -44,9 +44,7 @@ export function setNavbarScroll(mode: NavbarScrollMode): void {
   storageSet("navbarScroll", mode);
   document.documentElement.dataset.navbarFixed =
     mode === "always" ? "true" : "false";
-  document
-    .getElementById("navbar-wrapper")
-    ?.classList.remove("navbar-hidden");
+  document.getElementById("navbar-wrapper")?.classList.remove("navbar-hidden");
   document.body.classList.remove("dynamic-navbar-hidden");
   window.dispatchEvent(new CustomEvent("navbarBehaviorChange"));
 }

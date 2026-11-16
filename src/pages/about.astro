@@ -258,8 +258,9 @@ import { assetVersion } from "../utils/asset-version";
 
       /* ================= ④ 顶部导航（长条菜单）= 参考站 .profile-tabs =================
          吸顶：与全站侧栏吸顶同一套让位规则 —— 非首页 top = 导航栏高 + 1rem，
-         旧机制里导航栏随滚动隐藏（body.dynamic-navbar-hidden）时回退到 1rem；
-         aemeath 下导航栏永不滑走、该类不再被加上，回退规则保留为兜底。
+         classic + auto_hide 时导航栏随滚动滑走（body.dynamic-navbar-hidden）
+         回退到 1rem；floating_pill 下导航栏永不滑走、该类不被加上。
+         top 变化跟 --dur-banner 与侧栏同帧过渡（Layout.astro 侧栏同款）。
          top 变化跟 --dur-banner 与侧栏同帧过渡（Layout.astro 侧栏同款）。
          ⚠️ 本导航四项是**跨页链接**（个人资料=本页 / 博客日志 / 友链 / 朋友圈），
          不是页内锚点 ⇒ 没有可供 scrollspy 追踪的页内区块，「个人资料」恒为
@@ -1783,9 +1784,7 @@ import { assetVersion } from "../utils/asset-version";
             <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
               <div>
                 <p class="about-section-label">
-                  <span
-                    class="icon-[mdi--github]"
-                    aria-hidden="true"></span>
+                  <span class="icon-[mdi--github]" aria-hidden="true"></span>
                   <span>GITHUB ACTIVITY</span>
                 </p>
                 <h2 class="about-card-title mt-1 text-90">GitHub 活跃度</h2>
@@ -2003,7 +2002,7 @@ import { assetVersion } from "../utils/asset-version";
                 class="about-activity"
                 th:each="m : ${aboutMoments}"
                 th:with="momentText=${m?.spec?.content?.raw != null
-                    ? m?.spec?.content?.raw.replaceAll('<[^>]*>', ' ').replaceAll('&amp;nbsp;', ' ').replaceAll('&amp;lt;', '&lt;').replaceAll('&amp;gt;', '&gt;').replaceAll('&amp;#39;', '''').replaceAll('&amp;quot;', '&quot;').replaceAll('&amp;amp;', '&amp;').trim()
+                    ? m?.spec?.content?.raw.replaceAll('<[^>]*>', ' ').replaceAll('&nbsp;', ' ').replaceAll('&lt;', '<').replaceAll('&gt;', '>').replaceAll('&#39;', '''').replaceAll('&quot;', '&quot;').replaceAll('&amp;', '&').trim()
                     : ''},
                   momentLabel=${#strings.isEmpty(momentText) ? '分享了一条瞬间' : momentText}"
                 th:data-time="${m?.spec?.releaseTime}"
@@ -2259,8 +2258,9 @@ import { assetVersion } from "../utils/asset-version";
                 aria-expanded="false"
                 hidden
               >
-                <span data-skill-toggle-text th:text="|展开全部 ${skillTotal} 项|"
-                  >展开全部 23 项</span
+                <span
+                  data-skill-toggle-text
+                  th:text="|展开全部 ${skillTotal} 项|">展开全部 23 项</span
                 >
                 <span
                   class="about-skill-toggle-icon icon-[material-symbols--expand-more-rounded]"
