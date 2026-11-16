@@ -9,6 +9,7 @@
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <MainGridLayout
@@ -269,6 +270,6 @@ import Canonical from "../components/misc/Canonical.astro";
   <!-- 评论区锚点落位高亮（comment-locate.ts，与 post.astro / page.astro 同源） -->
   <script
     th:if="${haloCommentEnabled && (singlePage.spec.allowComment != false)}"
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/comment-locate.js?v=${assetVersion("assets/comment-locate.js")}`}
     defer></script>
 </MainGridLayout>

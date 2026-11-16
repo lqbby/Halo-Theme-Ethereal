@@ -13,6 +13,7 @@
 //   未配置（或取不到）时保持占位（— / 0%），不伪造数据。
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <MainGridLayout
@@ -2433,6 +2434,6 @@ import Canonical from "../components/misc/Canonical.astro";
        + 「最近的提交」两组数据归并排序 -->
   <script
     is:inline
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/extend-pages.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/extend-pages.js?v=${assetVersion("assets/extend-pages.js")}`}
     defer></script>
 </MainGridLayout>

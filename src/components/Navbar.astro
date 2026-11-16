@@ -5,6 +5,7 @@ import SiteLogo from "./SiteLogo.astro";
 import DisplaySettings from "./widget/DisplaySettings.svelte";
 import LanguageSwitch from "./widget/LanguageSwitch.svelte";
 import NavMenuPanel from "./widget/NavMenuPanel.astro";
+import { assetVersion } from "../utils/asset-version";
 
 const className = Astro.props.class;
 /* 注：访客样式面板默认**全站渲染**（只要有 Navbar 就有入口）。
@@ -245,6 +246,6 @@ const className = Astro.props.class;
      （v1.7.24 换页重执行减负）。导航栏在 Swup 容器外、跨页持久，绑定一次
      长期有效。 -->
 <script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/navbar.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/navbar.js?v=${assetVersion("assets/navbar.js")}`}
   data-swup-ignore-script
   defer></script>

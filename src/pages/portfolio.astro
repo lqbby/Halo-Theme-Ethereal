@@ -4,6 +4,7 @@ import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import PortfolioCard from "../components/PortfolioCard.astro";
 import "../styles/list-filter.css";
+import { assetVersion } from "../utils/asset-version";
 
 // 就地筛选（1.5.10）：本页**全量渲染**（listBy 不再传平台/类型/标签条件）+ 纯客户端过滤，
 // 点胶囊 0 请求、瞬时切显隐，与 /links 的友链筛选同一交互。
@@ -219,7 +220,7 @@ const noFilter = "${projectFinder.listBy('', '', '', '', 1, 999)}";
 
   <!-- 选中态 / 显隐全靠客户端（见 portfolio-filter.js） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/portfolio-filter.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/portfolio-filter.js?v=${assetVersion("assets/portfolio-filter.js")}`}
     defer></script>
 
   <!-- 作品集池滑块：本页是**客户端筛选**（portfolio-filter.js 只切 is-active/seg-active，

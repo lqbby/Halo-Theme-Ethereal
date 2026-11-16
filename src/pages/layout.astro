@@ -40,6 +40,7 @@ import "../styles/transition.css";
 import "../styles/speed.css";
 import "../styles/scrollbar.css";
 import ReloadRestore from "../components/misc/ReloadRestore.astro";
+import { assetVersion } from "../utils/asset-version";
 
 // 🚀 性能：同 src/layouts/Layout.astro —— 剔除 extendPages 那份只在服务端消费的大块内容数据
 // （实测占整份 JSON 的 52%）。两个外壳必须保持一致，否则插件页仍会背全量配置。
@@ -310,14 +311,14 @@ const contentSlot = `<th:block th:replace="\${content}" />`;
     }
     <script
       th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${assetVersion("assets/footer-friends.js")}`}
       defer></script>
 
     <!-- 樱花特效：插件页外壳不走 MainGridLayout，必须在此再挂一次（「两个外壳」约定，
          门控条件与 MainGridLayout 保持完全一致） -->
     <script
       th:if="${theme.config?.style?.styleSwitches?.sakura == true or theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${assetVersion("assets/sakura.js")}`}
       defer></script>
 
     <!-- Halo 核心页脚注入（备案/统计等）；halo: 前缀元素无法直接写 JSX，按

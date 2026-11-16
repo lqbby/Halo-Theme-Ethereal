@@ -1,6 +1,7 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <!--
@@ -1068,6 +1069,6 @@ import Canonical from "../components/misc/Canonical.astro";
 
   <script
     is:inline
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/statistics-dashboard.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/statistics-dashboard.js?v=${assetVersion("assets/statistics-dashboard.js")}`}
     defer></script>
 </MainGridLayout>

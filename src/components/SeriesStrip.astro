@@ -38,6 +38,7 @@
  *    所以 下标 0 = 最新 = 总篇数）。LQ 目前 8 篇文章都没填 `seriesOrder`，走的就是后一条。
  */
 import SeriesStripCard from "./SeriesStripCard.astro";
+import { assetVersion } from "../utils/asset-version";
 
 /** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
 /** 一行可见卡片数：桌面 5 / 平板 3 / 手机 2（写进 style 的自定义属性，供 CSS 读） */
@@ -233,7 +234,7 @@ const MAX_POSTS_PER_SERIES = 30;
 <!-- 行为脚本（经典脚本产物）：系列切换 + 横向滚动导航 -->
 <script
   is:inline
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/series-strip.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/series-strip.js?v=${assetVersion("assets/series-strip.js")}`}
   defer></script>
 
 <style is:global>

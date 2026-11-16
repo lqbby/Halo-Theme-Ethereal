@@ -2,6 +2,7 @@
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <!--
@@ -22,7 +23,7 @@ import PageHeader from "../components/control/PageHeader.astro";
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <link
       rel="stylesheet"
-      href={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.css?v=${ASSET_VERSION}`}
+      href={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.css?v=${assetVersion("assets/wishes.css")}`}
     />
     <!-- 页面级 i18n 注入（参照 PhotoI18n 模式，合并到全局 i18nResources，供 wishes.js 读取） -->
     <script is:inline th:inline="javascript">
@@ -333,9 +334,10 @@ import PageHeader from "../components/control/PageHeader.astro";
         );
       }
       // 页头「x 便签」统计片：类型筛选是客户端行为，服务端给的是全部已通过张数，
-      // 需要按当前可见卡片重算。放在内联脚本而非 wishes.js：外部脚本 URL 带
-      // 固定 ?v=<主题版本>，版本未升时浏览器可能命中旧缓存（本项曾因此不生效），
-      // 内联脚本始终随模板更新。
+      // 需要按当前可见卡片重算。放在内联脚本而非 wishes.js：外部脚本 URL 的
+      // ?v= 曾固定为主题版本，版本未升时浏览器可能命中旧缓存（本项曾因此不生效）；
+      // ?v= 现已改内容哈希（src/utils/asset-version.ts），但此逻辑与模板同
+      // 生命周期，放内联脚本更直接。
       function syncNotesStat() {
         var stat = document.querySelector('[data-stat="wish-notes"] b');
         if (!stat) return;
@@ -392,7 +394,7 @@ import PageHeader from "../components/control/PageHeader.astro";
   </script>
 
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/wishes.js?v=${assetVersion("assets/wishes.js")}`}
     defer
     is:inline></script>
 </MainGridLayout>

@@ -4,6 +4,7 @@ import Canonical from "../components/misc/Canonical.astro";
 import CopyButton from "../components/CopyButton.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <MainGridLayout
@@ -727,14 +728,14 @@ import PageHeader from "../components/control/PageHeader.astro";
        六个脚本合并为单请求；link-apply 与 random-visit 的原 th:if 门控改由脚本内部守卫
        （按钮/模态框不存在即不绑定，行为等价，见 links.bundle.js 各 IIFE 注释） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/links.bundle.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/links.bundle.js?v=${assetVersion("assets/links.bundle.js")}`}
     defer
     is:inline></script>
 
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${assetVersion("assets/filter-seg.js")}`}
     defer
     is:inline></script>
 

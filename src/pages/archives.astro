@@ -5,6 +5,7 @@ import Pagination from "../components/control/Pagination.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import { assetVersion } from "../utils/asset-version";
 
 // 分类筛选：由页面内分类选择器（FilterTabs，moment 同款）驱动，
 // 分类导航栏（CategoryBar）在归档页不再转换筛选模式，仅保留 permalink。
@@ -721,7 +722,7 @@ const yearCountThWith = `postCount=\${archive.months == null or #lists.isEmpty(a
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${assetVersion("assets/filter-seg.js")}`}
     defer
     is:inline></script>
 </MainGridLayout>

@@ -1,4 +1,5 @@
 ---
+import { assetVersion } from "../utils/asset-version";
 // 瞬间媒体区（朋友圈式布局）：moments 列表页与 moment 详情页共用。
 // 依赖外层已定义的 Thymeleaf 变量 content（= moment.spec.content）；
 // 布局样式见 src/styles/components.css 的「瞬间媒体区」段。
@@ -59,6 +60,6 @@
 </div>
 
 <script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/moment-media-badge.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/moment-media-badge.js?v=${assetVersion("assets/moment-media-badge.js")}`}
   defer
   is:inline></script>

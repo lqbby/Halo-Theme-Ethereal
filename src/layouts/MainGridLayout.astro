@@ -26,6 +26,7 @@ import {
   carouselThWith,
 } from "../utils/image-suffix";
 import Layout from "./Layout.astro";
+import { assetVersion } from "../utils/asset-version";
 
 interface Props {
   title?: string;
@@ -853,35 +854,35 @@ const {
        判定前必须读脚本是否整段守卫（guardOnce / window 标志 / 早退 return）。 -->
   <div th:with={bannerThWith()} th:remove="tag">
     <script
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-responsive.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-responsive.js?v=${assetVersion("assets/banner-responsive.js")}`}
       defer></script>
     <script
       th:if="${mode == 'carousel' or (mobileActive and mobileMode == 'carousel')}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-carousel.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-carousel.js?v=${assetVersion("assets/banner-carousel.js")}`}
       data-swup-ignore-script
       defer></script>
     <script
       th:if="${(mode == 'single' and isVideo) or (mobileActive and mobileIsVideo)}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-media.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-media.js?v=${assetVersion("assets/banner-media.js")}`}
       data-swup-ignore-script
       defer></script>
     <script
       th:if="${mobileActive}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-src-switch.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-src-switch.js?v=${assetVersion("assets/banner-src-switch.js")}`}
       defer></script>
     <!-- 暗色壁纸切换：监听 html.dark 变化，把带 data-theme-src 的 banner 图片
          在亮/暗两套壁纸间切换（无 data-theme-src 时无副作用） -->
     <script
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-theme-switch.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-theme-switch.js?v=${assetVersion("assets/banner-theme-switch.js")}`}
       data-swup-ignore-script
       defer></script>
     <script
       th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.subtitleEffect == null or theme.config?.style?.bannerText?.subtitleEffect == 'typewriter'}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-typewriter.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-typewriter.js?v=${assetVersion("assets/banner-typewriter.js")}`}
       defer></script>
     <script
       th:if="${theme.config?.style?.bannerText != null and theme.config?.style?.bannerText?.subtitleEffect == 'drop'}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-drop.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-drop.js?v=${assetVersion("assets/banner-drop.js")}`}
       defer></script>
     <!-- 樱花特效（源码 src/scripts/assets/sakura.ts → 产物 /assets/sakura.js，Web Worker 绘制）。
          门控：后台「样式开关 → 樱花特效」开启 ⇒ 必须加载；否则仅在总开关允许访客切换时加载
@@ -889,7 +890,7 @@ const {
          🔴 两个外壳都要挂：插件页外壳 src/pages/layout.astro 不走本布局，漏挂则该壳无樱花 -->
     <script
       th:if="${theme.config?.style?.styleSwitches?.sakura == true or theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${ASSET_VERSION}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${assetVersion("assets/sakura.js")}`}
       data-swup-ignore-script
       defer></script>
   </div>
@@ -920,7 +921,7 @@ const {
   }
   <script
     th:if="${(theme.config?.mods?.enable == null ? true : theme.config?.mods?.enable) && ((theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish) == null || (theme.config?.extendPages?.friends != null ? theme.config?.extendPages?.friends?.enable_random_fish : theme.config?.friends?.enable_random_fish))}"
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/random-fish.js?v=${assetVersion("assets/random-fish.js")}`}
     data-swup-ignore-script
     defer></script>
 
@@ -934,6 +935,6 @@ const {
   }
   <script
     th:if="${pluginFinder.available('PluginLinks') && pluginFinder.available('ethereal-companion') && theme.config?.footer?.friendLinks?.enable_friend_links == true}"
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/footer-friends.js?v=${assetVersion("assets/footer-friends.js")}`}
     defer></script>
 </Layout>

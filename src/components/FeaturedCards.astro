@@ -33,6 +33,7 @@
  *  ④ 文案由 Thymeleaf 经**隐藏文本节点**（th:text）透传给脚本，脚本里不写中文。
  */
 import { imageSuffixThWith } from "../utils/image-suffix";
+import { assetVersion } from "../utils/asset-version";
 
 /**
  * 左卡流动的图标格：12 个 = 参考站那 12 个格子（品牌色逐格对齐），
@@ -319,7 +320,7 @@ const TILE_COPY_LIST = Array.from({ length: TILE_COPIES }, (_, i) => i);
 
 <!-- 行为脚本（经典脚本产物）：左卡随机跳转（全屏转盘）+ 右卡按来源填充与换档 -->
 <script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/featured-cards.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/featured-cards.js?v=${assetVersion("assets/featured-cards.js")}`}
   defer></script>
 
 <style is:global>

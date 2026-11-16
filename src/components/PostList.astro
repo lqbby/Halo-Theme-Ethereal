@@ -9,6 +9,7 @@ import {
   postListContainerThWith,
   postListDataAttrs,
 } from "../utils/post-list-config";
+import { assetVersion } from "../utils/asset-version";
 
 interface Props {
   pagination?: string;
@@ -64,16 +65,16 @@ const { pagination = "posts", featured = false } = Astro.props;
 <script
   is:inline
   defer
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/visitor-post-layout.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/visitor-post-layout.js?v=${assetVersion("assets/visitor-post-layout.js")}`}
 ></script>
 <!-- 瀑布流（Masonry）布局脚本：仅 grid + masonry 时启用，见 post-list-layout.js -->
 <script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-list-layout.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-list-layout.js?v=${assetVersion("assets/post-list-layout.js")}`}
   defer></script>
 <!-- 卡片点赞：经典脚本，点击卡片点赞胶囊调 Halo upvote API；与详情页 post-like.js
      共用 localStorage key 状态互通；Swup 换页由 SwupScriptsPlugin 按序重执行 -->
 <script
-  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-card-like.js?v=${ASSET_VERSION}`}
+  src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/post-card-like.js?v=${assetVersion("assets/post-card-like.js")}`}
   defer></script>
 
 <style is:global>

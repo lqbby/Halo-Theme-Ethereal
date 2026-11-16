@@ -6,6 +6,7 @@ import MomentCard from "../components/MomentCard.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import ContentWidgetsStyle from "../components/misc/ContentWidgetsStyle.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <MainGridLayout
@@ -102,21 +103,21 @@ import ContentWidgetsStyle from "../components/misc/ContentWidgetsStyle.astro";
        重执行、重新绑定按钮（脚本靠 data-upvote-bound 幂等）。写在 </MainGridLayout>
        之后会被产出到 </html> 外面、不在容器内，换页到本页时不会执行 → 点赞点不动 -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/upvote.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/upvote.js?v=${assetVersion("assets/upvote.js")}`}
     defer
     is:inline></script>
 
   <!-- 卡片「复制链接」（moment-copy.js，.moment-copy-btn）：同样必须在容器内，
        换页进来时才会重新绑定（脚本靠 data-copy-bound 幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/moment-copy.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/moment-copy.js?v=${assetVersion("assets/moment-copy.js")}`}
     defer
     is:inline></script>
 
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${assetVersion("assets/filter-seg.js")}`}
     defer
     is:inline></script>
 </MainGridLayout>

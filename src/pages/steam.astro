@@ -34,6 +34,7 @@ import Canonical from "../components/misc/Canonical.astro";
 import PageHeader from "../components/control/PageHeader.astro";
 import Pagination from "../components/control/Pagination.astro";
 import "../styles/steam.css";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <MainGridLayout
@@ -580,6 +581,6 @@ import "../styles/steam.css";
   <!-- 封面兜底 + ECharts 热力图（IIFE 经典脚本，Swup 换页会重执行；
        写法遵循 utils/once.ts 约定：监听器进 guardOnce、init 留在守卫外，保证回访不丢状态） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/steam.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/steam.js?v=${assetVersion("assets/steam.js")}`}
     defer></script>
 </MainGridLayout>

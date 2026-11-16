@@ -3,6 +3,7 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 import Canonical from "../components/misc/Canonical.astro";
 import FilterTabs from "../components/control/FilterTabs.astro";
 import PageHeader from "../components/control/PageHeader.astro";
+import { assetVersion } from "../utils/asset-version";
 ---
 
 <!--
@@ -349,7 +350,7 @@ import PageHeader from "../components/control/PageHeader.astro";
   <!-- 胶囊池滑块（filter-seg.js）：定位 / 点击预移动 / 滚动渐隐。
        Swup 换页后由 ScriptsPlugin 重执行（脚本内 window 单例幂等） -->
   <script
-    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${ASSET_VERSION}`}
+    src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/filter-seg.js?v=${assetVersion("assets/filter-seg.js")}`}
     defer
     is:inline></script>
 </MainGridLayout>

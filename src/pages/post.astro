@@ -8,11 +8,13 @@ import {
   CDN_SUFFIX_PATTERNS,
   SUFFIX_ELIGIBLE_EXTENSIONS,
 } from "../utils/image-suffix";
+import { assetVersion } from "../utils/asset-version";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
-// ASSET_VERSION 由 astro.config.mjs 构建期从 theme.yaml 注入（vite.define），
-// 用于替代原 `?v=${Date.now()}`——那会让浏览器每次访问都重新下载脚本（曾用于 156KB 的 post.bundle.js），
-// 击穿 CDN/浏览器缓存；改为随版本号变更是稳定的缓存指纹。
+// 脚本 ?v= 用 assetVersion() 的内容哈希指纹（见 src/utils/asset-version.ts）：
+// 替代原 `?v=${Date.now()}`——那会让浏览器每次访问都重新下载脚本（曾用于 156KB 的
+// post.bundle.js），击穿 CDN/浏览器缓存；也替代固定主题版本号——只换内容不升版本时
+// ?v= 不变、旧缓存不失效。内容不变 URL 不变，内容一变必然换 URL。
 ---
 
 <MainGridLayout
@@ -656,7 +658,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
               <button
                 id="post-share-btn"
                 th:if="${theme.config?.post?.actionBar?.share != false}"
-                data-qr-src={`${basePath}/assets/qrcode.bundle.js?v=${ASSET_VERSION}`}
+                data-qr-src={`${basePath}/assets/qrcode.bundle.js?v=${assetVersion("assets/qrcode.bundle.js")}`}
                 type="button"
                 class="btn-regular group flex h-11 w-fit items-center justify-center rounded-xl px-4 text-sm font-bold active:scale-95"
                 aria-label="分享文章"
@@ -1121,7 +1123,7 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
        2.5 删过原触发脚本导致失效，comment-locate.ts 已恢复。 -->
   <script
     th:if="${haloCommentEnabled}"
-    src={`${basePath}/assets/comment-locate.js?v=${ASSET_VERSION}`}
+    src={`${basePath}/assets/comment-locate.js?v=${assetVersion("assets/comment-locate.js")}`}
     defer></script>
 
   <!-- 操作栏脚本（I27）：拆分自原 post.bundle.js（155K，含 140K qrcode 库）。
@@ -1130,20 +1132,20 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
        从 155K 降至 ~25K。 -->
   <script
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.like != false}"
-    src={`${basePath}/assets/post-like.js?v=${ASSET_VERSION}`}
+    src={`${basePath}/assets/post-like.js?v=${assetVersion("assets/post-like.js")}`}
     defer></script>
   <script
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.share != false}"
-    src={`${basePath}/assets/post-share.js?v=${ASSET_VERSION}`}
+    src={`${basePath}/assets/post-share.js?v=${assetVersion("assets/post-share.js")}`}
     defer></script>
   <script
     th:if="${theme.config?.post?.actionBar?.enable != false and theme.config?.post?.actionBar?.reward != false}"
-    src={`${basePath}/assets/post-reward.js?v=${ASSET_VERSION}`}
+    src={`${basePath}/assets/post-reward.js?v=${assetVersion("assets/post-reward.js")}`}
     defer></script>
   <!-- 断点续读（批次1 ③）：经典脚本 src/scripts/assets/resume-reading.ts 编译产物。
        仅文章页引用；脚本内部以 #post-container 存在性守卫，localStorage 按
        pathname 记滚动进度，回访时在正文顶部显示续读小条。无后台开关，恒加载。 -->
-  <script src={`${basePath}/assets/resume-reading.js?v=${ASSET_VERSION}`} defer
+  <script src={`${basePath}/assets/resume-reading.js?v=${assetVersion("assets/resume-reading.js")}`} defer
   ></script>
   <script
     is:inline

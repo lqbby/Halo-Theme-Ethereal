@@ -1,5 +1,6 @@
 ---
 import FooterFriendLinks from "./FooterFriendLinks.astro";
+import { assetVersion } from "../utils/asset-version";
 
 const currentYear = new Date().getFullYear();
 ---
@@ -158,7 +159,7 @@ const currentYear = new Date().getFullYear();
         target="_blank"
       >
         <img
-          src={`/themes/Ethereal/assets/images/ghs.png?v=${ASSET_VERSION}`}
+          src={`/themes/Ethereal/assets/images/ghs.png?v=${assetVersion("assets/images/ghs.png")}`}
           alt="公安备案图标"
           loading="lazy"
           decoding="async"
@@ -353,7 +354,7 @@ const currentYear = new Date().getFullYear();
             target="_blank"
           >
             <img
-              src={`/themes/Ethereal/assets/images/ghs.png?v=${ASSET_VERSION}`}
+              src={`/themes/Ethereal/assets/images/ghs.png?v=${assetVersion("assets/images/ghs.png")}`}
               alt="公安备案图标"
               loading="lazy"
               decoding="async"
