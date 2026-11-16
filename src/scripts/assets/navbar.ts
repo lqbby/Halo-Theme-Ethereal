@@ -49,6 +49,10 @@ if (!guardOnce("navbar-panel-toggle")) {
 
   // 切换抽屉模式开关；滚动锁定与模态框同款（仅 body overflow hidden）
   function setNavMenuOpen(open) {
+    // 锁/解锁只在开↔关的边沿上成对触发：setNavMenuOpen(false) 有多个
+    // 无条件调用点（点链接、窗口放大到桌面、换页等），抽屉本就没开着时
+    // 若也 unlock，会吃掉其它弹层（外链模态框）正持有的那份滚动锁计数。
+    var wasOpen = document.body.classList.contains("nav-menu-open");
     if (open) {
       // 顺序关键：先挂载 root 到 body 再添加 nav-menu-open 触发动画——
       // 若同帧"移动 DOM + 触发 CSS 动画"，浏览器对刚插入的子树会延迟启动
@@ -57,7 +61,7 @@ if (!guardOnce("navbar-panel-toggle")) {
     }
     document.body.classList.toggle("nav-menu-open", open);
     if (open) {
-      lockPageScroll();
+      if (!wasOpen) lockPageScroll();
       // 打开瞬间为菜单项设置递增 animation-delay，配合 CSS 渐入动画逐项浮现
       var panel = document.getElementById("nav-menu-panel");
       if (panel) {
@@ -66,7 +70,7 @@ if (!guardOnce("navbar-panel-toggle")) {
           link.style.animationDelay = i * 35 + "ms";
         });
       }
-    } else {
+    } else if (wasOpen) {
       unlockPageScroll();
     }
   }

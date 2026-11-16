@@ -342,6 +342,21 @@ function bindStaticListeners(modal: HTMLElement) {
 let activeTimer: ReturnType<typeof setInterval> | null = null;
 // 关闭动画的延迟隐藏定时器：重开时须清理，否则陈旧定时器会把刚打开的模态框隐藏
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+// 本模态框是否正持有滚动锁：解锁必须与 setupModalBehavior 的加锁成对。
+// closeModal 不判开态就 unlock 时，重复关闭（返回/遮罩连点、倒计时跳转后
+// 再关）会多减共享滚动锁计数，把其它弹层正持有的锁提前放开。
+let modalScrollLocked = false;
+function lockModalScroll() {
+  if (modalScrollLocked) return;
+  modalScrollLocked = true;
+  lockPageScroll();
+}
+function unlockModalScroll() {
+  if (!modalScrollLocked) return;
+  modalScrollLocked = false;
+  unlockPageScroll();
+}
 function clearActiveTimer() {
   if (activeTimer) {
     clearInterval(activeTimer);
@@ -351,7 +366,7 @@ function clearActiveTimer() {
 
 function closeModal(modal: HTMLElement) {
   clearActiveTimer();
-  unlockPageScroll();
+  unlockModalScroll();
   const card = modal.querySelector<HTMLElement>("#ext-link-card");
   const backdrop = modal.querySelector<HTMLElement>("#ext-link-backdrop");
   if (card) {
@@ -388,7 +403,7 @@ function setupModalBehavior(
 
   // 显示模态框
   modal.style.display = "";
-  lockPageScroll();
+  lockModalScroll();
 
   // 恢复 card/backdrop 透明度
   const card = modal.querySelector<HTMLElement>("#ext-link-card");
@@ -411,7 +426,7 @@ function setupModalBehavior(
       window.location.href = targetUrl;
     }
     modal.style.display = "none";
-    unlockPageScroll();
+    unlockModalScroll();
   }
 
   // Bind continue button (may have been replaced by Swup)
