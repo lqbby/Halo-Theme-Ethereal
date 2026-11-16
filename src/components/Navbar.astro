@@ -15,7 +15,11 @@ const className = Astro.props.class;
    ⇒ 不要再从 Astro.props 读 isHomePage 来门控面板。 */
 ---
 
-<div id="navbar" class="z-50">
+<div
+  id="navbar"
+  class="z-50"
+  th:classappend="${theme.config?.layout?.mobileMenu?.navbarStyle == 'floating_pill' ? 'navbar-style-floating-pill' : ''}"
+>
   <!-- 顶部延伸层（开高级材质时模糊，关闭时纯色卡片背景）：
        navbar-blur 类恒挂载，由 body.navbar-blur-enabled 单一控制（访客/后台同源），
        模糊与纯色样式见 components.css -->
@@ -62,7 +66,7 @@ const className = Astro.props.class;
     </a>
 
     <div
-      class="invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible"
+      class="navbar-menu invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible"
       th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
     >
       <div class="contents" th:if="${menu != null}">
@@ -175,7 +179,7 @@ const className = Astro.props.class;
       </div>
     </div>
 
-    <div class="flex items-center">
+    <div class="navbar-tools flex items-center">
       <Search client:load />
       <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
            后台「样式开关 enable_random_post」可关；对齐用户魔改 -->

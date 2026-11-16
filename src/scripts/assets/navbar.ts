@@ -144,6 +144,48 @@ if (!guardOnce("navbar-panel-toggle")) {
     });
   }
 
+  // 桌面端菜单链接是否指向当前页：精确匹配，"/" 仅匹配首页；
+  // 跳过占位链接与跨域外链（pathname 巧合相等也不算）。
+  function isNavLinkMatch(href, path) {
+    if (!href || href === "#" || href.charAt(0) === "#") return false;
+    try {
+      var url = new URL(href, window.location.origin);
+      if (url.origin !== window.location.origin) return false;
+      return url.pathname === path;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // 桌面端菜单当前页高亮（胶囊样式的实心胶囊依赖此标记；经典样式下
+  // .nav-link-active 无视觉规则，故无条件计算、无副作用）：
+  // 顶级链接精确命中即亮；含子菜单的父项任一子项命中时父项同亮，子项自身也标。
+  function updateDesktopNavActive() {
+    var card = document.getElementById("navbar-card");
+    if (!card) return;
+    var path = window.location.pathname;
+    var groups = card.querySelectorAll(".navbar-menu .group");
+    groups.forEach(function (group) {
+      var topLink = group.querySelector(":scope > a");
+      var childLinks = group.querySelectorAll(".submenu-panel a");
+      var topMatch = topLink
+        ? isNavLinkMatch(topLink.getAttribute("href"), path)
+        : false;
+      var childMatch = false;
+      childLinks.forEach(function (child) {
+        if (isNavLinkMatch(child.getAttribute("href"), path)) {
+          childMatch = true;
+          child.classList.add("nav-link-active");
+        } else {
+          child.classList.remove("nav-link-active");
+        }
+      });
+      if (topLink) {
+        topLink.classList.toggle("nav-link-active", topMatch || childMatch);
+      }
+    });
+  }
+
   // ===== 统一事件委托 =====
   // 页面加载即挂载 root（抽屉模式）：此时菜单未打开、无动画在播放，
   // 移动 DOM 无副作用；OS 懒加载若把 root 包进滚动容器，MutationObserver 兜底移回。
@@ -234,6 +276,8 @@ if (!guardOnce("navbar-panel-toggle")) {
 
   // 初始高亮（抽屉模式才有 data-nav-link，手风琴模式无匹配，天然跳过）
   if (drawerMode) updateNavMenuActive();
+  // 桌面端高亮与菜单模式无关，始终计算一次
+  updateDesktopNavActive();
 
   // ESC 关闭抽屉
   document.addEventListener("keydown", function (e) {
@@ -260,6 +304,7 @@ if (!guardOnce("navbar-panel-toggle")) {
       updateNavMenuActive();
       setNavMenuOpen(false);
     }
+    updateDesktopNavActive();
   });
 }
 

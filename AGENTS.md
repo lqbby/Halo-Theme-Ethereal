@@ -114,7 +114,7 @@ Halo 应用市场的 Markdown 渲染器不支持 `<picture>`（GitHub 深浅色�
 
 导航栏「显示设置」面板允许访客切换样式（参考 firefly）。后台开关在 `settings.yaml` 的 `layout.mobileMenu.visitorStyle` 子组，缺省视为开启；子项开关（主题色相/文章布局/卡片样式/壁纸模式/壁纸设置/透明设置）仅在总开关 `enable` 开启时显示，瀑布流与波浪不再单独设开关（分别随卡片样式、壁纸设置区联动）。
 
-**localStorage 键清单（改键名需三处同步）**：`postListLayout`（list/grid）、`cardHoverLift`、`navbarBlur`（bool 字符串）、`postListMasonry`（bool 字符串，仅网格布局生效）、`wallpaperOpacity`（0–1）、`wallpaperBlur`（px 数值）、`wallpaperCardAlpha`（0–1）、`bannerDisplay`（disabled/banner/fullscreen/transparent）、`bannerWave`（bool 字符串）、`bannerTitle`（bool 字符串，首页壁纸标题）。开关关闭时对应键会被忽略并清理（与 `fixed` 固定色调、`__eecs` 语义一致）。
+**localStorage 键清单（改键名需三处同步）**：`postListLayout`（list/grid）、`cardHoverLift`、`navbarBlur`（bool 字符串）、`navbarScroll`（auto_hide/always，后台「菜单栏设置 → 导航栏滚动行为」为默认值，访客在显示设置面板「外观 → 导航栏」覆盖；生效值由 VisitorStyleBoot.astro 首帧换算进 html[data-navbar-fixed]）、`postListMasonry`（bool 字符串，仅网格布局生效）、`wallpaperOpacity`（0–1）、`wallpaperBlur`（px 数值）、`wallpaperCardAlpha`（0–1）、`bannerDisplay`（disabled/banner/fullscreen/transparent）、`bannerWave`（bool 字符串）、`bannerTitle`（bool 字符串，首页壁纸标题）。开关关闭时对应键会被忽略并清理（与 `fixed` 固定色调、`__eecs` 语义一致）。
 
 **壁纸模式切换约定**：`#banner-wrapper` / `#scroll-down-indicator` / `#banner-credit` / 波浪容器恒渲染（已去 `th:if`），显隐与定位全由 `html[data-banner-display]` 门控（`components.css`），`applyBannerDisplay` 同时切 `body.enable-banner` 并按模式重算 `--banner-height-extend` px（全屏 65vh / 横幅 30vh，数值来自 `constants.ts`）。波浪关闭用 `body.wave-disabled`（CSS 隐藏），开启时由后台默认 + `wave.js` 的 desktop_only 守卫决定。
 

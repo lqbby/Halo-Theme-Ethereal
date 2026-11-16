@@ -11,6 +11,10 @@
     getDefaultNavbarBlur,
     getStoredNavbarBlur,
     setNavbarBlur,
+    getDefaultNavbarScroll,
+    getStoredNavbarScroll,
+    setNavbarScroll,
+    resetNavbarScroll,
     getDefaultPageWide,
     getStoredPageWide,
     setPageWide,
@@ -54,6 +58,7 @@
     resetWave,
     resetBannerTitle,
     type PostListLayoutMode,
+    type NavbarScrollMode,
     type BannerDisplayMode,
   } from "../../utils/setting-utils";
   import { t } from "../../utils/i18n";
@@ -175,6 +180,7 @@
 
   let layout = $state<PostListLayoutMode>(currentLayout());
   let navbarBlur = $state(getStoredNavbarBlur());
+  let navbarScroll = $state(getStoredNavbarScroll());
   let pageWide = $state(getStoredPageWide());
   let cardPattern = $state(getStoredCardPattern());
   let cardShell = $state(getStoredCardShell());
@@ -190,12 +196,14 @@
   // 判定与主题色一致：对比当前值与默认值，手动切回默认即自动隐藏。
   const defaultLayout = getDefaultPostListLayout();
   const defaultNavbarBlur = getDefaultNavbarBlur();
+  const defaultNavbarScroll = getDefaultNavbarScroll();
   const defaultPageWide = getDefaultPageWide();
   const defaultCardPattern = getDefaultCardPattern();
   const defaultCardShell = getDefaultCardShell();
   const defaultPostListMasonry = getDefaultPostListMasonry();
   const defaultWallpaper = getDefaultWallpaperParams();
   const dirtyLayout = $derived(layout !== defaultLayout);
+  const dirtyNavbarScroll = $derived(navbarScroll !== defaultNavbarScroll);
   const dirtyCard = $derived(
     navbarBlur !== defaultNavbarBlur ||
       pageWide !== defaultPageWide ||
@@ -286,6 +294,16 @@
   function resetLayout() {
     resetPostListLayout();
     layout = getDefaultPostListLayout();
+  }
+
+  function chooseNavbarScroll(mode: NavbarScrollMode) {
+    navbarScroll = mode;
+    setNavbarScroll(mode);
+  }
+
+  function resetNavbarScrollBtn() {
+    resetNavbarScroll();
+    navbarScroll = getDefaultNavbarScroll();
   }
 
   function toggleNavbarBlur() {
@@ -425,6 +443,31 @@
                   aria-pressed={layout === "grid"} on:click={() => chooseLayout("grid")}>
             <span class="icon-[material-symbols--grid-view-outline-rounded] text-lg"></span>
             <span>{t("display.layoutGrid", "网格")}</span>
+          </button>
+        </div>
+      {/if}
+
+      <!-- 导航栏滚动行为 -->
+      {#if showLayout}
+        <div class="section-title mb-3">
+          {t("display.navbarScroll", "导航栏滚动行为")}
+          <button aria-label={t("theme.resetDefault", "Reset to Default")} class="btn-regular w-7 h-7 rounded-md active:scale-90"
+                  class:opacity-0={!dirtyNavbarScroll} class:pointer-events-none={!dirtyNavbarScroll} on:click={resetNavbarScrollBtn}>
+            <div class="text-(--btn-content)">
+              <div icon="fa6-solid:arrow-rotate-left" class="icon-[fa6-solid--arrow-rotate-left] text-[0.875rem]"></div>
+            </div>
+          </button>
+        </div>
+        <div class="seg-control" role="group" aria-label={t("display.navbarScroll", "导航栏滚动行为")}>
+          <button type="button" class="seg-item" class:seg-on={navbarScroll === "auto_hide"}
+                  aria-pressed={navbarScroll === "auto_hide"} on:click={() => chooseNavbarScroll("auto_hide")}>
+            <span class="icon-[material-symbols--unfold-less-rounded] text-lg"></span>
+            <span>{t("display.navbarScrollAutoHide", "滚动收缩")}</span>
+          </button>
+          <button type="button" class="seg-item" class:seg-on={navbarScroll === "always"}
+                  aria-pressed={navbarScroll === "always"} on:click={() => chooseNavbarScroll("always")}>
+            <span class="icon-[material-symbols--unfold-more-rounded] text-lg"></span>
+            <span>{t("display.navbarScrollAlways", "始终展开")}</span>
           </button>
         </div>
       {/if}

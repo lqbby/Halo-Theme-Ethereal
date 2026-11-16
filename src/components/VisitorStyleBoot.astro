@@ -54,6 +54,23 @@
     } else {
       storageRemove("navbarBlur");
     }
+
+    // 导航栏滚动行为（外观页）：访客偏好覆盖后台默认值，换算写进
+    // html[data-navbar-fixed] 供 scroll-manager / scrollDownToContent 消费。
+    // 本脚本在 body 首元素同步执行，早于 app.ts 首帧 scrollFunction()，
+    // 故 scroll-manager 首次判断即读到访客生效值，无闪烁。
+    // 开关关闭时清 localStorage，交回服务端 th:data-navbar-fixed 的后台默认值。
+    if (enable && on(d.visitorAppearance)) {
+      var navbarScrollModes = ["auto_hide", "always"];
+      var navbarScroll = storageGet("navbarScroll");
+      if (navbarScrollModes.indexOf(navbarScroll) === -1) {
+        navbarScroll = d.navbarScrollDefault || "auto_hide";
+      }
+      document.documentElement.dataset.navbarFixed =
+        navbarScroll === "always" ? "true" : "false";
+    } else {
+      storageRemove("navbarScroll");
+    }
     storageRemove("cardHoverLift");
 
     // 宽屏布局：访客偏好覆盖服务端 th:classappend（与卡片样式区解耦，

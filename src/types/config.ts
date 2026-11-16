@@ -219,7 +219,11 @@ export interface MobileMenuConfig {
   menu?: string;
   /** 移动端菜单样式：accordion（手风琴）/ drawer（抽屉） */
   style?: "accordion" | "drawer";
-  /** 固定菜单栏：开启后桌面端菜单栏始终固定在顶部，滚动时不自动收起（移动端默认始终固定） */
+  /** 导航栏样式：classic（经典通栏）/ floating_pill（悬浮胶囊，rainzt 风格） */
+  navbarStyle?: "classic" | "floating_pill";
+  /** 导航栏滚动行为（默认值，访客可在显示设置面板覆盖）：auto_hide（滚动收缩）/ always（始终展开） */
+  navbarScroll?: "auto_hide" | "always";
+  /** 固定菜单栏（旧字段，已由 navbarScroll 取代，仅作老配置兼容兜底；新配置保存后不再写入） */
   navbarFixed?: boolean;
   /** 语言切换：开启后在菜单栏显示语言切换按钮（访客可切换站点显示语言） */
   enable_change_language?: boolean;

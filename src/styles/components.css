@@ -1230,6 +1230,144 @@
     backdrop-filter: saturate(180%) blur(20px) !important;
   }
 
+  /* ── 导航栏样式：悬浮胶囊（rainzt 风格，后台「菜单栏设置 → 导航栏样式」切换） ──
+     仅桌面端（≥1024px）生效：#navbar-card 由通栏卡片变为居中悬浮的胶囊组，
+     Logo / 每个顶级菜单项 / 搜索条各成独立玻璃胶囊，右侧图标按钮变圆形玻璃钮。
+     移动端（<1024px）不受影响，仍用经典通栏 + 现有移动端菜单。
+     胶囊总高 3.5rem + 顶部 0.5rem 间距 = 4rem ≤ 4.5rem 导航带，
+     .navbar-hidden 的 -4.5rem 上移仍可完全藏起，无需另调隐藏位移。
+     与 Tailwind 工具类同属性竞争处用 !important（本文件 @layer components 的
+     !important 在层叠反转规则下胜过 @layer utilities 的 !important，与
+     .navbar-blur / .submenu-panel 的既有写法一致）。 */
+  @media (min-width: 1024px) {
+    /* 容器透明：两层通栏模糊背景层在胶囊模式下隐藏（玻璃改挂各胶囊自身） */
+    .navbar-style-floating-pill .navbar-blur {
+      display: none !important;
+    }
+
+    /* 卡片变胶囊组：透明底、无阴影、内容宽、居中、三个区域留间距 */
+    .navbar-style-floating-pill #navbar-card {
+      width: fit-content !important;
+      max-width: calc(100% - 2rem) !important;
+      height: 3.5rem !important;
+      margin-top: 0.5rem !important;
+      padding: 0 0.25rem !important;
+      gap: 0.5rem;
+      background: transparent !important;
+      border-radius: 9999px !important;
+      box-shadow: none !important;
+    }
+
+    /* 菜单区 / 工具区：胶囊之间留间距 */
+    .navbar-style-floating-pill .navbar-menu {
+      gap: 0.375rem;
+    }
+    .navbar-style-floating-pill .navbar-tools {
+      gap: 0.375rem;
+    }
+
+    /* Logo 胶囊 + 顶级菜单项胶囊 + 圆形工具钮：共用玻璃配方
+       （与 .navbar-blur / .submenu-panel 同源：浅色 0.62 白 / 深色 0.65 黑，
+       saturate(180%) blur(20px)；高级材质关闭时退回纯色卡片底） */
+    .navbar-style-floating-pill #navbar-card > a,
+    .navbar-style-floating-pill .navbar-menu .group > a,
+    .navbar-style-floating-pill .navbar-tools > button {
+      height: 2.75rem !important;
+      border-radius: 9999px !important;
+      background-color: var(--card-bg) !important;
+      border: 1px solid rgb(0 0 0 / 0.06) !important;
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+    }
+    :root.dark .navbar-style-floating-pill #navbar-card > a,
+    :root.dark .navbar-style-floating-pill .navbar-menu .group > a,
+    :root.dark .navbar-style-floating-pill .navbar-tools > button {
+      border-color: rgb(255 255 255 / 0.08) !important;
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
+    }
+    body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a,
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a,
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button {
+      background-color: rgb(255 255 255 / 0.62) !important;
+      -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+      backdrop-filter: saturate(180%) blur(20px) !important;
+    }
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a,
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a,
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button {
+      background-color: rgb(0 0 0 / 0.65) !important;
+    }
+
+    /* 工具钮定宽圆形（Logo 与菜单项保持内容宽） */
+    .navbar-style-floating-pill .navbar-tools > button {
+      width: 2.75rem !important;
+      padding: 0 !important;
+    }
+
+    /* 搜索条变搜索胶囊：保留输入框与 ⌘K 徽标，只改外形与玻璃底 */
+    .navbar-style-floating-pill #search-bar {
+      height: 2.75rem !important;
+      margin-right: 0 !important;
+      border-radius: 9999px !important;
+      background-color: var(--card-bg) !important;
+      border: 1px solid rgb(0 0 0 / 0.06) !important;
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+    }
+    :root.dark .navbar-style-floating-pill #search-bar {
+      border-color: rgb(255 255 255 / 0.08) !important;
+      box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
+    }
+    body.navbar-blur-enabled .navbar-style-floating-pill #search-bar {
+      background-color: rgb(255 255 255 / 0.62) !important;
+      -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+      backdrop-filter: saturate(180%) blur(20px) !important;
+    }
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #search-bar {
+      background-color: rgb(0 0 0 / 0.65) !important;
+    }
+    body.navbar-blur-enabled .navbar-style-floating-pill #search-bar:hover {
+      background-color: rgb(255 255 255 / 0.7) !important;
+    }
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #search-bar:hover {
+      background-color: rgb(0 0 0 / 0.72) !important;
+    }
+
+    /* 滚动后加深阴影（html.navbar-scrolled 由 navbar.ts 在 50px 阈值后挂载） */
+    html.navbar-scrolled .navbar-style-floating-pill #navbar-card > a,
+    html.navbar-scrolled .navbar-style-floating-pill .navbar-menu .group > a,
+    html.navbar-scrolled .navbar-style-floating-pill .navbar-tools > button,
+    html.navbar-scrolled .navbar-style-floating-pill #search-bar {
+      box-shadow: 0 8px 24px rgb(0 0 0 / 0.16) !important;
+    }
+    :root.dark html.navbar-scrolled .navbar-style-floating-pill #navbar-card > a,
+    :root.dark html.navbar-scrolled .navbar-style-floating-pill .navbar-menu .group > a,
+    :root.dark html.navbar-scrolled .navbar-style-floating-pill .navbar-tools > button,
+    :root.dark html.navbar-scrolled .navbar-style-floating-pill #search-bar {
+      box-shadow: 0 8px 24px rgb(0 0 0 / 0.3) !important;
+    }
+
+    /* 当前页菜单项：实心主色胶囊 + 主色上文字（navbar.ts 的 nav-link-active 标记） */
+    .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
+      background: var(--primary) !important;
+      color: var(--on-primary) !important;
+      border-color: transparent !important;
+    }
+    /* 子菜单内当前页同样高亮（经典样式下无对应规则、无视觉效果） */
+    .navbar-style-floating-pill .submenu-panel a.nav-link-active {
+      background: color-mix(in oklab, var(--primary) 12%, transparent) !important;
+      color: var(--primary) !important;
+    }
+
+    /* 子菜单面板对齐玻璃胶囊：描边 + 阴影（底色沿用现有玻璃规则） */
+    .navbar-style-floating-pill .submenu-panel {
+      border: 1px solid rgb(0 0 0 / 0.06);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+    }
+    :root.dark .navbar-style-floating-pill .submenu-panel {
+      border-color: rgb(255 255 255 / 0.08);
+      box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+    }
+  }
+
   #navbar-wrapper.backdrop-blur-lg {
     -webkit-backdrop-filter: blur(16px) !important;
     backdrop-filter: blur(16px) !important;
