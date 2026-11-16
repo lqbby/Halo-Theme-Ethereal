@@ -546,10 +546,12 @@
 
 <style>
   /* 键盘聚焦（focus-visible）时提供可见焦点环，替代原来无条件 outline:0 导致的
-     焦点不可见问题；鼠标点击不显示，避免视觉干扰 */
+     焦点不可见问题；鼠标点击不显示，避免视觉干扰。
+     用 box-shadow 而非 outline：outline 在部分浏览器不随 border-radius（焦点环呈方形），
+     box-shadow 恒定跟随 border-radius（圆角胶囊）。 */
   input:focus-visible {
-    outline: 2px solid var(--focus-ring);
-    outline-offset: -2px;
+    outline: none;
+    box-shadow: 0 0 0 2px var(--focus-ring);
     border-radius: 0.5rem;
   }
 
