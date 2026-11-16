@@ -10,7 +10,9 @@ function state(): OnceState {
   // 必须用无原型对象：普通 {} 查表会命中 Object.prototype
   // （key 为 constructor 时误判已绑定），给 __proto__ 赋值更是直接改原型、
   // 标记永远写不进去。Object.create(null) 两头都堵死。
-  if (!w.__etherealOnce) w.__etherealOnce = Object.create(null);
+  // Object.create(null) 返回 any，不标注则 TS 不收窄属性类型（astro check 报
+  // OnceState | undefined 不可赋给 OnceState），故显式断言为 OnceState
+  if (!w.__etherealOnce) w.__etherealOnce = Object.create(null) as OnceState;
   return w.__etherealOnce;
 }
 
