@@ -7,7 +7,10 @@ type OnceState = Record<string, true>;
 
 function state(): OnceState {
   const w = window as unknown as { __etherealOnce?: OnceState };
-  if (!w.__etherealOnce) w.__etherealOnce = {};
+  // 必须用无原型对象：普通 {} 查表会命中 Object.prototype
+  // （key 为 constructor 时误判已绑定），给 __proto__ 赋值更是直接改原型、
+  // 标记永远写不进去。Object.create(null) 两头都堵死。
+  if (!w.__etherealOnce) w.__etherealOnce = Object.create(null);
   return w.__etherealOnce;
 }
 

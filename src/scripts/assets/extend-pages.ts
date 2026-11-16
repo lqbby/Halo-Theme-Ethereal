@@ -135,7 +135,11 @@
       var typed = el.hasAttribute("data-tag-types");
       lines.forEach(function (line) {
         var span = document.createElement("span");
-        var type = typed ? CL_TAG_TYPES[line] || null : null;
+        var type = typed
+          ? Object.prototype.hasOwnProperty.call(CL_TAG_TYPES, line)
+            ? CL_TAG_TYPES[line]
+            : null
+          : null;
         span.className = CLS_TAG + (type ? " cl-tag cl-tag--" + type : "");
         if (type) {
           var dot = document.createElement("i");
@@ -173,7 +177,14 @@
         var icon = document.createElement("span");
         icon.className = "about-stub-icon";
         var glyph = document.createElement("span");
-        glyph.setAttribute("class", STUB_ICONS[key] || STUB_ICON_DEFAULT);
+        glyph.setAttribute(
+          "class",
+          // hasOwn 守卫：普通对象查表会命中原型链，key 为 constructor 等时
+          // 取到的是函数对象、会被拼成垃圾 class
+          Object.prototype.hasOwnProperty.call(STUB_ICONS, key)
+            ? STUB_ICONS[key]
+            : STUB_ICON_DEFAULT,
+        );
         glyph.setAttribute("aria-hidden", "true");
         icon.appendChild(glyph);
 

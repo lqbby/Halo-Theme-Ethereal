@@ -208,7 +208,12 @@ export function renderShortcodes(root: Element) {
     .querySelectorAll<HTMLElement>(".callout[data-subtype^='ethereal-']")
     .forEach((callout) => {
       const type = (callout.dataset.subtype || "").replace(/^ethereal-/, "");
-      const translator = TRANSLATORS[type];
+      // 必须用 hasOwn 守卫：普通对象字面量查表会命中原型链——
+      // type 为 constructor/toString 时取到的是 Object.prototype 成员，
+      // 被当作转译函数调用会渲染垃圾甚至抛错
+      const translator = Object.prototype.hasOwnProperty.call(TRANSLATORS, type)
+        ? TRANSLATORS[type]
+        : undefined;
       if (!translator) return;
       const sections = parseSections(callout);
       if (!sections.length) return;

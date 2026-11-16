@@ -1165,8 +1165,17 @@
       scroll.addEventListener(
         "wheel",
         function (e) {
+          // Ctrl+滚轮是浏览器缩放手势（触控板捏合也以 ctrlKey+wheel 上报），
+          // 不能劫持：吞掉会让用户在分类栏上无法缩放页面
+          if (e.ctrlKey) return;
           // 竖直滚轮 → 横向滚动分类栏（原行为保留）
           if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+          // 已滚到边缘（或内容不溢出）时释放事件，让页面继续竖直滚动，
+          // 不再把滚轮吞在栏内造成「页面卡住」
+          var maxLeft = scroll.scrollWidth - scroll.clientWidth;
+          if (maxLeft <= 0) return;
+          if (e.deltaY < 0 && scroll.scrollLeft <= 0) return;
+          if (e.deltaY > 0 && scroll.scrollLeft >= maxLeft) return;
           e.preventDefault();
           cancelAuto();
           scroll.scrollLeft += e.deltaY;

@@ -77,6 +77,21 @@
           if (url && !/^[a-z]+:\/\//i.test(url)) {
             url = "https://" + url;
           }
+          // scheme 白名单：原校验只看「有没有 scheme」，javascript:// 这类
+          // 带任意 scheme 的串照样放行进 href。统一解析后只允许 http/https，
+          // 其余整条丢弃（裸域名/host:port 已在上面补成 https，不受影响）。
+          var parsedUrl: URL | null = null;
+          try {
+            parsedUrl = url ? new URL(url) : null;
+          } catch (e) {
+            parsedUrl = null;
+          }
+          if (
+            !parsedUrl ||
+            (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:")
+          ) {
+            return;
+          }
           var a = document.createElement("a");
           a.className =
             "btn-regular flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium";
@@ -85,7 +100,7 @@
             "icon-[material-symbols--open-in-new-rounded] text-xs";
           a.appendChild(icon);
           a.appendChild(document.createTextNode(name || url));
-          a.href = url;
+          a.href = parsedUrl.href;
           a.target = "_blank";
           a.rel = "noopener noreferrer";
           linksBox.appendChild(a);

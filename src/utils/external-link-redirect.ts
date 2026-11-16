@@ -489,14 +489,15 @@ export function initExternalLinkRedirect() {
       const config = getConfig();
       if (!config?.enable_redirect) return;
 
-      // 覆盖 <a>（含 SVG 命名空间，tagName 同为 "A"）与 <area>；
-      // SVG <a> 可能只写 xlink:href，取 href 时兜底
+      // 覆盖 <a> 与 <area>，含 SVG 命名空间的 <a>：SVG 元素的 tagName
+      // 是小写 "a"（HTML 元素才是大写 "A"），必须大小写不敏感地比，
+      // 否则 SVG 内链接整体绕过拦截；SVG <a> 可能只写 xlink:href，取 href 时兜底
       const path = e.composedPath();
-      const anchor = path.find(
-        (el) =>
-          el instanceof Element &&
-          (el.tagName === "A" || el.tagName === "AREA"),
-      ) as Element | undefined;
+      const anchor = path.find((el) => {
+        if (!(el instanceof Element)) return false;
+        const tag = el.tagName.toUpperCase();
+        return tag === "A" || tag === "AREA";
+      }) as Element | undefined;
       if (!anchor) return;
 
       // 下载链接一律放行：download 属性表示下载而非导航，不应被外链跳转拦截。
