@@ -1244,9 +1244,11 @@
      （rainzt 深色未量，不动）。白 30% 在顶部壁纸上仍显磨砂、下滚到浅色页底上
      近乎透明——这就是 rainzt「顶部磨砂、下滚透明」的实际机制（其 CSS/JS 在
      scrolled 前后不改背景/模糊，见量测记录）；高级材质关闭时退回纯色卡片底。
-     卡片贴视口顶（rainzt 外壳 y=0；本站卡片 y=0、胶囊 y≈8，与 rainzt 的 8-11px 对齐）。
-     菜单项横向内边距 10px（rainzt 11.5px）：菜单总宽 952px → 约 763px，
-     1664px 下末项与搜索框空约 6px（12px 时仍盖 23px，见收拢段注释）。
+     卡片贴视口顶（rainzt 外壳 y=0；本站卡片 y=0、胶囊 cy≈33，与 rainzt 的 33.3 对齐）。
+     菜单项横向内边距：紧凑带（≤1700px）10px，菜单约 598px，与搜索框空约 190px
+     （1664px）；展开带（≥1701px）11.52px + 项间距 5.9px（rainzt 值），菜单约
+     823px（1920，JS 实测为准）。12px 时菜单总宽约 824px，1664px 下末项仍盖
+     搜索框 23px（生产实测，见收拢段注释）——故 11.52px 不进紧凑带。
      搜索框按 rainzt：146px 宽、输入框 144px、字号 16px、聚焦不展开、无 ⌘K 徽标。
      （旧注释「.navbar-hidden 的 -4.5rem 上移可藏起」只在 classic 模式下成立：
      胶囊模式整条永不滑走（aemeath 只收菜单胶囊），classic 下滑走逻辑见
@@ -1263,13 +1265,23 @@
     /* 胶囊模式只换皮肤、不换位置：卡片保持经典通栏几何（满宽 max-w page-width、
        左 Logo / 中菜单 / 右工具、justify-between），仅去掉通栏底色与阴影；
        菜单位置与经典模式完全一致，2026-11-16 用户实测指出聚拢居中后菜单左移。
-       卡片贴视口顶（rainzt 外壳 y=0）：margin-top 0、高 3.75rem，胶囊 y≈8px，
-       与 rainzt 胶囊的 8-11px 对齐（旧值 0.5rem 间距 + 3.5rem 高时胶囊 y=14px）。 */
+       卡片贴视口顶（rainzt 外壳 y=0）：margin-top 0、高 4.125rem（66px，
+       rainzt 壳 66.5px），胶囊垂直居中 cy≈33 与 rainzt 的 33.3 对齐
+       （旧 3.75rem/60px 时胶囊 cy=30，比 rainzt 高 3.3px）。 */
     .navbar-style-floating-pill #navbar-card {
-      height: 3.75rem !important;
+      height: 4.125rem !important;
       margin-top: 0 !important;
       background: transparent !important;
       box-shadow: none !important;
+    }
+    /* #2（守望 1567156→efd594e）：胶囊模式外壳不再多透明带——.nav-shell
+       内联 height:4.5rem（72px）而卡片 66px，底部 6px 空透明层横跨整宽、
+       位于视口顶端吞点击；外壳改 height:auto 后贴合卡片高（66px）。
+       注意：不加 min-height:4.5rem——它会把外壳钉回 72px、死区仍在，与
+       「外壳高 = 卡片高」的验收相矛盾（审查原文的 min-height 如此，见回报）。
+       classic 不动（外壳仍内联 4.5rem = 卡片 72px，等高无死区）。 */
+    .navbar-style-floating-pill .nav-shell {
+      height: auto !important;
     }
 
     /* 菜单区 / 工具区：胶囊之间留间距 */
@@ -1290,11 +1302,22 @@
        导致它俩一直是透明方角（8px）而随机/显示两个直接子 button 是圆形玻璃——这就是
        用户说的「不一样」。`div.relative.group > button` 只命中触发按钮，不会误伤
        面板里的选项按钮（它们在 #language-panel / #light-dark-panel 内层）。 */
+    /* 三颗胶囊各按 rainzt 高，不再共用 44px（原共用值让品牌偏小、菜单项偏胖——
+       用户 2026-11-16 23:01 指出的比例问题）：Logo 48px、菜单项 40px、工具钮 44px。 */
+    .navbar-style-floating-pill #navbar-card > a {
+      height: 3rem !important;
+    }
+    .navbar-style-floating-pill .navbar-menu .group > a {
+      height: 2.5rem !important;
+    }
+    .navbar-style-floating-pill .navbar-tools > button,
+    .navbar-style-floating-pill .navbar-tools div.relative.group > button {
+      height: 2.75rem !important;
+    }
     .navbar-style-floating-pill #navbar-card > a,
     .navbar-style-floating-pill .navbar-menu .group > a,
     .navbar-style-floating-pill .navbar-tools > button,
     .navbar-style-floating-pill .navbar-tools div.relative.group > button {
-      height: 2.75rem !important;
       border-radius: 9999px !important;
       background-color: var(--card-bg) !important;
       box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
@@ -1307,13 +1330,31 @@
     }
     .navbar-style-floating-pill .navbar-menu .group > a {
       border: 1px solid transparent !important;
-      /* 菜单项横向内边距按 rainzt 收窄（20px → 10px，rainzt 为 11.5px）：
-         12px 时菜单总宽约 824px，1664px 下末项「博客更新」仍盖住搜索框
-         23px（生产实测）；10px + 项间距 0.12rem 后菜单约 763px，与搜索框
-         空约 6px。rainzt 因只有 5 项顶级菜单不存在此问题，本站 8 项只能
-         再收 2px——贴 rainzt 值但优先保证 1664 下搜索框完整可点。 */
+      /* 菜单项横向内边距 10px（rainzt 11.52px）：12px 时菜单总宽约 824px，
+         1664px 下末项「博客更新」仍盖住搜索框 23px（生产实测）；10px +
+         项间距 0.12rem 后菜单约 763px，与搜索框空约 6px。11.52px 只放
+         ≥1701px 展开带（见下方展开带规则）：紧凑带（≤1700px）已贴上限，
+         放大后 1280 下盖搜索（守望 #6 同机制）。rainzt 同为 8 项顶级菜单，
+         1664 下它自己也盖搜索 13.8px——本站不学这一处。 */
       padding-left: 0.625rem !important;
       padding-right: 0.625rem !important;
+    }
+    /* Logo 内边距 20px → 16px（rainzt 品牌 16px）；品牌字 16px/700 →
+       18px/750（rainzt 17.92px/750）。 */
+    .navbar-style-floating-pill #navbar-card > a {
+      padding-left: 1rem !important;
+      padding-right: 1rem !important;
+    }
+    .navbar-style-floating-pill #navbar-card > a .site-title {
+      font-size: 1.125rem !important;
+      font-weight: 750 !important;
+    }
+    /* 菜单项字重 700 → 600（rainzt 非当前页 600），当前页保持 700。 */
+    .navbar-style-floating-pill .navbar-menu .group > a {
+      font-weight: 600 !important;
+    }
+    .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
+      font-weight: 700 !important;
     }
     /* 深色描边只给 Logo / 工具钮（菜单项无描边——守望 #1：菜单项若留在
        本条选择器里，深色规则 (0,5,1) 会压掉上方的 transparent 规则
@@ -1382,6 +1423,17 @@
     .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       width: 2.75rem !important;
       padding: 0 !important;
+    }
+    /* 工具钮内图标 20px → 22px（rainzt 22px）：四钮图标均为 iconify 元素
+       （span/div），字号 1.25rem，字号即图标尺寸；只命中按钮内的图标，
+       不碰面板里的选项图标（语言/亮暗面板不在 button 内）。 */
+    .navbar-style-floating-pill .navbar-tools > button [class*="icon-"],
+    .navbar-style-floating-pill
+      .navbar-tools
+      div.relative.group
+      > button
+      [class*="icon-"] {
+      font-size: 1.375rem !important;
     }
 
     /* 搜索条变搜索胶囊：按 rainzt（实测 146×44、白 30% + blur(14px) saturate(1.12)、
@@ -1691,6 +1743,17 @@
     .dark #navbar.navbar-style-floating-pill .nav-links {
       background: rgba(0, 0, 0, 0.65);
       border-color: rgba(255, 255, 255, 0.08);
+    }
+    /* 深色 + 高级材质开：容器底色须是黑 0.65（守望 #0，1567156→efd594e）——
+       上方 blur 规则 (1,3,1) 压过深色规则 (1,3,0)，两者都无 !important，
+       深色默认开高级材质即整条变白 30%，与里面黑 0.65 的菜单项/搜索框
+       自相矛盾；本条 (1,5,1) 按同文件 .group > a 与 #search-bar 的既有口径
+       补覆盖，只改底色，模糊仍由 blur 规则给（两者叠加）。 */
+    :root.dark
+      body.navbar-blur-enabled
+      #navbar.navbar-style-floating-pill
+      .nav-links {
+      background: rgba(0, 0, 0, 0.65);
     }
     /* 项间距用 rainzt 的 0.12rem（旧胶囊模式 0.375rem）：8 项菜单在 1664px
        下宽 824px、末项盖住搜索框 23px；收窄内边距（12px→10px）+ 间距
@@ -2018,6 +2081,31 @@
       > a.nav-link {
       padding-left: 0.25rem !important;
       padding-right: 0.25rem !important;
+    }
+  }
+  /* ── 展开带（≥1701px，仅胶囊模式）：按 rainzt 放大项内边距与项间距 ──
+     rainzt 项内边距 11.52px、项间距 5.9px、胶囊内边距 3.84px、项图标 16.6px；
+     本站原 10px / 1.92px / 0 / 17.6px，菜单 763px vs rainzt 825px。
+     只放展开带：紧凑带（≤1700px）已贴上限（1280 上限约 606px、菜单 598px），
+     放大后 1280 下盖搜索（守望 #6 同机制），故紧凑带保持 10px / 1.92px / 0
+     不动。放大后菜单约 823px（1920，JS 实测为准），1701px 下余量约 17px，
+     开发站验收时单测 1701/1710 两档确认无遮挡。
+     注意：.nav-links 基规则带 #navbar 前缀（特异性 1,2,0），本块同款前缀，
+     否则 gap/padding 赢不过基规则。 */
+  @media (min-width: 1701px) {
+    .navbar-style-floating-pill .navbar-menu .group > a {
+      padding-left: 0.72rem !important;
+      padding-right: 0.72rem !important;
+    }
+    #navbar.navbar-style-floating-pill .nav-links {
+      gap: 0.37rem;
+      padding-left: 0.24rem;
+      padding-right: 0.24rem;
+    }
+    .navbar-style-floating-pill .nav-menu-icon svg,
+    .navbar-style-floating-pill .nav-menu-icon img {
+      width: 1rem;
+      height: 1rem;
     }
   }
   @media (min-width: 1024px) and (max-width: 1900px) {
