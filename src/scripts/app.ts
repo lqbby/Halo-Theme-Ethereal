@@ -36,6 +36,7 @@ import {
   // 单档原生 smooth；函数保留供未来复启用）
   smartScrollTo,
 } from "../utils/scroll-manager";
+import { initNavbarCollapse } from "../utils/navbar-collapse";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
 import { initLegacyAdmonitions } from "../utils/legacy-admonitions";
 import { initContentEnhance } from "../utils/content-enhance";
@@ -1744,6 +1745,7 @@ if (window?.swup?.hooks) {
 }
 
 scrollFunction();
+initNavbarCollapse();
 initExternalLinkRedirect();
 initProfileStatus();
 // 窗口尺寸变化（横竖屏切换/拉宽拉窄）后重算目录按钮显隐与弹窗锚定

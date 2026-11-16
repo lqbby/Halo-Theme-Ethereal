@@ -258,7 +258,8 @@ import { assetVersion } from "../utils/asset-version";
 
       /* ================= ④ 顶部导航（长条菜单）= 参考站 .profile-tabs =================
          吸顶：与全站侧栏吸顶同一套让位规则 —— 非首页 top = 导航栏高 + 1rem，
-         导航栏随滚动隐藏（body.dynamic-navbar-hidden）时回退到 1rem，
+         旧机制里导航栏随滚动隐藏（body.dynamic-navbar-hidden）时回退到 1rem；
+         aemeath 下导航栏永不滑走、该类不再被加上，回退规则保留为兜底。
          top 变化跟 --dur-banner 与侧栏同帧过渡（Layout.astro 侧栏同款）。
          ⚠️ 本导航四项是**跨页链接**（个人资料=本页 / 博客日志 / 友链 / 朋友圈），
          不是页内锚点 ⇒ 没有可供 scrollspy 追踪的页内区块，「个人资料」恒为

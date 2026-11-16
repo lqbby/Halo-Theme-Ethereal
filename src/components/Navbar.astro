@@ -25,9 +25,11 @@ const className = Astro.props.class;
        模糊与纯色样式见 components.css -->
   <div class="navbar-blur absolute left-0 right-0 -top-8 h-8 transition"></div>
 
-  <!-- 分离的模糊背景层：承载 backdrop-filter，避免 Backdrop Root 阻断子元素 -->
+  <!-- 分离的模糊背景层：承载 backdrop-filter，避免 Backdrop Root 阻断子元素；
+       navbar-blur-main 供 classic 壳底边圆角（0 0 .75rem .75rem）单独命中，
+       与上方 -top-8 延伸层区分 -->
   <div
-    class="navbar-blur absolute left-0 right-0 top-0 h-[4.5rem] rounded-(--radius-large) !rounded-t-none transition"
+    class="navbar-blur navbar-blur-main absolute left-0 right-0 top-0 h-[4.5rem] rounded-(--radius-large) !rounded-t-none transition"
     style="max-width: var(--page-width); margin: 0 auto;"
   >
   </div>
@@ -47,7 +49,10 @@ const className = Astro.props.class;
     th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.appearance != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaper != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false))}`}
     class:list={[
       className,
-      "relative z-10 mx-auto flex h-[4.5rem] max-w-(--page-width) items-center justify-between px-4 rounded-(--radius-large) !rounded-t-none",
+      // 三段 grid（Logo / 菜单 / 工具），菜单列视口真居中：rainzt aemeath 同款
+      // grid-cols-[auto_minmax(0,1fr)_auto]，旧 justify-between 让菜单跟在 Logo
+      // 后均分间隙、1920 下中心左偏约 136px
+      "relative z-10 mx-auto grid h-[4.5rem] max-w-(--page-width) grid-cols-[auto_minmax(0,1fr)_auto] items-center px-4 rounded-(--radius-large) !rounded-t-none",
     ]}
   >
     <!-- 首页链接：可见文本即站点标题，作为天然可访问名，故不设静态 aria-label
@@ -65,20 +70,25 @@ const className = Astro.props.class;
       </div>
     </a>
 
+    <!-- 菜单胶囊（aemeath 收拢的目标）：nav-links 类供 navbar-collapse.ts
+         量宽/收拢；col-start-2 + justify-self-center 让菜单在视口内真居中。
+         每项 .group 再挂 dropdown-container（收拢时按偏移量绝对定位的单位），
+         顶级链接挂 nav-link（当前页由 navbar.js 标 .nav-link-active，
+         收拢后仅剩该项可见） -->
     <div
-      class="navbar-menu invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible"
+      class="navbar-menu nav-links invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible col-start-2 justify-self-center"
       th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
     >
       <div class="contents" th:if="${menu != null}">
         <div
           th:each="menuItem, itemStat : ${menu.menuItems}"
           th:with="hasChildren = ${menuItem.children != null && !menuItem.children.isEmpty()}, menuIcon = ${#annotations.get(menuItem, 'icon')}"
-          class="relative group"
+          class="relative group dropdown-container"
         >
           <a
             th:href="@{${menuItem.status.href}}"
             th:target="${menuItem.spec.target?.value}"
-            class="btn-plain scale-animation h-11 rounded-xl px-5 font-bold active:scale-95 flex items-center gap-1"
+            class="nav-link btn-plain scale-animation h-11 rounded-xl px-5 font-bold active:scale-95 flex items-center gap-1"
           >
             <div class="flex items-center">
               <span

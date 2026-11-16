@@ -1,21 +1,14 @@
-// 滚动 & 窗口调整处理（back-to-top、TOC、导航栏）。
+// 滚动 & 窗口调整处理（back-to-top、TOC）。
 // banner/波浪/is-home 同步逻辑在 banner-sync.ts（含 resize 重算延伸高度）。
-import {
-  BANNER_HEIGHT,
-  MAIN_PANEL_OVERLAPS_BANNER_HEIGHT,
-} from "../constants/constants";
+// 导航栏滚动行为不在此：auto_hide 下只收菜单胶囊、整条导航栏永不滑走，
+// 见 navbar-collapse.ts（aemeath 机制）；旧整条滑走（navbar-hidden、
+// banner 阈值约半屏）已删除。
+import { BANNER_HEIGHT } from "../constants/constants";
 import { bannerHomeHeight } from "./banner-sync";
 import { readDurBannerMs } from "./dur-banner";
 
 // 语义化常量，替代硬编码魔法数字
-// 导航栏高度（4.5rem × 16px），与 CSS 变量 --navbar-height 对应（variables.css）
-const NAVBAR_HEIGHT_PX = 72;
-const BASE_SPACING_PX = 16; // 基础间距（1rem = 16px）
-// 移动/平板（<1024px / lg）共用抽屉菜单，导航栏不随滚动隐藏；
-// 桌面端（≥lg）才启用导航栏滚动隐藏
-const MOBILE_BREAKPOINT = 1024;
-
-const bannerEnabled = Boolean(document.getElementById("banner-wrapper"));
+// （导航栏滚动收拢的 1024px 桌面断点在 navbar-collapse.ts 内自管）
 
 // 缓存 DOM 引用，避免每次 scroll 帧重复 getElementById
 // 使用 isConnected 自动检测 Swup 页面切换后的失效引用
@@ -23,8 +16,6 @@ let _backToTopBtn: HTMLElement | null = null;
 let _toc: HTMLElement | null = null;
 let _navbar: HTMLElement | null = null;
 let _grid: HTMLElement | null = null;
-// 上次滚动位置，用于导航栏滚动方向感知显隐（delta = scrollY - lastScrollY）
-let lastScrollY = window.scrollY;
 
 function getBackToTopBtn() {
   if (!_backToTopBtn?.isConnected)
@@ -48,7 +39,6 @@ function getGrid() {
 function scrollFunction() {
   const backToTopBtn = getBackToTopBtn();
   const toc = getToc();
-  const navbar = getNavbar();
   const currentBannerHeight = document.body.classList.contains("is-home")
     ? bannerHomeHeight()
     : BANNER_HEIGHT;
@@ -81,30 +71,6 @@ function scrollFunction() {
     );
   }
 
-  if (window.innerWidth < MOBILE_BREAKPOINT) return;
-  if (!bannerEnabled || !navbar) return;
-  // 固定导航栏模式：跳过隐藏逻辑，始终显示
-  if (document.documentElement.dataset.navbarFixed === "true") return;
-  // threshold = bannerHeightPx - navbarHeight - panelOverlap(rem→px) - baseSpacing
-  const threshold =
-    bannerHeightPx -
-    NAVBAR_HEIGHT_PX -
-    MAIN_PANEL_OVERLAPS_BANNER_HEIGHT * BASE_SPACING_PX -
-    BASE_SPACING_PX;
-  // 滚动方向感知：上滑（delta<0）或仍在顶部（scrollY<=threshold）显示，
-  // 下滑且离开顶部（delta>0 && scrollY>threshold）隐藏（对齐 firefly dynamic 模式）
-  const delta = scrollY - lastScrollY;
-  lastScrollY = scrollY;
-  if (delta < 0 || scrollY <= threshold) {
-    navbar.classList.remove("navbar-hidden");
-  } else if (delta > 0 && scrollY > threshold) {
-    navbar.classList.add("navbar-hidden");
-  }
-  // 导航栏隐藏时给 body 加类，供侧边栏吸顶位置回退（Layout.astro 消费）
-  document.body.classList.toggle(
-    "dynamic-navbar-hidden",
-    navbar.classList.contains("navbar-hidden"),
-  );
 }
 
 // 全屏首页向下箭头（#scroll-down-indicator）点击目标：手算平滑滚动到内容区。
@@ -112,9 +78,9 @@ function scrollFunction() {
 // 使"页面背景顶部边缘"（banner 底边，100vh）对齐视口顶部而非网格顶边。
 // Chrome 平滑 scrollIntoView 会忽略 scroll-margin，故必须手算；间距直接读
 // CSS 变量（rem）按根字号换算 px，不再借用 scroll-margin-top 传值（语义扭曲）。
-// 固定导航栏（html[data-navbar-fixed="true"]）常驻顶部且滚动后不隐藏，落点需
-// 再上移导航栏高度使"导航栏底边"对齐页面背景顶部边缘；高度动态测量（移动端
-// 强制固定，断点间可能不同），非固定模式为 0（导航栏滚动后自动隐藏，无需让位）
+// 导航栏在两种模式下都常驻顶部（aemeath：auto_hide 只收菜单胶囊、整条永不滑走；
+// always 同样常驻），落点一律再上移导航栏高度使"导航栏底边"对齐页面背景顶部边缘；
+// 高度动态测量（移动端强制固定，断点间可能不同）
 export function scrollDownToContent(): void {
   const grid = getGrid();
   if (!grid) return;
@@ -122,10 +88,7 @@ export function scrollDownToContent(): void {
   const gap =
     (parseFloat(cs.getPropertyValue("--banner-home-content-gap")) || 0) *
     (parseFloat(cs.fontSize) || 16);
-  const navbarOffset =
-    document.documentElement.dataset.navbarFixed === "true"
-      ? getNavbar()?.getBoundingClientRect().height || 0
-      : 0;
+  const navbarOffset = getNavbar()?.getBoundingClientRect().height || 0;
   // 向下箭头：从 banner 到内容约 65vh，属跳转类滚动 ⇒ 走距离门控（短则平滑）
   smartScrollTo(
     window.scrollY + grid.getBoundingClientRect().top - gap - navbarOffset,
