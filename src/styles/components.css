@@ -1342,11 +1342,12 @@
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.3) !important;
     }
 
-    /* 当前页菜单项：实心主色胶囊 + 主色上文字（navbar.ts 的 nav-link-active 标记） */
+    /* 当前页菜单项：浅底 + 主色字（rainzt 式样，但颜色不写死：用 color-mix 从
+       var(--primary) 现取，跟随主题色相——后台/访客改了主题色，高亮色跟着变） */
     .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
-      background: var(--primary) !important;
-      color: var(--on-primary) !important;
-      border-color: transparent !important;
+      background: color-mix(in oklab, var(--primary) 14%, transparent) !important;
+      color: var(--primary) !important;
+      border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important;
     }
     /* 子菜单内当前页同样高亮（经典样式下无对应规则、无视觉效果） */
     .navbar-style-floating-pill .submenu-panel a.nav-link-active {

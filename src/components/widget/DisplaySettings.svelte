@@ -458,16 +458,31 @@
             </div>
           </button>
         </div>
-        <div class="seg-control" role="group" aria-label={t("display.navbarScroll", "导航栏滚动行为")}>
-          <button type="button" class="seg-item" class:seg-on={navbarScroll === "auto_hide"}
+        <!-- 导航栏滚动行为：rainzt 式选项卡片（预览壳 + 标题 + 说明，选中态主色描边） -->
+        <div class="card-decoration-options" role="group" aria-label={t("display.navbarScroll", "导航栏滚动行为")}>
+          <button type="button" class="card-decoration-option" class:card-decoration-option-active={navbarScroll === "auto_hide"}
                   aria-pressed={navbarScroll === "auto_hide"} on:click={() => chooseNavbarScroll("auto_hide")}>
-            <span class="icon-[material-symbols--unfold-less-rounded] text-lg"></span>
-            <span>{t("display.navbarScrollAutoHide", "滚动收缩")}</span>
+            <span class="card-decoration-preview" aria-hidden="true">
+              <span class="navbar-preview-shell navbar-preview-shell-compact">
+                <span class="navbar-preview-item navbar-preview-item-active"></span>
+              </span>
+            </span>
+            <span class="card-decoration-label">{t("display.navbarScrollAutoHide", "滚动收缩")}</span>
+            <span class="card-decoration-description">{t("display.navbarScrollAutoHideDesc", "下滚收缩，上滚展开")}</span>
           </button>
-          <button type="button" class="seg-item" class:seg-on={navbarScroll === "always"}
+          <button type="button" class="card-decoration-option" class:card-decoration-option-active={navbarScroll === "always"}
                   aria-pressed={navbarScroll === "always"} on:click={() => chooseNavbarScroll("always")}>
-            <span class="icon-[material-symbols--unfold-more-rounded] text-lg"></span>
-            <span>{t("display.navbarScrollAlways", "始终展开")}</span>
+            <span class="card-decoration-preview" aria-hidden="true">
+              <span class="navbar-preview-shell navbar-preview-shell-expanded">
+                <span class="navbar-preview-item navbar-preview-item-active"></span>
+                <span class="navbar-preview-item"></span>
+                <span class="navbar-preview-item"></span>
+                <span class="navbar-preview-item"></span>
+                <span class="navbar-preview-item"></span>
+              </span>
+            </span>
+            <span class="card-decoration-label">{t("display.navbarScrollAlways", "始终展开")}</span>
+            <span class="card-decoration-description">{t("display.navbarScrollAlwaysDesc", "滚动时保持完整导航")}</span>
           </button>
         </div>
       {/if}
@@ -759,6 +774,96 @@
   #display-setting .seg-item.seg-on {
     background: var(--primary);
     color: var(--on-primary);
+  }
+
+  /* 导航栏滚动方式选项卡片（rainzt 式：预览壳 + 标题 + 说明；描边/文字用本主题令牌） */
+  #display-setting .card-decoration-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  #display-setting .card-decoration-option {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    padding: 0.6rem;
+    border: 1px solid var(--line-divider);
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--primary);
+    opacity: 0.7;
+    text-align: left;
+    transition: border-color 0.18s ease, background-color 0.18s ease,
+      color 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
+  }
+  #display-setting .card-decoration-option:hover {
+    opacity: 1;
+    transform: translateY(-1px);
+  }
+  #display-setting .card-decoration-option:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+  #display-setting .card-decoration-option-active {
+    opacity: 1;
+    border-color: var(--primary);
+    font-weight: 700;
+  }
+  #display-setting .card-decoration-preview {
+    display: flex;
+    width: 100%;
+    height: 2.4rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--card-bg) 82%, var(--primary) 4%);
+  }
+  #display-setting .card-decoration-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+  }
+  #display-setting .card-decoration-description {
+    color: var(--btn-content);
+    opacity: 0.7;
+    font-size: 0.64rem;
+    line-height: 1.35;
+  }
+  /* 预览壳：胶囊里的圆点即菜单项；收缩态只剩 1 项，展开态 5 项 */
+  #display-setting .navbar-preview-shell {
+    box-sizing: border-box;
+    display: flex;
+    height: 1.55rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.1rem;
+    padding: 0.17rem;
+    border: 1px solid color-mix(in oklab, var(--btn-content) 22%, var(--card-bg));
+    border-radius: 999px;
+    background: var(--card-bg);
+    box-shadow: 0 0.1rem 0.28rem color-mix(in oklab, var(--btn-content) 8%, transparent);
+  }
+  #display-setting .navbar-preview-shell-compact {
+    width: 2.8rem;
+  }
+  #display-setting .navbar-preview-shell-expanded {
+    width: 7.4rem;
+    justify-content: space-between;
+  }
+  #display-setting .navbar-preview-item {
+    box-sizing: border-box;
+    width: 1.12rem;
+    height: 1rem;
+    flex: none;
+    border: 1px solid color-mix(in oklab, var(--btn-content) 34%, var(--card-bg));
+    border-radius: 999px;
+    background: var(--card-bg);
+  }
+  #display-setting .navbar-preview-item-active {
+    width: 1.65rem;
+    border-color: color-mix(in oklab, var(--primary) 55%, var(--card-bg));
+    background: color-mix(in oklab, var(--primary) 48%, var(--card-bg));
   }
 
   /* 壁纸模式 2×2 网格（参考 firefly：图标 + 文字，当前模式主题色高亮） */
