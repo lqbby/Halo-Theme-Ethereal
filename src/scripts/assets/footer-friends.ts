@@ -112,7 +112,12 @@
     }
 
     var endpoint = boxes[0].getAttribute("data-hbf-endpoint");
-    if (!endpoint) return;
+    if (!endpoint) {
+      // 其余失败路径都摘标记重试，唯独这条不能漏：标记是在发请求前
+      // 先打的，不摘会让本页会话内永远不再尝试加载友链
+      unmark();
+      return;
+    }
     var size = parseInt(boxes[0].getAttribute("data-hbf-size") || "0", 10);
 
     var url =

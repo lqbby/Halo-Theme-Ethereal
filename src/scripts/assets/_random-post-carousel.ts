@@ -307,7 +307,7 @@ export function openRandomPostCarousel(opts) {
     alive = false;
     cancelAnimationFrame(rafMotion);
     cancelAnimationFrame(rafImages);
-    window.removeEventListener("resize", onResize);
+    window.removeEventListener("resize", scheduleResize);
     window.removeEventListener("keydown", onKey);
     overlay.classList.add("is-leaving");
     overlay.classList.remove("is-open");

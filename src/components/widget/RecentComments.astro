@@ -243,7 +243,29 @@ const COLLAPSED_HEIGHT = "7.5rem";
       merged.signal = controller.signal;
       return fetch(url, merged).then(
         function (res) {
-          clearTimer();
+          // 超时须覆盖正文下载阶段：响应头到达不清定时器（慢 trickle 正文
+          // 会无限挂住评论区），改为包一层 json/text，正文读完或读失败才清；
+          // 包裹失败（极少数引擎 Response 不可扩展）时退回旧行为。
+          try {
+            ["json", "text"].forEach(function (m) {
+              var orig = res[m] && res[m].bind(res);
+              if (!orig) return;
+              res[m] = function () {
+                return orig().then(
+                  function (v) {
+                    clearTimer();
+                    return v;
+                  },
+                  function (e) {
+                    clearTimer();
+                    throw e;
+                  },
+                );
+              };
+            });
+          } catch (e) {
+            clearTimer();
+          }
           return res;
         },
         function (err) {

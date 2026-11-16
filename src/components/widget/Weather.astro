@@ -391,10 +391,13 @@ const className = Astro.props.class;
       container.appendChild(wrapper);
     }
 
-    var _cbIdx = 0;
     function jsonp(url) {
       return new Promise(function (resolve, reject) {
-        var cbName = "__tencent_cb_" + ++_cbIdx;
+        // 回调名必须全局唯一：计数挂 window 共享。原先计数在实例内从 0 起，
+        // 桌面+移动双实例会同名覆盖 window 上的回调——先发请求被后发实例
+        // 接管或删除，数据串台或走满 10 秒超时。
+        var cbIdx = (window.__tencentCbIdx = (window.__tencentCbIdx || 0) + 1);
+        var cbName = "__tencent_cb_" + cbIdx;
         var sep = url.indexOf("?") === -1 ? "?" : "&";
         var script = document.createElement("script");
         script.src = url + sep + "callback=" + cbName;
@@ -544,11 +547,17 @@ const className = Astro.props.class;
         });
     }
 
-    // 视口懒加载：容器进入可视区才拉天气数据（首屏不再无条件请求）
-    window.__themeLazyInit(
-      widgetRoot.querySelector("#weather-content"),
-      loadWeather,
-    );
+    // 视口懒加载：容器进入可视区才拉天气数据（首屏不再无条件请求）。
+    // 懒加载助手是 Layout 注入的可选全局量，缺失（脚本被拦/未就绪）时
+    // 直接调用会抛 TypeError 让组件永远停在「加载中」——此时退化为立即初始化。
+    if (typeof window.__themeLazyInit === "function") {
+      window.__themeLazyInit(
+        widgetRoot.querySelector("#weather-content"),
+        loadWeather,
+      );
+    } else {
+      loadWeather();
+    }
     // 换页后数据刷新：由 SwupScriptsPlugin 重执行本脚本时自动覆盖；
     // 原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
   })();

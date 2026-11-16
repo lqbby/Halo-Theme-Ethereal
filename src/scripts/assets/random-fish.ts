@@ -160,11 +160,13 @@ import { t } from "../../utils/i18n";
     //    若日后又改名，这里必须同步 —— 但**同一主题包内该值是固定的**（不随访客数据变化）。
     fetch("/friends?t=" + Date.now(), { signal: controller.signal })
       .then(function (r) {
-        clearTimer();
+        // 定时器不在此清：超时须覆盖正文下载阶段，拿到响应头就清会让
+        // 慢 trickle 正文无限挂住按钮；正文读完后在下一环清。
         if (!r.ok) throw new Error("http " + r.status);
         return r.text();
       })
       .then(function (html) {
+        clearTimer();
         var doc = new DOMParser().parseFromString(html, "text/html");
         var urls = [];
         var links = doc.querySelectorAll(

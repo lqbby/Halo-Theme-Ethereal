@@ -188,7 +188,8 @@ const className = Astro.props.class;
         }
         return fetch(API, { signal: controller.signal })
           .then(function (resp) {
-            clearTimer();
+            // 定时器不在此清：超时须覆盖正文下载阶段，拿到响应头就清会让
+            // 慢 trickle 正文无限挂住组件；正文解析完成后再清（见链尾）。
             if (!resp.ok) throw new Error("Network response was not ok.");
             var contentType = resp.headers.get("content-type") || "";
             // JSON 响应：兼容 hitokoto 标准字段与常见自定义字段
@@ -214,6 +215,10 @@ const className = Astro.props.class;
             return resp.text().then(function (text) {
               return { content: text.trim(), author: "" };
             });
+          })
+          .then(function (data) {
+            clearTimer();
+            return data;
           })
           .catch(function (e) {
             clearTimer();

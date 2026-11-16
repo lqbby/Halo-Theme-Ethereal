@@ -31,7 +31,11 @@
   function copyText(text: string): Promise<void> {
     // 非安全上下文（http 内网站点）没有 navigator.clipboard，退回 execCommand
     if (navigator.clipboard && window.isSecureContext) {
-      return navigator.clipboard.writeText(text);
+      return navigator.clipboard.writeText(text).catch(function () {
+        // writeText 被拒绝（权限/焦点不在文档等）时同样走 execCommand 兜底，
+        // 否则复制静默失败、用户点了按钮毫无反应
+        if (!fallbackCopy(text)) throw new Error("copy failed");
+      });
     }
     return fallbackCopy(text)
       ? Promise.resolve()
