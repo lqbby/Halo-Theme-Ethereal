@@ -211,16 +211,12 @@ check(
   ) || "未找到 series-strip-card__img",
 );
 
-const tplVer = (() => {
-  const m = /version:\s*"([0-9.]+)"/.exec(
-    read(path.join(themeRoot, "theme.yaml")),
-  );
-  return m ? m[1] : "";
-})();
+// 2026-11-16 资产版本改为构建期内容哈希（commit 5a9661c）：?v= 不再是 theme.yaml
+// 版本，断言改为 8 位 hex 内容哈希（与 M2b 同款断言过期，修测试不修代码）。
 check(
-  `A9 首页引了 series-strip.js 且 ?v= 与 theme.yaml 版本一致（${tplVer}）`,
-  tplVer !== "" && index.includes(`assets/series-strip.js?v=${tplVer}`),
-  `theme.yaml=${tplVer}`,
+  "A9 首页引了 series-strip.js 且 ?v= 为 8 位内容哈希",
+  /assets\/series-strip\.js\?v=[0-9a-f]{8}/.test(index),
+  "期望形如 assets/series-strip.js?v=xxxxxxxx",
 );
 check(
   "A10 只有首页带系列条（category/tag/archives 用同一 PostList 但不该有）",

@@ -7,7 +7,8 @@
 //       ② 移动端小组件选项补「最近评论」（右栏有、移动端原缺）。
 // 判据：
 //   M1 settings：三个显示范围下拉齐备（四选项 / 默认 all / key 正确）
-//   M2 settings：移动端小组件列表含 recent-comments；左栏未被误加
+//   M2 settings：移动端小组件列表含 recent-comments；左栏亦含 recent-comments
+//          （2026-11-16 补扫 N1 有意补齐，左栏原先独缺，移动端/右栏都有）
 //   M3 FeaturedCards：两种 mode 变量 + 五类隐藏类 + 三类 CSS（移动端/桌面端/两卡都关）
 //   M4 SeriesStrip：seriesMode 守卫 + 两种隐藏类 + 两个断点的 CSS
 import { readFileSync } from "node:fs";
@@ -88,9 +89,9 @@ for (const [name, key] of [
     true,
   );
   check(
-    "M2b 左栏列表未被误加（保持原样）",
-    /value: recent-comments/.test(seg(iW, iM)),
-    false,
+    "M2b 左栏列表已补「最近评论」（N1 有意补齐，与移动端/右栏一致）",
+    /- label: 最近评论\n\s+value: recent-comments/.test(seg(iW, iM)),
+    true,
   );
 }
 

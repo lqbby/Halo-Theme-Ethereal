@@ -766,11 +766,30 @@
       allTs.sort(function (a, b) {
         return b - a;
       });
+      // GitHub 回退路径只有提交级时间戳：一次 push 含多个提交时最新
+      // 两条只差几秒，「最近间隔」会被 fmtDuration 兜底成误导的「1 分钟」。
+      // 按活跃日去重、取最近两天各自的最新提交——间隔回到按天口径；
+      // 不足两个活跃日时不填时间戳，fillPushMetrics 回落到按天分支。
+      var distinctDayTs = [];
+      var seenDays = {};
+      allTs.forEach(function (ts) {
+        var k = dayKey(ts);
+        if (!seenDays[k]) {
+          seenDays[k] = true;
+          distinctDayTs.push(ts);
+        }
+      });
       return {
         byDay: map,
         startISO: dayKey(start.getTime()),
-        lastPushAt: allTs.length ? new Date(allTs[0]).toISOString() : null,
-        prevPushAt: allTs.length > 1 ? new Date(allTs[1]).toISOString() : null,
+        lastPushAt:
+          distinctDayTs.length > 1
+            ? new Date(distinctDayTs[0]).toISOString()
+            : null,
+        prevPushAt:
+          distinctDayTs.length > 1
+            ? new Date(distinctDayTs[1]).toISOString()
+            : null,
         source: "github",
       };
     });

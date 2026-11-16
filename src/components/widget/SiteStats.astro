@@ -416,6 +416,19 @@ const style = Astro.props.style || undefined;
       // 无标记的旧缓存沿用旧口径（null 视为依赖插件）。
       function cacheUsable(stats) {
         if (!stats) return false;
+        // 字数缺失且非服务端来源：写缓存时字数项是关闭的（totalWords 为
+        // null 只在 skipWordCount 时出现，即该项关闭或服务端已供数；
+        // wordsFromServer 为 false 排除后者）。当前实例开着该项时缓存
+        // 判废、触发重统——否则重开后 24h 内恒显示 "--"（B1）。该判断
+        // 同时覆盖已在线上写下的老格式缓存（无 wordsSkipped 标记），
+        // 只认标记会让这批缓存继续毒化 24 小时；该项仍关闭时缓存照常
+        // 用（只取最后活动），不触发全量重拉。
+        if (
+          stats.totalWords === null &&
+          !stats.wordsFromServer &&
+          wordsEl0
+        )
+          return false;
         if (typeof stats.wordsFromServer === "boolean") {
           return !(stats.wordsFromServer && !serverHasWords);
         }
