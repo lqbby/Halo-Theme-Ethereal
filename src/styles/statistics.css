@@ -299,7 +299,8 @@
 }
 #statistics-dashboard .stats-status[data-state="online"] .stats-status__dot {
   background: var(--stats-v2);
-  box-shadow: 0 0 0 0.22rem color-mix(in oklab, var(--stats-v2) 18%, transparent);
+  box-shadow: 0 0 0 0.22rem
+    color-mix(in oklab, var(--stats-v2) 18%, transparent);
 }
 #statistics-dashboard .stats-status[data-state="offline"] {
   border-color: color-mix(
@@ -657,14 +658,12 @@
 #statistics-dashboard .stats-chart-point--endpoint {
   opacity: 1;
 }
-#statistics-dashboard
-  .stats-chart-point--endpoint.stats-chart-point--views {
+#statistics-dashboard .stats-chart-point--endpoint.stats-chart-point--views {
   filter: drop-shadow(
     0 0 0.2rem color-mix(in oklab, var(--primary) 32%, transparent)
   );
 }
-#statistics-dashboard
-  .stats-chart-point--endpoint.stats-chart-point--visitors {
+#statistics-dashboard .stats-chart-point--endpoint.stats-chart-point--visitors {
   filter: drop-shadow(
     0 0 0.2rem color-mix(in oklab, var(--stats-v3) 32%, transparent)
   );
@@ -1473,7 +1472,8 @@
 }
 #statistics-dashboard .stats-push-grid .stats-heat-cell.is-food {
   background: var(--stats-v3);
-  box-shadow: 0 0 0 0.14rem color-mix(in oklab, var(--stats-v3) 30%, transparent);
+  box-shadow: 0 0 0 0.14rem
+    color-mix(in oklab, var(--stats-v3) 30%, transparent);
   animation: stats-snake-food 1.45s ease-in-out infinite;
 }
 #statistics-dashboard .stats-push-grid .stats-heat-cell.is-snake {
@@ -1481,7 +1481,8 @@
 }
 #statistics-dashboard .stats-push-grid .stats-heat-cell.is-snake-head {
   background: var(--stats-v5);
-  box-shadow: 0 0 0 0.14rem color-mix(in oklab, var(--stats-v5) 32%, transparent);
+  box-shadow: 0 0 0 0.14rem
+    color-mix(in oklab, var(--stats-v5) 32%, transparent);
 }
 /* 少→多 legend */
 #statistics-dashboard .stats-heat-legend {
@@ -1574,53 +1575,35 @@
   font-size: 0.64rem;
   line-height: 1.4;
 }
-/* 右侧 art 块：椭圆轨道 + 右上斜排文字 + 底部模糊影（纯 CSS 构成） */
+/* 右侧 art 块：可莉立绘（附件 /upload/stats/klee-activity.webp）居中贴底
+   + 右上斜排文字压在图层之上；背景透明、无轨道环与底部影（2026-11-16 与
+   线上热补丁现状对齐） */
 #statistics-dashboard .stats-activity__art {
   position: relative;
   min-height: 14.2rem;
   overflow: hidden;
   border-radius: 1rem;
-  background:
-    radial-gradient(
-      circle at 50% 64%,
-      color-mix(in oklab, var(--primary) 14%, transparent),
-      transparent 58%
-    ),
-    color-mix(in oklab, var(--primary) 5%, transparent);
+  background: transparent;
 }
-#statistics-dashboard .stats-activity__art::after {
-  content: "";
+#statistics-dashboard .stats-activity__art-img {
   position: absolute;
-  right: 12%;
-  bottom: 0.62rem;
-  left: 12%;
-  height: 0.72rem;
-  border-radius: 50%;
-  background: color-mix(in oklab, var(--primary) 18%, transparent);
-  filter: blur(0.6rem);
+  right: 50%;
+  bottom: -0.8rem;
+  width: min(112%, 18rem);
+  max-height: 15.4rem;
+  object-fit: contain;
+  transform: translateX(50%);
+  filter: drop-shadow(0 1rem 1.2rem rgb(0 0 0 / 0.25));
+  transition: transform 0.45s ease;
 }
-#statistics-dashboard .stats-activity__art-orbit {
-  position: absolute;
-  top: 2.3rem;
-  left: 50%;
-  width: 10rem;
-  height: 5.8rem;
-  border: 1px solid color-mix(in oklab, var(--primary) 20%, transparent);
-  border-radius: 50%;
-  opacity: 0.65;
-  transform: translateX(-50%) rotate(-12deg);
-}
-#statistics-dashboard .stats-activity__art-orbit--2 {
-  top: 3.4rem;
-  width: 6.4rem;
-  height: 3.6rem;
-  border-style: dashed;
-  border-color: color-mix(in oklab, var(--stats-v3) 26%, transparent);
+#statistics-dashboard .stats-activity__art:hover .stats-activity__art-img {
+  transform: translateX(50%) translateY(-0.35rem);
 }
 #statistics-dashboard .stats-activity__art p {
   position: absolute;
   top: 0.35rem;
   right: 0.85rem;
+  z-index: 2;
   margin: 0;
   color: color-mix(in oklab, var(--primary) 72%, var(--deep-text));
   font-size: 0.82rem;
@@ -2494,9 +2477,6 @@
     background: var(--card-bg);
   }
   #statistics-dashboard .stats-deployment__message {
-    background: var(--card-bg);
-  }
-  #statistics-dashboard .stats-activity__art {
     background: var(--card-bg);
   }
 }

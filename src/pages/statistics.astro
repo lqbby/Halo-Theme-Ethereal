@@ -73,8 +73,8 @@ import Canonical from "../components/misc/Canonical.astro";
       <div class="stats-hero__grid">
         <div class="stats-hero__copy">
           <p class="stats-kicker stats-hero__kicker">
-            <span class="stats-kicker__signal" aria-hidden="true"></span
-            >STATISTICS
+            <span class="stats-kicker__signal" aria-hidden="true"
+            ></span>STATISTICS
           </p>
           <h1 class="stats-hero__title" th:text="${singlePage.spec.title}">
             数据看板
@@ -253,8 +253,7 @@ import Canonical from "../components/misc/Canonical.astro";
                       class="stats-area-stop stats-area-stop--top"></stop>
                     <stop
                       offset="100%"
-                      class="stats-area-stop stats-area-stop--bottom"
-                    ></stop>
+                      class="stats-area-stop stats-area-stop--bottom"></stop>
                   </linearGradient>
                 </defs>
                 <g class="stats-chart-grid" aria-hidden="true">
@@ -293,8 +292,9 @@ import Canonical from "../components/misc/Canonical.astro";
                   浏览</span
                 >
                 <span
-                  ><i class="stats-legend-dot stats-legend-dot--visitors"
-                  ></i><b data-tip-visitors>—</b> 访客</span
+                  ><i class="stats-legend-dot stats-legend-dot--visitors"></i><b
+                    data-tip-visitors>—</b
+                  > 访客</span
                 >
               </div>
               <div class="stats-chart__x-axis" aria-hidden="true">
@@ -310,12 +310,12 @@ import Canonical from "../components/misc/Canonical.astro";
             <footer class="stats-chart-footer">
               <div class="stats-chart-legend">
                 <span
-                  ><i class="stats-legend-dot stats-legend-dot--views"></i
-                  >浏览量</span
+                  ><i class="stats-legend-dot stats-legend-dot--views"
+                  ></i>浏览量</span
                 >
                 <span
-                  ><i class="stats-legend-dot stats-legend-dot--visitors"></i
-                  >访客</span
+                  ><i class="stats-legend-dot stats-legend-dot--visitors"
+                  ></i>访客</span
                 >
               </div>
             </footer>
@@ -445,9 +445,7 @@ import Canonical from "../components/misc/Canonical.astro";
             <span class="stats-panel__badge" data-push-status>读取中</span>
           </header>
           <div class="stats-deployment__metrics">
-            <div
-              class="stats-deployment__metric stats-deployment__metric--v1"
-            >
+            <div class="stats-deployment__metric stats-deployment__metric--v1">
               <span class="stats-deployment__metric-icon">
                 <span
                   class="icon-[material-symbols--history-rounded]"
@@ -459,9 +457,7 @@ import Canonical from "../components/misc/Canonical.astro";
                 <small data-push-latest-date>—</small>
               </span>
             </div>
-            <div
-              class="stats-deployment__metric stats-deployment__metric--v5"
-            >
+            <div class="stats-deployment__metric stats-deployment__metric--v5">
               <span class="stats-deployment__metric-icon">
                 <span
                   class="icon-[material-symbols--timelapse-rounded]"
@@ -473,9 +469,7 @@ import Canonical from "../components/misc/Canonical.astro";
                 <small>与上一次推送相隔</small>
               </span>
             </div>
-            <div
-              class="stats-deployment__metric stats-deployment__metric--v1"
-            >
+            <div class="stats-deployment__metric stats-deployment__metric--v1">
               <span class="stats-deployment__metric-icon">
                 <span
                   class="icon-[material-symbols--speed-rounded]"
@@ -487,9 +481,7 @@ import Canonical from "../components/misc/Canonical.astro";
                 <small>活跃日之间的平均间隔</small>
               </span>
             </div>
-            <div
-              class="stats-deployment__metric stats-deployment__metric--v4"
-            >
+            <div class="stats-deployment__metric stats-deployment__metric--v4">
               <span class="stats-deployment__metric-icon">
                 <span
                   class="icon-[material-symbols--whatshot-rounded]"
@@ -649,7 +641,8 @@ import Canonical from "../components/misc/Canonical.astro";
             </span>
             <span class="stats-deployment__message-copy">
               <strong data-push-heatmap-detail>近 12 个月的推送活动</strong>
-              <span>小蛇正在提交格子上散步——点任意格子，可以喂它一个食物。</span>
+              <span>小蛇正在提交格子上散步——点任意格子，可以喂它一个食物。</span
+              >
             </span>
             <span
               class="icon-[material-symbols--send-rounded] stats-deployment__message-plane"
@@ -658,8 +651,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <div class="stats-empty" data-push-empty hidden>
             <strong>暂时读不到提交活动</strong>
             <span
-              >GitHub
-              公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
+              >GitHub 公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
             >
           </div>
         </section>
@@ -690,15 +682,17 @@ import Canonical from "../components/misc/Canonical.astro";
               <div class="stats-activity__heatmap-wrap">
                 <div class="stats-activity__heatmap">
                   <div class="stats-activity__hours" aria-hidden="true">
-                    <span>00时</span><span>02时</span><span>04时</span
-                    ><span>06时</span><span>08时</span><span>10时</span>
-                    <span>12时</span><span>14时</span><span>16时</span
-                    ><span>18时</span><span>20时</span><span>22时</span>
+                    <span>00时</span><span>02时</span><span>04时</span><span
+                      >06时</span
+                    ><span>08时</span><span>10时</span>
+                    <span>12时</span><span>14时</span><span>16时</span><span
+                      >18时</span
+                    ><span>20时</span><span>22时</span>
                   </div>
                   <div class="stats-activity__days" aria-hidden="true">
-                    <span>周一</span><span>周二</span><span>周三</span
-                    ><span>周四</span><span>周五</span><span>周六</span
-                    ><span>周日</span>
+                    <span>周一</span><span>周二</span><span>周三</span><span
+                      >周四</span
+                    ><span>周五</span><span>周六</span><span>周日</span>
                   </div>
                   <div
                     class="stats-activity__grid"
@@ -716,8 +710,7 @@ import Canonical from "../components/misc/Canonical.astro";
                         th:each="h : ${#numbers.sequence(0, 23)}"
                         th:data-wd="${wd}"
                         th:data-h="${h}"
-                        data-level="0"
-                      ></button>
+                        data-level="0"></button>
                     </div>
                   </div>
                 </div>
@@ -726,11 +719,13 @@ import Canonical from "../components/misc/Canonical.astro";
                 </p>
               </div>
               <div class="stats-activity__art" aria-hidden="true">
-                <div class="stats-activity__art-orbit"></div>
-                <div
-                  class="stats-activity__art-orbit stats-activity__art-orbit--2"
-                >
-                </div>
+                <img
+                  class="stats-activity__art-img"
+                  src="/upload/stats/klee-activity.webp"
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                />
                 <p>谢谢你的<br />每一次到访</p>
               </div>
             </div>
@@ -981,7 +976,10 @@ import Canonical from "../components/misc/Canonical.astro";
             </div>
           </header>
           <ul class="stats-comments" data-comments-list aria-live="polite">
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 30%"></span>
@@ -990,7 +988,10 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span class="stats-skel-line" style="width: 62%"></span>
               </span>
             </li>
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 26%"></span>
@@ -999,7 +1000,10 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span class="stats-skel-line" style="width: 58%"></span>
               </span>
             </li>
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 34%"></span>
@@ -1008,7 +1012,10 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span class="stats-skel-line" style="width: 60%"></span>
               </span>
             </li>
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 28%"></span>
@@ -1017,7 +1024,10 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span class="stats-skel-line" style="width: 56%"></span>
               </span>
             </li>
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 31%"></span>
@@ -1026,7 +1036,10 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span class="stats-skel-line" style="width: 59%"></span>
               </span>
             </li>
-            <li class="stats-comment stats-comment--skeleton" aria-hidden="true">
+            <li
+              class="stats-comment stats-comment--skeleton"
+              aria-hidden="true"
+            >
               <span class="stats-comment__avatar"></span>
               <span class="stats-comment__body">
                 <span class="stats-skel-line" style="width: 29%"></span>
