@@ -44,7 +44,8 @@ const SSH_ARGS = [
 const PG_CONTAINER = "1Panel-postgresql-VIXG";
 const HALO_CONTAINER = "1Panel-halo-4xQa";
 const CM_NAME = "/registry/configmaps/Ethereal-configMap";
-const PSQL = `sudo docker exec -i ${PG_CONTAINER} psql -U halo -d halo -A -t`;
+// ON_ERROR_STOP：SQL 出错时 psql 以非零码退出，ssh() 才能感知失败（否则静默吞错）
+const PSQL = `sudo docker exec -i ${PG_CONTAINER} psql -U halo -d halo -A -t -v ON_ERROR_STOP=1`;
 
 const NOISE =
   /post-quantum|store now, decrypt later|may need to be upgraded|^\*\*|^Warning: Permanently/;
@@ -79,10 +80,14 @@ function readConfigMap() {
 
 function writeConfigMap(root) {
   const b64 = Buffer.from(JSON.stringify(root), "utf8").toString("base64");
-  ssh(
+  const out = ssh(
     PSQL,
     `UPDATE extensions SET data = decode('${b64}','base64') WHERE name='${CM_NAME}';\n`,
   );
+  // 校验命令标签：必须恰好更新 1 行，0 行（name 不匹配）或无标签都视为失败，
+  // 不能让「SQL 没生效」静默混过去（回读校验在容器重启后才跑，太晚）
+  if (!out.includes("UPDATE 1"))
+    throw new Error(`写库未确认：psql 输出「${out.trim()}」，预期含 UPDATE 1`);
 }
 
 function backup(root) {
@@ -148,17 +153,19 @@ console.log(
     ITEMS.map((i) => ({ name: i.name, url: i.url, icon: i.icon.name })),
   ),
 );
-style.bannerText = style.bannerText || {};
-style.bannerText.links = { items: ITEMS };
-root.data.style = JSON.stringify(style);
-
 if (!APPLY) {
   console.log("\n[DRY-RUN] 未写入。加 --apply 执行。");
   process.exit(0);
 }
 
+// ⚠️ 先备份、后改值：backup 序列化的是整个 root，若在给 root.data.style
+// 赋新值之后才备份，备份里存的就是新值，出事拿它回滚等于没备份
 const bak = backup(root);
 console.log("备份 →", bak);
+
+style.bannerText = style.bannerText || {};
+style.bannerText.links = { items: ITEMS };
+root.data.style = JSON.stringify(style);
 
 console.log(`停 ${HALO_CONTAINER} ...`);
 ssh(`sudo docker stop ${HALO_CONTAINER}`);
@@ -177,7 +184,8 @@ for (;;) {
     `sudo docker inspect ${HALO_CONTAINER} --format '{{.State.Status}} {{.State.Health.Status}}'`,
   ).trim();
   process.stdout.write(`\r状态: ${st}   `);
-  if (st.includes("healthy")) break;
+  // 按 token 精确比对健康状态：includes("healthy") 会把 "unhealthy" 也判成就绪
+  if ((st.split(/\s+/)[1] || "") === "healthy") break;
   if (Date.now() - t0 > 120000)
     throw new Error("Halo 未在 120s 内恢复 healthy");
   spawnSync(process.execPath, ["-e", "setTimeout(()=>{},3000)"]);

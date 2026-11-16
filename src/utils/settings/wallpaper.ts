@@ -43,10 +43,7 @@ export function getStoredWallpaperParams(): WallpaperParams {
       storageGet("wallpaperOpacity") ?? undefined,
       defaults.opacity,
     ),
-    blur: parseNum(
-      storageGet("wallpaperBlur") ?? undefined,
-      defaults.blur,
-    ),
+    blur: parseNum(storageGet("wallpaperBlur") ?? undefined, defaults.blur),
     cardAlpha: parseNum(
       storageGet("wallpaperCardAlpha") ?? undefined,
       defaults.cardAlpha,
@@ -136,8 +133,10 @@ export function applyBannerDisplay(mode: BannerDisplayMode): void {
   applyBannerExtend(mode);
   body.classList.toggle("enable-banner", enableBanner);
 
-  const dur =
-    parseFloat(getComputedStyle(root).getPropertyValue("--dur-banner")) || 700;
+  // 必须走共享助手：getComputedStyle 对 --dur-banner 返回 CSSOM 规范化的
+  // ".7s"，直接 parseFloat 得 0.7（毫秒级），过渡窗口约 100ms 就被摘、
+  // 元素瞬跳到终点。readDurBannerMs 已按单位换算并带 700ms 兜底。
+  const dur = readDurBannerMs(root);
   window.setTimeout(
     () => root.classList.remove("banner-mode-transitioning"),
     dur + 100,
