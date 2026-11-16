@@ -1321,6 +1321,8 @@ spec:
                       value: schedule
                     - label: Steam 游戏状态
                       value: steam
+                    - label: 最近评论
+                      value: recent-comments
                     - label: 自定义HTML
                       value: html
                 - $formkit: checkbox
