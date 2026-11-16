@@ -2,9 +2,8 @@ import { getVisitorSwitches, carrierStr } from "./visitor-switches";
 import { storageGet, storageRemove, storageSet } from "./storage";
 
 /* ── 导航栏滚动行为（访客可覆盖后台默认值） ───────────────────────
- * 后台 select（菜单栏设置 → 导航栏滚动行为）定默认值；老 navbarFixed 开关
- * 的兼容兜底在 ConfigCarrier data-navbar-scroll-default 与 Layout.astro
- * th:data-navbar-fixed 的 SpEL 里（新字段为空时沿用旧值）。
+ * 后台 select（菜单栏设置 → 导航栏滚动行为）定默认值，是唯一事实来源；
+ * 老 navbarFixed 开关已彻底移除，不再兼容兜底（缺失时默认 auto_hide）。
  * 访客在显示设置面板「外观 → 导航栏」切换后写入 localStorage；
  * VisitorStyleBoot.astro 首帧把生效值换算进 html[data-navbar-fixed]，
  * scroll-manager / scrollDownToContent 只读该属性的 "true"/"false"。
@@ -32,17 +31,20 @@ export function getStoredNavbarScroll(): NavbarScrollMode {
   return stored ?? getDefaultNavbarScroll();
 }
 
-/** 写入访客偏好并立即换算进 html[data-navbar-fixed]；切回滚动收缩时
- *  顺带清除可能残留的 navbar-hidden（导航栏立即重新出现，此后按滚动方向判断）。 */
+/** 写入访客偏好并立即换算进 html[data-navbar-fixed]；切换时无条件清两处
+ *  残留——#navbar-wrapper 的 navbar-hidden 与 body 的 dynamic-navbar-hidden：
+ *  下滚隐藏态切「始终展开」时 scroll-manager 提前 return，此后不再维护这两类；
+ *  不清则侧边栏/TOC 停在无导航栏基准被固定导航栏遮住，直到重载或切回
+ *  auto_hide 再滚动（B2）。切回 auto_hide 时同理先清，导航栏立即重现，
+ *  此后按滚动方向重新判断。 */
 export function setNavbarScroll(mode: NavbarScrollMode): void {
   storageSet("navbarScroll", mode);
   document.documentElement.dataset.navbarFixed =
     mode === "always" ? "true" : "false";
-  if (mode === "auto_hide") {
-    document
-      .getElementById("navbar-wrapper")
-      ?.classList.remove("navbar-hidden");
-  }
+  document
+    .getElementById("navbar-wrapper")
+    ?.classList.remove("navbar-hidden");
+  document.body.classList.remove("dynamic-navbar-hidden");
 }
 
 /** 清除访客偏好并恢复后台默认值。 */

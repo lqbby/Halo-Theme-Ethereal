@@ -252,7 +252,7 @@ const themeSettingScript = `<script type="application/json" id="theme-config" da
   th:lang="${#locale.toLanguageTag}"
   th:data-hue="${theme.config?.style?.themeColor?.hue}"
   th:data-hue-fixed="${theme.config?.layout?.mobileMenu?.visitorStyle?.enable == false or theme.config?.layout?.mobileMenu?.visitorStyle?.appearance == false}"
-  th:data-navbar-fixed="${theme.config?.layout?.mobileMenu?.navbarScroll == 'always' ? true : (theme.config?.layout?.mobileMenu?.navbarScroll == 'auto_hide' ? false : (theme.config?.layout?.mobileMenu?.navbarFixed == true))}"
+  th:data-navbar-fixed="${theme.config?.layout?.mobileMenu?.navbarScroll == 'always'}"
   th:data-theme-anim-style="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == false ? 'none' : theme.config?.style?.colorScheme?.colorSchemeAnimation?.style}"
   th:data-theme-anim-easing="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.easing}"
   th:data-theme-anim-angle="${theme.config?.style?.colorScheme?.colorSchemeAnimation?.angle}"

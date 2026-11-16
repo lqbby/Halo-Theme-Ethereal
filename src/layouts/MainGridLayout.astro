@@ -890,7 +890,7 @@ const {
          🔴 两个外壳都要挂：插件页外壳 src/pages/layout.astro 不走本布局，漏挂则该壳无樱花 -->
     <script
       th:if="${theme.config?.style?.styleSwitches?.sakura == true or theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${assetVersion("assets/sakura.js")}`}
+      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/sakura.js?v=${assetVersion("assets/sakura.js")}-${assetVersion("assets/sakura-worker.js")}-${assetVersion("assets/images/effects/sakura.png")}`}
       data-swup-ignore-script
       defer></script>
   </div>

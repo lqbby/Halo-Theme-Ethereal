@@ -223,8 +223,6 @@ export interface MobileMenuConfig {
   navbarStyle?: "classic" | "floating_pill";
   /** 导航栏滚动行为（默认值，访客可在显示设置面板覆盖）：auto_hide（滚动收缩）/ always（始终展开） */
   navbarScroll?: "auto_hide" | "always";
-  /** 固定菜单栏（旧字段，已由 navbarScroll 取代，仅作老配置兼容兜底；新配置保存后不再写入） */
-  navbarFixed?: boolean;
   /** 语言切换：开启后在菜单栏显示语言切换按钮（访客可切换站点显示语言） */
   enable_change_language?: boolean;
   /** 配色（深浅色）切换：开启后在菜单栏显示明暗配色切换按钮 */
