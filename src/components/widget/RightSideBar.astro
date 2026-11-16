@@ -34,7 +34,7 @@ const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and w
   th:classappend={thClassappend}
 >
   <div
-    th:with="widgets=${theme.config?.sidebar?.widgetsConfig?.rightWidgets}"
+    th:with="widgets=${theme.config?.sidebar?.widgetsConfig?.rightWidgets}, tocOnLeft=${theme.config?.post?.toc?.position == 'left' and theme.config?.layout?.pageLayout?.layoutMode != 'two-column'}"
     th:remove="tag"
   >
     {
@@ -99,7 +99,7 @@ const hasNonStickyIf = `\${widgets != null and not #lists.isEmpty(widgets) and w
         <div
           th:remove="tag"
           th:if={showToc
-            ? "${theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc}"
+            ? "${not tocOnLeft and (theme.config?.post == null or theme.config?.post?.toc?.enable_toc == null or theme.config?.post?.toc?.enable_toc)}"
             : "false"}
         >
           <SidebarTOC />

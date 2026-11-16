@@ -11,7 +11,7 @@ import { exifHasDataExpr } from "../utils/photo-exif";
   description="${not #strings.isEmpty(photo.spec.description) ? #strings.abbreviate(photo.spec.description, 120) : (not #strings.isEmpty(photo.spec.displayName) ? photo.spec.displayName : #messages.msg('page.photo.description', site.title))}"
 >
   <Fragment slot="head">
-    <Canonical path="/photo" />
+    <Canonical path="${photoUrl.detail(photo)}" />
     <!-- 页面标题由 Layout.astro 统一输出；此处仅保留页面特有 head 内容 -->
     <meta
       property="og:image"

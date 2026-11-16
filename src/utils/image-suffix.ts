@@ -555,12 +555,19 @@ function w0Strip(urlExpr: string): string {
  * 单图（w0Strip）与轮播（carouselImgSrcExpr）共用同一替换串，避免两处漂移。
  * @param safeExpr 已带空值兜底的 URL 表达式（defaultString 后）
  */
+function stripZeroParam(expr: string, name: string): string {
+  // 顺序不可换：先「?name=0&」→「?」（首参且后跟其它参数，保住问号）、
+  // 再「&name=0」→「」（中间/末尾参数整段删）、最后「?name=0」→「」（唯一参数）。
+  // 只按字面删 '?name=0' 会把 a.jpg?w=0&x=1 削成 a.jpg&x=1（问号丢失、参数残缺），
+  // 且 a.jpg?x=1&w=0 这种首参不在问号后的形态根本删不掉。
+  let e = `#strings.replace(${expr}, '?${name}=0&', '?')`;
+  e = `#strings.replace(${e}, '&${name}=0', '')`;
+  e = `#strings.replace(${e}, '?${name}=0', '')`;
+  return e;
+}
+
 function stripZeroWidthSuffix(safeExpr: string): string {
-  return (
-    "#strings.replace(#strings.replace(" +
-    safeExpr +
-    ", '?w=0', ''), '?width=0', '')"
-  );
+  return stripZeroParam(stripZeroParam(safeExpr, "w"), "width");
 }
 
 /**

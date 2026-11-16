@@ -1306,7 +1306,24 @@ const basePath = import.meta.env.BASE_URL.replace(/\/+$/, "");
       function processAndInsert() {
         var template = document.getElementById(TEMPLATE_ID);
         var placeholder = document.getElementById(PLACEHOLDER_ID);
-        if (!template || !placeholder) return;
+        if (!template || !placeholder) {
+          // 直出分支（provider 为 halo/none/未配置）：正文已直接渲染在 DOM 里，
+          // 没有模板克隆流程，但 reading-time 回填仍要做——否则默认配置下
+          // 「约 X 分钟」永远停在插件占位文案。时序与 CDN 分支一致等下一帧，
+          // 待插件组件挂载渲染完成后再回填。
+          var liveContent = document.getElementById("content");
+          if (liveContent) {
+            requestAnimationFrame(function () {
+              var readingTimeEl = liveContent.querySelector(
+                ".xhhao-com-reading-time",
+              );
+              if (readingTimeEl) {
+                autoFillReadingTime(liveContent, readingTimeEl);
+              }
+            });
+          }
+          return;
+        }
 
         // 读取主题图片处理配置
         var provider = "none",

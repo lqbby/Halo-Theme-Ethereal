@@ -34,8 +34,10 @@ import PageHeader from "../components/control/PageHeader.astro";
 //         必须用 post.categories 对象列表（ListedPostVo 增强字段，spec.slug）匹配，
 //         spec.categories 分支仅作兜底保留。
 const postMatchRow = `(#lists.isEmpty(param.category) and #lists.isEmpty(param.uncategorized)) or (not #lists.isEmpty(param.category) and ((post.categories != null and #lists.contains(post.categories.![spec.slug], param.category[0])) or #lists.contains(post.spec.categories, param.category[0]))) or (#lists.isEmpty(param.category) and not #lists.isEmpty(param.uncategorized) and ((post.categories == null or #lists.isEmpty(post.categories)) and (post.spec.categories == null or #lists.isEmpty(post.spec.categories))))`;
-const topWith = `totalPosts=\${archives == null or #lists.isEmpty(archives.items) ? 0 : (#aggregates.sum(archives.items.![months == null or #lists.isEmpty(months) ? 0 : (#aggregates.sum(months.![posts == null ? 0 : posts.size()]) ?: 0)]) ?: 0)},filterActive=\${not #lists.isEmpty(param.category) or not #lists.isEmpty(param.uncategorized)}`;
-// 年份计数与上方 totalPosts 同口径判空：months 为 null/空、单月 posts 为 null 时
+// 页头总数走 postFinder 全量口径（CategoryBar 先例）：\${archives} 按文章分页，
+// 对 archives.items（仅当前页）求和会让「共 N 篇」恒等于第一页之和、与全站总数不符。
+const topWith = `totalPosts=\${postFinder.list({page: 1, size: 1}).total},filterActive=\${not #lists.isEmpty(param.category) or not #lists.isEmpty(param.uncategorized)}`;
+// 年份计数判空口径：months 为 null/空、单月 posts 为 null 时
 // 投影 posts.size() 会抛错整页 500，原表达式三处都没防。
 const yearCountThWith = `postCount=\${archive.months == null or #lists.isEmpty(archive.months) ? 0 : (#aggregates.sum(archive.months.![posts == null ? 0 : posts.size()]) ?: 0)}`;
 ---

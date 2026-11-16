@@ -98,16 +98,20 @@ function enhanceHeadings(root: Element) {
  * Swup 换页由 page:view hook 调用。
  */
 export function initContentEnhance() {
-  const root = document.querySelector<HTMLElement>(".custom-md");
-  if (!root || root.dataset.contentEnhanced) return;
-  root.dataset.contentEnhanced = "1";
+  // 一页可能有多个 .custom-md（如动态列表页），必须逐个增强；
+  // 只取第一个会让其余正文块的短代码/交互增强永不执行。
+  const roots = document.querySelectorAll<HTMLElement>(".custom-md");
+  roots.forEach((root) => {
+    if (root.dataset.contentEnhanced) return;
+    root.dataset.contentEnhanced = "1";
 
-  enhanceCodeBlocks(root);
-  enhanceTables(root);
-  enhanceHeadings(root);
+    enhanceCodeBlocks(root);
+    enhanceTables(root);
+    enhanceHeadings(root);
 
-  // L3 短代码：动态 import，避免非短代码页面加载解析逻辑。
-  import("./shortcode").then(({ renderShortcodes }) => {
-    renderShortcodes(root);
+    // L3 短代码：动态 import，避免非短代码页面加载解析逻辑。
+    import("./shortcode").then(({ renderShortcodes }) => {
+      renderShortcodes(root);
+    });
   });
 }

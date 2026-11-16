@@ -42,10 +42,17 @@ import { guardOnce, onPageView } from "../../utils/once";
     return document.getElementById("pf-page");
   }
 
+  // URL 里的 __all__ 哨兵与「未筛选」同义，读入即归一化为空串：
+  // 共享链接带 ?platform=__all__ 时若按真实平台值比对，全站卡片无一命中、网格全空
+  // （点击路径在 bindGlobal 里已归一化，唯独读 URL 这条漏了）。
+  function normDim(v) {
+    return !v || v === ALL ? "" : v;
+  }
+
   function readUrl() {
     var params = new URLSearchParams(window.location.search);
-    state.platform = params.get("platform") || "";
-    state.type = params.get("type") || "";
+    state.platform = normDim(params.get("platform"));
+    state.type = normDim(params.get("type"));
     state.tag = params.get("tag") || "";
   }
 

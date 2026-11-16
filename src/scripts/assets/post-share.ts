@@ -12,15 +12,28 @@ import { t } from "../../utils/i18n";
 // 文章协议区 URL 同步（支持 Swup 页面切换）
 (function () {
   window.__etherealSyncCurrentPostUrl = function () {
-    var currentUrl = window.location.href;
+    var rawUrl = window.location.href;
+    // href 必须保留原始编码串：整串 decodeURIComponent 会把 %2F/%23/%3F
+    // 解开、改变 URL 语义（路径被截断/多出分隔符），畸形 % 还会抛 URIError。
+    // 解码只用于显示文案，且逐段进行、单段失败保留原段。
+    var displayUrl = rawUrl;
     try {
-      currentUrl = decodeURIComponent(currentUrl);
+      displayUrl = rawUrl
+        .split("/")
+        .map(function (seg) {
+          try {
+            return decodeURIComponent(seg);
+          } catch (e) {
+            return seg;
+          }
+        })
+        .join("/");
     } catch (e) {}
     document
       .querySelectorAll("[data-current-post-url]")
       .forEach(function (link) {
-        link.setAttribute("href", currentUrl);
-        link.textContent = currentUrl;
+        link.setAttribute("href", rawUrl);
+        link.textContent = displayUrl;
       });
   };
 

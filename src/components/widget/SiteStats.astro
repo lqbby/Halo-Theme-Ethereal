@@ -409,9 +409,16 @@ const style = Astro.props.style || undefined;
       // 关闭时也不缓存字数，否则重新开启后会沿用缓存的 0 而不再统计
       var skipWordCount = serverHasWords || !wordsEl0;
 
-      // 缓存可用性判断：totalWords 为 null 说明缓存生成时依赖插件服务端值；
-      // 若当前已无插件（无 data-server-words），该缓存不可用，须重新客户端统计
+      // 缓存可用性判断：只有「字数取自插件服务端值、而插件现已不在」时缓存才作废。
+      // totalWords 本身不能当哨兵：字数项关闭时它合法地为 null（见 finish 的
+      // skipWordCount 分支），拿 null 判废会让无插件环境下缓存恒失效、每次访问
+      // 全量重拉文章列表。故写入时单独记 wordsFromServer 标记，判废只看标记；
+      // 无标记的旧缓存沿用旧口径（null 视为依赖插件）。
       function cacheUsable(stats) {
+        if (!stats) return false;
+        if (typeof stats.wordsFromServer === "boolean") {
+          return !(stats.wordsFromServer && !serverHasWords);
+        }
         return !(!serverHasWords && stats.totalWords === null);
       }
 
@@ -505,8 +512,10 @@ const style = Astro.props.style || undefined;
             : "--";
 
           window.__siteStatsCache = {
-            // 无需统计字数时不缓存，后续重新开启该项会重新统计
+            // 无需统计字数时不缓存字数值，后续重新开启该项会重新统计；
+            // 字数来源单独标记（见 cacheUsable），不再拿 null 当插件依赖哨兵
             totalWords: skipWordCount ? null : totalWords,
+            wordsFromServer: serverHasWords,
             lastActivity: formattedActivity,
           };
           setCachedStats(window.__siteStatsCache);

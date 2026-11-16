@@ -869,7 +869,7 @@ class TableOfContents extends HTMLElement {
     }
 
     if (!this.headings.length) {
-      const emptyEl = this.querySelector<HTMLElement>("#toc-empty");
+      const emptyEl = this.querySelector<HTMLElement>("[data-toc-empty]");
       if (emptyEl) {
         emptyEl.textContent = this.dataset.emptyText || "此文章无目录";
         emptyEl.classList.remove("hidden");
