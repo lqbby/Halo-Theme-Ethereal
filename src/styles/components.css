@@ -1245,16 +1245,13 @@
       display: none !important;
     }
 
-    /* 卡片变胶囊组：透明底、无阴影、内容宽、居中、三个区域留间距 */
+    /* 胶囊模式只换皮肤、不换位置：卡片保持经典通栏几何（满宽 max-w page-width、
+       左 Logo / 中菜单 / 右工具、justify-between），仅去掉通栏底色与阴影；
+       菜单位置与经典模式完全一致，2026-11-16 用户实测指出聚拢居中后菜单左移。 */
     .navbar-style-floating-pill #navbar-card {
-      width: fit-content !important;
-      max-width: calc(100% - 2rem) !important;
       height: 3.5rem !important;
       margin-top: 0.5rem !important;
-      padding: 0 0.25rem !important;
-      gap: 0.5rem;
       background: transparent !important;
-      border-radius: 9999px !important;
       box-shadow: none !important;
     }
 
