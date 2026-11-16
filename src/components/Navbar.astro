@@ -61,7 +61,7 @@ const className = Astro.props.class;
     <a
       th:href="@{/}"
       th:aria-label="${theme.config?.layout?.mobileMenu?.showTitle == false ? site.title : null}"
-      class="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold active:scale-95"
+      class="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold active:scale-95 col-start-1"
     >
       <div
         class="site-title flex flex-row items-center text-md text-(--primary)"
@@ -71,10 +71,12 @@ const className = Astro.props.class;
     </a>
 
     <!-- 菜单胶囊（aemeath 收拢的目标）：nav-links 类供 navbar-collapse.ts
-         量宽/收拢；col-start-2 + justify-self-center 让菜单在视口内真居中。
-         每项 .group 再挂 dropdown-container（收拢时按偏移量绝对定位的单位），
-         顶级链接挂 nav-link（当前页由 navbar.js 标 .nav-link-active，
-         收拢后仅剩该项可见） -->
+         量宽/收拢；col-start-2 只定未量宽前的流内位置，量宽后
+         is-layout-ready 以 grid-column:auto 脱 grid 定位、按整卡居中
+         （带 col-start-2 时绝对定位的包含块是其中间列 grid 区域，
+         left:50% 只能对中间列居中、偏右约 72px）。每项 .group 再挂
+         dropdown-container（收拢时按偏移量绝对定位的单位），顶级链接挂
+         nav-link（当前页由 navbar.js 标 .nav-link-active，收拢后仅剩该项可见） -->
     <div
       class="navbar-menu nav-links invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible col-start-2 justify-self-center"
       th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
@@ -189,7 +191,7 @@ const className = Astro.props.class;
       </div>
     </div>
 
-    <div class="navbar-tools flex items-center">
+    <div class="navbar-tools col-start-3 flex items-center">
       <Search client:load />
       <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
            后台「样式开关 enable_random_post」可关；对齐用户魔改 -->

@@ -1726,6 +1726,11 @@ if (!(window as any).__etherealScrollDown) {
   (window as any).__etherealScrollDown = scrollDownToContent;
 }
 
+// 导航栏滚动收缩先绑：它只依赖导航栏 DOM（已解析）与首帧样式，不依赖
+// 后面的初始化；放最前，后面任一步抛错也堵不住它（真实浏览器里曾被
+// 前面的初始化堵住，菜单量宽失败、收拢失效）。
+initNavbarCollapse();
+
 // 诊断探针：尽早决策激活（?sp=1 / 管理员登录自动探测）并包装滚动写入 API，
 // 保证「换页窗口内的写入」全部在案（普通访客未激活时零开销）
 initScrollProbe();
@@ -1745,7 +1750,6 @@ if (window?.swup?.hooks) {
 }
 
 scrollFunction();
-initNavbarCollapse();
 initExternalLinkRedirect();
 initProfileStatus();
 // 窗口尺寸变化（横竖屏切换/拉宽拉窄）后重算目录按钮显隐与弹窗锚定

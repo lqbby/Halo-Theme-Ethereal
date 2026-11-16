@@ -1456,15 +1456,23 @@
     }
 
     /* 实测就绪：胶囊绝对定位居中（相对 #navbar-card），各项按偏移量绝对定位；
-       定位与 Tailwind 的 relative / w-0 等工具类竞争，用 !important */
+       定位与 Tailwind 的 relative / w-0 等工具类竞争，用 !important。
+       注意：菜单项外面包了一层 div.contents（display:contents，放 th:each），
+       DOM 上项是 .nav-links 的孙子不是儿子——项选择器必须用后代选择器，
+       不能用 > 子选择器，否则整段收拢规则失效（2026-11-16 线上故障根因）。
+       grid-column:auto 脱 grid 定位：带 col-start-2 时绝对定位的包含块是其
+       中间列 grid 区域、left:50% 只能对中间列居中（偏右约 72px）；去掉明确
+       grid 定位后包含块回到整卡，真正视口居中（!important 胜过 utilities
+       层的 col-start-2，层叠反转规则下 components 层 !important 优先）。 */
     #navbar .nav-links.is-layout-ready {
       z-index: 30;
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
+      grid-column: auto !important;
     }
-    #navbar .nav-links.is-layout-ready > .dropdown-container {
+    #navbar .nav-links.is-layout-ready .dropdown-container {
       position: absolute !important;
       top: 50%;
       left: calc(50% + var(--nav-item-expanded-offset, 0px));
@@ -1476,13 +1484,13 @@
     }
     #navbar
       .nav-links.is-layout-ready
-      > .dropdown-container.nav-compact-active {
+      .dropdown-container.nav-compact-active {
       z-index: 2;
       transition: none !important;
     }
     #navbar
       .nav-links.is-module-folding
-      > .dropdown-container.nav-compact-active {
+      .dropdown-container.nav-compact-active {
       will-change: transform;
     }
 
@@ -1503,6 +1511,8 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
+      /* 与 is-layout-ready 同理：脱 grid 定位，包含块回到整卡才真居中 */
+      grid-column: auto !important;
       transition:
         width 0.32s cubic-bezier(0.6, 0, 0.4, 1),
         background-color 0.18s,
@@ -1511,7 +1521,7 @@
         -webkit-backdrop-filter 0.18s,
         backdrop-filter 0.18s;
     }
-    #navbar.scrolled .nav-links > .dropdown-container {
+    #navbar.scrolled .nav-links .dropdown-container {
       position: absolute !important;
       top: 50% !important;
       left: 50% !important;
@@ -1527,11 +1537,19 @@
     }
     #navbar.scrolled
       .nav-links
-      > .dropdown-container.nav-compact-active {
+      .dropdown-container.nav-compact-active {
       opacity: 1;
       visibility: visible;
       pointer-events: auto;
       transform: translate(-50%, -50%) !important;
+    }
+    /* 兜底：收拢态但量宽未就绪（is-layout-ready 缺失）时，非当前项直接
+       display:none——免得缩到 6rem 后各项仍在流内竖排；当前项由
+       initNavbarCollapse 启动时先打 .nav-compact-active（量宽失败也不缺席） */
+    #navbar.scrolled
+      .nav-links:not(.is-layout-ready)
+      .dropdown-container:not(.nav-compact-active) {
+      display: none !important;
     }
     /* 收拢时链接高 40px（classic；胶囊模式项高由胶囊项规则 2.75rem 定，不动） */
     #navbar:not(.navbar-style-floating-pill).scrolled
@@ -1543,7 +1561,7 @@
     /* 折叠动画进行中：其余项保持可见、但不可点（rainzt 同款） */
     #navbar.scrolled
       .nav-links.is-module-folding
-      > .dropdown-container {
+      .dropdown-container {
       visibility: visible;
       pointer-events: none;
     }
@@ -1585,7 +1603,7 @@
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
     }
-    #navbar.scrolled .nav-links.is-hover-expanded > .dropdown-container {
+    #navbar.scrolled .nav-links.is-hover-expanded .dropdown-container {
       left: calc(50% + var(--nav-item-expanded-offset, 0px)) !important;
       opacity: 1;
       visibility: visible;
@@ -1612,7 +1630,7 @@
        （延迟 = 折叠动画剩余时间，navbar-collapse.ts 的 --nav-submenu-reveal-delay） */
     #navbar.scrolled
       .nav-links.is-active-submenu-open
-      > .dropdown-container.nav-submenu-open
+      .dropdown-container.nav-submenu-open
       > .submenu-panel {
       visibility: visible !important;
       opacity: 1 !important;

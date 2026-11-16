@@ -68,10 +68,10 @@ function foldAnimate(
   done: () => void,
 ): void {
   const items = Array.from(
-    links.querySelectorAll<HTMLElement>(":scope > .dropdown-container"),
+    links.querySelectorAll<HTMLElement>(".dropdown-container"),
   );
   const activeItem = links.querySelector<HTMLElement>(
-    ":scope > .nav-compact-active",
+    ".nav-compact-active",
   );
   const activeIndex = activeItem ? items.indexOf(activeItem) : -1;
   if (
@@ -170,7 +170,7 @@ function foldAnimate(
  *  宽度越接近收拢态、延迟越大（最长 200ms），避免展开瞬间其余项抢先出现。 */
 function updateRevealDelay(links: HTMLElement): void {
   const firstHidden = links.querySelector(
-    ":scope > .dropdown-container:not(.nav-compact-active)",
+    ".dropdown-container:not(.nav-compact-active)",
   );
   if (!firstHidden) return;
   if (Number.parseFloat(getComputedStyle(firstHidden).opacity) > 0.08) {
@@ -209,7 +209,7 @@ function trackSubmenuOpen(
       ? target
       : null;
   const current = links.querySelector(
-    ":scope > .dropdown-container.nav-submenu-open",
+    ".dropdown-container.nav-submenu-open",
   );
   if (current === open) return;
   if (current) current.classList.remove("nav-submenu-open");
@@ -257,6 +257,21 @@ function revealMenu(
       );
     });
   }
+}
+
+/** 给当前页项的容器打 .nav-compact-active（与 remeasure 内同一口径）。
+ *  单独抽出：init 时先打一次，量宽失败时 CSS 兜底（scrolled 且未
+ *  layout-ready 时非当前项 display:none）仍有当前项可留。 */
+function markCompactActive(links: HTMLElement): void {
+  links.querySelectorAll(".nav-compact-active").forEach((el) => {
+    el.classList.remove("nav-compact-active");
+  });
+  (
+    links.querySelector(".nav-link-active, .active") ||
+    links.querySelector(".nav-link")
+  )
+    ?.closest(".dropdown-container")
+    ?.classList.add("nav-compact-active");
 }
 
 /** 实测菜单几何并写进 CSS 变量（rainzt Y）：展开宽 / 收拢宽 / 每项偏移量，
@@ -329,15 +344,7 @@ export function remeasureNavbarCollapse(): void {
   if (hadShadow) nav.classList.add("navbar-sticky-shadow");
   links.style.setProperty("--nav-links-expanded-width", `${expandedWidth}px`);
   links.style.setProperty("--nav-links-compact-width", `${compactWidth}px`);
-  links.querySelectorAll(".nav-compact-active").forEach((el) => {
-    el.classList.remove("nav-compact-active");
-  });
-  (
-    links.querySelector(".nav-link-active, .active") ||
-    links.querySelector(".nav-link")
-  )
-    ?.closest(".dropdown-container")
-    ?.classList.add("nav-compact-active");
+  markCompactActive(links);
   items.forEach((g, i) => {
     g.style.setProperty("--nav-item-expanded-offset", `${itemOffsets[i] || 0}px`);
   });
@@ -569,8 +576,18 @@ export function initNavbarCollapse(): void {
   window.addEventListener("navbarBehaviorChange", resetOnBehaviorChange);
   // 换页后当前页变化（navbar.ts 先更新 .nav-link-active）→ 重量
   onPageView("navbar-collapse", remeasureNavbarCollapse);
+  // 迟到的量宽：首帧量宽可能撞上字体未载入（按回退字体量的宽不准）或
+  // navbar.js 尚未标 .nav-link-active；载入完成与字体就绪后各重量一次
+  window.addEventListener("load", remeasureNavbarCollapse);
+  if (document.fonts?.ready) {
+    document.fonts.ready.then(() => {
+      remeasureNavbarCollapse();
+    });
+  }
 
   window.addEventListener("scroll", requestScrollFrame, { passive: true });
+  // 先打当前项标记（量宽失败时 CSS 兜底仍有当前项可留），再量宽
+  markCompactActive(links);
   remeasureNavbarCollapse();
   onScrollFrame();
 }
