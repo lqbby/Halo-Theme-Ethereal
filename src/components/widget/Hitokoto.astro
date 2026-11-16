@@ -164,8 +164,10 @@ const className = Astro.props.class;
       var authorEl = widgetRoot.querySelector("#hitokotoAuthor");
       var refreshBtn = widgetRoot.querySelector("#hitokotoRefresh");
 
-      // 读取后台配置：留空则使用内置默认
-      var API = card.getAttribute("data-api") || "https://v1.hitokoto.cn/";
+      // 读取后台配置：留空则使用内置默认（uapis：官方 v1.hitokoto.cn 实测
+      // 延迟 0.8~6.6s 大幅波动、常触发本组件 5s 超时，2026-11-16 切换）
+      var API =
+        card.getAttribute("data-api") || "https://uapis.cn/api/v1/saying";
       var fallbackText =
         card.getAttribute("data-fallback-text") || "世界很大，开心第一。";
       var fallbackSource =

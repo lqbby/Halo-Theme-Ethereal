@@ -1420,7 +1420,7 @@ spec:
                   preserve: true
                   label: 一言 API 地址
                   value: ""
-                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                  help: "留空则使用内置默认一言 API（https://uapis.cn/api/v1/saying）"
                 - $formkit: text
                   if: "$value.value === 'hitokoto'"
                   name: fallback_text
@@ -1751,7 +1751,7 @@ spec:
                   preserve: true
                   label: 一言 API 地址
                   value: ""
-                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                  help: "留空则使用内置默认一言 API（https://uapis.cn/api/v1/saying）"
                 - $formkit: text
                   if: "$value.value === 'hitokoto'"
                   name: fallback_text
@@ -2091,7 +2091,7 @@ spec:
                   preserve: true
                   label: 一言 API 地址
                   value: ""
-                  help: "留空则使用内置默认一言 API（https://v1.hitokoto.cn/）"
+                  help: "留空则使用内置默认一言 API（https://uapis.cn/api/v1/saying）"
                 - $formkit: text
                   if: "$value.value === 'hitokoto'"
                   name: fallback_text
