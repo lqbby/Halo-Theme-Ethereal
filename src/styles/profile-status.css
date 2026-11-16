@@ -93,14 +93,6 @@
   display: flex;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* 减少动态效果：关掉状态卡的淡入 + 卡片上滑动画 */
-  .status-backdrop,
-  .status-card {
-    animation: none;
-  }
-}
-
 .status-backdrop {
   position: absolute;
   inset: 0;
@@ -123,6 +115,14 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   color: var(--deep-text, #333);
   animation: status-slide-up 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：关掉状态卡的淡入 + 卡片上滑动画 */
+  .status-backdrop,
+  .status-card {
+    animation: none;
+  }
 }
 
 /* 标题区：居中标题 + 主题色小横线（参考打赏/友链申请模态框），关闭按钮 absolute 右上角 */

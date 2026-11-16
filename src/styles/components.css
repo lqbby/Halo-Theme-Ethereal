@@ -340,7 +340,11 @@
   }
 
   .float-panel-closed {
-    @apply pointer-events-none -translate-y-1 opacity-0;
+    /* invisible 一并补上：只挡指针时面板内控件仍可被 Tab 聚焦
+       （键盘用户会跳进看不见的面板，与 .submenu-panel 收起态同型问题）。
+       visibility 未纳入 .float-panel 的过渡清单，关闭时立即隐藏、
+       不等 150ms 淡出——焦点正确性优先于这段淡出 */
+    @apply pointer-events-none invisible -translate-y-1 opacity-0;
   }
 
   .search-panel mark {
@@ -501,19 +505,22 @@
   }
 
   #toc-inner-wrapper {
+    /* 淡出带宽夹上限 min(2rem, 25%)：无条件 2rem 时，目录只有 1~2 个标题、
+       容器高度不足 4rem，上下两个 black stop 被钳制到同一位置，
+       唯一条目也被渐变削掉约一半透明度；短内容时渐变带随高度收窄 */
     /* -webkit- 前缀供 Chromium<120 的老内核（同文件 .seg-scroll 先例） */
     -webkit-mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      black 2rem,
-      black calc(100% - 2rem),
+      black min(2rem, 25%),
+      black calc(100% - min(2rem, 25%)),
       transparent 100%
     );
     mask-image: linear-gradient(
       to bottom,
       transparent 0%,
-      black 2rem,
-      black calc(100% - 2rem),
+      black min(2rem, 25%),
+      black calc(100% - min(2rem, 25%)),
       transparent 100%
     );
   }
@@ -886,6 +893,8 @@
   html[data-banner-display="fullscreen"]:not(.toc-revealed) #toc-wrapper {
     pointer-events: none;
     opacity: 0;
+    /* 只挡指针时目录链接仍可被 Tab 遍历（焦点落在不可见链接上），一并 visibility 隐藏 */
+    visibility: hidden;
   }
 
   /* 壁纸模式切换过渡：panel top / grid min-height·translate 随模式变化平滑过渡
@@ -1114,7 +1123,9 @@
        故收起时同时用 invisible，展开态在此恢复可见 */
     visibility: visible !important;
     pointer-events: auto !important;
-    translate: none !important;
+    /* 展开态必须写可插值的 0 0 而非 none：none ↔ 长度值在 WebKit 下按
+       离散过渡，展开会瞬跳（同文件其它位置已记录并规避过此陷阱） */
+    translate: 0 0 !important;
   }
 
   /* 触控设备子菜单展开时箭头旋转 */
@@ -1314,9 +1325,13 @@
     translate: 110% 0;
     opacity: 0;
     pointer-events: none;
+    /* visibility 一并隐藏：只靠位移+透明度时抽屉内链接仍在键盘焦点顺序里；
+       纳入过渡后打开时起点即翻可见、关闭时终点才翻隐藏，不截断滑入/滑出动画 */
+    visibility: hidden;
     transition:
       translate var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1),
-      opacity var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1);
+      opacity var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1),
+      visibility var(--dur-swup, 200ms) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   :root.dark #nav-menu-root #nav-menu-panel {
@@ -1330,6 +1345,7 @@
     translate: 0 0;
     opacity: 1;
     pointer-events: auto;
+    visibility: visible;
   }
 
   /* 抽屉内部布局：头部 + 可滚动菜单区 */
@@ -3046,6 +3062,9 @@ body.banner-title-disabled #banner-links,
 #banner-overlay.banner-text-hidden #banner-links,
 #banner-overlay.hero-title-faded #banner-links {
   pointer-events: none;
+  /* 指针之外一并挡键盘：三态下链接靠父层 opacity 隐形，只挡指针时
+     仍可被 Tab 聚焦并回车触发（模板注释「避免不可见却可点」只兑现了一半） */
+  visibility: hidden;
 }
 
 /* 链接按钮：半透明白底 + 毛玻璃圆钮，深色壁纸上自然融合；填了名称时由下方

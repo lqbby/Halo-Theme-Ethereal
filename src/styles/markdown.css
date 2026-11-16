@@ -70,12 +70,6 @@
    shimmer 扫光，原始文本用 visibility:hidden 藏掉（pre 仍占布局、高度不塌）。halo
    完成把 pre 设 display:none → 骨架自动消失、shadow DOM 高亮同帧接管，实现「骨架 →
    内容」平滑过渡，既消除黑闪又消除空白等待。 */
-@media (prefers-reduced-motion: reduce) {
-  /* 减少动态效果：骨架屏关闭扫光动画（静态底仍保留，不影响占位/防黑闪） */
-  .custom-md shiki-code > pre {
-    animation: none;
-  }
-}
 
 .custom-md shiki-code > pre {
   /* 覆盖 .custom-md pre 的深色 --codeblock-bg（消除黑闪），换成中性骨架底色：
@@ -97,6 +91,13 @@
      骨架远早于 12 轮就消失；若 Shiki 加载失败，无限扫光只会白烧合成帧，
      停在静态骨架底上更诚实。 */
   animation: shiki-skeleton-shimmer 1.6s linear 12;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：骨架屏关闭扫光动画（静态底仍保留，不影响占位/防黑闪） */
+  .custom-md shiki-code > pre {
+    animation: none;
+  }
 }
 
 /* 原始文本藏掉（visibility:hidden 让文字不可见但保留占位高度；pre 的 rounded-xl

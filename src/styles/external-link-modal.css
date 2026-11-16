@@ -9,14 +9,6 @@
   padding: 1rem;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  /* 减少动态效果：关掉外链提示框的淡入 + 卡片上滑动画 */
-  #ext-link-backdrop,
-  #ext-link-card {
-    animation: none;
-  }
-}
-
 #ext-link-backdrop {
   position: absolute;
   inset: 0;
@@ -37,6 +29,14 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
   color: var(--deep-text, #333);
   animation: ext-slide-up 0.3s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* 减少动态效果：关掉外链提示框的淡入 + 卡片上滑动画 */
+  #ext-link-backdrop,
+  #ext-link-card {
+    animation: none;
+  }
 }
 
 #ext-link-card .ext-avatar {
