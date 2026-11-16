@@ -45,6 +45,14 @@ const className = Astro.props.class;
        HTML 注释会残留进该页产物。
        ⚠️ Thymeleaf 属性优先级：th:with(4) 先于子元素求值，故入口与面板都能读到 */
   }
+  <!-- rainzt 外壳（.firefly-nav-shell 同款透明结构层）：relative 定位锚 +
+       4.5rem 框 + 底圆角 12px + overflow:visible；不带任何视觉样式
+       （背景/模糊/边框全透明），只给导航栏内容一个稳定的结构框。
+       classic 下该层同样存在但无任何视觉/行为影响（纯结构层，卡片几何不变）。 -->
+  <div
+    class="nav-shell"
+    style="position:relative;height:4.5rem;overflow:visible;background:transparent;border:0;backdrop-filter:none;border-radius:0 0 12px 12px;padding:0;transition:none;"
+  >
   <div
     id="navbar-card"
     th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.appearance != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaper != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false))}`}
@@ -256,6 +264,7 @@ const className = Astro.props.class;
     <span th:if="${visitorStyleEnabled}" th:remove="tag">
       <DisplaySettings client:only="svelte" />
     </span>
+  </div>
   </div>
 </div>
 

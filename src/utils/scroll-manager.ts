@@ -91,19 +91,27 @@ function scrollFunction() {
   // 上滑（delta<0）或仍在顶部（scrollY<=threshold）显示，下滑且离开顶部
   // （delta>0 && scrollY>threshold）隐藏（对齐 firefly dynamic 模式）。
   // threshold = banner 高 − 导航栏高 − 主面板重叠 − 基础间距（约半屏）。
-  // floating_pill 下跳过（胶囊收拢由 navbar-collapse.ts 管，整条永不滑走）；
-  // 固定导航栏模式（always）跳过，始终显示；移动端跳过。
+  // floating_pill 下本段整段早退（胶囊收拢由 navbar-collapse.ts 的单一
+  // 控制器独占，整条永不滑走；早退在任何阈值计算之前，且不碰 back-to-top /
+  // 目录逻辑——那两段在上方已跑完）；固定导航栏模式（always）跳过，
+  // 始终显示；移动端跳过。
   // 导航栏隐藏时给 body 加类，供侧边栏吸顶位置回退（Layout.astro 消费）。
-  const delta = scrollY - lastScrollY;
-  lastScrollY = scrollY;
   const navbarEl = document.getElementById("navbar");
   const isPill =
     navbarEl?.classList.contains("navbar-style-floating-pill") ?? false;
+  if (isPill) {
+    // 胶囊永不滑走：顺手清掉任何残留的经典滑走态（切模式要重载主题，
+    // 正常走不到这里；守卫失效即清，不留残留类）
+    clearClassicHiddenState();
+    lastScrollY = scrollY;
+    return;
+  }
+  const delta = scrollY - lastScrollY;
+  lastScrollY = scrollY;
   if (
     window.innerWidth >= MOBILE_BREAKPOINT &&
     bannerEnabled &&
     navbar &&
-    !isPill &&
     document.documentElement.dataset.navbarFixed !== "true"
   ) {
     const threshold =
@@ -120,6 +128,11 @@ function scrollFunction() {
       "dynamic-navbar-hidden",
       navbar.classList.contains("navbar-hidden"),
     );
+  } else {
+    // 守卫失效（缩到移动端 / 切 always / 无 banner）：滑走态不再成立，
+    // 清掉两个类——否则 body.dynamic-navbar-hidden 残留会把 about 顶部
+    // 导航吸到 1rem（守望 #1），且下次回到桌面时首帧状态是脏的
+    clearClassicHiddenState();
   }
 }
 
@@ -186,6 +199,41 @@ window.addEventListener(
       });
       scrollTicking = true;
     }
+  },
+  { passive: true },
+);
+
+/** 经典滑走残留清理（守望 #1）：navbar-hidden / body.dynamic-navbar-hidden
+ *  只在 classic + 桌面 + auto_hide + 有 banner 的守卫内才有意义；守卫失效
+ *  （窗口缩到 1024px 以下、切 always、banner 消失）时立即清掉——scroll
+ *  事件不触发时（如只改窗口尺寸）靠下方 resize 监听补清。单一归属：
+ *  这两个类只由本模块写（scroll-manager 是 classic 滑走的唯一控制器），
+ *  清理也只在这里，不往 navbar-collapse 的量宽监听上打补丁。 */
+function clearClassicHiddenState(): void {
+  getNavbar()?.classList.remove("navbar-hidden");
+  document.body.classList.remove("dynamic-navbar-hidden");
+}
+
+// 窗口尺寸变化不触发 scroll：守卫失效（缩到移动端 / 切 always / 切胶囊）
+// 时只靠 scroll 帧里的 else 分支清不掉残留类，resize 帧补清一次
+let resizeRaf = 0;
+window.addEventListener(
+  "resize",
+  () => {
+    if (resizeRaf) cancelAnimationFrame(resizeRaf);
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      if (
+        window.innerWidth < MOBILE_BREAKPOINT ||
+        !bannerEnabled ||
+        document
+          .getElementById("navbar")
+          ?.classList.contains("navbar-style-floating-pill") ||
+        document.documentElement.dataset.navbarFixed === "true"
+      ) {
+        clearClassicHiddenState();
+      }
+    });
   },
   { passive: true },
 );
