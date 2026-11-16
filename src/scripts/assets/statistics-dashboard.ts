@@ -55,13 +55,11 @@
     );
   }
 
+  // 统计页数字一律全数显示（千分位），不走 Layout 的 __etherealBigNum
+  // 全局助手——那个助手会把大数压成 k 格式，是给侧边栏小部件的紧凑口径，
+  // 统计页照搬会丢精度（用户 2026-11-16 拍板：统计页全数、侧边栏不动）
   function fmtNum(n) {
     n = Number(n) || 0;
-    try {
-      if (typeof window.__etherealBigNum === "function") {
-        return window.__etherealBigNum(n);
-      }
-    } catch (e) {}
     return n.toLocaleString("zh-CN");
   }
 
@@ -212,12 +210,19 @@
       dayStart.setHours(0, 0, 0, 0);
       todayStatsPromise = umamiGet(
         "stats?startAt=" + dayStart.getTime() + "&endAt=" + now,
-      ).then(function (stats) {
-        return {
-          visitors: statVal(stats, "visitors"),
-          pageviews: statVal(stats, "pageviews"),
-        };
-      });
+      )
+        .then(function (stats) {
+          return {
+            visitors: statVal(stats, "visitors"),
+            pageviews: statVal(stats, "pageviews"),
+          };
+        })
+        .catch(function (err) {
+          // 失败不缓存：置空让下一次调用方（summary / activity）能重试，
+          // 否则一次瞬时失败会把 rejected promise 喂给本页所有后续调用方
+          todayStatsPromise = null;
+          throw err;
+        });
     }
     return todayStatsPromise;
   }
@@ -788,7 +793,9 @@
     if (isNaN(start.getTime())) start = ghWindowStart();
     var weeks = Math.max(
       1,
-      Math.round((mondayOf(new Date()).getTime() - start.getTime()) / (7 * DAY_MS)) + 1,
+      Math.round(
+        (mondayOf(new Date()).getTime() - start.getTime()) / (7 * DAY_MS),
+      ) + 1,
     );
     pushState = {
       byDay: data.byDay || {},
@@ -835,10 +842,7 @@
     }
     var latest = activeTs[activeTs.length - 1];
     var latestDate = new Date(latest);
-    set(
-      "[data-push-latest]",
-      fmtRelative(latestDate.toISOString()) || "今天",
-    );
+    set("[data-push-latest]", fmtRelative(latestDate.toISOString()) || "今天");
     set(
       "[data-push-latest-date]",
       latestDate.getMonth() + 1 + "月" + latestDate.getDate() + "日",
@@ -852,9 +856,10 @@
       for (var i = 1; i < activeTs.length; i++) {
         gaps.push((activeTs[i] - activeTs[i - 1]) / DAY_MS);
       }
-      var avg = gaps.reduce(function (a, b) {
-        return a + b;
-      }, 0) / gaps.length;
+      var avg =
+        gaps.reduce(function (a, b) {
+          return a + b;
+        }, 0) / gaps.length;
       set(
         "[data-push-cadence]",
         (Math.round(avg * 10) / 10).toString().replace(/\.0$/, "") + " 天",
@@ -1026,7 +1031,8 @@
         foodBtns.forEach(function (b) {
           b.setAttribute("aria-pressed", b === btn ? "true" : "false");
         });
-        if (snake) snake.gain = Number(btn.getAttribute("data-snake-food")) || 1;
+        if (snake)
+          snake.gain = Number(btn.getAttribute("data-snake-food")) || 1;
       });
     });
     var grid = panel.querySelector("[data-push-grid]");
@@ -1153,8 +1159,7 @@
     var target = null;
     var best = Infinity;
     snake.foods.forEach(function (f) {
-      var d =
-        Math.abs(Math.floor(f / rows) - hc) + Math.abs((f % rows) - hr);
+      var d = Math.abs(Math.floor(f / rows) - hc) + Math.abs((f % rows) - hr);
       if (d < best) {
         best = d;
         target = f;
@@ -1505,13 +1510,40 @@
 
   // Umami region 码（CN-XX）→ 省级 adcode（ISO 3166-2:CN），供中国地图上色/联动
   var REGION_ADCODE = {
-    BJ: "110000", TJ: "120000", HE: "130000", SX: "140000", NM: "150000",
-    LN: "210000", JL: "220000", HL: "230000", SH: "310000", JS: "320000",
-    ZJ: "330000", AH: "340000", FJ: "350000", JX: "360000", SD: "370000",
-    HA: "410000", HB: "420000", HN: "430000", GD: "440000", GX: "450000",
-    HI: "460000", CQ: "500000", SC: "510000", GZ: "520000", YN: "530000",
-    XZ: "540000", SN: "610000", GS: "620000", QH: "630000", NX: "640000",
-    XJ: "650000", TW: "710000", HK: "810000", MO: "820000",
+    BJ: "110000",
+    TJ: "120000",
+    HE: "130000",
+    SX: "140000",
+    NM: "150000",
+    LN: "210000",
+    JL: "220000",
+    HL: "230000",
+    SH: "310000",
+    JS: "320000",
+    ZJ: "330000",
+    AH: "340000",
+    FJ: "350000",
+    JX: "360000",
+    SD: "370000",
+    HA: "410000",
+    HB: "420000",
+    HN: "430000",
+    GD: "440000",
+    GX: "450000",
+    HI: "460000",
+    CQ: "500000",
+    SC: "510000",
+    GZ: "520000",
+    YN: "530000",
+    XZ: "540000",
+    SN: "610000",
+    GS: "620000",
+    QH: "630000",
+    NX: "640000",
+    XJ: "650000",
+    TW: "710000",
+    HK: "810000",
+    MO: "820000",
   };
   function regionAdcode(label) {
     var m = /^CN-([A-Z]{2})$/.exec(label || "");
@@ -1520,15 +1552,40 @@
 
   // adcode → 短省名（排名 / 地图 title / 标记点共用，与参考同口径）
   var REGION_NAMES = {
-    "110000": "北京", "120000": "天津", "130000": "河北", "140000": "山西",
-    "150000": "内蒙古", "210000": "辽宁", "220000": "吉林", "230000": "黑龙江",
-    "310000": "上海", "320000": "江苏", "330000": "浙江", "340000": "安徽",
-    "350000": "福建", "360000": "江西", "370000": "山东", "410000": "河南",
-    "420000": "湖北", "430000": "湖南", "440000": "广东", "450000": "广西",
-    "460000": "海南", "500000": "重庆", "510000": "四川", "520000": "贵州",
-    "530000": "云南", "540000": "西藏", "610000": "陕西", "620000": "甘肃",
-    "630000": "青海", "640000": "宁夏", "650000": "新疆", "710000": "台湾",
-    "810000": "香港", "820000": "澳门",
+    "110000": "北京",
+    "120000": "天津",
+    "130000": "河北",
+    "140000": "山西",
+    "150000": "内蒙古",
+    "210000": "辽宁",
+    "220000": "吉林",
+    "230000": "黑龙江",
+    "310000": "上海",
+    "320000": "江苏",
+    "330000": "浙江",
+    "340000": "安徽",
+    "350000": "福建",
+    "360000": "江西",
+    "370000": "山东",
+    "410000": "河南",
+    "420000": "湖北",
+    "430000": "湖南",
+    "440000": "广东",
+    "450000": "广西",
+    "460000": "海南",
+    "500000": "重庆",
+    "510000": "四川",
+    "520000": "贵州",
+    "530000": "云南",
+    "540000": "西藏",
+    "610000": "陕西",
+    "620000": "甘肃",
+    "630000": "青海",
+    "640000": "宁夏",
+    "650000": "新疆",
+    "710000": "台湾",
+    "810000": "香港",
+    "820000": "澳门",
   };
   function regionShortName(adcode) {
     return REGION_NAMES[adcode] || adcode;
@@ -1691,7 +1748,11 @@
   function loadRegionMap() {
     var panel = panelEl("regions");
     if (!panel) return;
-    fetchJSON("/upload/stats/china-provinces.json", { cache: "force-cache" }, 10000)
+    fetchJSON(
+      "/upload/stats/china-provinces.json",
+      { cache: "force-cache" },
+      10000,
+    )
       .then(function (data) {
         if (!data || !data.provinces) return;
         regionMapData = data;
@@ -1833,7 +1894,8 @@
         });
     }
     function fromEvent(e) {
-      var t = e.target && e.target.closest ? e.target.closest("[data-adcode]") : null;
+      var t =
+        e.target && e.target.closest ? e.target.closest("[data-adcode]") : null;
       return t ? t.getAttribute("data-adcode") : null;
     }
     panel.addEventListener("mouseover", function (e) {
@@ -2253,11 +2315,7 @@
   loadPush();
   loadComments();
   if (!shareId) {
-    setHeroStatus(
-      "offline",
-      "未配置",
-      "在主题设置中填入 Umami 分享链接后显示",
-    );
+    setHeroStatus("offline", "未配置", "在主题设置中填入 Umami 分享链接后显示");
   } else {
     umamiInit().then(function (ok) {
       if (!ok) {
