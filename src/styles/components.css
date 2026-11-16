@@ -1455,6 +1455,24 @@
       gap: 0.375rem;
     }
 
+    /* 防竖排（2026-11-16 线上故障根因）：绝对定位的项按 left:50%+偏移 +
+       translate(-50%) 居中时，CSS 收缩贴合（shrink-to-fit）按变换前的左缘
+       算可用宽——右侧项（尤其末项，可用宽只剩自身一半）会被夹到
+       min-content，文字竖排（实测：顶部「博客更新」scrollHeight 69>42、
+       收拢后「首页」也竖排；容器定高 44px 把竖排藏住，只量容器矩形会漏报，
+       须看 scrollHeight）。项宽一律按内容宽，不许被容器夹窄；再加
+       nowrap / 不可缩作双保险，量宽过期时也只溢出、不竖排。 */
+    #navbar .nav-links .dropdown-container,
+    #navbar .nav-links .dropdown-container .nav-link {
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: max-content;
+    }
+    #navbar .nav-links.is-layout-ready .dropdown-container,
+    #navbar.scrolled .nav-links .dropdown-container {
+      width: max-content;
+    }
+
     /* 实测就绪：胶囊绝对定位居中（相对 #navbar-card），各项按偏移量绝对定位；
        定位与 Tailwind 的 relative / w-0 等工具类竞争，用 !important。
        注意：菜单项外面包了一层 div.contents（display:contents，放 th:each），

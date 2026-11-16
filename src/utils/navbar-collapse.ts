@@ -45,6 +45,23 @@ let recollapseTimer: number | undefined;
 let pointerInside = false;
 // 折叠动画结束时刻（performance.now 毫秒；供子菜单揭示延迟用，rainzt E）
 let foldEndAt = 0;
+// 量宽自纠：盯住菜单各项尺寸的 ResizeObserver（字体/图标度量一变就重测）
+// 与 rAF 节流标记；jsdom 无 ResizeObserver，守卫跳过。
+let menuSizeObserver: ResizeObserver | null = null;
+let menuSizeRaf = 0;
+let fontReloadRaf = 0;
+
+/** 把当前各项交给 ResizeObserver（已观察过的重复 observe 是空操作）。
+ *  项宽现为 max-content（见 components.css 防竖排），尺寸只随内容/字体变，
+ *  不随收拢变量变——回调里重测不会自循环。 */
+function observeMenuItems(): void {
+  if (!menuSizeObserver) return;
+  const links = navLinks();
+  if (!links) return;
+  links
+    .querySelectorAll<HTMLElement>(".dropdown-container")
+    .forEach((g) => menuSizeObserver!.observe(g));
+}
 
 function cancelFoldingAnimations(): void {
   foldingAnimations.forEach((a) => {
@@ -328,8 +345,16 @@ export function remeasureNavbarCollapse(): void {
   const rootFontSize =
     Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
     16;
+  // 收拢宽取当前页链接的内容宽：rect 是量宽态（流内、未夹窄）的宽；再与
+  // scrollWidth 取大——链接万一仍被旧样式夹住，内容宽能把它撑回单行。
+  // （容器与各项不用 scrollWidth：量宽态 rect 本就是内容宽；而子菜单面板
+  //  绝对定位溢出容器右侧时，scrollWidth 会把它也算进去、把展开宽撑大。）
+  const activeRect = activeLink?.getBoundingClientRect();
   const compactWidth = Math.ceil(
-    (activeLink?.getBoundingClientRect().width || rootFontSize * 4) +
+    Math.max(
+      activeRect?.width || rootFontSize * 4,
+      activeLink?.scrollWidth || 0,
+    ) +
       rootFontSize * 0.48 +
       2,
   );
@@ -349,6 +374,8 @@ export function remeasureNavbarCollapse(): void {
     g.style.setProperty("--nav-item-expanded-offset", `${itemOffsets[i] || 0}px`);
   });
   links.classList.add("is-layout-ready");
+  // 换页后菜单项可能换过节点：把当前各项重新交给 ResizeObserver
+  observeMenuItems();
 }
 
 function clearRecollapseTimer(): void {
@@ -358,18 +385,41 @@ function clearRecollapseTimer(): void {
   }
 }
 
+/** 最近一次“保持展开”的交互时刻（performance.now 毫秒）：上滚 / 悬停 /
+ *  聚焦 / 指针离开都会刷新。收回定时器触发时若距该时刻不足 5 秒，说明是
+ *  一枚过期定时器（旧定时器未被清掉时）——改期重排，不直接收回，保证
+ *  临时展开至少稳定保持约 5 秒。 */
+let lastKeepAliveAt = 0;
+
+/** 约期收回：delay 毫秒后收回；触发时若距最近一次保持展开不足 5 秒则
+ *  按剩余时间改期重排（防过期定时器抢跑）。悬停 / 聚焦中不收回（离开时
+ *  onPointerLeave 会重新约期）。 */
+function scheduleRecollapse(
+  nav: HTMLElement,
+  delay: number = RECOLLAPSE_DELAY_MS,
+): void {
+  clearRecollapseTimer();
+  recollapseTimer = window.setTimeout(() => {
+    recollapseTimer = undefined;
+    const remaining =
+      RECOLLAPSE_DELAY_MS - (performance.now() - lastKeepAliveAt);
+    if (remaining > 100) {
+      scheduleRecollapse(nav, remaining);
+      return;
+    }
+    const links = nav.querySelector<HTMLElement>(".nav-links");
+    if (!links || links.matches(":hover, :focus-within")) return;
+    revealMenu(nav, false);
+  }, delay);
+}
+
 /** 临时展开 + 5 秒后自动收回（rainzt M）：上滚 / 悬停 / 聚焦时调用。
  *  withSubmenu=true 时展开并打开子菜单态。 */
 function tempExpand(nav: HTMLElement, withSubmenu = false): void {
   if (!nav.classList.contains("scrolled")) return;
   revealMenu(nav, true, withSubmenu || pointerInside);
-  clearRecollapseTimer();
-  recollapseTimer = window.setTimeout(() => {
-    recollapseTimer = undefined;
-    const links = nav.querySelector<HTMLElement>(".nav-links");
-    if (!links || links.matches(":hover, :focus-within")) return;
-    revealMenu(nav, false);
-  }, RECOLLAPSE_DELAY_MS);
+  lastKeepAliveAt = performance.now();
+  scheduleRecollapse(nav);
 }
 
 /** 指针离开胶囊（rainzt W）：已展开且指针不在胶囊内时，5 秒后收回。 */
@@ -386,11 +436,8 @@ function onPointerLeave(nav: HTMLElement): void {
   trackSubmenuOpen(links, null);
   links.classList.add("is-scroll-revealed");
   links.classList.remove("is-active-submenu-open");
-  clearRecollapseTimer();
-  recollapseTimer = window.setTimeout(() => {
-    recollapseTimer = undefined;
-    if (!links.matches(":hover, :focus-within")) revealMenu(nav, false);
-  }, RECOLLAPSE_DELAY_MS);
+  lastKeepAliveAt = performance.now();
+  scheduleRecollapse(nav);
 }
 
 /** 滚动处理（rainzt T 的 p）：scrollTop > 50 即收拢；收拢态下上滚超 2px
@@ -583,6 +630,26 @@ export function initNavbarCollapse(): void {
     document.fonts.ready.then(() => {
       remeasureNavbarCollapse();
     });
+  }
+  // 量宽自纠：迟到的字体分片（loadingdone，如文楷后几片）一到就重测；
+  // ResizeObserver 盯住各项尺寸，字体/图标度量一变就重测重写变量。
+  // fonts.ready 只在首批字体落定时 resolve 一次，管不到后到的分片。
+  document.fonts?.addEventListener?.("loadingdone", () => {
+    if (fontReloadRaf) return;
+    fontReloadRaf = requestAnimationFrame(() => {
+      fontReloadRaf = 0;
+      remeasureNavbarCollapse();
+    });
+  });
+  if (typeof ResizeObserver !== "undefined") {
+    menuSizeObserver = new ResizeObserver(() => {
+      if (menuSizeRaf) return;
+      menuSizeRaf = requestAnimationFrame(() => {
+        menuSizeRaf = 0;
+        remeasureNavbarCollapse();
+      });
+    });
+    observeMenuItems();
   }
 
   window.addEventListener("scroll", requestScrollFrame, { passive: true });
