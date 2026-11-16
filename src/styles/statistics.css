@@ -1205,6 +1205,15 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 最近一次推送的相对时间做成主题色胶囊（rainzt 规格），精确时间在下方小字 */
+#statistics-dashboard .stats-deployment__metric-copy strong.stats-push-pill {
+  justify-self: start;
+  padding: 0.16rem 0.62rem;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--stats-v1) 15%, transparent);
+  color: color-mix(in oklab, var(--stats-v1) 76%, var(--deep-text));
+  font-size: 0.88rem;
+}
 /* 热力图块（带填充底的内层块） */
 #statistics-dashboard .stats-deployment__heatmap {
   margin: 1.1rem 1.35rem 0;

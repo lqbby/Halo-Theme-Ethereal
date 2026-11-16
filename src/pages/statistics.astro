@@ -453,7 +453,7 @@ import Canonical from "../components/misc/Canonical.astro";
               </span>
               <span class="stats-deployment__metric-copy">
                 <span>最近一次推送</span>
-                <strong data-push-latest>—</strong>
+                <strong class="stats-push-pill" data-push-latest>—</strong>
                 <small data-push-latest-date>—</small>
               </span>
             </div>
@@ -466,7 +466,7 @@ import Canonical from "../components/misc/Canonical.astro";
               <span class="stats-deployment__metric-copy">
                 <span>最近间隔</span>
                 <strong data-push-interval>—</strong>
-                <small>与上一次推送相隔</small>
+                <small>上上次 → 上次推送的间隔</small>
               </span>
             </div>
             <div class="stats-deployment__metric stats-deployment__metric--v1">
@@ -478,7 +478,7 @@ import Canonical from "../components/misc/Canonical.astro";
               <span class="stats-deployment__metric-copy">
                 <span>平均节奏</span>
                 <strong data-push-cadence>—</strong>
-                <small>活跃日之间的平均间隔</small>
+                <small>按近一年活跃推送日计算</small>
               </span>
             </div>
             <div class="stats-deployment__metric stats-deployment__metric--v4">
@@ -490,7 +490,7 @@ import Canonical from "../components/misc/Canonical.astro";
               <span class="stats-deployment__metric-copy">
                 <span>连续推送</span>
                 <strong data-push-streak>—</strong>
-                <small>当前连续记录</small>
+                <small>最近一段连续有推送的天数</small>
               </span>
             </div>
           </div>
@@ -538,31 +538,31 @@ import Canonical from "../components/misc/Canonical.astro";
                 <div
                   class="stats-deployment__snake-control"
                   role="group"
-                  aria-label="食物容量"
+                  aria-label="相对浓度"
                 >
-                  <span>食物容量</span>
+                  <span>相对浓度</span>
                   <div class="stats-deployment__snake-options">
                     <button
                       type="button"
-                      data-snake-food="1"
+                      data-push-density="1"
                       aria-pressed="true"
-                      title="吃一个食物增长 1 格"
+                      title="格子深浅按当日计数相对全年峰值的比例"
                     >
                       1x
                     </button>
                     <button
                       type="button"
-                      data-snake-food="2"
+                      data-push-density="2"
                       aria-pressed="false"
-                      title="吃一个食物增长 2 格"
+                      title="计数按 2 倍放大后再分档，低活跃时段层次更明显"
                     >
                       2x
                     </button>
                     <button
                       type="button"
-                      data-snake-food="5"
+                      data-push-density="5"
                       aria-pressed="false"
-                      title="吃一个食物增长 5 格"
+                      title="计数按 5 倍放大后再分档，低活跃时段层次更明显"
                     >
                       5x
                     </button>
@@ -619,7 +619,7 @@ import Canonical from "../components/misc/Canonical.astro";
                 <span
                   class="icon-[material-symbols--code-rounded]"
                   aria-hidden="true"></span>
-                数据来自 GitHub 公开接口
+                <span data-push-source-text>数据读取中</span>
               </span>
               <span class="stats-heat-legend" aria-hidden="true">
                 <span>少</span>
@@ -651,7 +651,7 @@ import Canonical from "../components/misc/Canonical.astro";
           <div class="stats-empty" data-push-empty hidden>
             <strong>暂时读不到提交活动</strong>
             <span
-              >GitHub 公开接口暂时没有返回数据（可能是仓库名有误或接口限流）。</span
+              >站内统计与 GitHub 公开接口暂时都没有返回数据，请稍后再看。</span
             >
           </div>
         </section>

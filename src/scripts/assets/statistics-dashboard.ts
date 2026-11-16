@@ -687,7 +687,8 @@
   }
 
   // 站内推送统计（/opt/push-data/gen_push_data.py 每小时生成，
-  // 形状与 fetchGhCommits 返回一致：{ byDay: { "YYYY-MM-DD": n }, startISO }）
+  // 形状与 fetchGhCommits 返回一致：{ byDay, startISO, lastPushAt, prevPushAt }；
+  // source 标记实际来源，状态文案按它写，不再一律硬编码 GitHub）
   function fetchLocalPushData() {
     return fetchJSON(
       "/upload/stats/push-data.json",
@@ -702,6 +703,7 @@
       ) {
         throw new Error("bad local push data");
       }
+      data.source = "local";
       return data;
     });
   }
@@ -729,6 +731,7 @@
     var start = ghWindowStart();
     var sinceISO = start.toISOString();
     var byDay = {};
+    var allTs = [];
     function pull(page) {
       var url =
         "https://api.github.com/repos/" +
@@ -750,6 +753,7 @@
           if (!t) return;
           var ts = new Date(t).getTime();
           if (ts < oldest) oldest = ts;
+          allTs.push(ts);
           var k = dayKey(ts);
           byDay[k] = (byDay[k] || 0) + 1;
         });
@@ -759,7 +763,16 @@
       });
     }
     return pull(1).then(function (map) {
-      return { byDay: map, startISO: dayKey(start.getTime()) };
+      allTs.sort(function (a, b) {
+        return b - a;
+      });
+      return {
+        byDay: map,
+        startISO: dayKey(start.getTime()),
+        lastPushAt: allTs.length ? new Date(allTs[0]).toISOString() : null,
+        prevPushAt: allTs.length > 1 ? new Date(allTs[1]).toISOString() : null,
+        source: "github",
+      };
     });
   }
 
@@ -800,10 +813,11 @@
     pushState = {
       byDay: data.byDay || {},
       mode: "daily",
+      density: 1,
       start: start,
       weeks: weeks,
     };
-    fillPushMetrics(panel, pushState.byDay);
+    fillPushMetrics(panel, pushState.byDay, data);
     var totalEl = panel.querySelector("[data-push-total]");
     if (totalEl) {
       var total = 0;
@@ -815,12 +829,56 @@
     renderPushGrid();
     bindPushControls(panel);
     initSnake(panel);
+    // 来源文案按实际数据路径写：站内管线（本地 bare 克隆 git log）与
+    // GitHub API 兜底是两回事，不再一律写「数据来自 GitHub」（清单 A13）
+    var isLocal = data.source === "local";
     var status = panel.querySelector("[data-push-status]");
-    if (status) status.textContent = "数据来自 GitHub";
+    if (status)
+      status.textContent = isLocal
+        ? "站内统计 · 每小时更新"
+        : "数据来自 GitHub";
+    var sourceEl = panel.querySelector("[data-push-source-text]");
+    if (sourceEl)
+      sourceEl.textContent = isLocal
+        ? "数据口径：本地仓库 main 分支提交 · 每小时更新"
+        : "数据来自 GitHub 公开接口";
   }
 
-  // 4 个 metric 块全部由同一份 byDay 派生（不额外取数）
-  function fillPushMetrics(panel, byDay) {
+  // 时长人话化：给「最近间隔」用（精确到分钟级）
+  function fmtDuration(ms) {
+    var mins = Math.max(1, Math.round(ms / 60000));
+    if (mins < 60) return mins + " 分钟";
+    var hours = Math.floor(mins / 60);
+    var restMins = mins % 60;
+    if (hours < 24)
+      return restMins ? hours + " 小时 " + restMins + " 分" : hours + " 小时";
+    var days = Math.floor(hours / 24);
+    var restHours = hours % 24;
+    return restHours ? days + " 天 " + restHours + " 小时" : days + " 天";
+  }
+
+  // 精确时间：YYYY-MM-DD HH:MM（本地时区，统计卡副文案用）
+  function fmtDateTime(ts) {
+    var d = new Date(ts);
+    function p2(n) {
+      return String(n).padStart(2, "0");
+    }
+    return (
+      d.getFullYear() +
+      "-" +
+      p2(d.getMonth() + 1) +
+      "-" +
+      p2(d.getDate()) +
+      " " +
+      p2(d.getHours()) +
+      ":" +
+      p2(d.getMinutes())
+    );
+  }
+
+  // 4 个 metric 块由 byDay 派生；数据带 lastPushAt / prevPushAt（提交级
+  // 时间戳）时，最近一次与最近间隔精确到分钟，缺时间戳时退回按天口径
+  function fillPushMetrics(panel, byDay, data) {
     var activeTs = [];
     Object.keys(byDay).forEach(function (k) {
       if ((byDay[k] || 0) > 0)
@@ -835,23 +893,45 @@
     }
     if (!activeTs.length) {
       set("[data-push-latest]", "—");
+      set("[data-push-latest-date]", "—");
       set("[data-push-interval]", "—");
       set("[data-push-cadence]", "—");
       set("[data-push-streak]", "—");
       return;
     }
     var latest = activeTs[activeTs.length - 1];
-    var latestDate = new Date(latest);
-    set("[data-push-latest]", fmtRelative(latestDate.toISOString()) || "今天");
-    set(
-      "[data-push-latest-date]",
-      latestDate.getMonth() + 1 + "月" + latestDate.getDate() + "日",
-    );
-    if (activeTs.length >= 2) {
+    var lastPushTs =
+      data && data.lastPushAt ? Date.parse(data.lastPushAt) : NaN;
+    var prevPushTs =
+      data && data.prevPushAt ? Date.parse(data.prevPushAt) : NaN;
+    if (!isNaN(lastPushTs)) {
+      set(
+        "[data-push-latest]",
+        fmtRelative(new Date(lastPushTs).toISOString()) || "刚刚",
+      );
+      set("[data-push-latest-date]", fmtDateTime(lastPushTs));
+    } else {
+      var latestDate = new Date(latest);
+      set(
+        "[data-push-latest]",
+        fmtRelative(latestDate.toISOString()) || "今天",
+      );
+      set(
+        "[data-push-latest-date]",
+        latestDate.getMonth() + 1 + "月" + latestDate.getDate() + "日",
+      );
+    }
+    if (!isNaN(lastPushTs) && !isNaN(prevPushTs) && lastPushTs > prevPushTs) {
+      set("[data-push-interval]", fmtDuration(lastPushTs - prevPushTs));
+    } else if (activeTs.length >= 2) {
       var gapDays = Math.round(
         (latest - activeTs[activeTs.length - 2]) / DAY_MS,
       );
       set("[data-push-interval]", gapDays + " 天");
+    } else {
+      set("[data-push-interval]", "—");
+    }
+    if (activeTs.length >= 2) {
       var gaps = [];
       for (var i = 1; i < activeTs.length; i++) {
         gaps.push((activeTs[i] - activeTs[i - 1]) / DAY_MS);
@@ -862,10 +942,9 @@
         }, 0) / gaps.length;
       set(
         "[data-push-cadence]",
-        (Math.round(avg * 10) / 10).toString().replace(/\.0$/, "") + " 天",
+        (Math.round(avg * 10) / 10).toString().replace(/\.0$/, "") + " 天/次",
       );
     } else {
-      set("[data-push-interval]", "—");
       set("[data-push-cadence]", "—");
     }
     // 连续推送：以最近活跃日为终点向前数连续天数
@@ -908,8 +987,12 @@
     today.setHours(0, 0, 0, 0);
     var mode = pushState.mode;
 
+    // 相对浓度：density 放大计数相对 max 的比例，低活跃年份也能看出层次；
+    // density = 1 时与原口径一致
     function levelOf(count, max) {
-      return count === 0 ? 0 : Math.min(4, Math.ceil((count / max) * 4));
+      if (count === 0) return 0;
+      var ratio = (count * (pushState.density || 1)) / max;
+      return Math.min(4, Math.max(1, Math.ceil(ratio * 4)));
     }
     function addCell(count, max, title, idx) {
       var cell = document.createElement("button");
@@ -1025,14 +1108,17 @@
         }
       });
     });
-    var foodBtns = panel.querySelectorAll("[data-snake-food]");
-    foodBtns.forEach(function (btn) {
+    var densityBtns = panel.querySelectorAll("[data-push-density]");
+    densityBtns.forEach(function (btn) {
       btn.addEventListener("click", function () {
-        foodBtns.forEach(function (b) {
+        densityBtns.forEach(function (b) {
           b.setAttribute("aria-pressed", b === btn ? "true" : "false");
         });
-        if (snake)
-          snake.gain = Number(btn.getAttribute("data-snake-food")) || 1;
+        if (pushState) {
+          pushState.density =
+            Number(btn.getAttribute("data-push-density")) || 1;
+          renderPushGrid();
+        }
       });
     });
     var grid = panel.querySelector("[data-push-grid]");
