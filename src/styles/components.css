@@ -1234,7 +1234,16 @@
      仅桌面端（≥1024px）生效：#navbar-card 由通栏卡片变为居中悬浮的胶囊组，
      Logo / 每个顶级菜单项 / 搜索条各成独立玻璃胶囊，右侧图标按钮变圆形玻璃钮。
      移动端（<1024px）不受影响，仍用经典通栏 + 现有移动端菜单。
-     胶囊总高 3.5rem + 顶部 0.5rem 间距 = 4rem ≤ 4.5rem 导航带。
+     玻璃配方按 rainzt.cn 实测（2026-11-16，浅色）：Logo/菜单项白 30% +
+     blur(24px) saturate(1.25)，工具钮/搜索条白 30% + blur(14px) saturate(1.12)，
+     Logo/工具/搜索描边 oklch(0.7 0.14 250 / 0.16)、菜单项无描边；深色沿用 0.65 黑
+     （rainzt 深色未量，不动）。白 30% 在顶部壁纸上仍显磨砂、下滚到浅色页底上
+     近乎透明——这就是 rainzt「顶部磨砂、下滚透明」的实际机制（其 CSS/JS 在
+     scrolled 前后不改背景/模糊，见量测记录）；高级材质关闭时退回纯色卡片底。
+     卡片贴视口顶（rainzt 外壳 y=0；本站卡片 y=0、胶囊 y≈8，与 rainzt 的 8-11px 对齐）。
+     菜单项横向内边距 12px（rainzt 11.5px）：菜单总宽 952px → 约 824px，与 rainzt
+     菜单 825px 对齐，1664px 下不再超宽盖住搜索框。搜索框按 rainzt：146px 宽、
+     输入框 144px、字号 16px、聚焦不展开、无 ⌘K 徽标。
      （旧注释「.navbar-hidden 的 -4.5rem 上移可藏起」已失效：aemeath 机制下
      整条导航栏永不滑走，见下方滚动收缩段。）
      与 Tailwind 工具类同属性竞争处用 !important（本文件 @layer components 的
@@ -1248,10 +1257,12 @@
 
     /* 胶囊模式只换皮肤、不换位置：卡片保持经典通栏几何（满宽 max-w page-width、
        左 Logo / 中菜单 / 右工具、justify-between），仅去掉通栏底色与阴影；
-       菜单位置与经典模式完全一致，2026-11-16 用户实测指出聚拢居中后菜单左移。 */
+       菜单位置与经典模式完全一致，2026-11-16 用户实测指出聚拢居中后菜单左移。
+       卡片贴视口顶（rainzt 外壳 y=0）：margin-top 0、高 3.75rem，胶囊 y≈8px，
+       与 rainzt 胶囊的 8-11px 对齐（旧值 0.5rem 间距 + 3.5rem 高时胶囊 y=14px）。 */
     .navbar-style-floating-pill #navbar-card {
-      height: 3.5rem !important;
-      margin-top: 0.5rem !important;
+      height: 3.75rem !important;
+      margin-top: 0 !important;
       background: transparent !important;
       box-shadow: none !important;
     }
@@ -1264,50 +1275,83 @@
       gap: 0.375rem;
     }
 
-    /* Logo 胶囊 + 顶级菜单项胶囊 + 圆形工具钮：共用玻璃配方
-       （与 .navbar-blur / .submenu-panel 同源：浅色 0.62 白 / 深色 0.65 黑，
-       saturate(180%) blur(20px)；高级材质关闭时退回纯色卡片底） */
+    /* Logo 胶囊 + 顶级菜单项胶囊 + 圆形工具钮：共用尺寸与阴影。
+       玻璃配方按 rainzt 实测分两档（浅色）：Logo/菜单项白 30% + blur(24px)
+       saturate(1.25)，工具钮白 30% + blur(14px) saturate(1.12)；深色沿用 0.65 黑；
+       高级材质关闭时退回纯色卡片底。
+       工具钮选择器必须同时覆盖 `.navbar-tools div.relative.group > button`：语言/亮暗两个
+       Svelte 按钮包在 `<div class="relative group">` 里，且外层还套一层 `<astro-island>`
+       （Svelte 岛），不是 .navbar-tools 的直接子 button，旧的 `> button` 选不到它们，
+       导致它俩一直是透明方角（8px）而随机/显示两个直接子 button 是圆形玻璃——这就是
+       用户说的「不一样」。`div.relative.group > button` 只命中触发按钮，不会误伤
+       面板里的选项按钮（它们在 #language-panel / #light-dark-panel 内层）。 */
     .navbar-style-floating-pill #navbar-card > a,
     .navbar-style-floating-pill .navbar-menu .group > a,
-    .navbar-style-floating-pill .navbar-tools > button {
+    .navbar-style-floating-pill .navbar-tools > button,
+    .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       height: 2.75rem !important;
       border-radius: 9999px !important;
       background-color: var(--card-bg) !important;
-      border: 1px solid rgb(0 0 0 / 0.06) !important;
       box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+    }
+    /* Logo / 工具钮描边（rainzt 实测）；菜单项无描边（rainzt 实测透明边） */
+    .navbar-style-floating-pill #navbar-card > a,
+    .navbar-style-floating-pill .navbar-tools > button,
+    .navbar-style-floating-pill .navbar-tools div.relative.group > button {
+      border: 1px solid oklch(0.7 0.14 250 / 0.16) !important;
+    }
+    .navbar-style-floating-pill .navbar-menu .group > a {
+      border: 1px solid transparent !important;
+      /* 菜单项横向内边距按 rainzt 收窄（20px → 12px，rainzt 为 11.5px）：
+         菜单总宽 952px → 约 824px，与 rainzt 菜单 825px 对齐；1664px 下
+         Logo+菜单+搜索+工具总宽不再超卡片宽，末项不再盖住搜索框。 */
+      padding-left: 0.75rem !important;
+      padding-right: 0.75rem !important;
     }
     :root.dark .navbar-style-floating-pill #navbar-card > a,
     :root.dark .navbar-style-floating-pill .navbar-menu .group > a,
-    :root.dark .navbar-style-floating-pill .navbar-tools > button {
+    :root.dark .navbar-style-floating-pill .navbar-tools > button,
+    :root.dark .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       border-color: rgb(255 255 255 / 0.08) !important;
       box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a,
-    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a,
-    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button {
-      background-color: rgb(255 255 255 / 0.62) !important;
-      -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
-      backdrop-filter: saturate(180%) blur(20px) !important;
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a {
+      background-color: rgb(255 255 255 / 0.3) !important;
+      -webkit-backdrop-filter: blur(24px) saturate(1.25) !important;
+      backdrop-filter: blur(24px) saturate(1.25) !important;
+    }
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button,
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools div.relative.group > button {
+      background-color: rgb(255 255 255 / 0.3) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(1.12) !important;
+      backdrop-filter: blur(14px) saturate(1.12) !important;
     }
     :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a,
     :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a,
-    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button {
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button,
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       background-color: rgb(0 0 0 / 0.65) !important;
     }
 
     /* 工具钮定宽圆形（Logo 与菜单项保持内容宽） */
-    .navbar-style-floating-pill .navbar-tools > button {
+    .navbar-style-floating-pill .navbar-tools > button,
+    .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       width: 2.75rem !important;
       padding: 0 !important;
     }
 
-    /* 搜索条变搜索胶囊：保留输入框与 ⌘K 徽标，只改外形与玻璃底 */
+    /* 搜索条变搜索胶囊：按 rainzt（实测 146×44、白 30% + blur(14px) saturate(1.12)、
+       oklch 描边、占位「搜索」、无 ⌘K 徽标、输入框 144px 字号 16px、聚焦不展开）。
+       输入框定宽 9rem（Tailwind 的 w-40 focus:w-60 会让它在 1664px 下被挤压时
+       跟着伸缩，改由这里锁死）；⌘K 徽标在胶囊模式下隐藏（rainzt 没有它，留着
+       占 25px 宽、被盖住时只剩它可见——正是 1664px 下用户看到的样子）。 */
     .navbar-style-floating-pill #search-bar {
       height: 2.75rem !important;
       margin-right: 0 !important;
       border-radius: 9999px !important;
       background-color: var(--card-bg) !important;
-      border: 1px solid rgb(0 0 0 / 0.06) !important;
+      border: 1px solid oklch(0.7 0.14 250 / 0.16) !important;
       box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
     }
     :root.dark .navbar-style-floating-pill #search-bar {
@@ -1315,38 +1359,67 @@
       box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill #search-bar {
-      background-color: rgb(255 255 255 / 0.62) !important;
-      -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
-      backdrop-filter: saturate(180%) blur(20px) !important;
+      background-color: rgb(255 255 255 / 0.3) !important;
+      -webkit-backdrop-filter: blur(14px) saturate(1.12) !important;
+      backdrop-filter: blur(14px) saturate(1.12) !important;
     }
     :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #search-bar {
       background-color: rgb(0 0 0 / 0.65) !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill #search-bar:hover {
-      background-color: rgb(255 255 255 / 0.7) !important;
+      background-color: rgb(255 255 255 / 0.38) !important;
     }
     :root.dark body.navbar-blur-enabled .navbar-style-floating-pill #search-bar:hover {
       background-color: rgb(0 0 0 / 0.72) !important;
+    }
+    .navbar-style-floating-pill #search-bar input {
+      width: 9rem !important;
+      font-size: 1rem !important;
+    }
+    .navbar-style-floating-pill #search-bar input:focus {
+      width: 9rem !important;
+    }
+    .navbar-style-floating-pill #search-bar kbd {
+      display: none !important;
     }
 
     /* 滚动后加深阴影（html.navbar-scrolled 由 navbar.ts 在 50px 阈值后挂载） */
     html.navbar-scrolled .navbar-style-floating-pill #navbar-card > a,
     html.navbar-scrolled .navbar-style-floating-pill .navbar-menu .group > a,
     html.navbar-scrolled .navbar-style-floating-pill .navbar-tools > button,
+    html.navbar-scrolled .navbar-style-floating-pill .navbar-tools div.relative.group > button,
     html.navbar-scrolled .navbar-style-floating-pill #search-bar {
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.16) !important;
     }
     :root.dark html.navbar-scrolled .navbar-style-floating-pill #navbar-card > a,
     :root.dark html.navbar-scrolled .navbar-style-floating-pill .navbar-menu .group > a,
     :root.dark html.navbar-scrolled .navbar-style-floating-pill .navbar-tools > button,
+    :root.dark html.navbar-scrolled .navbar-style-floating-pill .navbar-tools div.relative.group > button,
     :root.dark html.navbar-scrolled .navbar-style-floating-pill #search-bar {
       box-shadow: 0 8px 24px rgb(0 0 0 / 0.3) !important;
     }
 
     /* 当前页菜单项：浅底 + 主色字（rainzt 式样，但颜色不写死：用 color-mix 从
-       var(--primary) 现取，跟随主题色相——后台/访客改了主题色，高亮色跟着变） */
+       var(--primary) 现取，跟随主题色相——后台/访客改了主题色，高亮色跟着变。
+       底色 14% → 28%：胶囊底改白 30% 后，14% 主色淡到比未激活项还浅，激活态
+       反而看不出来；28% 才能在白 30% 的未激活项里一眼区分。
+       注意：本条必须另写两条 blur 开启时的覆盖——玻璃底规则
+       `body.navbar-blur-enabled … .group > a` 是 (0,4,2)，比本条 (0,4,1)
+       高，激活底色会被玻璃底盖掉（实测：激活项底色一直是白 0.62/0.3，
+       只剩描边与字色在区分）；加了 blur 前缀的两条分别是 (0,5,2)/(0,7,2)，
+       才能压过浅色/深色的玻璃底规则。 */
     .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
-      background: color-mix(in oklab, var(--primary) 14%, transparent) !important;
+      background: color-mix(in oklab, var(--primary) 28%, transparent) !important;
+      color: var(--primary) !important;
+      border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important;
+    }
+    body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
+      background: color-mix(in oklab, var(--primary) 28%, transparent) !important;
+      color: var(--primary) !important;
+      border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important;
+    }
+    :root.dark body.navbar-blur-enabled .navbar-style-floating-pill .navbar-menu .group > a.nav-link-active {
+      background: color-mix(in oklab, var(--primary) 28%, transparent) !important;
       color: var(--primary) !important;
       border-color: color-mix(in oklab, var(--primary) 30%, transparent) !important;
     }
