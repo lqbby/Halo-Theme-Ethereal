@@ -142,7 +142,7 @@ import "../styles/steam.css";
             />
             <span
               class="steam-avatar__dot"
-              th:classappend="${p?.playing ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
+              th:classappend="${p?.playing == true ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
               th:title="${p?.statusText}"></span>
           </div>
 
@@ -159,7 +159,7 @@ import "../styles/steam.css";
             >
               <span
                 class="steam-profile__state"
-                th:classappend="${p?.playing ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
+                th:classappend="${p?.playing == true ? ' is-playing' : (p?.summary?.personaState == 1 ? ' is-online' : '')}"
                 th:text="${p?.statusText}"
               >
                 离线

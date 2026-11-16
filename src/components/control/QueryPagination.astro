@@ -35,8 +35,15 @@ const {
 // filterValuesExpr 已是含 `${...}` 的完整表达式，其花括号会与外层冲突，
 // 故这里由组件产出**完整的** `${ ... }`（含外层定界符），th:with 里直接 `sep=` 接上，
 // 不能再写 `sep=${...}`（那会变成 `${${...}}` 嵌套）。
+// 条件与取值同源：除调用方的 filterValuesExpr 外，再叠一层对 param.<filterName>
+// 本身的在场/非空校验后才读 [0]——否则条件查的是别处、取值读的却是 param 时，
+// 两者脱节会拼出 `?category=&page=2` 或在 [0] 上求值异常。
+const filterInner = filterValuesExpr.replace(/^\$\{|\}$/g, "");
+const paramGuard = filterName
+  ? `param.${filterName} != null and param.${filterName}.length > 0 and param.${filterName}[0] != ''`
+  : "";
 const sepExpr = filterName
-  ? `\${${filterValuesExpr.replace(/^\$\{|\}$/g, "")} ? '?${filterName}=' + param.${filterName}[0] + '&' : '?'}`
+  ? `\${${filterInner ? `(${filterInner}) and ` : ""}${paramGuard} ? '?${filterName}=' + param.${filterName}[0] + '&' : '?'}`
   : "'?'";
 
 // 分页窗口（与 Pagination.astro 同一套：始终显示 5 个页码位，首尾留 1/末 1 + 省略号）

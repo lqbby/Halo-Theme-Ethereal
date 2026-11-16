@@ -904,7 +904,7 @@ import QueryPagination from "../components/control/QueryPagination.astro";
       lastDate=${dayCount > 0 ? dayList[0].date : ''},
       pageSize=${cfg?.days?.pageSize != null ? #conversions.convert(cfg?.days?.pageSize, 'java.lang.Integer') : 20},
       totalPages=${pageSize gt 0 and dayCount gt 0 ? (dayCount + pageSize - 1) / pageSize : 1},
-      rawPage=${param.page != null and param.page.length gt 0 and param.page[0] matches '\d+' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
+      rawPage=${param.page != null and param.page.length gt 0 and param.page[0] matches '\d{1,9}' ? #conversions.convert(param.page[0], 'java.lang.Integer') : 1},
       curPage=${rawPage gt totalPages ? totalPages : (rawPage lt 1 ? 1 : rawPage)},
       startIndex=${(curPage - 1) * pageSize},
       endIndex=${startIndex + pageSize gt dayCount ? dayCount : startIndex + pageSize},
@@ -1360,8 +1360,7 @@ import QueryPagination from "../components/control/QueryPagination.astro";
                 th:if="${(d?.date ?: '') matches '\d{4}\D\d{2}\D\d{2}'}"
                 th:attr="datetime=${#strings.replace(d.date, '.', '-')}"
                 th:data-cl-date="${d?.date}"
-                ><span class="md:hidden" th:text="${d?.date}"
-                  >2026.09.13</span
+                ><span class="md:hidden" th:text="${d?.date}">2026.09.13</span
                 ></time
               >
               <span

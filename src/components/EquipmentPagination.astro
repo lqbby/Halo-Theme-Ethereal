@@ -7,7 +7,7 @@ interface Props {
 
 const { context = "equipments", style } = Astro.props;
 const className = Astro.props.class;
-const hasPages = `\${${context}.totalPages gt 1}`;
+const hasPages = `\${${context} != null and ${context}.totalPages gt 1}`;
 const prevUrl = `@{\${${context}.prevUrl}}`;
 const nextUrl = `@{\${${context}.nextUrl}}`;
 const pageWindow = `

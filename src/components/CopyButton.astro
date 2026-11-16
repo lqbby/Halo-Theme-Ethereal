@@ -1,7 +1,23 @@
 ---
 const { copyText = "" } = Astro.props;
-const isTemplate = copyText.startsWith("${") && copyText.endsWith("}");
-const expr = isTemplate ? copyText.slice(2, -1) : copyText;
+// 模板判定按「首个配平 }」切分：`${a}${b}` 型拼接串若按首尾猜测切分会切坏
+// （slice(2,-1) 得到 `a}${b`），故从 `${` 起逐字数花括号深度，
+// 在深度归零处取出第一段完整表达式作为求值对象。
+function firstBalancedExpr(text: string): string | null {
+  if (!text.startsWith("${")) return null;
+  let depth = 0;
+  for (let i = 1; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
+      depth--;
+      if (depth === 0) return text.slice(2, i);
+    }
+  }
+  return null;
+}
+const extracted = firstBalancedExpr(copyText);
+const isTemplate = extracted !== null;
+const expr = isTemplate ? extracted : copyText;
 ---
 
 {
