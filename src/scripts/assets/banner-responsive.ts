@@ -8,7 +8,8 @@ import { isHomePath } from "../../utils/banner-sync";
 //  移动端首屏会「大字号闪变」，故整段移除，勿再写回内联 font-size）
 (function () {
   var MIN_BANNER_HEIGHT = 180;
-  // 刷新 bug 修（2026-11-17 哥哥定）+ 磨砂迟到修（2026-11-18 哥哥定）：
+  // 刷新 bug 修（2026-11-17 哥哥定）+ 磨砂迟到修（2026-11-18 哥哥定）
+  // + 手机滑回顶部卡片晚出现修（2026-11-18 哥哥定）：
   // 浏览器恢复下方滚动位置后，滑回顶部时 overlay 整层（卡片 + 全部人物）
   // 700ms 淡入、看起来像又刷新一遍；且淡入期间祖先 opacity<1 形成
   // Backdrop Root，卡片/开关的 backdrop-filter 采不到壁纸，磨砂要等淡入
@@ -17,6 +18,10 @@ import { isHomePath } from "../../utils/banner-sync";
   // 直接显示、不走 opacity 过渡（setHiddenInstant），淡出仍走过渡。
   // 旧 flag（window.__bannerSkipRevealTransition，ocr 真 bug A7）已随
   // “显现一律直接”废弃删除——显现不再分首次/之后。
+  // 手机晚出现修：显现原先只靠 scroll 监听的 100ms 防抖 setTimeout 触发，
+  // iOS Safari 在手指惯性滚动期间推迟 setTimeout 回调，等滚动停稳才跑
+  // 防抖，卡片晚约 1 秒。显现改走 rAF 节流立即检查（惯性滚动期间 rAF
+  // 照常触发），隐藏仍走防抖；另加 scrollend / touchend 两道兜底。
 
   function getEl(id) {
     return document.getElementById(id);
@@ -131,13 +136,49 @@ import { isHomePath } from "../../utils/banner-sync";
     });
 
     var scrollTimer;
+    var scrollRaf = 0;
+    // 滚动监听：显现立即执行、隐藏走防抖。
+    // iOS Safari 在手指惯性滚动期间推迟 setTimeout 回调，等滚动停稳才跑
+    // 防抖，显现若走防抖、卡片要晚约 1 秒才出现（用户报手机滑回顶部卡片
+    // 晚约 1 秒）。显现是直接显示（setHiddenInstant，无过渡），立即执行
+    // 无抖动；隐藏走过渡，保留防抖避免快速来回滚动时反复淡出。
+    // rAF 节流：显现检查每帧最多一次；iOS 惯性滚动期间 rAF 照常触发，
+    // 不像 setTimeout 那样被推迟到滚动停稳。
     window.addEventListener(
       "scroll",
       function () {
+        if (!scrollRaf) {
+          scrollRaf = requestAnimationFrame(function () {
+            scrollRaf = 0;
+            var overlay = getEl("banner-overlay");
+            // 仅当 overlay 当前隐藏时才立即检查显现（已显示时无事可做，
+            // 隐藏仍走下方防抖）。
+            if (overlay && overlay.classList.contains("banner-text-hidden")) {
+              updateVisibility();
+            }
+          });
+        }
         clearTimeout(scrollTimer);
         scrollTimer = setTimeout(function () {
           updateVisibility();
         }, 100);
+      },
+      { passive: true },
+    );
+
+    // scrollend：滚动彻底停稳（含惯性结束）后立即再核对一次。
+    // 覆盖 scroll 事件本身也被推迟的老版本 / 极端情况；不支持 scrollend
+    // 的浏览器上该事件永不触发、无副作用。
+    window.addEventListener("scrollend", function () {
+      updateVisibility();
+    });
+
+    // touchend：手指离开屏幕时立即核对一次（惯性开始前）。
+    // 覆盖拖动到顶后无后续 scroll 事件的边界情况；在中途位置时是空操作。
+    window.addEventListener(
+      "touchend",
+      function () {
+        updateVisibility();
       },
       { passive: true },
     );
