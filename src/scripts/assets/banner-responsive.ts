@@ -8,15 +8,15 @@ import { isHomePath } from "../../utils/banner-sync";
 //  移动端首屏会「大字号闪变」，故整段移除，勿再写回内联 font-size）
 (function () {
   var MIN_BANNER_HEIGHT = 180;
-  // 刷新 bug 修（2026-11-17 哥哥定）：浏览器恢复下方滚动位置后，滑回顶部时
-  // overlay 整层（卡片 + 全部人物）700ms 淡入、看起来像又刷新一遍。
-  // 修法：载入时按实际滚动位置首帧直接定档显隐（不走过渡）；
-  // 恢复滚动导致的隐藏，其首次显现也不走 opacity 过渡、直接显示。
-  // 只影响载入后的首次显现，之后正常上下滑仍走淡入淡出。
-  // flag 放 window 上（ocr 真 bug A7）：scroll 监听只绑一次（guardOnce），
-  // Swup 换页后脚本重执行，局部变量每次都是新的——监听调的是第一次执行的
-  // updateVisibility，其 flag 早被消耗掉，修法在第一次换页后就失效。
-  // 与 __bannerUserInteracted 同口径，跨执行共享。
+  // 刷新 bug 修（2026-11-17 哥哥定）+ 磨砂迟到修（2026-11-18 哥哥定）：
+  // 浏览器恢复下方滚动位置后，滑回顶部时 overlay 整层（卡片 + 全部人物）
+  // 700ms 淡入、看起来像又刷新一遍；且淡入期间祖先 opacity<1 形成
+  // Backdrop Root，卡片/开关的 backdrop-filter 采不到壁纸，磨砂要等淡入
+  // 结束才出现（滚回顶部磨砂迟到约 700ms）。
+  // 修法：载入时按实际滚动位置首帧直接定档显隐（不走过渡）；显现一律
+  // 直接显示、不走 opacity 过渡（setHiddenInstant），淡出仍走过渡。
+  // 旧 flag（window.__bannerSkipRevealTransition，ocr 真 bug A7）已随
+  // “显现一律直接”废弃删除——显现不再分首次/之后。
 
   function getEl(id) {
     return document.getElementById(id);
@@ -63,27 +63,23 @@ import { isHomePath } from "../../utils/banner-sync";
 
     var wrapper = getEl("banner-wrapper");
     if (!wrapper) {
-      overlay.classList.remove("banner-text-hidden");
+      setHiddenInstant(overlay, false);
       return;
     }
     var wasHidden = overlay.classList.contains("banner-text-hidden");
     var rect = wrapper.getBoundingClientRect();
     if (rect.bottom >= MIN_BANNER_HEIGHT) {
-      if (window.__bannerSkipRevealTransition) {
-        // 刷新后首次滑回顶部：直接显示，不走 opacity 过渡
-        window.__bannerSkipRevealTransition = false;
-        setHiddenInstant(overlay, false);
-      } else {
-        overlay.classList.remove("banner-text-hidden");
-      }
+      // 显现一律直接显示，不走 opacity 过渡：祖先 opacity<1 会形成
+      // Backdrop Root，卡片/开关的 backdrop-filter 采不到壁纸，磨砂要等
+      // 700ms 淡入结束才出现（用户报滚回顶部磨砂迟到）。淡出仍走过渡。
+      setHiddenInstant(overlay, false);
       // 从隐藏变为可见时，通知打字机/下坠脚本重新初始化
       if (wasHidden) {
         document.dispatchEvent(new CustomEvent("banner:visible"));
       }
     } else {
       if (!userHasInteracted()) {
-        // 刷新恢复滚动位置导致的隐藏：直接隐藏（不走淡出），首次显现也不走过渡
-        window.__bannerSkipRevealTransition = true;
+        // 刷新恢复滚动位置导致的隐藏：直接隐藏（不走淡出）
         setHiddenInstant(overlay, true);
       } else {
         overlay.classList.add("banner-text-hidden");
@@ -117,7 +113,6 @@ import { isHomePath } from "../../utils/banner-sync";
     var wrapper = getEl("banner-wrapper");
     if (!overlay || !wrapper || !isHomePath()) return;
     if (wrapper.getBoundingClientRect().bottom < MIN_BANNER_HEIGHT) {
-      window.__bannerSkipRevealTransition = true;
       setHiddenInstant(overlay, true);
     }
   })();
