@@ -975,9 +975,15 @@
     // 空状态「去站内搜索」：主题搜索是导航栏面板，无独立路由 —— 回页顶聚焦其输入框
     var goSearch = document.querySelector("[data-cl-goto-search]");
     if (goSearch) {
+      // 桌面输入框在 1024–1440px 段 display:none（ocr 真 bug B7）：按 DOM 顺序
+      // 取恒取到隐藏的那个，focus() 静默失败、按钮只滚到顶部；按 offsetParent
+      // 选可见的那个（Search.svelte 的 focusVisibleInput 同口径）。
+      var desktopInput = document.getElementById("search-input-desktop");
+      var mobileInput = document.getElementById("search-input-mobile");
       var navInput =
-        document.getElementById("search-input-desktop") ||
-        document.getElementById("search-input-mobile");
+        (desktopInput && desktopInput.offsetParent !== null
+          ? desktopInput
+          : mobileInput) || desktopInput;
       if (!navInput) goSearch.style.display = "none";
       else
         goSearch.addEventListener("click", function () {

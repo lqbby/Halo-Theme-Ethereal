@@ -342,13 +342,21 @@
   /* 搜索面板对齐 rainzt：实色底、无磨砂（实测 rainzt #search-panel 纯白
      rgb(255,255,255)、backdrop-filter none；#5）。只改搜索面板，不动
      其它 .float-panel（显示设置/菜单面板仍走磨砂）。ID 选择器 (1,1,1)
-     压过上方 body.navbar-blur-enabled .float-panel (0,2,1)。 */
-  body.navbar-blur-enabled #search-panel {
+     压过上方 body.navbar-blur-enabled .float-panel (0,2,1)。
+     全屏透明模式除外（ocr 真 bug B3）：透明模式的 .float-panel 规则是
+     0.6 半透明玻璃，实色规则 (1,1,1)+!important 会压过它，搜索面板变纯白、
+     与其它半透明面板不一致；html:not([data-banner-display="transparent"])
+     把透明模式排除在外，落回玻璃规则。 */
+  html:not([data-banner-display="transparent"])
+    body.navbar-blur-enabled
+    #search-panel {
     background-color: rgb(255 255 255) !important;
     -webkit-backdrop-filter: none !important;
     backdrop-filter: none !important;
   }
-  :root.dark body.navbar-blur-enabled #search-panel {
+  :root.dark:not([data-banner-display="transparent"])
+    body.navbar-blur-enabled
+    #search-panel {
     background-color: oklch(0.23 0.015 var(--hue)) !important;
     /* 深色面板描边/阴影对齐 rainzt（实测深色白 10% 描边 + 0 25px 50px -12px
        rgb(0 0 0 / 0.25) 大柔影），底色 oklch(0.23 0.015 250) 已与 rainzt 一致。 */

@@ -43,6 +43,11 @@ let _lastScrollProgressUpdateAt = Number.NEGATIVE_INFINITY;
 let _lastScrollProgressBtnKey = "";
 // 尾刷定时器（A8）：节流窗口内最后一次调用，80ms 后再跑一次
 let _scrollProgressTrailingTimer = 0;
+// 终态对齐定时器（ocr 真 bug B1）：按钮堆显隐切换时 sibling 的 bottom 过渡
+// --dur-float（350/450ms）远长于 80ms 尾刷；尾刷读到的 rect 仍在过渡中途，
+// 停手后无 scroll 事件再触发重算，环停在中途值、最多偏一格。可见集合变化时
+// 按 --dur-float 计时再同步一次位置，过渡走完才定档。
+let _scrollProgressSettleTimer = 0;
 
 function getBackToTopBtn() {
   if (!_backToTopBtn?.isConnected)
@@ -122,6 +127,24 @@ function syncScrollProgressPosition(circle: HTMLElement): void {
   circle.style.bottom = `${bottomPx}px`;
 }
 
+// 终态对齐（ocr 真 bug B1）：可见集合变化意味着有按钮开始 bottom 过渡
+// （--dur-float，默认 350ms、宽松档 450ms、减动效 1ms）；过渡走完后强制再
+// 同步一次位置。多次快速切换时只留最后一个定时器。回调走
+// syncScrollProgress(true)：复用 isConnected 守卫与节流旁路，位置一定落盘。
+function scheduleScrollProgressSettle(): void {
+  if (_scrollProgressSettleTimer) {
+    window.clearTimeout(_scrollProgressSettleTimer);
+  }
+  const durRaw = getComputedStyle(document.documentElement).getPropertyValue(
+    "--dur-float",
+  );
+  const durMs = Number.parseFloat(durRaw) || 350;
+  _scrollProgressSettleTimer = window.setTimeout(() => {
+    _scrollProgressSettleTimer = 0;
+    syncScrollProgress(true);
+  }, durMs + 50);
+}
+
 // 滚动进度环（rainzt ScrollProgress 移植）：滚动比 = scrollY / (文档高 −
 // 视口高)，环用 stroke-dashoffset 填充（pathLength=100，offset 100−进度×100），
 // 中央写百分比；约 12 次/秒节流（读文档高 + 写 SVG 每帧跑在长文上贵），
@@ -131,11 +154,17 @@ function syncScrollProgressPosition(circle: HTMLElement): void {
 function syncScrollProgress(force = false) {
   const { circle, value, label } = getScrollProgressEls();
   if (!circle) return;
+  // B6：行内脚本在解析期把环藏起来（解析期 TOC 计数算不准，见 BackToTop.astro
+  // 的注释）；bundle 第一次同步即显示——位置在同任务内按 rect 重算、同一帧
+  // 绘制，错位不露脸。
+  if (circle.style.visibility === "hidden") circle.style.visibility = "";
   // 位置同步移出节流（ocr 真 bug A8）：按钮显隐变化时立即重算，不等节流窗口。
   const btnKey = visibleFloatingBtnKey();
   if (btnKey !== _lastScrollProgressBtnKey) {
     _lastScrollProgressBtnKey = btnKey;
     syncScrollProgressPosition(circle);
+    // B1：过渡走完后再定档一次（见 scheduleScrollProgressSettle）。
+    scheduleScrollProgressSettle();
   }
   const now = performance.now();
   if (!force && now - _lastScrollProgressUpdateAt < 80) {

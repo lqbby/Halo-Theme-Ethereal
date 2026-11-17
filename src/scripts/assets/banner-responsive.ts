@@ -96,10 +96,16 @@ import { isHomePath } from "../../utils/banner-sync";
     positionOverlay();
   }
 
-  // 清除 SSR 可能残留的 display:none，统一用 opacity 过渡
+  // 清除 SSR 可能残留的 display:none，统一用 opacity 过渡。
+  // 只在首页清（ocr 真 bug B2）：非首页 overlay 只是 display:none/透明度
+  // 隐藏，eager/lazy 图只要在视口内照样下载——1481 的 lazy 只挡住了
+  // display:none 子树里的图，而这里一清 display:none、overlay 又被渲染出来，
+  // 非首页白下头像 + 贴纸 + 两角人物。非首页保持 display:none，零张下载；
+  // 首页 SSR 本来就没有 display:none，不受影响；文章页切回首页时
+  // isHomePath() 为真，照常清掉、人物正常出来。
   (function initOverlay() {
     var overlay = getEl("banner-overlay");
-    if (overlay && overlay.style.display === "none") {
+    if (overlay && overlay.style.display === "none" && isHomePath()) {
       overlay.style.display = "";
       overlay.classList.add("banner-text-hidden");
     }

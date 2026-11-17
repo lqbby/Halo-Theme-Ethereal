@@ -788,11 +788,17 @@ import { Icon } from "astro-icon/components";
     // 重执行本脚本覆盖。原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
   })();
 
-  // 进度环初始位置（ocr 真 bug A10）：环的 CSS 初始 bottom:0 正好是底部那颗
-  // 按钮的位置，defer 的 app.ts 跑起来、syncScrollProgress 第一次执行前，
-  // 环先盖住首页按钮一会儿；行内脚本在解析时就让首页/评论按钮可见——这里
-  // 顺手按可见按钮数先算一次环的 bottom（首屏状态下可见按钮自下而上连续，
-  // 计数法正确；动态变化由 bundle 的 syncScrollProgress 按 rect 接管）。
+  // 进度环初始位置（ocr 真 bug A10 + B6）：环的 CSS 初始 bottom:0 正好是底部
+  // 那颗按钮的位置，defer 的 app.ts 跑起来、syncScrollProgress 第一次执行前，
+  // 环先盖住首页按钮一会儿；行内脚本在解析时就让首页/评论按钮可见——这里按
+  // 可见按钮数先算一次环的 bottom（首屏状态下可见按钮自下而上连续，计数法
+  // 正确；动态变化由 bundle 的 syncScrollProgress 按 rect 接管）。
+  // B6：TOC 按钮的显隐只由 defer 的 app.ts 判定（updateTocBtnVisibility），
+  // 首刷时服务端恒渲染 hide、Swup 换页后又可能是上一页残留，计数差一格；
+  // 且 #toc-popup / #toc-wrapper 在布局里排在 <BackToTop /> 之后，解析期按
+  // updateTocBtnVisibility 的判据现算也读不到它们——解析期算不准 TOC。
+  // 改为先把环藏起来，等 bundle 第一次同步（syncScrollProgress）时再显示，
+  // 错位不露脸；bundle 万一没跑起来，1s 后按计数位置兜底显示，避免环永久消失。
   (function () {
     var circle = document.getElementById("scroll-progress-circle");
     if (!circle) return;
@@ -801,5 +807,13 @@ import { Icon } from "astro-icon/components";
     ).length;
     circle.style.bottom =
       visibleCount === 0 ? "0" : visibleCount * 4.25 + "rem";
+    circle.style.visibility = "hidden";
+    if (window.__etherealRingUnhideTimer) {
+      window.clearTimeout(window.__etherealRingUnhideTimer);
+    }
+    window.__etherealRingUnhideTimer = window.setTimeout(function () {
+      window.__etherealRingUnhideTimer = 0;
+      circle.style.visibility = "";
+    }, 1000);
   })();
 </script>

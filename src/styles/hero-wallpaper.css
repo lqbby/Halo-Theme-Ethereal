@@ -4,700 +4,711 @@
    挂载在 #banner-overlay 内（#banner-wrapper 的首页文案区），卡片与角色
    的定位基准就是 #banner-wrapper（横幅 65vh / 全屏 100vh 自适应）。 */
 
-/* 压暗遮罩：盖在壁纸图上、卡片与角色之下，保证白字可读。
+/* 整文件包进 @layer components（ocr 真 bug B4）：本文件经 HomeHeroCard 的
+   import 编进来是无分层样式表，无分层声明恒胜于分层声明、与特异度无关，
+   于是 `.home-wallpaper-card__content > *` 的 animation 简写压过了
+   @layer components 里的 `.banner-title-enter #banner-title
+   { animation-name: fade-in-up }`，访客重开标题时标题直接弹出、不走入场动画。
+   同层后按特异度决胜：.banner-title-enter #banner-title (1,1,0) 压过
+   .home-wallpaper-card__content > * (0,1,0)，fade-in-up 正常跑。 */
+@layer components {
+  /* 压暗遮罩：盖在壁纸图上、卡片与角色之下，保证白字可读。
    亮色不压暗（2026-11-17 哥哥说有一层黑色把 Banner 暗了）：亮色透明，
    暗色保留压暗（上半部 0.10、下半部 0.42）。 */
-.hero-wallpaper-dim {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: transparent;
-  pointer-events: none;
-}
-:root.dark .hero-wallpaper-dim {
-  background: linear-gradient(
-    to bottom,
-    rgba(10, 12, 24, 0.1),
-    rgba(10, 12, 24, 0.42)
-  );
-}
+  .hero-wallpaper-dim {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    background: transparent;
+    pointer-events: none;
+  }
+  :root.dark .hero-wallpaper-dim {
+    background: linear-gradient(
+      to bottom,
+      rgba(10, 12, 24, 0.1),
+      rgba(10, 12, 24, 0.42)
+    );
+  }
 
-/* 三态隐藏门控（ocr 真 bug A3+A11，2026-11-17）：旧 #banner-links 的口径。
+  /* 三态隐藏门控（ocr 真 bug A3+A11，2026-11-17）：旧 #banner-links 的口径。
    overlay 三态只改 opacity + pointer-events，卡片/人物/开关各自
    pointer-events: auto 会重新打开命中测试，且子树仍在 Tab 顺序里——
    隐形状态下卡片能吞点击、人物能拖、“角色”按钮能被 Tab 聚焦。
    三态（访客关标题 / 非首页淡出 / hero 滚走淡化）下统一补
    pointer-events: none + visibility: hidden，指针与键盘一起挡。 */
-body.banner-title-disabled .home-wallpaper-card,
-body.banner-title-disabled .chars,
-body.banner-title-disabled .chars-toggle,
-#banner-overlay.banner-text-hidden .home-wallpaper-card,
-#banner-overlay.banner-text-hidden .chars,
-#banner-overlay.banner-text-hidden .chars-toggle,
-#banner-overlay.hero-title-faded .home-wallpaper-card,
-#banner-overlay.hero-title-faded .chars,
-#banner-overlay.hero-title-faded .chars-toggle {
-  pointer-events: none;
-  visibility: hidden;
-}
+  body.banner-title-disabled .home-wallpaper-card,
+  body.banner-title-disabled .chars,
+  body.banner-title-disabled .chars-toggle,
+  #banner-overlay.banner-text-hidden .home-wallpaper-card,
+  #banner-overlay.banner-text-hidden .chars,
+  #banner-overlay.banner-text-hidden .chars-toggle,
+  #banner-overlay.hero-title-faded .home-wallpaper-card,
+  #banner-overlay.hero-title-faded .chars,
+  #banner-overlay.hero-title-faded .chars-toggle {
+    pointer-events: none;
+    visibility: hidden;
+  }
 
-/* ===== rainzt 卡片（平时模式数值） ===== */
-.home-wallpaper-decor {
-  --home-wallpaper-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
-  --home-wallpaper-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='8' viewBox='0 0 18 8'%3E%3Cpath d='M0 4C1.5 1.1 3 1.1 4.5 4S7.5 6.9 9 4S12 1.1 13.5 4S16.5 6.9 18 4' fill='none' stroke='%23f2b3bf' stroke-linecap='round' stroke-width='3.2' opacity='.52'/%3E%3Cpath d='M0 3.5C1.5 1.1 3 1.1 4.5 3.5S7.5 5.9 9 3.5S12 1.1 13.5 3.5S16.5 5.9 18 3.5' fill='none' stroke='%23fff9ef' stroke-linecap='round' stroke-width='1.55'/%3E%3C/svg%3E");
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  isolation: isolate;
-  animation: decor-in 260ms ease both;
-}
-@keyframes decor-in {
-  from {
-    opacity: 0;
+  /* ===== rainzt 卡片（平时模式数值） ===== */
+  .home-wallpaper-decor {
+    --home-wallpaper-motion-ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --home-wallpaper-wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='8' viewBox='0 0 18 8'%3E%3Cpath d='M0 4C1.5 1.1 3 1.1 4.5 4S7.5 6.9 9 4S12 1.1 13.5 4S16.5 6.9 18 4' fill='none' stroke='%23f2b3bf' stroke-linecap='round' stroke-width='3.2' opacity='.52'/%3E%3Cpath d='M0 3.5C1.5 1.1 3 1.1 4.5 3.5S7.5 5.9 9 3.5S12 1.1 13.5 3.5S16.5 5.9 18 3.5' fill='none' stroke='%23fff9ef' stroke-linecap='round' stroke-width='1.55'/%3E%3C/svg%3E");
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    isolation: isolate;
+    animation: decor-in 260ms ease both;
   }
-  to {
-    opacity: 1;
-  }
-}
-.home-wallpaper-card {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 2;
-  transform: translate(-50%, -50%);
-  width: min(calc(100vw - 2rem), 520px);
-  padding: 2.2rem 2.15rem 0;
-  text-align: center;
-  color: rgba(255, 250, 243, 0.96);
-  isolation: isolate;
-  pointer-events: auto;
-  animation: card-in 760ms var(--home-wallpaper-motion-ease) 80ms both;
-}
-@keyframes card-in {
-  from {
-    opacity: 0;
-    transform: translate(-50%, calc(-50% + 22px)) scale(0.965);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-.home-wallpaper-card::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  content: "";
-  background: transparent;
-  border: 1px dashed rgba(255, 246, 219, 0.2);
-  border-radius: 10px 7px 12px 8px;
-  box-shadow:
-    0 22px 54px rgba(17, 17, 25, 0.2),
-    0 7px 20px rgba(17, 17, 25, 0.12),
-    0 0 26px rgba(17, 17, 25, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  -webkit-backdrop-filter: blur(2px) saturate(1.02);
-  backdrop-filter: blur(2px) saturate(1.02);
-  transform: rotate(-0.45deg);
-}
-.home-wallpaper-card::after {
-  position: absolute;
-  top: -10px;
-  left: 50%;
-  width: 84px;
-  height: 20px;
-  content: "";
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(255, 244, 184, 0.82) 0 5px,
-    rgba(239, 206, 111, 0.82) 5px 10px
-  );
-  box-shadow: 0 2px 5px rgba(41, 33, 25, 0.12);
-  transform: translateX(-50%) rotate(0.6deg);
-}
-.home-wallpaper-card__content {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.home-wallpaper-card__content > * {
-  animation: content-in 520ms var(--home-wallpaper-motion-ease) both;
-}
-.home-wallpaper-card__avatar-wrap {
-  animation-delay: 210ms;
-}
-.home-wallpaper-card__identity {
-  animation-delay: 300ms;
-}
-.home-wallpaper-card h1#banner-title {
-  animation-delay: 360ms;
-}
-.home-wallpaper-card__subtitle {
-  animation-delay: 490ms;
-}
-.home-wallpaper-card__nav {
-  animation-delay: 550ms;
-}
-@keyframes content-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.home-wallpaper-card__avatar-wrap {
-  position: relative;
-  width: 64px;
-  height: 64px;
-  margin: 0 auto;
-}
-.home-wallpaper-card__avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  border: 1px solid rgba(255, 255, 255, 0.78);
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow: 0 6px 16px rgba(23, 26, 36, 0.18);
-}
-.home-wallpaper-card__avatar-sticker {
-  position: absolute;
-  top: -1.65rem;
-  left: calc(100% - 1.5rem);
-  z-index: 2;
-  display: block;
-  width: 104px;
-  height: auto;
-  max-width: none;
-  filter: drop-shadow(0 5px 7px rgba(28, 22, 28, 0.25));
-  pointer-events: none;
-}
-.home-wallpaper-card__identity {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin: 0.78rem 0 0.3rem;
-  font-size: 0.76rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  /* 不改颜色、只调亮暗（2026-11-17 哥哥说不要改颜色）：亮色下阴影加深，
-     让浅色字在亮横幅上可读；暗色保持原值（:root.dark 覆写）。 */
-  text-shadow: 0 1px 8px rgba(23, 17, 20, 0.55);
-}
-:root.dark .home-wallpaper-card__identity {
-  text-shadow: 0 1px 8px rgba(23, 17, 20, 0.35);
-}
-/* 状态图标（昵称右侧，与侧边栏 Profile 的 th:switch 映射一致，同步 statusSettings） */
-.hero-status-icon {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.95rem;
-  line-height: 1;
-}
-.hero-status-icon > span {
-  display: inline-block;
-  width: 1em;
-  height: 1em;
-}
-.home-wallpaper-card h1#banner-title {
-  display: inline-block;
-  margin: 0;
-  line-height: 1.12;
-  /* 不改颜色、只调亮暗：奶油字不变；亮色下描边与阴影加深，
-     让奶油字在亮横幅上可读；暗色保持原值（:root.dark 覆写）。 */
-  color: #fff1d0;
-  font-family: inherit;
-  font-size: clamp(1.9rem, 3.6vw, 2.6rem);
-  font-weight: 750;
-  letter-spacing: -0.035em;
-  text-shadow:
-    -0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
-    0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
-    -0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
-    0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
-    0 2px 0 color-mix(in oklab, var(--on-primary) 85%, transparent),
-    0 4px 12px rgba(33, 12, 12, 0.55),
-    0 0 16px rgba(255, 197, 91, 0.3);
-}
-:root.dark .home-wallpaper-card h1#banner-title {
-  text-shadow:
-    -0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
-    0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
-    -0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
-    0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
-    0 2px 0 color-mix(in oklab, var(--on-primary) 68%, transparent),
-    0 4px 10px rgba(33, 12, 12, 0.44),
-    0 0 16px rgba(255, 197, 91, 0.3);
-}
-.home-wallpaper-card__subtitle {
-  display: inline-block;
-  position: relative;
-  max-width: 34rem;
-  margin: 0.75rem 0 0;
-  font-size: 0.92rem;
-  line-height: 1.6;
-  color: rgba(255, 247, 236, 0.92);
-  text-shadow: 0 2px 8px rgba(18, 17, 22, 0.55);
-}
-:root.dark .home-wallpaper-card__subtitle {
-  text-shadow: 0 2px 8px rgba(18, 17, 22, 0.36);
-}
-.home-wallpaper-card__nav {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.35rem 1.05rem;
-  margin-top: 1.1rem;
-}
-.home-wallpaper-card__nav a {
-  position: relative;
-  padding: 0.6rem 0.35rem 0.6rem;
-  color: rgba(255, 249, 239, 0.94);
-  font-size: 0.78rem;
-  font-weight: 650;
-  line-height: 1;
-  text-decoration: none;
-  text-shadow: 0 1px 7px rgba(18, 17, 22, 0.55);
-  transition: color 180ms ease;
-}
-:root.dark .home-wallpaper-card__nav a {
-  text-shadow: 0 1px 7px rgba(18, 17, 22, 0.32);
-}
-.home-wallpaper-card__nav a::after {
-  position: absolute;
-  left: 0.35rem;
-  right: 0.35rem;
-  bottom: 0.1rem;
-  height: 0.46rem;
-  content: "";
-  background-image: var(--home-wallpaper-wave);
-  background-position: left center;
-  background-repeat: repeat-x;
-  background-size: 18px 8px;
-  pointer-events: none;
-  filter: drop-shadow(0 1px 1px rgba(18, 17, 22, 0.3));
-}
-.home-wallpaper-card__nav a:hover {
-  color: #fff;
-}
-.home-wallpaper-card__socials {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 1.15rem;
-  margin-bottom: -49px;
-}
-.home-wallpaper-card__social-link {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  width: 36px;
-  height: 49px;
-  padding: 0 0 8px;
-  border: 0;
-  color: #5a1020;
-  font-size: 0.97rem;
-  background: transparent;
-  cursor: pointer;
-  overflow: visible;
-  isolation: isolate;
-  transform: rotate(var(--tag-rot, 2deg));
-  transform-origin: 50% 0;
-  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-  text-decoration: none;
-}
-.home-wallpaper-card__social-link::before {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  content: "";
-  background-color: var(--social-tag-color, rgba(255, 150, 165, 0.95));
-  background-image: repeating-linear-gradient(
-    45deg,
-    rgba(255, 255, 255, 0.25) 0 2px,
-    transparent 2px 7px
-  );
-  border-radius: 0 0 4px 4px;
-  box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.25);
-  pointer-events: none;
-  transform-origin: 50% 0;
-  transition:
-    transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 300ms ease;
-}
-.home-wallpaper-card__social-link:hover {
-  transform: none;
-}
-.home-wallpaper-card__social-link:hover::before {
-  transform: scaleY(1.3265);
-  box-shadow: 2px 6px 14px rgba(82, 64, 38, 0.2);
-}
-.home-wallpaper-card__social-icon {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  pointer-events: none;
-  transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.home-wallpaper-card__social-link:hover .home-wallpaper-card__social-icon {
-  transform: translateY(16px);
-}
-.home-wallpaper-card__social-icon svg {
-  display: block;
-  width: 1em;
-  height: 1em;
-  fill: currentColor;
-}
-.home-wallpaper-card__social-icon .qq-text {
-  font-size: 0.62rem;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-/* 漂浮贴纸 + 便利贴 */
-.home-wallpaper-decor__stickers {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-}
-.home-wallpaper-sticker {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  min-width: 42px;
-  min-height: 42px;
-  pointer-events: none;
-  animation: sticker-in 760ms var(--home-wallpaper-motion-ease) both;
-}
-@keyframes sticker-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) rotate(var(--sticker-rot, 0deg));
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) rotate(var(--sticker-rot, 0deg));
-  }
-}
-.home-wallpaper-sticker img {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 104px;
-  object-fit: contain;
-  pointer-events: none;
-  filter: drop-shadow(0 7px 10px rgba(28, 22, 28, 0.27));
-}
-/* ===== AI 娘角色层（透明底贴纸，可拖动） ===== */
-.chars {
-  position: absolute;
-  inset: 0;
-  z-index: 6;
-  pointer-events: none;
-}
-body.chars-off .chars {
-  display: none;
-}
-.char {
-  position: absolute;
-  height: var(--h, 120px);
-  pointer-events: auto;
-  cursor: grab;
-  touch-action: none;
-  -webkit-user-select: none;
-  user-select: none;
-  transform: translate(var(--tx, 0px), 0) rotate(var(--rot, 0deg));
-  animation: char-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes char-in {
-  from {
-    opacity: 0;
-    transform: translate(var(--tx, 0px), 16px) rotate(var(--rot, 0deg));
-  }
-  to {
-    opacity: 1;
-    transform: translate(var(--tx, 0px), 0) rotate(var(--rot, 0deg));
-  }
-}
-.char img {
-  display: block;
-  height: 100%;
-  width: auto;
-  pointer-events: none;
-}
-.char.dragging {
-  cursor: grabbing;
-  /* 拖动时关掉入场动画（ocr 真 bug A4）：char-in 填充（both）优先于行内
-     transform，transform='none' 是空操作；关掉动画后行内 transform 才能生效。 */
-  animation: none;
-}
-.char--deepseek {
-  left: calc(50% - 330px);
-  top: calc(50% - 215px);
-  --rot: -3deg;
-  z-index: 2;
-  animation-delay: 620ms;
-}
-.char--kimi {
-  left: calc(50% + 232px);
-  top: calc(50% + 35px);
-  --rot: 3deg;
-  z-index: 2;
-  animation-delay: 680ms;
-}
-.char--row {
-  bottom: 0;
-  left: var(--x);
-  --tx: -50%;
-  z-index: 1;
-}
-/* 横幅模式（65vh）下隐藏底部一排人物；全屏/全屏透明模式（100vh）壁纸正常显示。
-   2026-11-17 哥哥定：横幅壁纸模式去掉下面一排人物，全屏模式壁纸正常显示。 */
-html[data-banner-display="banner"] .char--row {
-  display: none;
-}
-/* 角色开关（右上角） */
-.chars-toggle {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 20;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(16, 12, 34, 0.62);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  box-shadow: 0 8px 22px rgba(5, 4, 14, 0.4);
-  color: #fff;
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  pointer-events: auto;
-}
-.chars-toggle__track {
-  position: relative;
-  width: 38px;
-  height: 21px;
-  border-radius: 999px;
-  flex: none;
-  background: var(--primary);
-  transition: background 200ms ease;
-}
-.chars-toggle__knob {
-  position: absolute;
-  top: 2px;
-  left: 19px;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-  transition: left 200ms ease;
-}
-body.chars-off .chars-toggle__track {
-  background: rgba(255, 255, 255, 0.28);
-}
-body.chars-off .chars-toggle__knob {
-  left: 2px;
-}
-body.chars-off .chars-toggle__text {
-  opacity: 0.55;
-}
-.home-wallpaper-sticker--note {
-  width: 84px;
-  min-height: 63px;
-  padding: 14px 9px 9px;
-  color: #6a5430;
-  font-size: 0.7rem;
-  font-weight: 700;
-  line-height: 1.35;
-  background: #fff1a8;
-  box-shadow: 4px 6px 12px rgba(45, 36, 29, 0.2);
-  transform: rotate(4deg);
-  inset: calc(50% + 91px) auto auto calc(50% + 158px);
-  animation: note-in 680ms var(--home-wallpaper-motion-ease) 490ms both;
-}
-@keyframes note-in {
-  from {
-    opacity: 0;
-    transform: rotate(4deg) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: rotate(4deg) translateY(0);
-  }
-}
-.home-wallpaper-sticker--note::before {
-  position: absolute;
-  top: -7px;
-  left: 50%;
-  width: 42px;
-  height: 13px;
-  content: "";
-  background: repeating-linear-gradient(
-    -45deg,
-    rgba(135, 193, 163, 0.75) 0 5px,
-    rgba(177, 220, 187, 0.74) 5px 10px
-  );
-  transform: translateX(-50%) rotate(4deg);
-}
-/* 平板档（rainzt 原版断点）：卡片 440px，标题与社交标签相应缩小 */
-@media (min-width: 768px) and (max-width: 1199px) {
-  .home-wallpaper-card {
-    width: min(calc(100vw - 2rem), 440px);
-    padding: 1.9rem 1.8rem 0;
-  }
-  .home-wallpaper-card::after {
-    width: 76px;
-    height: 18px;
-  }
-  .home-wallpaper-card__avatar-wrap {
-    width: 58px;
-    height: 58px;
-  }
-  .home-wallpaper-card__avatar-sticker {
-    top: -1.45rem;
-    left: calc(100% - 1.35rem);
-    width: 94px;
-  }
-  .home-wallpaper-card__identity {
-    margin-top: 0.7rem;
-    font-size: 0.72rem;
-  }
-  .home-wallpaper-card h1#banner-title {
-    font-size: clamp(1.7rem, 3.1vw, 2.15rem);
-  }
-  .home-wallpaper-card__subtitle {
-    margin-top: 0.65rem;
-    font-size: 0.85rem;
-  }
-  .home-wallpaper-card__nav {
-    gap: 0.35rem 0.9rem;
-    margin-top: 1rem;
-  }
-  .home-wallpaper-card__nav a {
-    font-size: 0.74rem;
-  }
-  .home-wallpaper-card__socials {
-    gap: 10px;
-    margin-top: 1rem;
-    margin-bottom: -44px;
-  }
-  .home-wallpaper-card__social-link {
-    width: 32px;
-    height: 44px;
-    padding-bottom: 7px;
-    font-size: 0.88rem;
-  }
-  .home-wallpaper-card__social-link:hover .home-wallpaper-card__social-icon {
-    transform: translateY(14px);
-  }
-  .char {
-    height: calc(var(--h) * 0.85);
-  }
-  .char--deepseek {
-    left: calc(50% - 280px);
-    top: calc(50% - 188px);
-  }
-  .char--kimi {
-    left: calc(50% + 196px);
-    top: calc(50% + 25px);
-  }
-  .home-wallpaper-sticker--note {
-    inset: calc(50% + 91px) auto auto calc(50% + 118px);
-  }
-}
-@media (max-width: 767px) {
-  .home-wallpaper-card {
-    width: min(calc(100vw - 2rem), 360px);
-    padding: 1.7rem 1rem 0;
-  }
-  .home-wallpaper-card::after {
-    width: 70px;
-    height: 17px;
-  }
-  .home-wallpaper-card__avatar-wrap {
-    width: 56px;
-    height: 56px;
-  }
-  .home-wallpaper-card__avatar-sticker {
-    top: -1.4rem;
-    left: calc(100% - 1.3rem);
-    width: 88px;
-  }
-  .home-wallpaper-card__identity {
-    margin-top: 0.62rem;
-    font-size: 0.7rem;
-  }
-  .home-wallpaper-card h1#banner-title {
-    font-size: clamp(1.95rem, 10vw, 2.6rem);
-  }
-  .home-wallpaper-card__subtitle {
-    margin-top: 0.6rem;
-    font-size: 0.78rem;
-  }
-  .home-wallpaper-card__nav {
-    gap: 0.35rem 0.72rem;
-    margin-top: 0.88rem;
-  }
-  .home-wallpaper-card__nav a {
-    font-size: 0.7rem;
-  }
-  .home-wallpaper-card__socials {
-    margin-top: 0.9rem;
-  }
-  .char {
-    height: calc(var(--h) * 0.62);
-  }
-  .char--deepseek {
-    left: max(0px, calc(50% - 223px));
-    top: calc(50% - 164px);
-  }
-  .char--kimi {
-    left: min(calc(50% + 163px), calc(100vw - 40px));
-    top: calc(50% - 10px);
-  }
-  .home-wallpaper-sticker--note {
-    inset: 8% auto auto 50% !important;
-    width: min(116px, 31vw);
-    min-height: 54px;
-    padding: 12px 8px 8px;
-    font-size: 0.65rem;
-    transform: translateX(-50%) rotate(4deg);
-    animation-name: note-in-mobile;
-  }
-  @keyframes note-in-mobile {
+  @keyframes decor-in {
     from {
       opacity: 0;
-      transform: translateX(-50%) rotate(4deg) translateY(8px);
     }
     to {
       opacity: 1;
-      transform: translateX(-50%) rotate(4deg) translateY(0);
     }
   }
-}
-@media (prefers-reduced-motion: reduce) {
-  .home-wallpaper-decor *,
-  .chars * {
-    animation: none !important;
+  .home-wallpaper-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 2;
+    transform: translate(-50%, -50%);
+    width: min(calc(100vw - 2rem), 520px);
+    padding: 2.2rem 2.15rem 0;
+    text-align: center;
+    color: rgba(255, 250, 243, 0.96);
+    isolation: isolate;
+    pointer-events: auto;
+    animation: card-in 760ms var(--home-wallpaper-motion-ease) 80ms both;
+  }
+  @keyframes card-in {
+    from {
+      opacity: 0;
+      transform: translate(-50%, calc(-50% + 22px)) scale(0.965);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+  .home-wallpaper-card::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    background: transparent;
+    border: 1px dashed rgba(255, 246, 219, 0.2);
+    border-radius: 10px 7px 12px 8px;
+    box-shadow:
+      0 22px 54px rgba(17, 17, 25, 0.2),
+      0 7px 20px rgba(17, 17, 25, 0.12),
+      0 0 26px rgba(17, 17, 25, 0.08),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    -webkit-backdrop-filter: blur(2px) saturate(1.02);
+    backdrop-filter: blur(2px) saturate(1.02);
+    transform: rotate(-0.45deg);
+  }
+  .home-wallpaper-card::after {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 84px;
+    height: 20px;
+    content: "";
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(255, 244, 184, 0.82) 0 5px,
+      rgba(239, 206, 111, 0.82) 5px 10px
+    );
+    box-shadow: 0 2px 5px rgba(41, 33, 25, 0.12);
+    transform: translateX(-50%) rotate(0.6deg);
+  }
+  .home-wallpaper-card__content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .home-wallpaper-card__content > * {
+    animation: content-in 520ms var(--home-wallpaper-motion-ease) both;
+  }
+  .home-wallpaper-card__avatar-wrap {
+    animation-delay: 210ms;
+  }
+  .home-wallpaper-card__identity {
+    animation-delay: 300ms;
+  }
+  .home-wallpaper-card h1#banner-title {
+    animation-delay: 360ms;
+  }
+  .home-wallpaper-card__subtitle {
+    animation-delay: 490ms;
+  }
+  .home-wallpaper-card__nav {
+    animation-delay: 550ms;
+  }
+  @keyframes content-in {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .home-wallpaper-card__avatar-wrap {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto;
+  }
+  .home-wallpaper-card__avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 0 6px 16px rgba(23, 26, 36, 0.18);
+  }
+  .home-wallpaper-card__avatar-sticker {
+    position: absolute;
+    top: -1.65rem;
+    left: calc(100% - 1.5rem);
+    z-index: 2;
+    display: block;
+    width: 104px;
+    height: auto;
+    max-width: none;
+    filter: drop-shadow(0 5px 7px rgba(28, 22, 28, 0.25));
+    pointer-events: none;
+  }
+  .home-wallpaper-card__identity {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    margin: 0.78rem 0 0.3rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    /* 不改颜色、只调亮暗（2026-11-17 哥哥说不要改颜色）：亮色下阴影加深，
+     让浅色字在亮横幅上可读；暗色保持原值（:root.dark 覆写）。 */
+    text-shadow: 0 1px 8px rgba(23, 17, 20, 0.55);
+  }
+  :root.dark .home-wallpaper-card__identity {
+    text-shadow: 0 1px 8px rgba(23, 17, 20, 0.35);
+  }
+  /* 状态图标（昵称右侧，与侧边栏 Profile 的 th:switch 映射一致，同步 statusSettings） */
+  .hero-status-icon {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.95rem;
+    line-height: 1;
+  }
+  .hero-status-icon > span {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+  }
+  .home-wallpaper-card h1#banner-title {
+    display: inline-block;
+    margin: 0;
+    line-height: 1.12;
+    /* 不改颜色、只调亮暗：奶油字不变；亮色下描边与阴影加深，
+     让奶油字在亮横幅上可读；暗色保持原值（:root.dark 覆写）。 */
+    color: #fff1d0;
+    font-family: inherit;
+    font-size: clamp(1.9rem, 3.6vw, 2.6rem);
+    font-weight: 750;
+    letter-spacing: -0.035em;
+    text-shadow:
+      -0.025em -0.025em 0
+        color-mix(in oklab, var(--on-primary) 95%, transparent),
+      0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
+      -0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
+      0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
+      0 2px 0 color-mix(in oklab, var(--on-primary) 85%, transparent),
+      0 4px 12px rgba(33, 12, 12, 0.55),
+      0 0 16px rgba(255, 197, 91, 0.3);
+  }
+  :root.dark .home-wallpaper-card h1#banner-title {
+    text-shadow:
+      -0.025em -0.025em 0
+        color-mix(in oklab, var(--on-primary) 78%, transparent),
+      0.025em -0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
+      -0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
+      0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
+      0 2px 0 color-mix(in oklab, var(--on-primary) 68%, transparent),
+      0 4px 10px rgba(33, 12, 12, 0.44),
+      0 0 16px rgba(255, 197, 91, 0.3);
+  }
+  .home-wallpaper-card__subtitle {
+    display: inline-block;
+    position: relative;
+    max-width: 34rem;
+    margin: 0.75rem 0 0;
+    font-size: 0.92rem;
+    line-height: 1.6;
+    color: rgba(255, 247, 236, 0.92);
+    text-shadow: 0 2px 8px rgba(18, 17, 22, 0.55);
+  }
+  :root.dark .home-wallpaper-card__subtitle {
+    text-shadow: 0 2px 8px rgba(18, 17, 22, 0.36);
+  }
+  .home-wallpaper-card__nav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem 1.05rem;
+    margin-top: 1.1rem;
+  }
+  .home-wallpaper-card__nav a {
+    position: relative;
+    padding: 0.6rem 0.35rem 0.6rem;
+    color: rgba(255, 249, 239, 0.94);
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1;
+    text-decoration: none;
+    text-shadow: 0 1px 7px rgba(18, 17, 22, 0.55);
+    transition: color 180ms ease;
+  }
+  :root.dark .home-wallpaper-card__nav a {
+    text-shadow: 0 1px 7px rgba(18, 17, 22, 0.32);
+  }
+  .home-wallpaper-card__nav a::after {
+    position: absolute;
+    left: 0.35rem;
+    right: 0.35rem;
+    bottom: 0.1rem;
+    height: 0.46rem;
+    content: "";
+    background-image: var(--home-wallpaper-wave);
+    background-position: left center;
+    background-repeat: repeat-x;
+    background-size: 18px 8px;
+    pointer-events: none;
+    filter: drop-shadow(0 1px 1px rgba(18, 17, 22, 0.3));
+  }
+  .home-wallpaper-card__nav a:hover {
+    color: #fff;
+  }
+  .home-wallpaper-card__socials {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 1.15rem;
+    margin-bottom: -49px;
+  }
+  .home-wallpaper-card__social-link {
+    position: relative;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    width: 36px;
+    height: 49px;
+    padding: 0 0 8px;
+    border: 0;
+    color: #5a1020;
+    font-size: 0.97rem;
+    background: transparent;
+    cursor: pointer;
+    overflow: visible;
+    isolation: isolate;
+    transform: rotate(var(--tag-rot, 2deg));
+    transform-origin: 50% 0;
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    text-decoration: none;
+  }
+  .home-wallpaper-card__social-link::before {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    content: "";
+    background-color: var(--social-tag-color, rgba(255, 150, 165, 0.95));
+    background-image: repeating-linear-gradient(
+      45deg,
+      rgba(255, 255, 255, 0.25) 0 2px,
+      transparent 2px 7px
+    );
+    border-radius: 0 0 4px 4px;
+    box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    transform-origin: 50% 0;
+    transition:
+      transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+      box-shadow 300ms ease;
+  }
+  .home-wallpaper-card__social-link:hover {
+    transform: none;
+  }
+  .home-wallpaper-card__social-link:hover::before {
+    transform: scaleY(1.3265);
+    box-shadow: 2px 6px 14px rgba(82, 64, 38, 0.2);
+  }
+  .home-wallpaper-card__social-icon {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    pointer-events: none;
+    transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .home-wallpaper-card__social-link:hover .home-wallpaper-card__social-icon {
+    transform: translateY(16px);
+  }
+  .home-wallpaper-card__social-icon svg {
+    display: block;
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+  }
+  .home-wallpaper-card__social-icon .qq-text {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+  }
+  /* 漂浮贴纸 + 便利贴 */
+  .home-wallpaper-decor__stickers {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+  }
+  .home-wallpaper-sticker {
+    position: absolute;
+    display: grid;
+    place-items: center;
+    min-width: 42px;
+    min-height: 42px;
+    pointer-events: none;
+    animation: sticker-in 760ms var(--home-wallpaper-motion-ease) both;
+  }
+  @keyframes sticker-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) rotate(var(--sticker-rot, 0deg));
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) rotate(var(--sticker-rot, 0deg));
+    }
+  }
+  .home-wallpaper-sticker img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 104px;
+    object-fit: contain;
+    pointer-events: none;
+    filter: drop-shadow(0 7px 10px rgba(28, 22, 28, 0.27));
+  }
+  /* ===== AI 娘角色层（透明底贴纸，可拖动） ===== */
+  .chars {
+    position: absolute;
+    inset: 0;
+    z-index: 6;
+    pointer-events: none;
+  }
+  body.chars-off .chars {
+    display: none;
+  }
+  .char {
+    position: absolute;
+    height: var(--h, 120px);
+    pointer-events: auto;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    transform: translate(var(--tx, 0px), 0) rotate(var(--rot, 0deg));
+    animation: char-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes char-in {
+    from {
+      opacity: 0;
+      transform: translate(var(--tx, 0px), 16px) rotate(var(--rot, 0deg));
+    }
+    to {
+      opacity: 1;
+      transform: translate(var(--tx, 0px), 0) rotate(var(--rot, 0deg));
+    }
+  }
+  .char img {
+    display: block;
+    height: 100%;
+    width: auto;
+    pointer-events: none;
+  }
+  .char.dragging {
+    cursor: grabbing;
+    /* 拖动时关掉入场动画（ocr 真 bug A4）：char-in 填充（both）优先于行内
+     transform，transform='none' 是空操作；关掉动画后行内 transform 才能生效。 */
+    animation: none;
+  }
+  .char--deepseek {
+    left: calc(50% - 330px);
+    top: calc(50% - 215px);
+    --rot: -3deg;
+    z-index: 2;
+    animation-delay: 620ms;
+  }
+  .char--kimi {
+    left: calc(50% + 232px);
+    top: calc(50% + 35px);
+    --rot: 3deg;
+    z-index: 2;
+    animation-delay: 680ms;
+  }
+  .char--row {
+    bottom: 0;
+    left: var(--x);
+    --tx: -50%;
+    z-index: 1;
+  }
+  /* 横幅模式（65vh）下隐藏底部一排人物；全屏/全屏透明模式（100vh）壁纸正常显示。
+   2026-11-17 哥哥定：横幅壁纸模式去掉下面一排人物，全屏模式壁纸正常显示。 */
+  html[data-banner-display="banner"] .char--row {
+    display: none;
+  }
+  /* 角色开关（右上角） */
+  .chars-toggle {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    background: rgba(16, 12, 34, 0.62);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 8px 22px rgba(5, 4, 14, 0.4);
+    color: #fff;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    pointer-events: auto;
+  }
+  .chars-toggle__track {
+    position: relative;
+    width: 38px;
+    height: 21px;
+    border-radius: 999px;
+    flex: none;
+    background: var(--primary);
+    transition: background 200ms ease;
+  }
+  .chars-toggle__knob {
+    position: absolute;
+    top: 2px;
+    left: 19px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    transition: left 200ms ease;
+  }
+  body.chars-off .chars-toggle__track {
+    background: rgba(255, 255, 255, 0.28);
+  }
+  body.chars-off .chars-toggle__knob {
+    left: 2px;
+  }
+  body.chars-off .chars-toggle__text {
+    opacity: 0.55;
+  }
+  .home-wallpaper-sticker--note {
+    width: 84px;
+    min-height: 63px;
+    padding: 14px 9px 9px;
+    color: #6a5430;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.35;
+    background: #fff1a8;
+    box-shadow: 4px 6px 12px rgba(45, 36, 29, 0.2);
+    transform: rotate(4deg);
+    inset: calc(50% + 91px) auto auto calc(50% + 158px);
+    animation: note-in 680ms var(--home-wallpaper-motion-ease) 490ms both;
+  }
+  @keyframes note-in {
+    from {
+      opacity: 0;
+      transform: rotate(4deg) translateY(8px);
+    }
+    to {
+      opacity: 1;
+      transform: rotate(4deg) translateY(0);
+    }
+  }
+  .home-wallpaper-sticker--note::before {
+    position: absolute;
+    top: -7px;
+    left: 50%;
+    width: 42px;
+    height: 13px;
+    content: "";
+    background: repeating-linear-gradient(
+      -45deg,
+      rgba(135, 193, 163, 0.75) 0 5px,
+      rgba(177, 220, 187, 0.74) 5px 10px
+    );
+    transform: translateX(-50%) rotate(4deg);
+  }
+  /* 平板档（rainzt 原版断点）：卡片 440px，标题与社交标签相应缩小 */
+  @media (min-width: 768px) and (max-width: 1199px) {
+    .home-wallpaper-card {
+      width: min(calc(100vw - 2rem), 440px);
+      padding: 1.9rem 1.8rem 0;
+    }
+    .home-wallpaper-card::after {
+      width: 76px;
+      height: 18px;
+    }
+    .home-wallpaper-card__avatar-wrap {
+      width: 58px;
+      height: 58px;
+    }
+    .home-wallpaper-card__avatar-sticker {
+      top: -1.45rem;
+      left: calc(100% - 1.35rem);
+      width: 94px;
+    }
+    .home-wallpaper-card__identity {
+      margin-top: 0.7rem;
+      font-size: 0.72rem;
+    }
+    .home-wallpaper-card h1#banner-title {
+      font-size: clamp(1.7rem, 3.1vw, 2.15rem);
+    }
+    .home-wallpaper-card__subtitle {
+      margin-top: 0.65rem;
+      font-size: 0.85rem;
+    }
+    .home-wallpaper-card__nav {
+      gap: 0.35rem 0.9rem;
+      margin-top: 1rem;
+    }
+    .home-wallpaper-card__nav a {
+      font-size: 0.74rem;
+    }
+    .home-wallpaper-card__socials {
+      gap: 10px;
+      margin-top: 1rem;
+      margin-bottom: -44px;
+    }
+    .home-wallpaper-card__social-link {
+      width: 32px;
+      height: 44px;
+      padding-bottom: 7px;
+      font-size: 0.88rem;
+    }
+    .home-wallpaper-card__social-link:hover .home-wallpaper-card__social-icon {
+      transform: translateY(14px);
+    }
+    .char {
+      height: calc(var(--h) * 0.85);
+    }
+    .char--deepseek {
+      left: calc(50% - 280px);
+      top: calc(50% - 188px);
+    }
+    .char--kimi {
+      left: calc(50% + 196px);
+      top: calc(50% + 25px);
+    }
+    .home-wallpaper-sticker--note {
+      inset: calc(50% + 91px) auto auto calc(50% + 118px);
+    }
+  }
+  @media (max-width: 767px) {
+    .home-wallpaper-card {
+      width: min(calc(100vw - 2rem), 360px);
+      padding: 1.7rem 1rem 0;
+    }
+    .home-wallpaper-card::after {
+      width: 70px;
+      height: 17px;
+    }
+    .home-wallpaper-card__avatar-wrap {
+      width: 56px;
+      height: 56px;
+    }
+    .home-wallpaper-card__avatar-sticker {
+      top: -1.4rem;
+      left: calc(100% - 1.3rem);
+      width: 88px;
+    }
+    .home-wallpaper-card__identity {
+      margin-top: 0.62rem;
+      font-size: 0.7rem;
+    }
+    .home-wallpaper-card h1#banner-title {
+      font-size: clamp(1.95rem, 10vw, 2.6rem);
+    }
+    .home-wallpaper-card__subtitle {
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+    }
+    .home-wallpaper-card__nav {
+      gap: 0.35rem 0.72rem;
+      margin-top: 0.88rem;
+    }
+    .home-wallpaper-card__nav a {
+      font-size: 0.7rem;
+    }
+    .home-wallpaper-card__socials {
+      margin-top: 0.9rem;
+    }
+    .char {
+      height: calc(var(--h) * 0.62);
+    }
+    .char--deepseek {
+      left: max(0px, calc(50% - 223px));
+      top: calc(50% - 164px);
+    }
+    .char--kimi {
+      left: min(calc(50% + 163px), calc(100vw - 40px));
+      top: calc(50% - 10px);
+    }
+    .home-wallpaper-sticker--note {
+      inset: 8% auto auto 50% !important;
+      width: min(116px, 31vw);
+      min-height: 54px;
+      padding: 12px 8px 8px;
+      font-size: 0.65rem;
+      transform: translateX(-50%) rotate(4deg);
+      animation-name: note-in-mobile;
+    }
+    @keyframes note-in-mobile {
+      from {
+        opacity: 0;
+        transform: translateX(-50%) rotate(4deg) translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(-50%) rotate(4deg) translateY(0);
+      }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .home-wallpaper-decor *,
+    .chars * {
+      animation: none !important;
+    }
   }
 }
