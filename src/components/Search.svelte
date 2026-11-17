@@ -390,7 +390,7 @@
 <!-- search bar for desktop view -->
 <div
   id="search-bar"
-  class="mr-2 hidden h-11 items-center rounded-lg bg-black/[0.04] transition-all hover:bg-black/[0.06] focus-within:bg-black/[0.06] dark:bg-white/5 dark:hover:bg-white/10 dark:focus-within:bg-white/10 lg:flex"
+  class="mr-2 hidden h-11 items-center rounded-lg bg-black/[0.04] transition-all hover:bg-black/[0.06] focus-within:bg-black/[0.06] dark:bg-white/5 dark:hover:bg-white/10 dark:focus-within:bg-white/10 min-[1441px]:flex"
 >
   <!-- 搜索图标：text-black/30 对比度不足，升为 /50 提升可见性（与 PostCard 元信息处理一致） -->
   <span class="icon-[material-symbols--search] pointer-events-none absolute ml-3 text-[1.25rem] text-black/50 transition dark:text-white/50"></span>
@@ -419,7 +419,7 @@
   onclick={togglePanel}
   aria-label={t("search.panel", "Search Panel")}
   id="search-switch"
-  class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90 lg:!hidden"
+  class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90 min-[1441px]:!hidden"
   type="button"
 >
   <span class="icon-[material-symbols--search] text-[1.25rem]"></span>
@@ -433,7 +433,7 @@
   <!-- search bar inside panel for phone/tablet -->
   <div
     id="search-bar-inside"
-    class="relative flex h-11 items-center rounded-xl bg-black/[0.04] transition-all hover:bg-black/[0.06] focus-within:bg-black/[0.06] dark:bg-white/5 dark:hover:bg-white/10 dark:focus-within:bg-white/10 lg:hidden"
+    class="relative flex h-11 items-center rounded-xl bg-black/[0.04] transition-all hover:bg-black/[0.06] focus-within:bg-black/[0.06] dark:bg-white/5 dark:hover:bg-white/10 dark:focus-within:bg-white/10 min-[1441px]:hidden"
   >
     <!-- 搜索图标：同桌面端，升为 /50 提升可见性 -->
     <span class="icon-[material-symbols--search] pointer-events-none absolute ml-3 text-[1.25rem] text-black/50 transition dark:text-white/50"></span>
@@ -546,13 +546,29 @@
 
 <style>
   /* 键盘聚焦（focus-visible）时提供可见焦点环，替代原来无条件 outline:0 导致的
-     焦点不可见问题；鼠标点击不显示，避免视觉干扰。
+     焦点不可见问题。
+     注意：Chrome 对文本输入框的 :focus-visible 启发式是「鼠标点击也匹配」
+     （实测真点击 search-input-desktop 仍命中 :focus-visible），所以「鼠标点
+     击不显示」做不到、也不必做——焦点环出现本身是对的，错的是形状。
      用 box-shadow 而非 outline：outline 在部分浏览器不随 border-radius（焦点环呈方形），
-     box-shadow 恒定跟随 border-radius（圆角胶囊）。 */
+     box-shadow 恒定跟随 border-radius；半径必须 9999px（胶囊形）而非 0.5rem——
+     0.5rem 在 144×42 的输入框上只是小圆角矩形，套在 9999px 的搜索胶囊里
+     看去就是方形亮框（#6）。 */
   input:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 2px var(--focus-ring);
-    border-radius: 0.5rem;
+    /* 内嵌环（ocr 真 bug A1）：外层 box-shadow 在紧凑宽度下会被 #search-bar
+       的 overflow:hidden 裁掉（input 贴满条边）；inset 环画在 input 自身
+       边框内侧，不被祖先裁剪。forced-colors 下 box-shadow 被丢弃，另补
+       outline 兜底（Highlight 系统色）。 */
+    box-shadow: inset 0 0 0 2px var(--focus-ring);
+    border-radius: 9999px;
+  }
+
+  @media (forced-colors: active) {
+    input:focus-visible {
+      outline: 2px solid Highlight;
+      outline-offset: -2px;
+    }
   }
 
 

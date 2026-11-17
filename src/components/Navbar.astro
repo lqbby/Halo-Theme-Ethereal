@@ -53,33 +53,33 @@ const className = Astro.props.class;
     class="nav-shell"
     style="position:relative;height:4.5rem;overflow:visible;background:transparent;border:0;backdrop-filter:none;border-radius:0 0 12px 12px;padding:0;transition:none;"
   >
-  <div
-    id="navbar-card"
-    th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.appearance != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaper != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false))}`}
-    class:list={[
-      className,
-      // 三段 grid（Logo / 菜单 / 工具），菜单列视口真居中：rainzt aemeath 同款
-      // grid-cols-[auto_minmax(0,1fr)_auto]，旧 justify-between 让菜单跟在 Logo
-      // 后均分间隙、1920 下中心左偏约 136px
-      "relative z-10 mx-auto grid h-[4.5rem] max-w-(--page-width) grid-cols-[auto_minmax(0,1fr)_auto] items-center px-4 rounded-(--radius-large) !rounded-t-none",
-    ]}
-  >
-    <!-- 首页链接：可见文本即站点标题，作为天然可访问名，故不设静态 aria-label
+    <div
+      id="navbar-card"
+      th:with={`visitorStyleEnabled=\${theme.config?.layout?.mobileMenu?.visitorStyle?.enable != false and ((theme.config?.layout?.mobileMenu?.visitorStyle?.appearance != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.wallpaper != false) or (theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false))}`}
+      class:list={[
+        className,
+        // 三段 grid（Logo / 菜单 / 工具），菜单列视口真居中：rainzt aemeath 同款
+        // grid-cols-[auto_minmax(0,1fr)_auto]，旧 justify-between 让菜单跟在 Logo
+        // 后均分间隙、1920 下中心左偏约 136px
+        "relative z-10 mx-auto grid h-[4.5rem] max-w-(--page-width) grid-cols-[auto_minmax(0,1fr)_auto] items-center px-4 rounded-(--radius-large) !rounded-t-none",
+      ]}
+    >
+      <!-- 首页链接：可见文本即站点标题，作为天然可访问名，故不设静态 aria-label
          （避免与可见文本不一致触发 WCAG 2.5.3 Label in Name 违规）。
          仅当「显示网站名」关闭（标题文字隐藏、无可见文本）时才补 aria-label=site.title -->
-    <a
-      th:href="@{/}"
-      th:aria-label="${theme.config?.layout?.mobileMenu?.showTitle == false ? site.title : null}"
-      class="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold active:scale-95 col-start-1"
-    >
-      <div
-        class="site-title flex flex-row items-center text-md text-(--primary)"
+      <a
+        th:href="@{/}"
+        th:aria-label="${theme.config?.layout?.mobileMenu?.showTitle == false ? site.title : null}"
+        class="btn-plain scale-animation h-[3.25rem] rounded-lg px-5 font-bold active:scale-95 col-start-1"
       >
-        <SiteLogo />
-      </div>
-    </a>
+        <div
+          class="site-title flex flex-row items-center text-md text-(--primary)"
+        >
+          <SiteLogo />
+        </div>
+      </a>
 
-    <!-- 菜单胶囊（aemeath 收拢的目标，仅 floating_pill 模式）：
+      <!-- 菜单胶囊（aemeath 收拢的目标，仅 floating_pill 模式）：
          nav-links 类供 navbar-collapse.ts 量宽/收拢（classic 下该模块不启动，
          菜单是通栏内流式 flex）；col-start-2 只定未量宽前的流内位置，量宽后
          is-layout-ready 以 grid-column:auto 脱 grid 定位、按整卡居中
@@ -87,184 +87,184 @@ const className = Astro.props.class;
          left:50% 只能对中间列居中、偏右约 72px）。每项 .group 再挂
          dropdown-container（收拢时按偏移量绝对定位的单位），顶级链接挂
          nav-link（当前页由 navbar.js 标 .nav-link-active，收拢后仅剩该项可见） -->
-    <div
-      class="navbar-menu nav-links invisible lg:visible flex lg:w-auto w-0 overflow-hidden lg:overflow-visible col-start-2 justify-self-center"
-      th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
-    >
-      <div class="contents" th:if="${menu != null}">
-        <div
-          th:each="menuItem, itemStat : ${menu.menuItems}"
-          th:with="hasChildren = ${menuItem.children != null && !menuItem.children.isEmpty()}, menuIcon = ${#annotations.get(menuItem, 'icon')}"
-          class="relative group dropdown-container"
-        >
-          <a
-            th:href="@{${menuItem.status.href}}"
-            th:target="${menuItem.spec.target?.value}"
-            class="nav-link btn-plain scale-animation h-11 rounded-xl px-5 font-bold active:scale-95 flex items-center gap-1"
-          >
-            <div class="flex items-center">
-              <span
-                th:if="${not #strings.isEmpty(menuIcon)}"
-                class="nav-menu-icon navbar-icon mr-1.5"
-              >
-                <img
-                  th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
-                  th:src="${menuIcon}"
-                  alt=""
-                />
-                <span
-                  th:if="${#strings.startsWith(menuIcon, '<svg')}"
-                  th:utext="${menuIcon}"></span>
-              </span>
-              <span th:text="${menuItem.status.displayName}">Menu</span>
-              <span
-                th:if="${hasChildren}"
-                class="icon-[material-symbols--expand-more-rounded] text-sm transition-transform duration-200 group-hover:rotate-180"
-              ></span>
-              <span
-                th:if="${menuItem.spec.target?.value == '_blank' && !hasChildren}"
-                class="icon-[tabler--external-link] ml-1 -translate-y-px text-[1.3rem] text-black/20 transition dark:text-white/20"
-              ></span>
-            </div>
-          </a>
-          <!-- PC 端子菜单下拉 -->
+      <div
+        class="navbar-menu nav-links invisible min-[1441px]:visible flex min-[1441px]:w-auto w-0 overflow-hidden min-[1441px]:overflow-visible col-start-2 justify-self-center"
+        th:with="menu = ${not #strings.isEmpty(theme.config?.layout?.mobileMenu?.menu) ? menuFinder.getByName(theme.config?.layout?.mobileMenu?.menu) : menuFinder.getPrimary()}"
+      >
+        <div class="contents" th:if="${menu != null}">
           <div
-            th:if="${hasChildren}"
-            class="submenu-panel invisible absolute left-0 top-full mt-5 w-44 rounded-2xl p-2 opacity-0 pointer-events-none -translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 z-50"
-            th:id="'pc-submenu-' + ${itemStat.index}"
+            th:each="menuItem, itemStat : ${menu.menuItems}"
+            th:with="hasChildren = ${menuItem.children != null && !menuItem.children.isEmpty()}, menuIcon = ${#annotations.get(menuItem, 'icon')}"
+            class="relative group dropdown-container"
           >
-            <!-- 父页面概览链接（仅触控设备显示） -->
             <a
               th:href="@{${menuItem.status.href}}"
               th:target="${menuItem.spec.target?.value}"
-              class="touch-only group flex items-center justify-between gap-3 rounded-xl py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
+              class="nav-link btn-plain scale-animation h-11 rounded-xl px-5 font-bold active:scale-95 flex items-center gap-1"
             >
-              <span
-                th:if="${not #strings.isEmpty(menuIcon)}"
-                class="nav-menu-icon navbar-icon mr-2"
-              >
-                <img
-                  th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
-                  th:src="${menuIcon}"
-                  alt=""
-                />
+              <div class="flex items-center">
                 <span
-                  th:if="${#strings.startsWith(menuIcon, '<svg')}"
-                  th:utext="${menuIcon}"></span>
-              </span>
-              <span
-                class="font-medium text-(--primary) truncate"
-                th:text="${menuItem.status.displayName}">概览</span
-              >
-              <span
-                class="text-xs text-black/40 dark:text-white/40 flex-shrink-0"
-                >概览</span
-              >
-            </a>
-            <div
-              class="touch-only my-1 border-t border-black/10 dark:border-white/10"
-            >
-            </div>
-            <a
-              th:each="childItem : ${menuItem.children}"
-              th:with="childIcon = ${#annotations.get(childItem, 'icon')}"
-              th:href="@{${childItem.status.href}}"
-              th:target="${childItem.spec.target?.value}"
-              class="group flex items-center justify-between gap-3 rounded-xl py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
-            >
-              <span class="flex min-w-0 items-center gap-2">
-                <span
-                  th:if="${not #strings.isEmpty(childIcon)}"
-                  class="nav-menu-icon nav-menu-icon-lg navbar-icon shrink-0"
+                  th:if="${not #strings.isEmpty(menuIcon)}"
+                  class="nav-menu-icon navbar-icon mr-1.5"
                 >
                   <img
-                    th:if="${#strings.startsWith(childIcon, 'data:') or #strings.startsWith(childIcon, 'http')}"
-                    th:src="${childIcon}"
+                    th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
+                    th:src="${menuIcon}"
                     alt=""
                   />
                   <span
-                    th:if="${#strings.startsWith(childIcon, '<svg')}"
-                    th:utext="${childIcon}"></span>
+                    th:if="${#strings.startsWith(menuIcon, '<svg')}"
+                    th:utext="${menuIcon}"></span>
+                </span>
+                <span th:text="${menuItem.status.displayName}">Menu</span>
+                <span
+                  th:if="${hasChildren}"
+                  class="icon-[material-symbols--expand-more-rounded] text-sm transition-transform duration-200 group-hover:rotate-180"
+                ></span>
+                <span
+                  th:if="${menuItem.spec.target?.value == '_blank' && !hasChildren}"
+                  class="icon-[tabler--external-link] ml-1 -translate-y-px text-[1.3rem] text-black/20 transition dark:text-white/20"
+                ></span>
+              </div>
+            </a>
+            <!-- PC 端子菜单下拉 -->
+            <div
+              th:if="${hasChildren}"
+              class="submenu-panel invisible absolute left-0 top-full mt-5 w-44 rounded-2xl p-2 opacity-0 pointer-events-none -translate-y-1 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-hover:translate-y-0 z-50"
+              th:id="'pc-submenu-' + ${itemStat.index}"
+            >
+              <!-- 父页面概览链接（仅触控设备显示） -->
+              <a
+                th:href="@{${menuItem.status.href}}"
+                th:target="${menuItem.spec.target?.value}"
+                class="touch-only group flex items-center justify-between gap-3 rounded-xl py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
+              >
+                <span
+                  th:if="${not #strings.isEmpty(menuIcon)}"
+                  class="nav-menu-icon navbar-icon mr-2"
+                >
+                  <img
+                    th:if="${#strings.startsWith(menuIcon, 'data:') or #strings.startsWith(menuIcon, 'http')}"
+                    th:src="${menuIcon}"
+                    alt=""
+                  />
+                  <span
+                    th:if="${#strings.startsWith(menuIcon, '<svg')}"
+                    th:utext="${menuIcon}"></span>
                 </span>
                 <span
-                  class="font-medium text-black/75 dark:text-white/75 truncate"
-                  th:text="${childItem.status.displayName}">子菜单</span
+                  class="font-medium text-(--primary) truncate"
+                  th:text="${menuItem.status.displayName}">概览</span
                 >
-              </span>
-              <span
-                th:if="${childItem.spec.target?.value == '_blank'}"
-                class="icon-[tabler--external-link] text-[0.9rem] text-black/50 dark:text-white/50 flex-shrink-0"
-              ></span>
-            </a>
+                <span
+                  class="text-xs text-black/40 dark:text-white/40 flex-shrink-0"
+                  >概览</span
+                >
+              </a>
+              <div
+                class="touch-only my-1 border-t border-black/10 dark:border-white/10"
+              >
+              </div>
+              <a
+                th:each="childItem : ${menuItem.children}"
+                th:with="childIcon = ${#annotations.get(childItem, 'icon')}"
+                th:href="@{${childItem.status.href}}"
+                th:target="${childItem.spec.target?.value}"
+                class="group flex items-center justify-between gap-3 rounded-xl py-2 px-3 transition hover:bg-(--btn-plain-bg-hover) dark:hover:bg-white/10 whitespace-nowrap active:scale-95"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <span
+                    th:if="${not #strings.isEmpty(childIcon)}"
+                    class="nav-menu-icon nav-menu-icon-lg navbar-icon shrink-0"
+                  >
+                    <img
+                      th:if="${#strings.startsWith(childIcon, 'data:') or #strings.startsWith(childIcon, 'http')}"
+                      th:src="${childIcon}"
+                      alt=""
+                    />
+                    <span
+                      th:if="${#strings.startsWith(childIcon, '<svg')}"
+                      th:utext="${childIcon}"></span>
+                  </span>
+                  <span
+                    class="font-medium text-black/75 dark:text-white/75 truncate"
+                    th:text="${childItem.status.displayName}">子菜单</span
+                  >
+                </span>
+                <span
+                  th:if="${childItem.spec.target?.value == '_blank'}"
+                  class="icon-[tabler--external-link] text-[0.9rem] text-black/50 dark:text-white/50 flex-shrink-0"
+                ></span>
+              </a>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="navbar-tools col-start-3 flex items-center">
-      <Search client:load />
-      <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
+      <div class="navbar-tools col-start-3 flex items-center">
+        <Search client:load />
+        <!-- 随机钓鱼按钮（站点级，首页等任意页可钓）：复用鱼钩摇摆样式；
            后台「样式开关 enable_random_post」可关；对齐用户魔改 -->
-      <button
-        th:if="${theme.config?.style?.styleSwitches?.enable_random_post == null || theme.config?.style?.styleSwitches?.enable_random_post}"
-        type="button"
-        id="random-post-btn"
-        title="随机钓鱼"
-        aria-label="随机钓鱼"
-        class="random-fish-btn btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
-      >
-        <span
-          class="random-fish-icon icon-[material-symbols--phishing-outline-rounded] text-[1.25rem]"
-        ></span>
-      </button>
-      <!-- 语言切换按钮：位于显示设置按钮左边。后台开关：布局设置 → 菜单栏设置 → 语言切换；
+        <button
+          th:if="${theme.config?.style?.styleSwitches?.enable_random_post == null || theme.config?.style?.styleSwitches?.enable_random_post}"
+          type="button"
+          id="random-post-btn"
+          title="随机钓鱼"
+          aria-label="随机钓鱼"
+          class="random-fish-btn btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
+        >
+          <span
+            class="random-fish-icon icon-[material-symbols--phishing-outline-rounded] text-[1.25rem]"
+          ></span>
+        </button>
+        <!-- 语言切换按钮：位于显示设置按钮左边。后台开关：布局设置 → 菜单栏设置 → 语言切换；
            面板仅列三种手动语言，默认语言由「样式设置 → 主题语言」配置 -->
-      <span
-        th:if="${theme.config?.layout?.mobileMenu?.enable_change_language == null || theme.config?.layout?.mobileMenu?.enable_change_language}"
-        th:remove="tag"
-      >
-        <LanguageSwitch client:load />
-      </span>
-      <!-- 面板切换不再使用内联 onclick（CSP 友好），由 public/assets/navbar.js 的 document 级事件委托统一处理。
+        <span
+          th:if="${theme.config?.layout?.mobileMenu?.enable_change_language == null || theme.config?.layout?.mobileMenu?.enable_change_language}"
+          th:remove="tag"
+        >
+          <LanguageSwitch client:load />
+        </span>
+        <!-- 面板切换不再使用内联 onclick（CSP 友好），由 public/assets/navbar.js 的 document 级事件委托统一处理。
            入口可见性：总开关开启且任一分区可用（主题色相/文章布局/卡片样式/壁纸模式/壁纸设置/透明设置）；总开关关闭则入口隐藏 -->
-      <button
-        th:if="${visitorStyleEnabled}"
-        th:aria-label="#{nav.displaySettings}"
-        aria-label="Display Settings"
-        class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
-        id="display-settings-switch"
-        type="button"
-      >
-        <span class="icon-[material-symbols--palette-outline] text-[1.25rem]"
-        ></span>
-      </button>
-      <span
-        th:if="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == null || theme.config?.layout?.mobileMenu?.enable_change_color_scheme}"
-        th:remove="tag"
-      >
-        <LightDarkSwitch client:load />
-      </span>
-      <button
-        th:aria-label="#{nav.menu}"
-        th:name="#{nav.navMenu}"
-        aria-label="Menu"
-        name="Nav Menu"
-        class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90 lg:!hidden"
-        id="nav-menu-switch"
-        type="button"
-      >
-        <span class="icon-[material-symbols--menu-rounded] text-[1.25rem]"
-        ></span>
-      </button>
-    </div>
+        <button
+          th:if="${visitorStyleEnabled}"
+          th:aria-label="#{nav.displaySettings}"
+          aria-label="Display Settings"
+          class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90"
+          id="display-settings-switch"
+          type="button"
+        >
+          <span class="icon-[material-symbols--palette-outline] text-[1.25rem]"
+          ></span>
+        </button>
+        <span
+          th:if="${theme.config?.layout?.mobileMenu?.enable_change_color_scheme == null || theme.config?.layout?.mobileMenu?.enable_change_color_scheme}"
+          th:remove="tag"
+        >
+          <LightDarkSwitch client:load />
+        </span>
+        <button
+          th:aria-label="#{nav.menu}"
+          th:name="#{nav.navMenu}"
+          aria-label="Menu"
+          name="Nav Menu"
+          class="btn-plain scale-animation h-11 w-11 rounded-lg active:scale-90 min-[1441px]:!hidden"
+          id="nav-menu-switch"
+          type="button"
+        >
+          <span class="icon-[material-symbols--menu-rounded] text-[1.25rem]"
+          ></span>
+        </button>
+      </div>
 
-    <NavMenuPanel />
-    <!-- 显示设置面板（I27）：与入口按钮同条件门控——总开关关闭或全部分区关闭时，
+      <NavMenuPanel />
+      <!-- 显示设置面板（I27）：与入口按钮同条件门控——总开关关闭或全部分区关闭时，
          面板及其 client:only chunk 不随页面传输（th:if 包住组件输出，含 module script 标签） -->
-    <span th:if="${visitorStyleEnabled}" th:remove="tag">
-      <DisplaySettings client:only="svelte" />
-    </span>
-  </div>
+      <span th:if="${visitorStyleEnabled}" th:remove="tag">
+        <DisplaySettings client:only="svelte" />
+      </span>
+    </div>
   </div>
 </div>
 

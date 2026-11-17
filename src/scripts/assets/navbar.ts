@@ -288,11 +288,11 @@ if (!guardOnce("navbar-panel-toggle")) {
     }
   });
 
-  // 跨断点兜底：抽屉打开时把窗口从移动端拉宽到桌面端（≥1024px，与
-  // Navbar.astro 桌面菜单栏的 lg 断点一致），抽屉自身被桌面样式隐藏，
+  // 跨断点兜底：抽屉打开时把窗口从移动端拉宽到桌面端（≥1441px，与
+  // Navbar.astro 桌面菜单栏的 1441px 断点一致），抽屉自身被桌面样式隐藏，
   // 但 body.nav-menu-open 与滚动锁定不会自动解除，状态残留会让悬浮按钮
   // 等继续被 CSS 按「菜单打开」处理。进入桌面端时统一走关闭流程收起。
-  var navDesktopMq = window.matchMedia("(min-width: 1024px)");
+  var navDesktopMq = window.matchMedia("(min-width: 1441px)");
   navDesktopMq.addEventListener("change", function (e) {
     if (e.matches && drawerMode) setNavMenuOpen(false);
   });
@@ -309,11 +309,11 @@ if (!guardOnce("navbar-panel-toggle")) {
 }
 
 // 桌面导航在触屏设备上的子菜单展开（与移动/平板抽屉菜单无关）。
-// 断点与 Navbar.astro 的桌面菜单栏一致（lg，≥1024px）：
-// <1024px 时桌面导航栏被 invisible 隐藏，无需此交互，显式跳过避免误判
+// 断点与 Navbar.astro 的桌面菜单栏一致（1441px，≥1441px）：
+// <1441px 时桌面导航栏被 invisible 隐藏，无需此交互，显式跳过避免误判
 (function () {
   if (!window.matchMedia("(pointer: coarse)").matches) return;
-  if (window.matchMedia("(max-width: 1023px)").matches) return;
+  if (window.matchMedia("(max-width: 1440px)").matches) return;
   // 本 IIFE 位于上方 __navbarPanelToggleBound 守卫之外，脚本每次被
   // SwupScriptsPlugin 重执行都会再注册一个 window 级 capture 监听
   // （N 次换页 = N 个监听器，同一次点击被重复处理）。

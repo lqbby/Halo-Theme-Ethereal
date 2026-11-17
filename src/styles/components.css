@@ -339,6 +339,23 @@
     backdrop-filter: saturate(180%) blur(20px) !important;
   }
 
+  /* 搜索面板对齐 rainzt：实色底、无磨砂（实测 rainzt #search-panel 纯白
+     rgb(255,255,255)、backdrop-filter none；#5）。只改搜索面板，不动
+     其它 .float-panel（显示设置/菜单面板仍走磨砂）。ID 选择器 (1,1,1)
+     压过上方 body.navbar-blur-enabled .float-panel (0,2,1)。 */
+  body.navbar-blur-enabled #search-panel {
+    background-color: rgb(255 255 255) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+  :root.dark body.navbar-blur-enabled #search-panel {
+    background-color: oklch(0.23 0.015 var(--hue)) !important;
+    /* 深色面板描边/阴影对齐 rainzt（实测深色白 10% 描边 + 0 25px 50px -12px
+       rgb(0 0 0 / 0.25) 大柔影），底色 oklch(0.23 0.015 250) 已与 rainzt 一致。 */
+    border: 1px solid rgb(255 255 255 / 0.1) !important;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25) !important;
+  }
+
   .float-panel-closed {
     /* invisible 一并补上：只挡指针时面板内控件仍可被 Tab 聚焦
        （键盘用户会跳进看不见的面板，与 .submenu-panel 收起态同型问题）。
@@ -1025,7 +1042,10 @@
   html[data-banner-display="transparent"] body.navbar-blur-enabled .navbar-blur,
   html[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .floating-btn {
+    .floating-btn,
+  html[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .scroll-progress-circle {
     background-color: rgb(
       255 255 255 / var(--transparent-card-alpha, 0.6)
     ) !important;
@@ -1048,7 +1068,10 @@
     .navbar-blur,
   :root.dark[data-banner-display="transparent"]
     body.navbar-blur-enabled
-    .floating-btn {
+    .floating-btn,
+  :root.dark[data-banner-display="transparent"]
+    body.navbar-blur-enabled
+    .scroll-progress-circle {
     background-color: rgb(
       0 0 0 / var(--transparent-card-alpha, 0.6)
     ) !important;
@@ -1252,8 +1275,9 @@
      scrolled 前后不改背景/模糊，见量测记录）；高级材质关闭时退回纯色卡片底。
      卡片贴视口顶（rainzt 外壳 y=0；本站卡片 y=0、胶囊 cy≈33，与 rainzt 的 33.3 对齐）。
      菜单项横向内边距：紧凑带（≤1700px）10px，菜单约 598px，与搜索框空约 190px
-     （1664px）；展开带（≥1701px）11.52px + 项间距 5.9px（rainzt 值），菜单约
-     823px（1920，JS 实测为准）。12px 时菜单总宽约 824px，1664px 下末项仍盖
+     （1664px）；展开带（≥1701px）10.88px + 项间距约 5px（rainzt 值略收，
+     #2：照搬 11.52px/5.9px 后菜单 812px、1701px 下盖搜索 2px），菜单约
+     795px（1920，JS 实测为准）。12px 时菜单总宽约 824px，1664px 下末项仍盖
      搜索框 23px（生产实测，见收拢段注释）——故 11.52px 不进紧凑带。
      搜索框按 rainzt：146px 宽、输入框 144px、字号 16px、聚焦不展开、无 ⌘K 徽标。
      （旧注释「.navbar-hidden 的 -4.5rem 上移可藏起」只在 classic 模式下成立：
@@ -1326,7 +1350,10 @@
     .navbar-style-floating-pill .navbar-tools div.relative.group > button {
       border-radius: 9999px !important;
       background-color: var(--card-bg) !important;
-      box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+      /* 阴影对齐 rainzt（实测 0 4px 14px rgb(15 35 60 / 0.043)）：原 0 4px 16px
+         rgb(0 0 0 / 0.1) 太重太黑，胶囊看去像实心卡片、不是浮着的玻璃——
+         特别是最右边几个工具钮和搜索框（#5/#7 续）。 */
+      box-shadow: 0 4px 14px rgb(15 35 60 / 0.043) !important;
     }
     /* Logo / 工具钮描边（rainzt 实测）；菜单项无描边（rainzt 实测透明边） */
     .navbar-style-floating-pill #navbar-card > a,
@@ -1373,23 +1400,37 @@
       .navbar-tools
       div.relative.group
       > button {
-      border-color: rgb(255 255 255 / 0.08) !important;
-      box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
+      /* 深色描边/阴影对齐 rainzt（实测深色 1px oklch(0.75 0.14 250 / 0.22)、
+         阴影 0 5px 14px rgb(0 0 0 / 0.16)）：原白 8% 描边 + 0 4px 16px / 0.2
+         太重，胶囊看去像实心卡片（#5/#7 续·深色）。 */
+      border-color: oklch(0.75 0.14 250 / 0.22) !important;
+      box-shadow: 0 5px 14px rgb(0 0 0 / 0.16) !important;
     }
     :root.dark .navbar-style-floating-pill .navbar-menu .group > a {
-      box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
+      /* 菜单项深色无阴影（实测 rainzt 深色激活/未激活项阴影均为 none）。 */
+      box-shadow: none !important;
     }
-    body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a,
+    body.navbar-blur-enabled .navbar-style-floating-pill #navbar-card > a {
+      /* 品牌胶囊对齐 rainzt：白 30% 磨砂（实测 rainzt .nav-brand 白 30% +
+         blur(24px) saturate(1.25)）。不用 oklch(0.95) 不透明底——不透明底
+         盖住了磨砂，顶部看去是实心胶囊（#7）。 */
+      background-color: rgb(255 255 255 / 0.3) !important;
+      -webkit-backdrop-filter: blur(24px) saturate(1.25) !important;
+      backdrop-filter: blur(24px) saturate(1.25) !important;
+    }
     body.navbar-blur-enabled
       .navbar-style-floating-pill
       .navbar-menu
       .group
       > a {
-      /* 对齐 rainzt：菜单项默认是不透明浅色胶囊（oklch 0.95），而非原来的
-         rgb(255 255 255 / 0.3) 半透明 —— 半透明白在深色壁纸上会发灰、胶囊边缘发虚。 */
-      background-color: oklch(0.95 0.025 var(--hue)) !important;
-      -webkit-backdrop-filter: blur(24px) saturate(1.25) !important;
-      backdrop-filter: blur(24px) saturate(1.25) !important;
+      /* 菜单项去掉胶囊（2026-11-17 哥哥定：和暗色一样没有胶囊）：
+         未激活项透明，只剩容器玻璃；激活项由 .nav-link-active 规则另给主色底。
+         注意：1474 曾误会“恢复之前的”是恢复白胶囊、改回过一次；哥哥纠正
+         他要的就是去掉胶囊、恢复的是壁纸亮度，此处保持透明。 */
+      background-color: transparent !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      box-shadow: none !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill .navbar-tools > button,
     body.navbar-blur-enabled
@@ -1405,13 +1446,12 @@
       body.navbar-blur-enabled
       .navbar-style-floating-pill
       #navbar-card
-      > a,
-    :root.dark
-      body.navbar-blur-enabled
-      .navbar-style-floating-pill
-      .navbar-menu
-      .group
-      > a,
+      > a {
+      /* 品牌胶囊暗色对齐 rainzt 磨砂：oklch(0.23 0.015 250 / 0.34) 透明
+         深色玻璃（实测 rainzt 深色品牌/菜单容器/工具钮/搜索条全是 34%
+         透明底），不用黑 65%——黑 65% 太实，滚下去也不透明（#5/#7 续·深色）。 */
+      background-color: oklch(0.23 0.015 250 / 0.34) !important;
+    }
     :root.dark
       body.navbar-blur-enabled
       .navbar-style-floating-pill
@@ -1423,8 +1463,24 @@
       .navbar-tools
       div.relative.group
       > button {
-      /* 暗色对应深色胶囊（跟随色相），与亮模式 oklch(0.95) 成对 */
-      background-color: oklch(0.3 0.035 var(--hue)) !important;
+      /* 工具钮暗色对齐 rainzt：oklch(0.23 0.015 250 / 0.34) 透明深色玻璃
+         （实测 rainzt 深色工具钮 34% 透明底 + blur 14px），不用 oklch(0.3)
+         不透明底——不透明底盖住壁纸，滚下去也不透明（#5/#7 续·深色）。 */
+      background-color: oklch(0.23 0.015 250 / 0.34) !important;
+    }
+    :root.dark
+      body.navbar-blur-enabled
+      .navbar-style-floating-pill
+      .navbar-menu
+      .group
+      > a {
+      /* 菜单项暗色对齐 rainzt：未激活项透明（实测 rainzt 深色未激活项
+         rgba(0,0,0,0) 无模糊无阴影，只剩容器玻璃）；激活项由下方
+         .nav-link-active 暗色规则另给主色底（权重更高，不会被本条盖掉）。 */
+      background-color: transparent !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      box-shadow: none !important;
     }
 
     /* 工具钮定宽圆形（Logo 与菜单项保持内容宽） */
@@ -1456,11 +1512,15 @@
       border-radius: 9999px !important;
       background-color: var(--card-bg) !important;
       border: 1px solid oklch(0.7 0.14 250 / 0.16) !important;
-      box-shadow: 0 4px 16px rgb(0 0 0 / 0.1) !important;
+      /* 阴影对齐 rainzt（实测 0 4px 14px rgb(15 35 60 / 0.043)）：原 0 4px 16px
+         rgb(0 0 0 / 0.1) 太重，搜索框看去像实心卡片（#5/#7 续）。 */
+      box-shadow: 0 4px 14px rgb(15 35 60 / 0.043) !important;
     }
     :root.dark .navbar-style-floating-pill #search-bar {
-      border-color: rgb(255 255 255 / 0.08) !important;
-      box-shadow: 0 4px 16px rgb(0 0 0 / 0.2) !important;
+      /* 深色描边/阴影对齐 rainzt（实测深色 1px oklch(0.75 0.14 250 / 0.22)、
+         阴影 0 5px 14px rgb(0 0 0 / 0.16)），与品牌/工具钮同口径。 */
+      border-color: oklch(0.75 0.14 250 / 0.22) !important;
+      box-shadow: 0 5px 14px rgb(0 0 0 / 0.16) !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill #search-bar {
       background-color: rgb(255 255 255 / 0.3) !important;
@@ -1471,7 +1531,10 @@
       body.navbar-blur-enabled
       .navbar-style-floating-pill
       #search-bar {
-      background-color: rgb(0 0 0 / 0.65) !important;
+      /* 搜索条暗色对齐 rainzt：oklch(0.23 0.015 250 / 0.34) 透明深色玻璃
+         （实测 rainzt 深色搜索条 34% 透明底 + blur 14px），不用黑 65%——
+         黑 65% 太实，滚下去也不透明（#5/#7 续·深色）。 */
+      background-color: oklch(0.23 0.015 250 / 0.34) !important;
     }
     body.navbar-blur-enabled .navbar-style-floating-pill #search-bar:hover {
       background-color: rgb(255 255 255 / 0.38) !important;
@@ -1480,7 +1543,8 @@
       body.navbar-blur-enabled
       .navbar-style-floating-pill
       #search-bar:hover {
-      background-color: rgb(0 0 0 / 0.72) !important;
+      /* 悬停加深与亮模式同口径（白 30%→38%，+8%）：34%→42%。 */
+      background-color: oklch(0.23 0.015 250 / 0.42) !important;
     }
     .navbar-style-floating-pill #search-bar input {
       width: 9rem !important;
@@ -1493,20 +1557,10 @@
       display: none !important;
     }
 
-    /* 滚动后加深阴影（html.navbar-scrolled 由 navbar.ts 在 50px 阈值后挂载；
-       玻璃固定在胶囊容器上两态不变，故容器本身也要进本规则） */
-    html.navbar-scrolled .navbar-style-floating-pill #navbar-card > a,
-    html.navbar-scrolled .navbar-style-floating-pill .nav-links,
-    html.navbar-scrolled .navbar-style-floating-pill .navbar-menu .group > a,
-    html.navbar-scrolled .navbar-style-floating-pill .navbar-tools > button,
-    html.navbar-scrolled
-      .navbar-style-floating-pill
-      .navbar-tools
-      div.relative.group
-      > button,
-    html.navbar-scrolled .navbar-style-floating-pill #search-bar {
-      box-shadow: 0 8px 24px rgb(0 0 0 / 0.16) !important;
-    }
+    /* 滚动后不再加深阴影（#5/#7 续）：rainzt 实测滚动三态阴影完全不变
+       （0 4px 14px rgb(15 35 60 / 0.043)），轻阴影 + 白底页衬得胶囊滚下去
+       像变透明、到顶部（壁纸上）才显出磨砂；本站原 0 8px 24px / 0.16
+       滚后加深正好反着——越滚越像实心卡片。浅色删此条，深色保留。 */
     :root.dark
       html.navbar-scrolled
       .navbar-style-floating-pill
@@ -1590,6 +1644,10 @@
         var(--primary) 30%,
         transparent
       ) !important;
+      /* 激活项模糊对齐 rainzt 深色（实测 blur(20px) saturate(1.2)）：未激活项
+         在上方暗色规则里已置 none，本条只给激活项补回 20px。 */
+      -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
+      backdrop-filter: blur(20px) saturate(1.2) !important;
     }
     /* 收拢态当前页加深（2026-11-16 用户点头）：收拢后只剩的「首页」胶囊
        在白底文章卡片上几乎看不见——只加深真正收拢态（未临时展开）的当前页
@@ -1695,10 +1753,10 @@
        （rainzt .nav-links 同款），grid col-2 只留作占位；宽按实测变量
        （--nav-links-expanded-width / --nav-links-compact-width）过渡
        （0.32s cubic-bezier(.6,0,.4,1)，rainzt 同款）。
-       玻璃固定在胶囊容器上两态不变：浅色白 30% + blur 24px saturate 1.25
+       玻璃在胶囊容器上：展开/顶部态浅色白 30% + blur 24px saturate 1.25
        （高级材质关时无模糊、底色 var(--card-bg)），深色黑 0.65 + 白 8% 描边，
-       浅色描边 oklch(0.7 0.14 250 / 0.16)；收拢态不再把容器玻璃置透明
-       （旧文「展开态有背景、收拢态全透明」已过时）。高 50px、圆角 9999px。 */
+       浅色描边 oklch(0.7 0.14 250 / 0.16)；收拢态容器透明（#9，rainzt 同款，
+       见下方 .scrolled .nav-links:not(.is-hover-expanded)）。高 50px、圆角 9999px。 */
     #navbar.navbar-style-floating-pill .nav-links {
       position: absolute;
       top: 50%;
@@ -1719,12 +1777,15 @@
       align-items: center;
       justify-content: center;
       overflow: visible;
-      /* 玻璃固定在容器上两态不变：底色 var(--card-bg)（高级材质关时即此色，
-         不再是透明），描边 oklch(0.7 0.14 250 / 0.16)，阴影与雨后初晴同口径；
-         模糊由下方两条规则按高级材质开关补（blur 24px saturate 1.25，雨后初晴实测）。 */
+      /* 玻璃（展开/顶部态配方）：底色 var(--card-bg)（高级材质关时即此色），
+         描边 oklch(0.7 0.14 250 / 0.16)，阴影与雨后初晴同口径；模糊由下方
+         两条规则按高级材质开关补（blur 24px saturate 1.25，雨后初晴实测）。
+         收拢态容器透明（#9），见下方 .scrolled 规则。 */
       background: var(--card-bg);
       border: 1px solid oklch(0.7 0.14 250 / 0.16);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.08);
+      /* 阴影对齐 rainzt（实测 0 4px 14px rgb(15 35 60 / 0.043)）：原 0 8px 32px
+         rgb(0 0 0 / 0.08) 太大太重，菜单容器看去像实心卡片（#5/#7 续）。 */
+      box-shadow: 0 4px 14px rgb(15 35 60 / 0.043);
       -webkit-backdrop-filter: none;
       backdrop-filter: none;
       transition:
@@ -1737,32 +1798,33 @@
     }
     /* 高级材质开（body.navbar-blur-enabled，访客显示设置 / 主题默认换算，
        与菜单项 / Logo 的玻璃门控同款）：容器玻璃白 30% + blur 24px
-       saturate 1.25（rainzt 实测值），两态不变。注意：html[data-advanced-
+       saturate 1.25（rainzt 实测值，展开/顶部态；收拢态透明见 #9）。注意：html[data-advanced-
        material] 全仓无任何代码设置，是死门控，不可用（第五轮初版误写，
        已改回真实门控）。 */
-    body.navbar-blur-enabled
-      #navbar.navbar-style-floating-pill
-      .nav-links {
+    body.navbar-blur-enabled #navbar.navbar-style-floating-pill .nav-links {
       background: rgba(255, 255, 255, 0.3);
       -webkit-backdrop-filter: blur(24px) saturate(1.25);
       backdrop-filter: blur(24px) saturate(1.25);
     }
-    /* 深色模式：容器玻璃黑 0.65 + 白 8% 描边（雨后初晴实测），两态不变；
-       模糊仍由上方高级材质规则给（深色 + 高级材质开时两者叠加）。 */
+    /* 深色模式：容器玻璃对齐 rainzt（实测深色 oklch(0.23 0.015 250 / 0.34)
+       透明底 + oklch(0.75 0.14 250 / 0.22) 描边 + 0 5px 14px rgb(0 0 0 / 0.16)
+       阴影），展开/顶部态；收拢态透明（#9）。模糊仍由上方高级材质规则给
+       （深色 + 高级材质开时两者叠加）。不用黑 0.65 + 白 8% 描边——太实，滚下去也不透明。 */
     .dark #navbar.navbar-style-floating-pill .nav-links {
-      background: rgba(0, 0, 0, 0.65);
-      border-color: rgba(255, 255, 255, 0.08);
+      background: oklch(0.23 0.015 250 / 0.34);
+      border-color: oklch(0.75 0.14 250 / 0.22);
+      box-shadow: 0 5px 14px rgb(0 0 0 / 0.16);
     }
-    /* 深色 + 高级材质开：容器底色须是黑 0.65（守望 #0，1567156→efd594e）——
-       上方 blur 规则 (1,3,1) 压过深色规则 (1,3,0)，两者都无 !important，
-       深色默认开高级材质即整条变白 30%，与里面黑 0.65 的菜单项/搜索框
-       自相矛盾；本条 (1,5,1) 按同文件 .group > a 与 #search-bar 的既有口径
-       补覆盖，只改底色，模糊仍由 blur 规则给（两者叠加）。 */
+    /* 深色 + 高级材质开：容器底色须是 rainzt 深色玻璃 oklch(0.23 0.015 250 / 0.34)
+       （守望 #0，1567156→efd594e）——上方 blur 规则 (1,3,1) 压过深色规则
+       (1,3,0)，两者都无 !important，深色默认开高级材质即整条变白 30%，与里面
+       深色玻璃的菜单项/搜索框自相矛盾；本条 (1,5,1) 按同文件 .group > a 与
+       #search-bar 的既有口径补覆盖，只改底色，模糊仍由 blur 规则给（两者叠加）。 */
     :root.dark
       body.navbar-blur-enabled
       #navbar.navbar-style-floating-pill
       .nav-links {
-      background: rgba(0, 0, 0, 0.65);
+      background: oklch(0.23 0.015 250 / 0.34);
     }
     /* 项间距用 rainzt 的 0.12rem（旧胶囊模式 0.375rem）：8 项菜单在 1664px
        下宽 824px、末项盖住搜索框 23px；收窄内边距（12px→10px）+ 间距
@@ -1844,15 +1906,15 @@
     }
 
     /* 收拢态（#navbar.scrolled，仅胶囊模式）：胶囊宽变实测 compact 宽（默认 6rem），
-       玻璃固定在容器上两态不变（与展开态同配方，此处不再把背景/边框/阴影/
-       模糊置透明）；其余项 opacity 0 + 隐藏 + 不可点，
-       仅当前页项（.nav-compact-active）可见。
+       容器透明（#9，rainzt 同款：背景/描边/阴影/模糊全清，只留当前项的 pill 底）；
+       其余项 opacity 0 + 隐藏 + 不可点，仅当前页项（.nav-compact-active）可见。
        项的 left/transform 不加 !important：WAAPI 折叠动画靠内联关键帧写
        这两个属性，!important 会压过动画值、当前页项一帧瞬移到中心
        （2026-11-16 第四轮修：胶囊宽本身在过渡、项在瞬移的根因；rainzt
        同款规则也没有 !important，只有 display:flex!important）。
        position/top/display 的 !important 保留（WAAPI 不动它们）。 */
-    #navbar.navbar-style-floating-pill.scrolled .nav-links {
+    #navbar.navbar-style-floating-pill.scrolled
+      .nav-links:not(.is-hover-expanded) {
       z-index: 30;
       width: var(--nav-links-compact-width, 6rem) !important;
       max-width: calc(100vw - 2rem);
@@ -1863,8 +1925,72 @@
       transform: translate(-50%, -50%);
       /* 与 is-layout-ready 同理：脱 grid 定位，包含块回到整卡才真居中 */
       grid-column: auto !important;
-      /* 收拢过渡只留 width：玻璃两态不变，无需过渡背景/边框/阴影/模糊 */
-      transition: width 0.32s cubic-bezier(0.6, 0, 0.4, 1);
+      /* 收拢态容器透明（#9，rainzt 同款）：背景、描边、阴影、模糊全清，只留
+         当前项自己的 pill 底。:not(.is-hover-expanded) 让悬停/上滚展开时本条
+         不匹配，容器自动回到基规则的磨砂，无需在展开规则里重写恢复值。
+         !important 盖过高级材质 (1,3,1) 与深色+材质 (1,5,1) 的底色规则；
+         WAAPI 只写 left/transform，不动玻璃属性。 */
+      background: transparent !important;
+      border-color: transparent !important;
+      box-shadow: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      /* 收拢过渡：宽 0.32s + 玻璃 180ms（rainzt 同款），透明↔磨砂有过渡 */
+      transition:
+        width 0.32s cubic-bezier(0.6, 0, 0.4, 1),
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        backdrop-filter 0.18s ease,
+        -webkit-backdrop-filter 0.18s ease;
+    }
+    /* #10：收拢态品牌与工具组也透明（与 #9 菜单同款思路）：滚下去后品牌胶囊、
+       搜索条、工具钮的玻璃全清（背景/阴影/模糊），只留文字/图标浮在
+       页面上；回到顶部自动回磨砂。:not(:hover) 让悬停时本条不匹配，自动回
+       基规则的磨砂（无需重写恢复值）；搜索条另加 :not(:focus-within)，
+       输入时保持磨砂。!important 盖过品牌/工具/搜索的磨砂底色规则。
+       ⚠️ 描边不透明化：2026-11-17 哥哥说“怎么全部透明了，rainzt 有框”——
+       背景/阴影/模糊可以清，但描边要留着（基规则的 oklch 描边），不然
+       胶囊轮廓全丢、看着整条导航都透明了。rainzt 的品牌/工具本来就带框。
+       仅胶囊模式，classic 不动。 */
+    #navbar.navbar-style-floating-pill.scrolled #navbar-card > a:not(:hover),
+    #navbar.navbar-style-floating-pill.scrolled
+      #search-bar:not(:hover):not(:focus-within),
+    #navbar.navbar-style-floating-pill.scrolled
+      .navbar-tools
+      > button:not(:hover),
+    #navbar.navbar-style-floating-pill.scrolled
+      .navbar-tools
+      div.relative.group
+      > button:not(:hover) {
+      background: transparent !important;
+      box-shadow: none !important;
+      -webkit-backdrop-filter: none !important;
+      backdrop-filter: none !important;
+      transition:
+        background-color 0.18s ease,
+        border-color 0.18s ease,
+        box-shadow 0.18s ease,
+        backdrop-filter 0.18s ease,
+        -webkit-backdrop-filter 0.18s ease;
+    }
+    /* 换页过渡期间取消胶囊过渡（#8）：Swup 换页时收拢复位（去 scrolled）若
+       带 0.32s 宽过渡 + 0.18s 玻璃过渡，会在换页动画里把胶囊从 88px 透明
+       一路拉到 795px 磨砂，看着“弹”一下。过渡类在 <html> 上时容器与各项
+       的过渡全禁，复位瞬间完成；过渡结束类摘掉后恢复正常过渡。!important
+       盖过收拢/展开规则的 transition。仅胶囊模式（本块都在
+       .navbar-style-floating-pill 作用域内），classic 不受影响。 */
+    html.is-changing #navbar.navbar-style-floating-pill .nav-links,
+    html.is-changing
+      #navbar.navbar-style-floating-pill
+      .nav-links
+      .dropdown-container,
+    html.is-animating #navbar.navbar-style-floating-pill .nav-links,
+    html.is-animating
+      #navbar.navbar-style-floating-pill
+      .nav-links
+      .dropdown-container {
+      transition: none !important;
     }
     #navbar.navbar-style-floating-pill.scrolled .nav-links .dropdown-container {
       position: absolute !important;
@@ -1916,7 +2042,8 @@
     }
 
     /* 临时展开（悬停 / 聚焦 / 上滚，仅胶囊模式）：胶囊宽回展开宽；
-       各项回偏移位、可见可点。玻璃固定在容器上两态不变，此处无需恢复。
+       各项回偏移位、可见可点。玻璃也随之恢复：收拢规则带 :not(.is-hover-expanded)，
+       展开时不匹配，容器自动回到基规则的磨砂。
        项的 left/transform 不加 !important（同收拢态，
        WAAPI 折叠动画要写这两个属性）。 */
     #navbar.navbar-style-floating-pill.scrolled .nav-links.is-hover-expanded {
@@ -2039,10 +2166,11 @@
      展开条向左伸出、平时在菜单下层（菜单 absolute z-index:30），聚焦时
      搜索条抬到上层（z-index:31），放大镜可点、点按不跳走（守望 #7）。
      rainzt 在窄宽是直接藏起桌面菜单走汉堡（≤1440 实测无桌面菜单）——
-     本站 8 项菜单要保留，故不用 rainzt 式隐藏，改用本紧凑模式。
+     2026-11-17 用户定：本站也学他，≤1440px 藏桌面菜单走汉堡；本紧凑模式
+     只在 1441–1700px 桌面段生效（菜单保留、搜索收成 44px 图标钮）。
      两模式各走各的作用域与断点（用户定规：互不干扰），不写跨模式通用规则；
-     只在桌面端（≥1024px）生效，1024 以下走移动端抽屉菜单。 */
-  @media (min-width: 1024px) and (max-width: 1700px) {
+     只在桌面端（≥1441px）生效，1441 以下走抽屉菜单。 */
+  @media (min-width: 1441px) and (max-width: 1700px) {
     /* 胶囊紧凑：顶级菜单项去图标（只藏顶级链接里的 .nav-menu-icon，
        子菜单面板里的图标不动）；搜索框收成 44px 圆形图标钮 */
     .navbar-style-floating-pill
@@ -2077,47 +2205,40 @@
       opacity: 1 !important;
     }
   }
-  /* 胶囊紧凑窄带（守望 #6）：1024–约 1094px 时菜单去图标后仍约 574px、
-     视口居中右缘 799px、盖住工具组左缘 764px——搜索按钮左 35px 被盖，
-     放大镜全在被盖区、点按命中末项链接跳走。1160px 以下菜单项内边距
-     0.625rem → 0.25rem（8 项共省约 96px，菜单约 478px），1024px 下
-     菜单右缘约 751px、与工具组空约 13px；1161px 处不断崖（10px 内边
-     距时余量约 33px）。宽由 JS 实测，内边距一变 ResizeObserver 即重测。 */
-  @media (min-width: 1024px) and (max-width: 1160px) {
-    .navbar-style-floating-pill
-      .navbar-menu
-      .dropdown-container
-      > a.nav-link {
-      padding-left: 0.25rem !important;
-      padding-right: 0.25rem !important;
-    }
-  }
   /* ── 展开带（≥1701px，仅胶囊模式）：按 rainzt 放大项内边距与项间距 ──
      rainzt 项内边距 11.52px、项间距 5.9px、胶囊内边距 3.84px、项图标 16.6px；
      本站原 10px / 1.92px / 0 / 17.6px，菜单 763px vs rainzt 825px。
      只放展开带：紧凑带（≤1700px）已贴上限（1280 上限约 606px、菜单 598px），
      放大后 1280 下盖搜索（守望 #6 同机制），故紧凑带保持 10px / 1.92px / 0
-     不动。放大后菜单约 823px（1920，JS 实测为准），1701px 下余量约 17px，
-     开发站验收时单测 1701/1710 两档确认无遮挡。
+     不动。
+     #2（2026-11-17，Theme 1455 线上复量）：rainzt 值照搬后菜单 812px，
+     1701px 下 linksSearch −2px——开发站估的「余量约 17px」不准（线上品牌/
+     工具组更宽），1701–1704 段菜单右缘盖搜索 2px。rainzt 自己在 1664px
+     也盖 13.8px，本站不学这一处：项内边距 0.72rem→0.68rem、项间距
+     0.37rem→0.31rem，菜单约 795px，1701px 下余量约 6px；肉眼与 rainzt
+     无差（菜单窄约 2%），1920 仍有大把余量。
      注意：.nav-links 基规则带 #navbar 前缀（特异性 1,2,0），本块同款前缀，
      否则 gap/padding 赢不过基规则。 */
   @media (min-width: 1701px) {
     .navbar-style-floating-pill .navbar-menu .group > a {
-      padding-left: 0.72rem !important;
-      padding-right: 0.72rem !important;
+      padding-left: 0.68rem !important;
+      padding-right: 0.68rem !important;
     }
     #navbar.navbar-style-floating-pill .nav-links {
-      gap: 0.37rem;
+      gap: 0.31rem;
       padding-left: 0.24rem;
       padding-right: 0.24rem;
     }
-    .navbar-style-floating-pill .nav-menu-icon svg,
-    .navbar-style-floating-pill .nav-menu-icon img {
+    /* 展开带图标收小只对普通项（ocr 真 bug A2）：子菜单项挂
+       .nav-menu-icon-lg（1.25em），本条特异度与 -lg 基规则持平、后出胜出，
+       ≥1701px 下子菜单大图标也被压到 1rem；:not 排除 -lg 变体。 */
+    .navbar-style-floating-pill .nav-menu-icon:not(.nav-menu-icon-lg) svg,
+    .navbar-style-floating-pill .nav-menu-icon:not(.nav-menu-icon-lg) img {
       width: 1rem;
       height: 1rem;
     }
   }
-  @media (min-width: 1024px) and (max-width: 1900px) {
+  @media (min-width: 1441px) and (max-width: 1900px) {
     /* 经典紧凑：顶级菜单项去图标 + 内边距 20px→10px；搜索框收成 44px 图标钮 */
     #navbar:not(.navbar-style-floating-pill)
       .navbar-menu
@@ -2153,9 +2274,7 @@
        （2026-11-16 18:10 线上故障同一机制）。nowrap 使 min-content=整行
        文本宽，项缩不到竖排、只溢出（聚焦时末项右部暂被展开的搜索条盖住，
        失焦即恢复）。 */
-    #navbar:not(.navbar-style-floating-pill)
-      .nav-links
-      .dropdown-container,
+    #navbar:not(.navbar-style-floating-pill) .nav-links .dropdown-container,
     #navbar:not(.navbar-style-floating-pill)
       .nav-links
       .dropdown-container
@@ -2340,9 +2459,9 @@
     pointer-events: none;
   }
 
-  /* 桌面端（≥1024px / lg）不使用抽屉，防止跨断点残留；
-     平板（md~lg）与移动端共用抽屉菜单 */
-  @media (min-width: 1024px) {
+  /* 桌面端（≥1441px）不使用抽屉，防止跨断点残留；
+     ≤1440px（平板/窄桌面）与移动端共用抽屉菜单 */
+  @media (min-width: 1441px) {
     #nav-menu-root #nav-menu-overlay,
     #nav-menu-root #nav-menu-panel {
       display: none !important;

@@ -6,7 +6,7 @@
 // 立即收回（旧 scroll-manager 的方向重算，见 onScrollFrame）。
 // classic 模式不走本模块：整条滑走（navbar-hidden，banner 阈值约半屏），
 // 见 scroll-manager.ts——两模式滚动行为互不干扰（2026-11-16 用户定规）。
-// 门控：仅桌面端（≥1024px，菜单本身 lg 才可见）+ auto_hide 模式
+// 门控：仅桌面端（≥1441px，菜单本身 1441px 才可见）+ auto_hide 模式
 // （html[data-navbar-fixed]="false"）；always 模式（"true"）永不收拢。
 // 宽度与位置用 JS 实测：expanded 宽 / compact 宽 / 每项偏移量
 // （--nav-item-expanded-offset）写进 CSS 变量，菜单胶囊绝对定位居中，
@@ -45,17 +45,14 @@ const RECOLLAPSE_DELAY_MS = 5000;
 const FOLD_DURATION_MS = 320;
 /** 折叠动画中段关键帧位置（其余项淡出完成的时刻占比） */
 const FOLD_FADE_END = 0.54;
-/** 桌面端断点：与 Navbar.astro 的 lg 断点一致，菜单 <1024px 不可见 */
-const DESKTOP_MIN_WIDTH = 1024;
+/** 桌面端断点：与 Navbar.astro 的 1441px 断点一致，菜单 <1441px 不可见 */
+const DESKTOP_MIN_WIDTH = 1441;
 /** 折叠 WAAPI 动画仅在宽屏启用（rainzt 同值；窄屏只走 CSS 类切换） */
 const FOLD_MIN_WIDTH = 1440;
 
 /** 四态机当前态（单一真相源；类名只是它的投影） */
 type NavbarCollapseState =
-  | "expanded"
-  | "collapsed"
-  | "temp-expanded"
-  | "disabled";
+  "expanded" | "collapsed" | "temp-expanded" | "disabled";
 let collapseState: NavbarCollapseState = "expanded";
 
 const navbar = (): HTMLElement | null => document.getElementById("navbar");
@@ -349,9 +346,7 @@ function markCompactActive(links: HTMLElement): void {
       if (!href || href === "#" || href.startsWith("#")) return false;
       try {
         const url = new URL(href, window.location.origin);
-        return (
-          url.origin === window.location.origin && url.pathname === path
-        );
+        return url.origin === window.location.origin && url.pathname === path;
       } catch {
         return false;
       }
@@ -398,6 +393,16 @@ export function remeasureNavbarCollapse(): void {
   if (!nav.classList.contains("navbar-style-floating-pill")) return;
   if (window.innerWidth < DESKTOP_MIN_WIDTH) {
     links.classList.remove("is-layout-ready");
+    // 缩到 1441 以下时顺手复位收拢态（ocr 真 bug A2）：只摘 is-layout-ready
+    // 不够——nav 上残留的 scrolled 让 .nav-compact-active 规则（特异度高于
+    // Tailwind invisible）继续给当前页项写死 visibility:visible，当前页链接
+    // 浮在导航栏中间，直到下一次滚动才复位。复位与 disabled 态同口径
+    //（resetOnBehaviorChange）：清定时器、状态机置 disabled、去收拢类——
+    // 只去类不同步状态机的话，缩回桌面后状态机仍以为是 collapsed、再也不
+    // 会重新收拢。
+    clearRecollapseTimer();
+    collapseState = "disabled";
+    applyDisabledReset(nav, links);
     return;
   }
   if (getComputedStyle(links).visibility === "hidden") return;
@@ -521,8 +526,7 @@ function isNavbarInteracting(
 function onRecollapseTimer(): void {
   recollapseTimer = undefined;
   if (collapseState !== "temp-expanded") return;
-  const remaining =
-    RECOLLAPSE_DELAY_MS - (performance.now() - lastKeepAliveAt);
+  const remaining = RECOLLAPSE_DELAY_MS - (performance.now() - lastKeepAliveAt);
   if (remaining > 100) {
     armRecollapseTimer();
     return;
@@ -573,10 +577,7 @@ function onPointerLeave(nav: HTMLElement): void {
 }
 
 /** 复位应用（disabled 态与模式切换复位共用）：去收拢、清子菜单态。 */
-function applyDisabledReset(
-  nav: HTMLElement,
-  links: HTMLElement | null,
-): void {
+function applyDisabledReset(nav: HTMLElement, links: HTMLElement | null): void {
   cancelFoldingAnimations();
   nav.classList.remove("scrolled");
   if (links) {
@@ -776,10 +777,7 @@ export function initNavbarCollapse(): void {
       lastKeepAliveAt = performance.now();
       setTempExpandedFlavor(links, true);
     }
-    if (
-      collapseState === "collapsed" ||
-      collapseState === "temp-expanded"
-    ) {
+    if (collapseState === "collapsed" || collapseState === "temp-expanded") {
       trackSubmenuOpen(links, target?.closest(".dropdown-container") ?? null);
     }
   });
@@ -828,6 +826,10 @@ export function initNavbarCollapse(): void {
       resizeRaf = requestAnimationFrame(() => {
         resizeRaf = 0;
         remeasureNavbarCollapse();
+        // 尺寸变化后重算期望态（ocr 真 bug A2 的另一半）：remeasure 在窄分支
+        // 里把状态机置 disabled，缩回桌面后若不重算，导航栏会一直停在展开态
+        // 直到下一次滚动；scroll 帧只在滚动时跑，resize 时也要补一次。
+        requestScrollFrame();
       });
     },
     { passive: true },
@@ -900,8 +902,7 @@ export function initNavbarCollapse(): void {
     scrollY: window.scrollY,
     state: collapseState,
     hasActive: !!navLinks()?.querySelector(".nav-compact-active"),
-    wrapperClasses:
-      document.getElementById("navbar-wrapper")?.className ?? "",
+    wrapperClasses: document.getElementById("navbar-wrapper")?.className ?? "",
     navbarClasses: navbar()?.className ?? "",
     timerPending: recollapseTimer !== undefined,
   });

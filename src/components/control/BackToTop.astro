@@ -92,6 +92,34 @@ import { Icon } from "astro-icon/components";
       </a>
     </div>
   </div>
+
+  <!-- 滚动进度百分比环（rainzt ScrollProgress 移植）：圆形 SVG 进度环 + 中央
+       百分比，固定在按钮堆最上方，随滚动实时更新；仅展示用，不可点击。
+       位置由 scroll-manager.ts 按下方可见按钮数算 bottom（JS 写内联样式），
+       不参与 CSS 的 sibling 上移规则。 -->
+  <div
+    id="scroll-progress-circle"
+    class="scroll-progress-circle"
+    role="img"
+    aria-label="页面滚动进度 0%"
+  >
+    <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+      <circle
+        class="scroll-progress-circle__track"
+        cx="24"
+        cy="24"
+        r="19"
+        pathLength="100"></circle>
+      <circle
+        id="scroll-progress-circle-value"
+        class="scroll-progress-circle__value"
+        cx="24"
+        cy="24"
+        r="19"
+        pathLength="100"></circle>
+    </svg>
+    <span id="scroll-progress-circle-label">0%</span>
+  </div>
 </div>
 
 <style is:global>
@@ -109,7 +137,10 @@ import { Icon } from "astro-icon/components";
     color: var(--primary);
     font-size: 2rem;
     font-weight: bold;
-    border: none;
+    /* 框（rainzt 同款 --glass-control-border）：浅色灰 17%、深色浅灰 22%，
+       1px 实线描边。之前 border: none，暗色下 65% 黑磨砂融进深色背景、
+       看着整颗钮都透明了；有框才定得住轮廓。 */
+    border: 1px solid rgb(120 120 120 / 0.17);
     cursor: pointer;
     pointer-events: auto;
     /* 卡片阴影（参考 .float-panel）：浅色模式投影突出悬浮层次、深色模式柔光提边。
@@ -118,6 +149,7 @@ import { Icon } from "astro-icon/components";
   }
 
   :root.dark .floating-btn {
+    border-color: rgb(224 224 224 / 0.22);
     box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.3);
   }
 
@@ -127,6 +159,103 @@ import { Icon } from "astro-icon/components";
 
   .floating-btn i {
     font-size: 1.75rem;
+  }
+
+  /* 滚动进度百分比环（rainzt ScrollProgress 移植，骨架 1:1）：
+     圆环 + 中央百分比；SVG 两圆（轨道 + 进度值，r=19，pathLength=100，
+     进度值 stroke-dashoffset 由 scroll-manager.ts 按滚动比写）；
+     颜色走 --primary，轨道为 primary 14% 与 --line-divider 的混合。
+     外观对齐本站浮动按钮（不是 rainzt 的透明底）：3.5rem 见方、卡片底
+     var(--card-bg)、圆角 1rem、与 .floating-btn 同款阴影——和评论/首页/
+     回顶三颗按钮一套，不再显得小一圈、透一块。
+     仅展示（pointer-events: none），bottom 由 JS 按下方可见按钮数算，
+     跟随按钮堆上移时 350ms 平滑。 */
+  .scroll-progress-circle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    width: 3.5rem;
+    height: 3.5rem;
+    place-items: center;
+    color: var(--primary);
+    /* 框与按钮同款（rainzt --glass-control-border）：1px 实线描边，
+       暗色下磨砂底融进背景时，框把圆环定住，不再整颗透明。 */
+    border: 1px solid rgb(120 120 120 / 0.17);
+    border-radius: 1rem;
+    background-color: var(--card-bg);
+    box-shadow: 0 4px 14px -4px rgb(0 0 0 / 0.08);
+    backdrop-filter: none;
+    overflow: hidden;
+    pointer-events: none;
+    transition: bottom var(--dur-float, 350ms) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :root.dark .scroll-progress-circle {
+    border-color: rgb(224 224 224 / 0.22);
+    box-shadow: 0 4px 16px -4px rgb(0 0 0 / 0.3);
+  }
+
+  /* 全局模糊开关开着时，环与悬浮按钮同款磨砂（与 components.css 里
+     body.navbar-blur-enabled .floating-btn 同值）：浅色白 62% + blur 20px
+     saturate 180%，深色黑 65%。不直接写进上面那条，是因为模糊关掉时
+     按钮回实心 var(--card-bg)，环也要跟着回实心；全屏透明模式下另有
+     components.css 的 !important 覆写（0.6），与按钮一致。 */
+  body.navbar-blur-enabled .scroll-progress-circle {
+    background-color: rgb(255 255 255 / 0.62);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
+    backdrop-filter: saturate(180%) blur(20px);
+  }
+
+  :root.dark body.navbar-blur-enabled .scroll-progress-circle {
+    background-color: rgb(0 0 0 / 0.65);
+  }
+
+  .scroll-progress-circle svg {
+    position: absolute;
+    inset: 0.18rem;
+    width: calc(100% - 0.36rem);
+    height: calc(100% - 0.36rem);
+    overflow: visible;
+    transform: rotate(-90deg);
+  }
+
+  .scroll-progress-circle circle {
+    fill: none;
+    stroke-linecap: round;
+    stroke-width: 3.5;
+  }
+
+  .scroll-progress-circle__track {
+    stroke: color-mix(in srgb, var(--primary) 14%, var(--line-divider));
+  }
+
+  .scroll-progress-circle__value {
+    stroke: var(--primary);
+    stroke-dasharray: 100;
+    stroke-dashoffset: 100;
+    transition: stroke-dashoffset 120ms linear;
+  }
+
+  .scroll-progress-circle > span {
+    position: relative;
+    z-index: 1;
+    min-width: 2.3em;
+    color: var(--primary);
+    font-size: 0.75rem;
+    font-weight: 800;
+    line-height: 1;
+    text-align: center;
+    font-variant-numeric: tabular-nums;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-progress-circle {
+      transition: none;
+    }
+    .scroll-progress-circle__value {
+      transition: none;
+    }
   }
 
   /* 目录按钮：展开弹窗时图标平滑切换为关闭（X）——两枚图标绝对定位重叠，
@@ -657,5 +786,20 @@ import { Icon } from "astro-icon/components";
     // 滚动重算已并入 __tocPopupBound 守卫块内的唯一滚动监听，此处不再注册，
     // 避免换页重执行本脚本时监听累积；换页后 DOM 更新由 SwupScriptsPlugin
     // 重执行本脚本覆盖。原 swup:contentReplaced 监听删除（v3 事件名从未触发）。
+  })();
+
+  // 进度环初始位置（ocr 真 bug A10）：环的 CSS 初始 bottom:0 正好是底部那颗
+  // 按钮的位置，defer 的 app.ts 跑起来、syncScrollProgress 第一次执行前，
+  // 环先盖住首页按钮一会儿；行内脚本在解析时就让首页/评论按钮可见——这里
+  // 顺手按可见按钮数先算一次环的 bottom（首屏状态下可见按钮自下而上连续，
+  // 计数法正确；动态变化由 bundle 的 syncScrollProgress 按 rect 接管）。
+  (function () {
+    var circle = document.getElementById("scroll-progress-circle");
+    if (!circle) return;
+    var visibleCount = document.querySelectorAll(
+      ".floating-controls .floating-btn:not(.hide)",
+    ).length;
+    circle.style.bottom =
+      visibleCount === 0 ? "0" : visibleCount * 4.25 + "rem";
   })();
 </script>

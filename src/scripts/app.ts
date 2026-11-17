@@ -35,6 +35,7 @@ import {
   // lockstepScrollToTop 保留在 scroll-manager（v1.7.27 起换页复位不再调用：
   // 单档原生 smooth；函数保留供未来复启用）
   smartScrollTo,
+  syncScrollProgress,
 } from "../utils/scroll-manager";
 import { initNavbarCollapse } from "../utils/navbar-collapse";
 import { syncHomeClass, isHomePath } from "../utils/banner-sync";
@@ -1573,6 +1574,8 @@ function updateTocBtnVisibility() {
   }
   // 目录按钮参与自定义按钮的位置计数，显隐变化后重新计算
   window.__etherealFloatingControlsReposition?.();
+  // 滚动进度环位置跟随按钮堆：目录按钮显隐变化时重算 bottom（强制，不节流）
+  syncScrollProgress(true);
 }
 
 // ── 评论区懒加载（P3，1.3.3）──

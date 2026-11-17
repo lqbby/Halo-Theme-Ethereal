@@ -15,10 +15,10 @@ import { readDurBannerMs } from "./dur-banner";
 // 导航栏高度（4.5rem × 16px），与 CSS 变量 --navbar-height 对应（variables.css）
 const NAVBAR_HEIGHT_PX = 72;
 const BASE_SPACING_PX = 16; // 基础间距（1rem = 16px）
-// 移动/平板（<1024px / lg）共用抽屉菜单，导航栏不随滚动隐藏；
-// 桌面端（≥lg）才启用 classic 整条滑走（胶囊收拢的 1024px 桌面断点
+// 移动/平板（<1441px）共用抽屉菜单，导航栏不随滚动隐藏；
+// 桌面端（≥1441px）才启用 classic 整条滑走（胶囊收拢的 1441px 桌面断点
 // 在 navbar-collapse.ts 内自管）
-const MOBILE_BREAKPOINT = 1024;
+const MOBILE_BREAKPOINT = 1441;
 
 const bannerEnabled = Boolean(document.getElementById("banner-wrapper"));
 
@@ -31,6 +31,18 @@ let _backToTopBtn: HTMLElement | null = null;
 let _toc: HTMLElement | null = null;
 let _navbar: HTMLElement | null = null;
 let _grid: HTMLElement | null = null;
+// 滚动进度环（rainzt ScrollProgress 移植）：元素可能被后台开关关掉，
+// 不存在时静默跳过；isConnected 守卫同上（Swup 换页后引用失效自动重取）
+let _scrollProgressCircle: HTMLElement | null = null;
+let _scrollProgressValue: HTMLElement | null = null;
+let _scrollProgressLabel: HTMLElement | null = null;
+let _lastScrollProgress = -1;
+let _lastScrollProgressPercent = -1;
+let _lastScrollProgressUpdateAt = Number.NEGATIVE_INFINITY;
+// 位置同步：可见按钮集合的 key（id 拼接），变化时立即重算位置
+let _lastScrollProgressBtnKey = "";
+// 尾刷定时器（A8）：节流窗口内最后一次调用，80ms 后再跑一次
+let _scrollProgressTrailingTimer = 0;
 
 function getBackToTopBtn() {
   if (!_backToTopBtn?.isConnected)
@@ -51,6 +63,124 @@ function getGrid() {
   return _grid;
 }
 
+function getScrollProgressEls() {
+  if (!_scrollProgressCircle?.isConnected)
+    _scrollProgressCircle = document.getElementById("scroll-progress-circle");
+  if (!_scrollProgressValue?.isConnected)
+    _scrollProgressValue = document.getElementById(
+      "scroll-progress-circle-value",
+    );
+  if (!_scrollProgressLabel?.isConnected)
+    _scrollProgressLabel = document.getElementById(
+      "scroll-progress-circle-label",
+    );
+  return {
+    circle: _scrollProgressCircle,
+    value: _scrollProgressValue,
+    label: _scrollProgressLabel,
+  };
+}
+
+// 可见按钮集合的 key（id 拼接）：只读选择器不读布局，每调用都算、便宜；
+// 变化即按钮显隐切换，位置必须立即重算（A8：不能被节流跳过）。
+function visibleFloatingBtnKey(): string {
+  const btns = document.querySelectorAll(
+    ".floating-controls .floating-btn:not(.hide)",
+  );
+  let key = "";
+  for (let i = 0; i < btns.length; i++) {
+    key += `${(btns[i] as HTMLElement).id}|`;
+  }
+  return key;
+}
+
+// 环位置跟随按钮堆（ocr 真 bug A9）：不用“可见按钮数 × 4.25rem”——
+// .hide 只改透明度/指针、不改布局占位，中间一颗藏掉后上面的按钮仍在原槽位，
+// 数数会少算一格、环正好盖住最上面那颗。改为从最上方可见按钮的 rect 推：
+// 环底边 = 容器底边 − 最上方可见按钮顶边 + 0.75rem 间距。
+// 读 rect 会强制重排，只在可见集合变化 / 节流通过 / 尾刷时跑，不逐帧读。
+function syncScrollProgressPosition(circle: HTMLElement): void {
+  const controls = document.querySelector(".floating-controls");
+  if (!controls) return;
+  const btns = controls.querySelectorAll(".floating-btn:not(.hide)");
+  if (btns.length === 0) {
+    circle.style.bottom = "0px";
+    return;
+  }
+  const controlsRect = controls.getBoundingClientRect();
+  let top = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < btns.length; i++) {
+    const t = (btns[i] as HTMLElement).getBoundingClientRect().top;
+    if (t < top) top = t;
+  }
+  if (!Number.isFinite(top)) return;
+  const rootFontSize =
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) ||
+    16;
+  const gapPx = 0.75 * rootFontSize;
+  const bottomPx = Math.max(0, controlsRect.bottom - top + gapPx);
+  circle.style.bottom = `${bottomPx}px`;
+}
+
+// 滚动进度环（rainzt ScrollProgress 移植）：滚动比 = scrollY / (文档高 −
+// 视口高)，环用 stroke-dashoffset 填充（pathLength=100，offset 100−进度×100），
+// 中央写百分比；约 12 次/秒节流（读文档高 + 写 SVG 每帧跑在长文上贵），
+// 进度变化 <0.0005 时不写样式。位置：环在按钮堆最上方，从最上方可见按钮
+// 的 rect 推 bottom（syncScrollProgressPosition），按钮显隐变化时立即
+// 重算（移出节流），节流窗口内被丢掉的调用由尾刷补一次。
+function syncScrollProgress(force = false) {
+  const { circle, value, label } = getScrollProgressEls();
+  if (!circle) return;
+  // 位置同步移出节流（ocr 真 bug A8）：按钮显隐变化时立即重算，不等节流窗口。
+  const btnKey = visibleFloatingBtnKey();
+  if (btnKey !== _lastScrollProgressBtnKey) {
+    _lastScrollProgressBtnKey = btnKey;
+    syncScrollProgressPosition(circle);
+  }
+  const now = performance.now();
+  if (!force && now - _lastScrollProgressUpdateAt < 80) {
+    // 尾刷（ocr 真 bug A8）：节流只有前缘没有尾刷，最后一次 scroll 事件常
+    // 落在窗口内被丢掉，环停在 99% 直到下次滚动。窗口内有调用被丢时，80ms
+    // 后强制再跑一次（force），最终滚动位置一定落盘。
+    if (!_scrollProgressTrailingTimer) {
+      _scrollProgressTrailingTimer = window.setTimeout(() => {
+        _scrollProgressTrailingTimer = 0;
+        syncScrollProgress(true);
+      }, 80);
+    }
+    return;
+  }
+  _lastScrollProgressUpdateAt = now;
+  const scrollingElement =
+    document.scrollingElement || document.documentElement;
+  const maxScroll = Math.max(
+    0,
+    scrollingElement.scrollHeight - window.innerHeight,
+  );
+  const scrollTop = Math.max(
+    0,
+    window.scrollY || scrollingElement.scrollTop || 0,
+  );
+  const nextProgress = maxScroll > 0 ? Math.min(1, scrollTop / maxScroll) : 0;
+  if (Math.abs(nextProgress - _lastScrollProgress) >= 0.0005) {
+    _lastScrollProgress = nextProgress;
+    const percent = Math.round(nextProgress * 100);
+    if (value)
+      value.style.setProperty(
+        "stroke-dashoffset",
+        `${(100 - nextProgress * 100).toFixed(2)}`,
+      );
+    if (label && _lastScrollProgressPercent !== percent) {
+      _lastScrollProgressPercent = percent;
+      label.textContent = `${percent}%`;
+      circle.setAttribute("aria-label", `页面滚动进度 ${percent}%`);
+    }
+  }
+  // 节流通过时也重算一次位置：按钮显隐过渡动画（350ms）期间 rect 在变，
+  // 每 80ms 追一次，终态一定对齐（A9）。
+  syncScrollProgressPosition(circle);
+}
+
 function scrollFunction() {
   const backToTopBtn = getBackToTopBtn();
   const toc = getToc();
@@ -69,6 +199,10 @@ function scrollFunction() {
   if (backToTopBtn) {
     backToTopBtn.classList.toggle("hide", scrollY <= bannerHeightPx);
   }
+
+  // 滚动进度百分比环（rainzt ScrollProgress 移植）：每帧同步一次
+  // （内部 80ms 节流 + 变化阈值），与回顶按钮同帧跑，两模式都生效。
+  syncScrollProgress();
 
   // 目录门控仅横幅/全屏模式启用（与 components.css 的
   // html[data-banner-display=...]:not(.toc-revealed) #toc-wrapper 同源）：
@@ -205,7 +339,7 @@ window.addEventListener(
 
 /** 经典滑走残留清理（守望 #1）：navbar-hidden / body.dynamic-navbar-hidden
  *  只在 classic + 桌面 + auto_hide + 有 banner 的守卫内才有意义；守卫失效
- *  （窗口缩到 1024px 以下、切 always、banner 消失）时立即清掉——scroll
+ *  （窗口缩到 1441px 以下、切 always、banner 消失）时立即清掉——scroll
  *  事件不触发时（如只改窗口尺寸）靠下方 resize 监听补清。单一归属：
  *  这两个类只由本模块写（scroll-manager 是 classic 滑走的唯一控制器），
  *  清理也只在这里，不往 navbar-collapse 的量宽监听上打补丁。 */
@@ -243,7 +377,7 @@ window.addEventListener(
 // toc-revealed），切到 disabled/transparent 时清除隐藏状态
 window.addEventListener("bannerModeChange", scrollFunction);
 
-export { scrollFunction };
+export { scrollFunction, syncScrollProgress };
 
 /* ── 换页回顶（与 is-home 位移锁步，随上游 v2.0.0 commit b7e94d7 移植） ──
    首页↔非首页（横幅 / 全屏：内容区随 is-home 位移）的换页里，回顶与 grid translate

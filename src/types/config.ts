@@ -173,6 +173,16 @@ export interface BannerText {
   letterSpacing?: string;
 }
 
+/** 首页 Hero 快捷导航（settings.yaml 的 style.heroNav 组） */
+export interface HeroNavConfig {
+  items?: HeroNavItem[];
+}
+
+export interface HeroNavItem {
+  name?: string;
+  url?: string;
+}
+
 export interface Credit {
   enable: boolean;
   text: string;
@@ -319,6 +329,8 @@ export interface Style {
   bannerStyle: BannerStyle;
   /** 标题与副标题 */
   bannerText?: BannerText;
+  /** 首页 Hero 快捷导航（style.heroNav 组，后台可配） */
+  heroNav?: HeroNavConfig;
   themeColor: ThemeColor;
   colorScheme?: ColorScheme;
   /** 主题语言 */

@@ -1,0 +1,361 @@
+---
+// 首页 Hero 卡片（rainzt HomeWallpaperDecor 平时模式）+ 11 个 AI 娘角色。
+// 挂载在 #banner-wrapper 内，替换旧 #banner-overlay（标题 + 打字机 + 链接行）。
+// 沿用旧 overlay 的 id 与门控，现有联动（fullscreen-hero 滚动淡出、
+// banner-responsive 显隐切换、body.banner-title-disabled 访客标题开关、
+// app.ts Swup 焦点回退）全部不用改。
+//
+// 数据来源：
+// - 头像 / 名字 / 在线状态：sidebar.profile（与侧边栏 Profile 同一份配置）
+// - 快捷导航：style.heroNav.items（settings.yaml 后台可配，th:each 渲染）
+// - 社交标签 QQ / GitHub / 邮箱：sidebar.profile.social_media 按名字或 URL
+//   匹配（与侧边栏同一份配置、同一地址来源，后台改了两边一起变）
+// - RSS 标签：站点自身 RSS（@{/rss.xml}，与页脚 RSS 链接同一口径，
+//   不是写死的外部地址）；Bilibili 未做（主页地址未给）
+import { assetVersion } from "../utils/asset-version";
+import "../styles/hero-wallpaper.css";
+
+interface Props {
+  isHomePage?: boolean;
+}
+const { isHomePage = false } = Astro.props;
+
+const themeBase = "/themes/Ethereal";
+const stickerSrc = `${themeBase}/assets/images/hero/avatar-sticker.webp?v=${assetVersion("assets/images/hero/avatar-sticker.webp")}`;
+const charSrc = (key: string) =>
+  `${themeBase}/assets/images/hero/chars/${key}.webp?v=${assetVersion(`assets/images/hero/chars/${key}.webp`)}`;
+
+interface CharDef {
+  key: string;
+  name: string;
+  cls: string;
+  style: string;
+}
+// 底部一排 9 个：--x 从 4.5% 到 94.9%（步长 11.3%），脚贴底边。
+// 横幅模式（65vh）下由 CSS 隐藏（见 hero-wallpaper.css 的 .char--row 规则），
+// 全屏/全屏透明模式（100vh）正常显示。2026-11-17 哥哥定。
+const chars: CharDef[] = [
+  {
+    key: "deepseek",
+    name: "DeepSeek",
+    cls: "char char--deepseek",
+    style: "--h: 165px;",
+  },
+  { key: "kimi", name: "Kimi", cls: "char char--kimi", style: "--h: 165px;" },
+  {
+    key: "gpt",
+    name: "GPT",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 4.5%; --rot: -3deg; animation-delay: 700ms;",
+  },
+  {
+    key: "claude",
+    name: "Claude",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 15.8%; --rot: 2deg; animation-delay: 760ms;",
+  },
+  {
+    key: "qwen",
+    name: "Qwen",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 27.1%; --rot: -2deg; animation-delay: 820ms;",
+  },
+  {
+    key: "hajimi",
+    name: "哈基米",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 38.4%; --rot: 3deg; animation-delay: 880ms;",
+  },
+  {
+    key: "glm",
+    name: "GLM",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 49.7%; --rot: -2deg; animation-delay: 940ms;",
+  },
+  {
+    key: "grok",
+    name: "Grok",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 61%; --rot: 2deg; animation-delay: 1000ms;",
+  },
+  {
+    key: "seed",
+    name: "Seed",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 72.3%; --rot: -3deg; animation-delay: 1060ms;",
+  },
+  {
+    key: "mimo",
+    name: "Mimo",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 83.6%; --rot: 2deg; animation-delay: 1120ms;",
+  },
+  {
+    key: "minimax",
+    name: "Minimax",
+    cls: "char char--row",
+    style: "--h: 150px; --x: 94.9%; --rot: -2deg; animation-delay: 1180ms;",
+  },
+];
+---
+
+<div
+  id="banner-overlay"
+  th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.enable == null or theme.config?.style?.bannerText?.enable}"
+  style={isHomePage ? "" : "display:none"}
+  class="pointer-events-none absolute inset-0 z-10"
+>
+  <div class="hero-wallpaper-dim" aria-hidden="true"></div>
+  <div class="home-wallpaper-decor">
+    <div class="home-wallpaper-decor__stickers" aria-hidden="true">
+      <div
+        class="home-wallpaper-sticker home-wallpaper-sticker--note"
+        style="--sticker-rot: 4deg;"
+      >
+        欢迎访问
+      </div>
+    </div>
+    <article class="home-wallpaper-card">
+      <div class="home-wallpaper-card__content">
+        <div class="home-wallpaper-card__avatar-wrap">
+          <img
+            class="home-wallpaper-card__avatar"
+            th:src="${theme.config?.sidebar?.profile?.avatar ?: '/themes/Ethereal/assets/images/demo-avatar.webp'}"
+            src="/themes/Ethereal/assets/images/demo-avatar.webp"
+            alt="头像"
+          />
+          <img
+            class="home-wallpaper-card__avatar-sticker"
+            src={stickerSrc}
+            alt=""
+            aria-hidden="true"
+            draggable="false"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <p class="home-wallpaper-card__identity">
+          <span th:text="${theme.config?.sidebar?.profile?.name ?: 'LQBBY'}"
+            >LQBBY</span
+          >
+          <span
+            class="hero-status-icon"
+            th:if="${theme.config?.sidebar?.profile?.statusSettings?.enable != false}"
+            th:switch="${theme.config?.sidebar?.profile?.statusSettings?.status ?: 'online'}"
+          >
+            <span
+              th:case="energetic"
+              class="icon-[mingcute--sun-fill] text-amber-500"></span>
+            <span
+              th:case="emo"
+              class="icon-[mingcute--cloud-sad-fill] text-blue-500"></span>
+            <span
+              th:case="study"
+              class="icon-[mingcute--book-2-fill] text-violet-500"></span>
+            <span
+              th:case="busy"
+              class="icon-[mingcute--fire-fill] text-orange-500"></span>
+            <span
+              th:case="dnd"
+              class="icon-[mingcute--moon-fill] text-slate-500"></span>
+            <span
+              th:case="sleep"
+              class="icon-[mingcute--zzz-fill] text-indigo-500"></span>
+            <span
+              th:case="away"
+              class="icon-[mingcute--time-fill] text-gray-500"></span>
+            <span th:case="*" class="icon-[mingcute--leaf-fill] text-green-500"
+            ></span>
+          </span>
+        </p>
+        <h1 id="banner-title">Daily LQBBY<br />Tips &amp; Tricks</h1>
+        <p class="home-wallpaper-card__subtitle">
+          成功是失败者的通行证，失败是成功者的墓志铭
+        </p>
+        <nav
+          class="home-wallpaper-card__nav"
+          aria-label="首页快捷导航"
+          th:if="${theme.config?.style?.heroNav?.items != null and not #lists.isEmpty(theme.config?.style?.heroNav?.items)}"
+        >
+          <a
+            th:each="item : ${theme.config?.style?.heroNav?.items}"
+            th:href="${item.url}"
+            th:text="${item.name}">文章</a
+          >
+        </nav>
+        <div class="home-wallpaper-card__socials" aria-label="社交链接">
+          <div
+            class="contents"
+            th:each="social : ${theme.config?.sidebar?.profile?.social_media ?: {}}"
+          >
+            <a
+              class="home-wallpaper-card__social-link"
+              style="--social-tag-color: rgba(255,150,165,0.95); color: #5a1020;"
+              th:if="${not #strings.startsWith(social.url ?: '', 'mailto:') and (#strings.containsIgnoreCase(social.name ?: '', 'QQ') or #strings.contains(social.url ?: '', 'qq.com'))}"
+              th:href="${social.url}"
+              target="_blank"
+              rel="me noopener noreferrer"
+              aria-label="QQ"
+            >
+              <span class="home-wallpaper-card__social-icon"
+                ><span class="qq-text">QQ</span></span
+              >
+            </a>
+            <a
+              class="home-wallpaper-card__social-link"
+              style="--social-tag-color: rgba(246,206,94,0.95); color: #6b4503; --tag-rot: -2deg;"
+              th:if="${#strings.containsIgnoreCase(social.name ?: '', 'github') or #strings.contains(social.url ?: '', 'github.com')}"
+              th:href="${social.url}"
+              target="_blank"
+              rel="me noopener noreferrer"
+              aria-label="GitHub"
+            >
+              <span class="home-wallpaper-card__social-icon">
+                <svg viewBox="0 0 16 16"
+                  ><path
+                    d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.03 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"
+                  ></path></svg
+                >
+              </span>
+            </a>
+            <a
+              class="home-wallpaper-card__social-link"
+              style="--social-tag-color: rgba(157,219,176,0.95); color: #0e4d23;"
+              th:if="${#strings.containsIgnoreCase(social.name ?: '', '邮箱') or #strings.containsIgnoreCase(social.name ?: '', 'mail') or #strings.startsWith(social.url ?: '', 'mailto:')}"
+              th:href="${social.url}"
+              target="_blank"
+              rel="me noopener noreferrer"
+              aria-label="邮箱"
+            >
+              <span class="home-wallpaper-card__social-icon">
+                <svg viewBox="0 0 24 24"
+                  ><path
+                    d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Zm8 7L4 6v12h16V6l-8 5Z"
+                  ></path></svg
+                >
+              </span>
+            </a>
+            <a
+              class="home-wallpaper-card__social-link"
+              style="--social-tag-color: rgba(135,190,236,0.95); color: #173b61; --tag-rot: -2deg;"
+              th:if="${#strings.containsIgnoreCase(social.name ?: '', 'bilibili') or #strings.contains(social.url ?: '', 'bilibili.com')}"
+              th:href="${social.url}"
+              target="_blank"
+              rel="me noopener noreferrer"
+              aria-label="Bilibili"
+            >
+              <span class="home-wallpaper-card__social-icon">
+                <svg viewBox="0 0 24 24"
+                  ><path
+                    d="M21 6h-7.59l3.29-3.29L16 2l-4 4-4-4-.71.71L10.59 6H3a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8a2 2 0 0 0-2-2Zm0 14H3V8h18v12zM9 10v8l7-4z"
+                  ></path></svg
+                >
+              </span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+  <div class="chars" id="charsLayer" aria-hidden="true">
+    {
+      chars.map((c) => (
+        <div class={c.cls} style={c.style}>
+          {/* lazy（ocr 真 bug A6）：人物图只在首页 hero 里显示，非首页 overlay
+              只是 display:none/透明度隐藏，eager 的 img 照样下载——每页白下
+              12 张约 204KB（CDN 流量紧）。lazy 后非首页不下载；首页 hero 在首
+              屏视口内，lazy 图照常立即加载，不影响入场。 */}
+          <img
+            src={charSrc(c.key)}
+            alt={c.name}
+            draggable="false"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+      ))
+    }
+  </div>
+  <button
+    class="chars-toggle"
+    id="charsToggle"
+    type="button"
+    aria-pressed="true"
+    title="显示 / 隐藏角色"
+  >
+    <span class="chars-toggle__track"
+      ><span class="chars-toggle__knob"></span></span
+    >
+    <span class="chars-toggle__text">角色</span>
+  </button>
+</div>
+
+<script is:inline>
+  // 角色开关 + 拖动（照搬预览内联脚本；包围矩形改用 #banner-wrapper）。
+  // 守卫 window.__heroCharsBound：Swup 换页会重执行全站内联脚本，防重复绑定；
+  // 用户手动开关的状态放 window 级变量，防重执行后重置。
+  (function () {
+    if (window.__heroCharsBound) return;
+    window.__heroCharsBound = true;
+    var layer = document.getElementById("charsLayer");
+    var toggle = document.getElementById("charsToggle");
+    var hero = document.getElementById("banner-wrapper");
+    if (!layer || !toggle || !hero) return;
+    function setCharsVisible(visible) {
+      document.body.classList.toggle("chars-off", !visible);
+      toggle.setAttribute("aria-pressed", visible ? "true" : "false");
+    }
+    function applyDefault() {
+      if (window.__heroCharsUserSet) return;
+      setCharsVisible(window.innerWidth > 860);
+    }
+    toggle.addEventListener("click", function () {
+      window.__heroCharsUserSet = true;
+      setCharsVisible(document.body.classList.contains("chars-off"));
+    });
+    applyDefault();
+    window.addEventListener("resize", applyDefault);
+    layer.querySelectorAll(".char").forEach(function (el) {
+      el.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        var hr = hero.getBoundingClientRect();
+        var r = el.getBoundingClientRect();
+        var dx = e.clientX - r.left;
+        var dy = e.clientY - r.top;
+        // 拖动起点定档（ocr 真 bug A4）：char-in 动画填充（both）优先于行内
+        // transform，el.style.transform = 'none' 是空操作；底排 --tx:-50%
+        // 仍在生效时按 rect 算出的 left/top 会再叠一次 -50%，上手即往左跳半格。
+        // 先把当前可视位置写进 left/top、关掉动画与 transform 再拖动——
+        // 之后 left/top 就是最终位置；animation 留在行内关掉，拖完动画不再
+        // 回填 -50%（否则松手后又跳回去）。
+        el.style.left = r.left - hr.left + "px";
+        el.style.top = r.top - hr.top + "px";
+        el.style.right = "auto";
+        el.style.bottom = "auto";
+        el.style.animation = "none";
+        el.style.transform = "none";
+        el.classList.add("dragging");
+        el.setPointerCapture(e.pointerId);
+        var onMove = function (ev) {
+          var x = ev.clientX - dx - hr.left;
+          var y = ev.clientY - dy - hr.top;
+          x = Math.max(0, Math.min(hr.width - r.width, x));
+          y = Math.max(0, Math.min(hr.height - r.height, y));
+          el.style.left = x + "px";
+          el.style.top = y + "px";
+          el.style.right = "auto";
+          el.style.bottom = "auto";
+        };
+        var onUp = function () {
+          el.classList.remove("dragging");
+          el.removeEventListener("pointermove", onMove);
+          el.removeEventListener("pointerup", onUp);
+          el.removeEventListener("pointercancel", onUp);
+        };
+        el.addEventListener("pointermove", onMove);
+        el.addEventListener("pointerup", onUp);
+        el.addEventListener("pointercancel", onUp);
+      });
+    });
+  })();
+</script>

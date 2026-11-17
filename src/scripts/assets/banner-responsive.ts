@@ -8,9 +8,32 @@ import { isHomePath } from "../../utils/banner-sync";
 //  移动端首屏会「大字号闪变」，故整段移除，勿再写回内联 font-size）
 (function () {
   var MIN_BANNER_HEIGHT = 180;
+  // 刷新 bug 修（2026-11-17 哥哥定）：浏览器恢复下方滚动位置后，滑回顶部时
+  // overlay 整层（卡片 + 全部人物）700ms 淡入、看起来像又刷新一遍。
+  // 修法：载入时按实际滚动位置首帧直接定档显隐（不走过渡）；
+  // 恢复滚动导致的隐藏，其首次显现也不走 opacity 过渡、直接显示。
+  // 只影响载入后的首次显现，之后正常上下滑仍走淡入淡出。
+  // flag 放 window 上（ocr 真 bug A7）：scroll 监听只绑一次（guardOnce），
+  // Swup 换页后脚本重执行，局部变量每次都是新的——监听调的是第一次执行的
+  // updateVisibility，其 flag 早被消耗掉，修法在第一次换页后就失效。
+  // 与 __bannerUserInteracted 同口径，跨执行共享。
 
   function getEl(id) {
     return document.getElementById(id);
+  }
+
+  // 不走过渡直接定档显隐：临时关掉 transition、改类、强制重排、恢复。
+  function setHiddenInstant(overlay, hidden) {
+    overlay.style.transition = "none";
+    overlay.classList.toggle("banner-text-hidden", hidden);
+    void overlay.offsetWidth;
+    overlay.style.transition = "";
+  }
+
+  // 用户是否操作过页面（window 级，Swup 重执行脚本时不重置）：
+  // 刷新恢复滚动发生在用户操作之前，以此区分“恢复”与“用户下滑”。
+  function userHasInteracted() {
+    return !!window.__bannerUserInteracted;
   }
 
   // 首页判定统一走 utils/banner-sync 的 isHomePath（本文件旧实现不剥部署
@@ -46,13 +69,25 @@ import { isHomePath } from "../../utils/banner-sync";
     var wasHidden = overlay.classList.contains("banner-text-hidden");
     var rect = wrapper.getBoundingClientRect();
     if (rect.bottom >= MIN_BANNER_HEIGHT) {
-      overlay.classList.remove("banner-text-hidden");
+      if (window.__bannerSkipRevealTransition) {
+        // 刷新后首次滑回顶部：直接显示，不走 opacity 过渡
+        window.__bannerSkipRevealTransition = false;
+        setHiddenInstant(overlay, false);
+      } else {
+        overlay.classList.remove("banner-text-hidden");
+      }
       // 从隐藏变为可见时，通知打字机/下坠脚本重新初始化
       if (wasHidden) {
         document.dispatchEvent(new CustomEvent("banner:visible"));
       }
     } else {
-      overlay.classList.add("banner-text-hidden");
+      if (!userHasInteracted()) {
+        // 刷新恢复滚动位置导致的隐藏：直接隐藏（不走淡出），首次显现也不走过渡
+        window.__bannerSkipRevealTransition = true;
+        setHiddenInstant(overlay, true);
+      } else {
+        overlay.classList.add("banner-text-hidden");
+      }
     }
   }
 
@@ -67,6 +102,17 @@ import { isHomePath } from "../../utils/banner-sync";
     if (overlay && overlay.style.display === "none") {
       overlay.style.display = "";
       overlay.classList.add("banner-text-hidden");
+    }
+  })();
+
+  // 首帧定档：载入时已在下方滚动位置，直接隐藏、不走过渡
+  (function initVisibility() {
+    var overlay = getEl("banner-overlay");
+    var wrapper = getEl("banner-wrapper");
+    if (!overlay || !wrapper || !isHomePath()) return;
+    if (wrapper.getBoundingClientRect().bottom < MIN_BANNER_HEIGHT) {
+      window.__bannerSkipRevealTransition = true;
+      setHiddenInstant(overlay, true);
     }
   })();
 
@@ -94,5 +140,23 @@ import { isHomePath } from "../../utils/banner-sync";
       },
       { passive: true },
     );
+
+    // 标记用户首次操作（刷新恢复滚动先于任何用户操作发生）。
+    var markInteracted = function () {
+      window.__bannerUserInteracted = true;
+    };
+    window.addEventListener("pointerdown", markInteracted, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener("wheel", markInteracted, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener("touchstart", markInteracted, {
+      once: true,
+      passive: true,
+    });
+    window.addEventListener("keydown", markInteracted, { once: true });
   }
 })();
