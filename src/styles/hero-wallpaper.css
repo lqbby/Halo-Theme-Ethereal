@@ -468,6 +468,14 @@
     z-index: 2;
     animation-delay: 680ms;
   }
+  /* 全屏/全屏透明模式（100vh）下底排人物显示：KIMI 上移 85px，脚不压
+     底排 Grok/Seed 的头（240px 人物在 1440×900 下会压 72px）。
+     只在 100vh 模式生效；横幅模式（65vh）下底排隐藏、KIMI 不动，
+     避免盖住「欢迎访问」便签。 */
+  html[data-banner-display="fullscreen"] .char--kimi,
+  html[data-banner-display="transparent"] .char--kimi {
+    top: calc(50% - 50px);
+  }
   .char--row {
     bottom: 0;
     left: var(--x);
