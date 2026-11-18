@@ -851,6 +851,21 @@
       .forEach(function (c) {
         chips[c.getAttribute("data-cl-chip")] = c;
       });
+    /* ---- 导航轨自动跟随：高亮切换时把当前批次胶囊滚回可视区，
+       否则滚到底部时当前胶囊会被横向截在轨外（只剩「v1.5…」）。
+       只动轨内横向 scrollLeft，不碰页面滚动；instant，不与用户滚动抢动画。 */
+    var railChips = document.querySelector(".cl-rail-chips");
+    function ensureChipVisible(chip) {
+      if (!railChips || !chip) return;
+      var c = railChips.getBoundingClientRect();
+      var b = chip.getBoundingClientRect();
+      var pad = 10;
+      var target = railChips.scrollLeft;
+      if (b.left < c.left + pad) target -= c.left + pad - b.left;
+      else if (b.right > c.right - pad) target += b.right - (c.right - pad);
+      if (target !== railChips.scrollLeft)
+        railChips.scrollTo({ left: target, behavior: "auto" });
+    }
     if ("IntersectionObserver" in window && entries.length) {
       var spy = new IntersectionObserver(
         function (obs) {
@@ -860,8 +875,10 @@
             Object.keys(chips).forEach(function (k) {
               var on = k === ver;
               chips[k].classList.toggle("is-active", on);
-              if (on) chips[k].setAttribute("aria-current", "true");
-              else chips[k].removeAttribute("aria-current");
+              if (on) {
+                chips[k].setAttribute("aria-current", "true");
+                ensureChipVisible(chips[k]);
+              } else chips[k].removeAttribute("aria-current");
             });
           });
         },

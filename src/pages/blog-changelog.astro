@@ -560,6 +560,31 @@ import { assetVersion } from "../utils/asset-version";
         margin-left: 0.5rem;
       }
 
+      /* 吸顶顶栏滚动后加磨砂底（仅本页）：胶囊模式导航栏卡片透明，
+         批次标题滚到其下时会透过透明区与半透明激活胶囊显示出来；
+         下滑后（html.navbar-scrolled）给顶栏加磨砂底，标题在栏下
+         正常被遮住。页首未滚动时保持透明原貌。
+         注意：磨砂底挂在 .nav-shell（卡片的父层）而非 #navbar-card——
+         卡片的 background 被主题 `background: 0 0 !important` 钉死，
+         任何选择器（含 !important）都覆盖不了，实测只有父层能接背景；
+         卡片透明，父层磨砂底会透过卡片显示，效果一致。
+         仅本页生效：body:has(.cl-list) 限定（Swup 换页样式残留也不影响他页）；
+         仅桌面胶囊模式（≥1024px，与 components.css 的透明规则同断点）。 */
+      @media (min-width: 1024px) {
+        html.navbar-scrolled
+          body:has(.cl-list)
+          .navbar-style-floating-pill
+          .nav-shell {
+          background: color-mix(
+            in oklab,
+            var(--card-bg) 85%,
+            transparent
+          ) !important;
+          -webkit-backdrop-filter: blur(16px) saturate(1.25) !important;
+          backdrop-filter: blur(16px) saturate(1.25) !important;
+        }
+      }
+
       /* 吸顶批次导航轨：玻璃面（本页仅此处 + 里程碑高亮卡用 backdrop-filter） */
       .cl-railnav {
         position: sticky;
@@ -606,6 +631,10 @@ import { assetVersion } from "../utils/asset-version";
         overflow-x: auto;
         scrollbar-width: none;
         min-width: 0;
+        /* 轨尾留白：最后一个胶囊滚到尽头时不贴轨沿；scroll-padding 让
+           自动跟随滚到的胶囊与轨沿留足间距 */
+        padding-right: 0.6rem;
+        scroll-padding-inline: 0.6rem;
       }
       .cl-rail-chips::-webkit-scrollbar {
         display: none;
