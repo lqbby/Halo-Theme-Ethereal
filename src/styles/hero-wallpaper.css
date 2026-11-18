@@ -109,6 +109,7 @@
     backdrop-filter: blur(2px) saturate(1.02);
     transform: rotate(-0.45deg);
   }
+  /* 顶部胶带（2026-11-18 哥哥说改成色相 250）：斜纹换紫色系，样式不变。 */
   .home-wallpaper-card::after {
     position: absolute;
     top: -10px;
@@ -118,8 +119,8 @@
     content: "";
     background: repeating-linear-gradient(
       -45deg,
-      rgba(255, 244, 184, 0.82) 0 5px,
-      rgba(239, 206, 111, 0.82) 5px 10px
+      oklch(0.88 0.06 var(--hue) / 0.82) 0 5px,
+      oklch(0.76 0.1 var(--hue) / 0.82) 5px 10px
     );
     box-shadow: 0 2px 5px rgba(41, 33, 25, 0.12);
     transform: translateX(-50%) rotate(0.6deg);
@@ -218,9 +219,9 @@
     display: inline-block;
     margin: 0;
     line-height: 1.12;
-    /* 不改颜色、只调亮暗：奶油字不变；亮色下描边与阴影加深，
-     让奶油字在亮横幅上可读；暗色保持原值（:root.dark 覆写）。 */
-    color: #fff1d0;
+    /* 2026-11-18 哥哥说改成主题主色（色相 250）：奶油字改主色；
+     深色描边/阴影保留，亮横幅上靠描边保可读；暗色保持原值（:root.dark 覆写）。 */
+    color: var(--primary);
     font-family: inherit;
     font-size: clamp(1.9rem, 3.6vw, 2.6rem);
     font-weight: 750;
@@ -233,7 +234,7 @@
       0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 95%, transparent),
       0 2px 0 color-mix(in oklab, var(--on-primary) 85%, transparent),
       0 4px 12px rgba(33, 12, 12, 0.55),
-      0 0 16px rgba(255, 197, 91, 0.3);
+      0 0 16px oklch(0.7 0.14 var(--hue) / 0.3);
   }
   :root.dark .home-wallpaper-card h1#banner-title {
     text-shadow:
@@ -244,7 +245,7 @@
       0.025em 0.025em 0 color-mix(in oklab, var(--on-primary) 78%, transparent),
       0 2px 0 color-mix(in oklab, var(--on-primary) 68%, transparent),
       0 4px 10px rgba(33, 12, 12, 0.44),
-      0 0 16px rgba(255, 197, 91, 0.3);
+      0 0 16px oklch(0.7 0.14 var(--hue) / 0.3);
   }
   .home-wallpaper-card__subtitle {
     display: inline-block;
@@ -531,15 +532,16 @@
   body.chars-off .chars-toggle__text {
     opacity: 0.55;
   }
+  /* 欢迎便签（2026-11-18 哥哥说改成色相 250）：淡紫底 + 深紫字（原米黄底 + 深棕字）。 */
   .home-wallpaper-sticker--note {
     width: 84px;
     min-height: 63px;
     padding: 14px 9px 9px;
-    color: #6a5430;
+    color: var(--on-primary);
     font-size: 0.7rem;
     font-weight: 700;
     line-height: 1.35;
-    background: #fff1a8;
+    background: oklch(0.9 0.06 var(--hue));
     box-shadow: 4px 6px 12px rgba(45, 36, 29, 0.2);
     transform: rotate(4deg);
     inset: calc(50% + 91px) auto auto calc(50% + 158px);
@@ -564,8 +566,8 @@
     content: "";
     background: repeating-linear-gradient(
       -45deg,
-      rgba(135, 193, 163, 0.75) 0 5px,
-      rgba(177, 220, 187, 0.74) 5px 10px
+      oklch(0.85 0.08 var(--hue) / 0.75) 0 5px,
+      oklch(0.74 0.1 var(--hue) / 0.74) 5px 10px
     );
     transform: translateX(-50%) rotate(4deg);
   }
