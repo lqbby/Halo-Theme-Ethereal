@@ -219,9 +219,9 @@
     display: inline-block;
     margin: 0;
     line-height: 1.12;
-    /* 2026-11-18 哥哥说改成主题主色（色相 250）：奶油字改主色；
-     深色描边/阴影保留，亮横幅上靠描边保可读；暗色保持原值（:root.dark 覆写）。 */
-    color: var(--primary);
+    /* 2026-11-18 哥哥说标题调浅一档（仍色相 250）：主色 oklch(0.7) →
+     浅紫 oklch(0.8 0.08 var(--hue))；深色描边/阴影保留，亮横幅上靠描边保可读。 */
+    color: oklch(0.8 0.08 var(--hue));
     font-family: inherit;
     font-size: clamp(1.9rem, 3.6vw, 2.6rem);
     font-weight: 750;
