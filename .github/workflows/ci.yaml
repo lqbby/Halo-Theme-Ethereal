@@ -72,6 +72,11 @@ jobs:
       - name: Circular dependency check
         run: npx -y madge --circular --extensions ts src/
 
+      # CSS 层叠冲突：专治「!important + @layer 反转」「低特异性被高特异性压掉」
+      # 这类类型检查查不出的 bug（当前 0 组待查）。规则见脚本头注释。
+      - name: CSS layer conflict scan
+        run: python3 scripts/check-css-layer-conflicts.py --fail
+
   # 总是运行（不再按事件跳过，避免静默跳过无法排障）：
   # push 事件检测版本是否增大；手动触发直接放行并输出说明
   version-check:
