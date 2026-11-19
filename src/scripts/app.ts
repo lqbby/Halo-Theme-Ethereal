@@ -513,15 +513,28 @@ function initCustomScrollbar() {
       //     移动后无动画可重放；
       //   · 无限循环动画（走马灯 / 旋转图标 / 脉冲）无法 finish → 记录当前进度，
       //     mount 完成后给新建的动画对象回填等效 currentTime，视觉上从原处继续。
-      const infiniteAnims: Array<{ el: Element; at: number }> = [];
+      const infiniteAnims: Array<{
+        el: Element;
+        name: string;
+        at: number;
+      }> = [];
       document.getAnimations().forEach((a) => {
         try {
           const timing = a.effect?.getComputedTiming?.();
           const iterations = timing?.iterations ?? 1;
+          // ⚠️ 只处理 CSSAnimation：getAnimations() 也返回 CSSTransition，而过渡由
+          // 样式变化驱动、不会因 DOM 搬动重播，finish() 对它没收益却会把进行中的
+          // 过渡硬跳到终态并提前派发 transitionend（archives 分页退出、波浪等都等
+          // 这个事件）——2026-11-19 ocr 指出。
+          if (!(a instanceof CSSAnimation)) return;
+          const name = (a as CSSAnimation).animationName || "";
           if (iterations === Infinity) {
             const target = (a.effect as KeyframeEffect)?.target;
             if (target && typeof a.currentTime === "number") {
-              infiniteAnims.push({ el: target, at: a.currentTime });
+              // 同时记 animationName：同一元素可能挂多个 infinite 循环
+              // （spin + pulse、两个不同周期的装饰），只按元素匹配会全都套用
+              // 第一条记录的进度（ocr 指出）。
+              infiniteAnims.push({ el: target, name, at: a.currentTime });
             }
           } else if (a.playState === "running") {
             a.finish();
@@ -563,11 +576,24 @@ function initCustomScrollbar() {
               if (timing?.iterations !== Infinity) return;
               const target = (a.effect as KeyframeEffect)?.target;
               if (!target) return;
-              const rec = infiniteAnims.find((r) => r.el === target);
+              const rec = infiniteAnims.find(
+                (r) =>
+                  r.el === target && r.name === (a as CSSAnimation).animationName,
+              );
               if (!rec) return;
               const dur =
                 typeof timing.duration === "number" ? timing.duration : 0;
-              if (dur > 0) a.currentTime = rec.at % dur;
+              // `at % dur` 会丢掉迭代奇偶性：animation-direction: alternate 的
+              // 循环按奇偶在半程/整程之间切换，只取余数会让它从错误的那半程接着跑。
+              // 用「已完成的整周数」判定奇偶后回填，alternate 也能对上相位。
+              if (dur > 0) {
+                const t = rec.at;
+                const cycles = Math.floor(t / dur);
+                const alt =
+                  timing.direction === "alternate" ||
+                  timing.direction === "alternate-reverse";
+                a.currentTime = alt && cycles % 2 === 1 ? dur - (t % dur) : t % dur;
+              }
             } catch {
               /* ignore */
             }

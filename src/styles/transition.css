@@ -287,4 +287,8 @@ html.reload-restoring #banner-wrapper {
 html.reload-restoring #home-moments-wrap {
   opacity: 0;
   transition: none !important;
+  /* opacity:0 不会把子树从命中测试 / Tab 序 / a11y 树里移除，而该容器是
+     pointer-events-auto ⇒ 恢复窗口（最长约 5s）内走马灯的不可见链接仍可点击、
+     可被 Tab 聚焦。与 .float-panel-closed 同款处理（2026-11-19 ocr 指出）。 */
+  pointer-events: none;
 }

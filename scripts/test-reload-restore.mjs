@@ -91,11 +91,14 @@ check(
 
 const app = readFileSync(APP, "utf8");
 check(
-  "R3 app.ts 记录器（键 / pagehide / 限频 / 仅非顶部）",
+  "R3 app.ts 记录器（键 / pagehide / 限频 / 非顶部 + 回顶清旧值）",
   app.includes('"ethereal-scroll:" + location.pathname') &&
     app.includes('window.addEventListener("pagehide", storeScrollY)') &&
     app.includes("}, 500);") &&
-    app.includes("if (y <= 0) return;"),
+    // 2026-11-19：y<=0 分支由 `return` 改为「清掉旧值再返回」，旧值残留会让
+    // 刷新时按下方位置错误恢复。断言随之改为检查 removeItem。
+    app.includes("if (y <= 0) {") &&
+    app.includes("sessionStorage.removeItem(key)"),
   true,
 );
 
@@ -121,10 +124,17 @@ check(
   );
 }
 check(
-  "R4c 瞬间条（#home-moments-wrap）在门内——visibility 隐藏（避开其 700ms 通用过渡）",
-  /html\.reload-restoring #home-moments-wrap \{ visibility: hidden; \}/.test(
-    cssFlat,
-  ),
+  "R4c 瞬间条（#home-moments-wrap）在门内——opacity:0 + 禁过渡 + 挡指针",
+  // 2026-11-19：visibility:hidden 会暂停内部走马灯动画（显现时跳变），改为
+  // opacity:0 + transition:none!important；opacity 不移除命中测试，故必须
+  // 同时 pointer-events:none（不可见链接仍可点/可 Tab）。
+  /html\.reload-restoring #home-moments-wrap \{ opacity: 0;/.test(cssFlat) &&
+    /html\.reload-restoring #home-moments-wrap \{[^}]*transition: none !important;/.test(
+      cssFlat,
+    ) &&
+    /html\.reload-restoring #home-moments-wrap \{[^}]*pointer-events: none;/.test(
+      cssFlat,
+    ),
   true,
 );
 

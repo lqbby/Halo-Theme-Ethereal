@@ -52,6 +52,11 @@ import { isHomePath } from "../../utils/banner-sync";
     overlay
       .querySelectorAll(".home-wallpaper-card__content > *")
       .forEach(function (el) {
+        // 跳过 #banner-title：它的入场/开关动画由 components.css 的
+        // `.banner-title-enter #banner-title` 管，加 settled（animation:none
+        // !important）会永久压掉那条规则 —— 访客来回切「显示标题」时标题
+        // 再也不会淡入（2026-11-19 ocr 指出）。
+        if (el.id === "banner-title") return;
         el.classList.add("is-motion-settled");
       });
     // 贴纸（含「欢迎访问」--note）同样定格：之前漏掉这一组 ⇒ 贴纸动画既无门控、
@@ -78,6 +83,8 @@ import { isHomePath } from "../../utils/banner-sync";
           e.animationName === "sticker-in" ||
           e.animationName === "note-in")
       ) {
+        // 同样跳过 #banner-title（见 settleEntrance 注释）
+        if (e.target.id === "banner-title") return;
         e.target.classList.add("is-motion-settled");
       }
     });
@@ -95,11 +102,12 @@ import { isHomePath } from "../../utils/banner-sync";
         overlay.classList.add("banner-entrance-ready");
       });
     });
-    // 兜底提前到 1.5s（最长 char-in 700ms + 错峰 delay ≈ 1.3s，留余量）：
-    // 原来 2.5s 窗口太长，期间用户滚动会看到挂起动画在显现时补播。
+    // 兜底 2000ms：最长入场是行内人物 `animation-delay` 1180ms（Minimax）
+    // + char-in 700ms ≈ 1880ms，1500ms 会把它们冻结在半透明状态再硬跳到 1
+    // （2026-11-19 ocr 指出）。
     window.setTimeout(function () {
       settleEntrance(overlay);
-    }, 1500);
+    }, 2000);
   }
 
   // 首页判定统一走 utils/banner-sync 的 isHomePath（本文件旧实现不剥部署
