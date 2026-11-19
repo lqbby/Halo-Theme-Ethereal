@@ -4094,6 +4094,15 @@ body.banner-title-disabled #banner-links,
   visibility: hidden;
 }
 
+/* 🔴 banner-title-enter 期间（入场动画 banner-links-rise 正在跑）不能 visibility:hidden：
+   那是「切标题开关」后立刻滚动（hero-title-faded）的窄窗口，visibility:hidden 会
+   暂停动画、显现时续播/跳变。banner-title-enter 在副标题动画结束后由 wallpaper.ts
+   移除，届时上面的 hero-title-faded 规则恢复生效。
+   特异性同为 (1,2,0)，靠写在后面胜出。 */
+#banner-overlay.banner-title-enter #banner-links {
+  visibility: visible;
+}
+
 /* 链接按钮：半透明白底 + 毛玻璃圆钮，深色壁纸上自然融合；填了名称时由下方
      .banner-link-text 改为「图标 + 名称」胶囊。极轻 box-shadow 兜底浅色/白色壁纸下的
      轮廓辨识（深色壁纸上几乎不可见）。悬浮上浮复用 .social-btn-lift（接入「卡片悬浮
