@@ -42,6 +42,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 独立质量门：类型检查 + 循环依赖。故意不受 version-check 门控 ——
+  # 日常修复不改 theme.yaml 版本号时 build job 会整体跳过（if: trigger=='true'），
+  # 放在 build 里的 pnpm check 就形同虚设。这里每次 push 都跑。
+  lint:
+    name: Lint (types & circular deps)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # astro check：AST 级检查 .astro 模板 + .ts 类型（268 文件当前 0 error / 0 warning）
+      - name: Type check (astro check)
+        run: pnpm check
+
+      # 循环依赖：94 个 ts 文件当前无环，防止后续改动引入
+      - name: Circular dependency check
+        run: npx -y madge --circular --extensions ts src/
+
   # 总是运行（不再按事件跳过，避免静默跳过无法排障）：
   # push 事件检测版本是否增大；手动触发直接放行并输出说明
   version-check:
@@ -80,7 +110,7 @@ jobs:
 
   build:
     name: Build Theme
-    needs: [version-check]
+    needs: [version-check, lint]
     # 手动触发时 trigger 恒为 true；push 时取决于版本检测结果
     if: needs.version-check.outputs.trigger == 'true'
     runs-on: ubuntu-latest
@@ -180,9 +210,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Type check
-        run: pnpm check
-
+      # 类型检查已由上面的 lint job 统一执行（每次 push 都跑、不受版本门控），
+      # 此处不再重复跑 pnpm check，只为构建打包。
       - name: Build & Package
         run: pnpm build
 
