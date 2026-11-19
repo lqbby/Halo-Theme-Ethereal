@@ -194,21 +194,17 @@ export function applyBannerTitle(enabled: boolean): void {
     // 清除 app.ts MutationObserver 固化的内联 opacity/animation，
     // 否则 CSS 入场动画无法重新触发
     const title = document.getElementById("banner-title");
-    const sub = document.getElementById("banner-subtitle-wrapper");
-    for (const el of [title, sub]) {
-      if (el) {
-        el.style.opacity = "";
-        el.style.animation = "";
-      }
+    if (title) {
+      title.style.opacity = "";
+      title.style.animation = "";
     }
     // 添加入场动画 class，动画结束后移除
     const overlay = document.getElementById("banner-overlay");
     if (overlay) {
       overlay.classList.add("banner-title-enter");
-      // 副标题是最后一个入场动画（delay 130ms + 300ms），必须等它结束再移除
-      // banner-title-enter：绑在 overlay 上的 animationend 会因冒泡在标题动画
-      // 结束（~350ms）即触发，提前移除会截断副标题淡入并重触发其动画。
-      // removed 守卫确保只移除一次；setTimeout 兜底防止 reduced-motion 等
+      // 2026-11-19：#banner-subtitle-wrapper 已随 HomeHeroCard 重写移除，
+      // 标题是现在唯一的入场动画目标（delay 50ms + 300ms）。
+      // removed 守卫确保只移除一次；setTimeout 兜底防 reduced-motion 等
       // 无 animationend 事件时 class 残留、阻断下次重新入场。
       let removed = false;
       const doRemove = () => {
@@ -217,20 +213,11 @@ export function applyBannerTitle(enabled: boolean): void {
         overlay.classList.remove("banner-title-enter");
       };
       overlay.addEventListener("animationend", (e) => {
-        if (
-          e.target instanceof HTMLElement &&
-          e.target.id === "banner-subtitle-wrapper"
-        ) {
+        if (e.target instanceof HTMLElement && e.target.id === "banner-title") {
           doRemove();
         }
       });
-      // ⚠️ 移动端（<768px）副标题由 CSS 隐藏（#banner-subtitle-wrapper 的
-      // hidden md:flex），display:none 的元素不跑动画、animationend 永不触发，
-      // 上面的监听形同虚设 → 兜底时长按标题动画收尾（delay 130ms + 300ms + 余量）
-      // 收紧到 500ms，避免 class 在移动端多挂 300ms 影响下次重新入场。
-      const subVisible =
-        !!sub && window.getComputedStyle(sub).display !== "none";
-      setTimeout(doRemove, subVisible ? 800 : 500);
+      setTimeout(doRemove, 500);
     }
   }
 }
