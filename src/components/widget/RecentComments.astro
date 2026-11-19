@@ -198,7 +198,11 @@ const COLLAPSED_HEIGHT = "7.5rem";
     var widgetRoot =
       (document.currentScript && document.currentScript.parentElement) ||
       document;
-    var LIMIT = 5;
+    // 条数交给插件配置（ethereal-companion → 后台「接口设置 → 默认返回条数」）：
+    // 主路径不传 size，让插件用自己的 defaultSize（默认 5，上限 maxSize 默认 20），
+    // 避免「后台改成 8 条、侧栏还是 5 条」的两处配置打架。
+    // 下面的固定值只服务回退路径（插件不可用时没有插件配置可读）。
+    var FALLBACK_LIMIT = 5;
     // 会话缓存：swup 整站切换 / 短时间内重进页面时复用，避免重复请求。
     // 30 秒：侧栏只需「准实时」，但 5 分钟太久——新评论/新审核的评论最多挂 5 分钟才现身，
     // 且 sessionStorage 在同一标签页 F5 不清除，体感远大于标称时长。
@@ -211,14 +215,14 @@ const COLLAPSED_HEIGHT = "7.5rem";
     var permalinkMap = {};
     // 新版 Halo(2.20+) 的 comments 列表接口已废弃「无差别列出全部评论」，
     // 必须按 subject(kind+name) 查。这里改为：拉最近文章 → 只查有评论计数的
-    // → 并发取每篇评论 → 合并按时间排序取前 LIMIT。
+    // → 并发取每篇评论 → 合并按时间排序取前 FALLBACK_LIMIT（仅回退路径用）。
     // 全局最新评论聚合端点（由小插件 recent-comments 提供，1.0.0 起通用化）：
     // 后端一次遍历 Comment 并按 spec.creationTime 倒序截取，同时解析好 permalink，
     // 侧边栏从「1 次 posts + N 次 comments」的 N+1 瀑布压成 1 个请求。
     // 插件未安装 / 未授权时自动回退下面的 posts 瀑布（见 load 的 catch）。
+    // 不带 size：条数以插件后台配置为准（recentComments.defaultSize）。
     var LATEST_API =
-      "/apis/api.recent-comments.halo.run/v1alpha1/comments/latest?size=" +
-      LIMIT;
+      "/apis/api.recent-comments.halo.run/v1alpha1/comments/latest";
     var POSTS_API =
       "/apis/api.content.halo.run/v1alpha1/posts?size=20&sort=metadata.creationTimestamp,desc";
     var listEl = widgetRoot.querySelector("#recent-comments-list");
@@ -764,13 +768,14 @@ const COLLAPSED_HEIGHT = "7.5rem";
             showEmpty();
             return;
           }
-          // 按评论创建时间倒序，取最新的 LIMIT 条
+          // 回退路径：按评论创建时间倒序，取最新的 FALLBACK_LIMIT 条
+          // （插件可用时条数由插件 defaultSize 决定，走不到这里）
           all.sort(function (a, b) {
             var ta = new Date((a.spec && a.spec.creationTime) || 0).getTime();
             var tb = new Date((b.spec && b.spec.creationTime) || 0).getTime();
             return tb - ta;
           });
-          var top = all.slice(0, LIMIT);
+          var top = all.slice(0, FALLBACK_LIMIT);
           // 渲染前把 permalink 固化进评论对象，缓存命中时无需再拉文章列表
           top.forEach(function (c) {
             var sr = c.spec && c.spec.subjectRef;
