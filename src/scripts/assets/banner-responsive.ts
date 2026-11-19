@@ -54,6 +54,13 @@ import { isHomePath } from "../../utils/banner-sync";
       .forEach(function (el) {
         el.classList.add("is-motion-settled");
       });
+    // 贴纸（含「欢迎访问」--note）同样定格：之前漏掉这一组 ⇒ 贴纸动画既无门控、
+    // 又不会被 settle，刷新/滚动隐藏再显现时会重播。
+    overlay
+      .querySelectorAll(".home-wallpaper-sticker")
+      .forEach(function (el) {
+        el.classList.add("is-motion-settled");
+      });
   }
 
   // 每个元素的入场动画结束时立即定格（rainzt 的 animationend 做法）：
@@ -67,7 +74,9 @@ import { isHomePath } from "../../utils/banner-sync";
         e.target instanceof HTMLElement &&
         (e.animationName === "card-in" ||
           e.animationName === "char-in" ||
-          e.animationName === "content-in")
+          e.animationName === "content-in" ||
+          e.animationName === "sticker-in" ||
+          e.animationName === "note-in")
       ) {
         e.target.classList.add("is-motion-settled");
       }

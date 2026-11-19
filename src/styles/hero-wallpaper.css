@@ -38,7 +38,8 @@
    pointer-events: none + visibility: hidden，指针与键盘一起挡。 */
   body.banner-title-disabled .home-wallpaper-card,
   body.banner-title-disabled .chars,
-  body.banner-title-disabled .chars-toggle {
+  body.banner-title-disabled .chars-toggle,
+  body.banner-title-disabled .home-wallpaper-sticker {
     pointer-events: none;
     visibility: hidden;
   }
@@ -52,9 +53,11 @@
   #banner-overlay.banner-text-hidden .home-wallpaper-card,
   #banner-overlay.banner-text-hidden .chars,
   #banner-overlay.banner-text-hidden .chars-toggle,
+  #banner-overlay.banner-text-hidden .home-wallpaper-sticker,
   #banner-overlay.hero-title-faded .home-wallpaper-card,
   #banner-overlay.hero-title-faded .chars,
-  #banner-overlay.hero-title-faded .chars-toggle {
+  #banner-overlay.hero-title-faded .chars-toggle,
+  #banner-overlay.hero-title-faded .home-wallpaper-sticker {
     pointer-events: none;
   }
 
@@ -84,6 +87,16 @@
   }
   #banner-overlay.banner-entrance-ready .char {
     animation: char-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  /* 贴纸入场同门控（2026-11-19 修「欢迎访问」便利贴重播）：
+     原先 .home-wallpaper-sticker / --note 的 animation 无条件生效，且
+     settleEntrance 未覆盖 sticker、bindMotionSettled 不认 sticker-in/note-in
+     ⇒ 刷新或滚动隐藏再显现时贴纸会重跑（note 带 490ms 延迟，更易被中断重播）。 */
+  #banner-overlay.banner-entrance-ready .home-wallpaper-sticker {
+    animation: sticker-in 760ms var(--home-wallpaper-motion-ease) both;
+  }
+  #banner-overlay.banner-entrance-ready .home-wallpaper-sticker--note {
+    animation: note-in 680ms var(--home-wallpaper-motion-ease) 490ms both;
   }
   #banner-overlay .is-motion-settled {
     animation: none !important;
@@ -430,7 +443,9 @@
     min-width: 42px;
     min-height: 42px;
     pointer-events: none;
-    animation: sticker-in 760ms var(--home-wallpaper-motion-ease) both;
+    /* 入场动画默认不跑，改到 banner-entrance-ready 门控下（见文件下方统一块）：
+       原来无条件 animation 让每张贴纸入场自由播放，且 settleEntrance 不覆盖
+       sticker ⇒ 刷新/滚动隐藏再显现时贴纸（尤其「欢迎访问」note）会重跑。 */
   }
   @keyframes sticker-in {
     from {
@@ -592,7 +607,7 @@
     box-shadow: 4px 6px 12px rgba(45, 36, 29, 0.2);
     transform: rotate(4deg);
     inset: calc(50% + 91px) auto auto calc(50% + 158px);
-    animation: note-in 680ms var(--home-wallpaper-motion-ease) 490ms both;
+    /* 同上：note-in 原带 490ms 延迟、条件也不受 settle 管；移到门控块下。 */
   }
   @keyframes note-in {
     from {
