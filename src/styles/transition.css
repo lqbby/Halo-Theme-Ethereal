@@ -279,6 +279,12 @@ html.reload-restoring #banner-wrapper {
   opacity: 0;
 }
 
+/* ⚠️ 原用 visibility:hidden 绕过渡，但 visibility 会**暂停**内部 CSS 动画
+   （home-moments-scroll 40s 无限滚动、home-moments-seam-breathe）——
+   刷新恢复后显现时动画从暂停处续播/跳变，与本轮「刷新后动画异常」同族。
+   改 opacity:0 + 临时禁过渡（摘挂瞬时、不触碰动画），与上方 #main-grid /
+   #banner-wrapper 的 opacity 方案一致。 */
 html.reload-restoring #home-moments-wrap {
-  visibility: hidden;
+  opacity: 0;
+  transition: none !important;
 }
