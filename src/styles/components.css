@@ -1781,6 +1781,18 @@
         backdrop-filter 0.1s ease var(--nav-item-reveal-delay, 0.2s),
         -webkit-backdrop-filter 0.1s ease var(--nav-item-reveal-delay, 0.2s);
     }
+    /* 🔴 测量期间禁止过渡（navbar-collapse.ts 在写 --nav-links-expanded-width
+       前后挂/摘 is-measuring）：宽度变化若走上面那 0.32s 动画，而容器是
+       overflow: visible ⇒ 菜单项溢出到容器外、文字叠在一起，视觉上像在
+       不同菜单项之间乱跳。字体分片陆续 loadingdone 会多次重测，所以改前这个
+       动画会反复播（2026-11-19 用户录屏报「刷新时菜单乱跳」）。 */
+    #navbar.navbar-style-floating-pill .nav-links.is-measuring,
+    #navbar.navbar-style-floating-pill .nav-links.is-measuring .group > a,
+    #navbar.navbar-style-floating-pill
+      .nav-links.is-measuring
+      .dropdown-container {
+      transition: none !important;
+    }
     /* 高级材质开（body.navbar-blur-enabled，访客显示设置 / 主题默认换算，
        与菜单项 / Logo 的玻璃门控同款）：容器玻璃白 30% + blur 24px
        saturate 1.25（rainzt 实测值，展开/顶部态；收拢态透明见 #9）。注意：html[data-advanced-

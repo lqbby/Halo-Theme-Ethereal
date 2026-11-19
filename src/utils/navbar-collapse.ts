@@ -470,6 +470,13 @@ export function remeasureNavbarCollapse(): void {
   });
   if (wasScrolled) nav.classList.add("scrolled");
   if (hadShadow) nav.classList.add("navbar-sticky-shadow");
+  // 🔴 写新宽度前先禁过渡：测量结束后上面已经把 style 恢复（transition 回到
+  // CSS 的 `width 0.32s`），这里再写变量就会触发宽度动画；而容器是
+  // `overflow: visible` ⇒ 动画期间菜单项溢出到容器外、文字叠在一起，看起来
+  // 像在「首页 / 我的 / 数据看板」之间乱跳（2026-11-19 用户录屏）。
+  // 字体分片陆续 loadingdone 会多次触发本函数，所以这个动画会反复播。
+  // 双 rAF 后摘类：等新宽度真正应用完，再恢复过渡（hover 展开仍要动画）。
+  links.classList.add("is-measuring");
   links.style.setProperty("--nav-links-expanded-width", `${expandedWidth}px`);
   links.style.setProperty("--nav-links-compact-width", `${compactWidth}px`);
   markCompactActive(links);
@@ -480,6 +487,9 @@ export function remeasureNavbarCollapse(): void {
     );
   });
   links.classList.add("is-layout-ready");
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => links.classList.remove("is-measuring"));
+  });
   // 换页后菜单项可能换过节点：把当前各项重新交给 ResizeObserver
   observeMenuItems();
 }
