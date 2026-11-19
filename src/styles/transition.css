@@ -249,9 +249,24 @@ html.home-switch.is-rendering .transition-swup-fade {
    var(--dur-banner)）——用 opacity 会有 700ms 渐隐渐显，故改用
    visibility 绕开过渡系统（不在过渡属性表内 ⇒ 摘挂皆即时，且不触碰
    其 translate 过渡链）。 */
-html.reload-restoring #main-grid,
-html.reload-restoring #banner-wrapper {
-  opacity: 0;
+/* ⚠️ 透明布局的 #banner-wrapper 另有一条 `opacity: var(--transparent-wallpaper-opacity)
+   !important`（整屏壁纸，特异性 (1,1,2)），会压掉下面 (1,1,1) 且无 !important 的
+   这条 ⇒ 「全屏透明」下刷新时壁纸层不参与「先藏后显」，与本段声明的硬切换意图相悖。
+   补一条 (1,2,1) 并整条加 !important 才能压回（2026-11-19 特异性扫描发现）。 */
+/* 🔴 必须包在 @layer components 内：components.css 里 transparent 模式的
+   `#banner-wrapper { opacity: var(...) !important }` 是 **layered** 的，而 CSS 规范
+   在 !important 时层叠反转 —— layered 的 !important 胜 unlayered 的 !important。
+   本文件默认 unlayered，直接写 !important 反而**永远输**（实测 computed 停在 0.45，
+   即后台配的壁纸透明度）。同层后按特异性比较，下面第三条 (1,2,1) 才能压住 (1,1,1)。 */
+@layer components {
+  html.reload-restoring #main-grid,
+  html.reload-restoring #banner-wrapper,
+  html.reload-restoring[data-banner-display="transparent"] #banner-wrapper {
+    opacity: 0 !important;
+    /* ⚠️ 模板给 #banner-wrapper 挂了 Tailwind `transition` + `duration-[var(--dur-banner,700ms)]`
+       （整类属性表含 opacity），不显式禁掉的话本门会「淡隐 700ms」而非瞬间藏。 */
+    transition: none !important;
+  }
 }
 
 /* ⚠️ 原用 visibility:hidden 绕过渡，但 visibility 会**暂停**内部 CSS 动画
