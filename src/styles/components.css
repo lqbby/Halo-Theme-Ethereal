@@ -1961,16 +1961,18 @@
        背景/阴影/模糊可以清，但描边要留着（基规则的 oklch 描边），不然
        胶囊轮廓全丢、看着整条导航都透明了。rainzt 的品牌/工具本来就带框。
        仅胶囊模式，classic 不动。 */
-    #navbar.navbar-style-floating-pill.scrolled #navbar-card > a:not(:hover),
+    #navbar.navbar-style-floating-pill.scrolled
+      #navbar-card
+      > a:not(:hover):not(:focus-visible),
     #navbar.navbar-style-floating-pill.scrolled
       #search-bar:not(:hover):not(:focus-within),
     #navbar.navbar-style-floating-pill.scrolled
       .navbar-tools
-      > button:not(:hover),
+      > button:not(:hover):not(:focus-visible),
     #navbar.navbar-style-floating-pill.scrolled
       .navbar-tools
       div.relative.group
-      > button:not(:hover) {
+      > button:not(:hover):not(:focus-visible) {
       background: transparent !important;
       box-shadow: none !important;
       -webkit-backdrop-filter: none !important;

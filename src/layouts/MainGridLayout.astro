@@ -767,14 +767,9 @@ const {
       src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-theme-switch.js?v=${assetVersion("assets/banner-theme-switch.js")}`}
       data-swup-ignore-script
       defer></script>
-    <script
-      th:if="${theme.config?.style?.bannerText == null or theme.config?.style?.bannerText?.subtitleEffect == null or theme.config?.style?.bannerText?.subtitleEffect == 'typewriter'}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-typewriter.js?v=${assetVersion("assets/banner-typewriter.js")}`}
-      defer></script>
-    <script
-      th:if="${theme.config?.style?.bannerText != null and theme.config?.style?.bannerText?.subtitleEffect == 'drop'}"
-      src={`${import.meta.env.BASE_URL.replace(/\/+$/, "")}/assets/banner-drop.js?v=${assetVersion("assets/banner-drop.js")}`}
-      defer></script>
+    <!-- 2026-11-19：banner-typewriter / banner-drop 已移除 —— HomeHeroCard 重写后
+         不再渲染 #banner-subtitle，两者读到的元素恒为 null，属死管线（ocr 评审指出）。
+         副标题现在由 content-in 入场 + is-motion-settled 定格管理。 -->
     <!-- 樱花特效（源码 src/scripts/assets/sakura.ts → 产物 /assets/sakura.js，Web Worker 绘制）。
          门控：后台「样式开关 → 樱花特效」开启 ⇒ 必须加载；否则仅在总开关允许访客切换时加载
          （访客可能自行打开）。脚本自身再按 localStorage 覆盖 + 总开关决定是否真的启动。

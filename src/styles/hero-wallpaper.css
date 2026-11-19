@@ -595,6 +595,14 @@
     letter-spacing: 0.06em;
     pointer-events: auto;
   }
+  /* 🔴 全屏 / 全屏透明模式下 navbar 固定在顶部（z-50、高约 4.5rem），而角色
+     开关 top:16px、z-index:20 正好落在 navbar 带里 ⇒ 被导航条盖住、点不到
+     （2026-11-19 ocr 指出）。下移到 navbar 之下；横幅模式 banner 本就在下方，
+     不冲突，保持 16px。 */
+  html[data-banner-display="fullscreen"] .chars-toggle,
+  html[data-banner-display="transparent"] .chars-toggle {
+    top: calc(var(--navbar-height, 4.5rem) + 12px);
+  }
   .chars-toggle__track {
     position: relative;
     width: 38px;
