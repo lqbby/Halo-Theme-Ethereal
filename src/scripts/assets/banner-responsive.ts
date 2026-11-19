@@ -113,8 +113,8 @@ import { isHomePath } from "../../utils/banner-sync";
     var overlay = getEl("banner-overlay");
     if (!overlay) return;
     if (!isHomePath()) {
-      // 非首页：淡出
-      overlay.classList.add("banner-text-hidden");
+      // 非首页：瞬间隐藏（不走 700ms 过渡 —— 否则整块 hero 淡出会被当成刷新）
+      setHiddenInstant(overlay, true);
       return;
     }
 
