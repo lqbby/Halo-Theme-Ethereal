@@ -33,7 +33,31 @@
       function finish() {
         if (done) return;
         done = true;
+        // 摘类瞬间必须「硬切换」：#home-moments-wrap 带 Tailwind 通用 transition
+        // （属性表含 opacity、时长 var(--dur-banner) 700ms），摘类后 opacity 0→1
+        // 会走 700ms 淡入 —— 观感就是刷新后走马灯「闪一下」。临时禁过渡、摘类、
+        // 强制重排让 opacity:1 立即生效，再还原，与 banner 的 setHiddenInstant 同套路。
+        // 摘类必须「硬切换」：home-moments-wrap / main-grid / banner-wrapper 都带
+        // Tailwind 通用 transition（属性表含 opacity、时长 var(--dur-banner) 700ms），
+        // 摘类后 opacity 0→1 会走 700ms 淡入 ⇒ 走马灯、摇一摇图标带、整个主内容区
+        // 都会「闪一下」。统一临时禁过渡 → 摘类 → 强制重排（让 opacity:1 立即生效）→ 还原。
+        var targets = [
+          document.getElementById("home-moments-wrap"),
+          document.getElementById("main-grid"),
+          document.getElementById("banner-wrapper"),
+        ].filter(function (el) {
+          return !!el;
+        });
+        var prevTransitions = targets.map(function (el) {
+          var p = el.style.transition;
+          el.style.transition = "none";
+          return p;
+        });
         root.classList.remove("reload-restoring");
+        targets.forEach(function (el, i) {
+          void el.offsetWidth;
+          el.style.transition = prevTransitions[i];
+        });
       }
       function stopChase() {
         chaseDone = true;
