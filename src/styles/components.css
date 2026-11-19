@@ -4049,19 +4049,17 @@ body.banner-title-disabled #banner-links,
   visibility: hidden;
 }
 
-/* 🔴 banner-title-enter 期间（入场动画 banner-links-rise 正在跑）不能 visibility:hidden：
-   那是「切标题开关」后立刻滚动（hero-title-faded）的窄窗口，visibility:hidden 会
-   暂停动画、显现时续播/跳变。banner-title-enter 在副标题动画结束后由 wallpaper.ts
-   移除，届时上面的 hero-title-faded 规则恢复生效。
-   特异性同为 (1,2,0)，靠写在后面胜出。 */
-#banner-overlay.banner-title-enter #banner-links {
-  visibility: visible;
-}
+/* 2026-11-19：此处原有一条 `#banner-overlay.banner-title-enter #banner-links
+   { visibility: visible }`（feab2d0 加的），用于「切标题开关后立刻滚动」窗口
+   避免 visibility 暂停 banner-links-rise。但 #banner-links 已随 HomeHeroCard
+   重写彻底不存在（模板零引用、线上首页 0 个），那条是给幻影元素打的补丁，已删。
+   ⚠️ 上方整块 #banner-links / .banner-link 样式目前均为死码（旧版 banner 遗留），
+   待确认不再回滚旧 hero 后可整段移除。 */
 
 /* 链接按钮：半透明白底 + 毛玻璃圆钮，深色壁纸上自然融合；填了名称时由下方
      .banner-link-text 改为「图标 + 名称」胶囊。极轻 box-shadow 兜底浅色/白色壁纸下的
-     轮廓辨识（深色壁纸上几乎不可见）。悬浮上浮复用 .social-btn-lift（接入「卡片悬浮
-     效果」开关、桌面端生效），此处只管外观与悬停变色 */
+    轮廓辨识（深色壁纸上几乎不可见）。悬浮上浮复用 .social-btn-lift（接入「卡片悬浮
+    效果」开关、桌面端生效），此处只管外观与悬停变色 */
 .banner-link {
   display: inline-flex;
   align-items: center;

@@ -1,3 +1,7 @@
+<!-- data-banner-title-default 只跟 bannerText.enable 走（2026-11-19）：
+     原式还要求 title 或 subtitles 非空才判「启用」，但 HomeHeroCard 已改为自带
+     硬编码标题、不再读这两项 ⇒ 标题留空的站点会被误判 disabled、整卡被
+     visibility:hidden 隐藏（新装/重置配置必中）。 -->
 <div
   id="config-carrier"
   th:data-hue="${theme.config?.style?.themeColor?.hue}"
@@ -12,7 +16,7 @@
   th:data-banner-display-default="${#strings.defaultString(theme.config?.layout?.bannerLayout?.displayMode, 'banner')}"
   th:data-fullscreen-layout-default="${theme.config?.layout?.bannerLayout?.fullscreenLayout ?: 'classic'}"
   th:data-visitor-effects="${theme.config?.layout?.mobileMenu?.visitorStyle?.effects != false}"
-  th:data-banner-title-default="${theme.config?.style?.bannerText?.enable != false and (!#strings.isEmpty(theme.config?.style?.bannerText?.title) or !#strings.isEmpty(theme.config?.style?.bannerText?.subtitles))}"
+  th:data-banner-title-default="${theme.config?.style?.bannerText?.enable != false}"
   th:data-wave-default="${theme.config?.style?.styleSwitches?.banner_wave != false and theme.config?.style?.styleSwitches?.banner_wave != 'disabled'}"
   th:data-card-hover-lift="${theme.config?.style?.styleSwitches?.card_hover_lift != false}"
   th:data-sakura-default="${theme.config?.style?.styleSwitches?.sakura == true}"

@@ -532,7 +532,11 @@
     width: auto;
     pointer-events: none;
   }
-  .char.dragging {
+  /* 🔴 必须带 #banner-overlay 提特异性：入场门控
+     `#banner-overlay.banner-entrance-ready .char` 是 (1,1,0)，裸 `.char.dragging`
+     只有 (0,2,0) ⇒ 拖动时的 animation:none 被压掉、入场期间根本拖不动
+     （2026-11-19 Standards 轴评审指出）。 */
+  #banner-overlay .char.dragging {
     cursor: grabbing;
     /* 拖动时关掉入场动画（ocr 真 bug A4）：char-in 填充（both）优先于行内
      transform，transform='none' 是空操作；关掉动画后行内 transform 才能生效。 */
@@ -787,7 +791,10 @@
       left: min(calc(50% + 163px), calc(100vw - 40px));
       top: calc(50% - 10px);
     }
-    .home-wallpaper-sticker--note {
+    /* 🔴 必须带门控前缀：上面 :119 的门控规则是 (1,2,0)，裸 `.home-wallpaper-sticker--note`
+       只有 (0,1,0) 会被压掉 ⇒ 移动端的 note-in-mobile 与 translateX(-50%) 都不生效，
+       便签贴到 left:50% 偏移处（2026-11-19 Standards 轴评审指出）。 */
+    #banner-overlay.banner-entrance-ready .home-wallpaper-sticker--note {
       inset: 8% auto auto 50% !important;
       width: min(116px, 31vw);
       min-height: 54px;
