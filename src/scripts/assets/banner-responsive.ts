@@ -93,12 +93,6 @@ import { isHomePath } from "../../utils/banner-sync";
     }, 1500);
   }
 
-  // 用户是否操作过页面（window 级，Swup 重执行脚本时不重置）：
-  // 刷新恢复滚动发生在用户操作之前，以此区分“恢复”与“用户下滑”。
-  function userHasInteracted() {
-    return !!window.__bannerUserInteracted;
-  }
-
   // 首页判定统一走 utils/banner-sync 的 isHomePath（本文件旧实现不剥部署
   // base 路径，带 base 部署时首页会被误判成非首页、横幅标题被误隐藏；
   // isHomePath 是 Layout/app.ts 同源的权威实现，勿再本地复制一份）
@@ -142,20 +136,16 @@ import { isHomePath } from "../../utils/banner-sync";
         document.dispatchEvent(new CustomEvent("banner:visible"));
       }
     } else {
-      // 🔴 隐藏即定格入场动画（2026-11-19 修「刷新后首次滚动人物贴纸/内容重播」）：
-      // 入场动画靠 animationend 加 is-motion-settled，但移动端部分 .char 是
-      // display:none（按断点只显示少数人物）、动画根本不启动 ⇒ 永远不触发
-      // animationend，settled 加不上、动画挂起在起始帧（opacity 0 / 位移未归位）。
-      // 用户首次滚动把 overlay 隐藏、再滚回顶部显现时，这些挂起动画才继续跑，
-      // 观感就是「标题版内容和人物贴纸又刷新/重播一次」。
-      // 修法：只要开始隐藏就立即 settle，显现时一律终态，动画只跑一次。
+      // 🔴 隐藏一律瞬间（2026-11-19 修电脑端「首次滚动标题版/人物又刷新一次」）：
+      // 原实现 userHasInteracted() 为真时走 overlay.classList.add(banner-text-hidden)
+      // ⇒ overlay 的 opacity 有 700ms 过渡，而卡片/人物/标题都是 overlay 的子元素，
+      // 祖先 opacity 渐变会让**整块 hero 区域淡出一次**（实测滚动时 opacity
+      // 1→0.97→0.87→0.73→…→0.01 持续约 700ms），观感就是「内容和人物贴纸又刷新
+      // 一遍」。而 banner 此刻本就已随滚动移出视口，淡出毫无意义。
+      // 统一改 setHiddenInstant（瞬间隐藏、不走过渡），显现/隐藏都即时定档，
+      // 首次滚动与后续滚动行为一致。
       settleEntrance(overlay);
-      if (!userHasInteracted()) {
-        // 刷新恢复滚动位置导致的隐藏：直接隐藏（不走淡出）
-        setHiddenInstant(overlay, true);
-      } else {
-        overlay.classList.add("banner-text-hidden");
-      }
+      setHiddenInstant(overlay, true);
     }
   }
 
@@ -255,22 +245,8 @@ import { isHomePath } from "../../utils/banner-sync";
       { passive: true },
     );
 
-    // 标记用户首次操作（刷新恢复滚动先于任何用户操作发生）。
-    var markInteracted = function () {
-      window.__bannerUserInteracted = true;
-    };
-    window.addEventListener("pointerdown", markInteracted, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("wheel", markInteracted, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("touchstart", markInteracted, {
-      once: true,
-      passive: true,
-    });
-    window.addEventListener("keydown", markInteracted, { once: true });
+    // 注：原 markInteracted（pointerdown/wheel/touchstart/keydown → 标记用户交互，
+    // 用来让「用户滚动隐藏」走 700ms 淡出、区分刷新恢复）已随「隐藏一律瞬间」
+    // 一并移除 —— 正是它让滚轮滚动也走淡出、整块 hero 淡出一次看着像刷新。
   }
 })();
