@@ -503,6 +503,33 @@ function initCustomScrollbar() {
       // 用户交互戳：捕获 → 恢复帧之间只要用户动过（wheel/touchmove/keydown
       // 都会刷新 lastUserScrollAt），恢复就可能与用户意图抢位置，一并放弃。
       const interactionAtCapture = lastUserScrollAt;
+      // 🔴 移动 DOM 前先「定格」动画（2026-11-19 修「第一次滚轮时动态元素重放/重置」）：
+      // OverlayScrollbars 初始化会 appendChild 把 body 全部子元素搬进滚动容器，
+      // Chrome 对被移动且**仍在播放**的 CSS 动画会重建动画对象 → 从头重放。原保护
+      // 只覆盖 fade-in-up / slide-in-up（onload-animation），card-in / char-in /
+      // sticker-in / note-in / content-in / featured-pulse / ethereal-wave / 骨架脉冲
+      // 等全部漏网。这里统一处理：
+      //   · 有限时长动画 → finish() 直接落到终态（入场动画均 fill:both，finish 即定格），
+      //     移动后无动画可重放；
+      //   · 无限循环动画（走马灯 / 旋转图标 / 脉冲）无法 finish → 记录当前进度，
+      //     mount 完成后给新建的动画对象回填等效 currentTime，视觉上从原处继续。
+      const infiniteAnims: Array<{ el: Element; at: number }> = [];
+      document.getAnimations().forEach((a) => {
+        try {
+          const timing = a.effect?.getComputedTiming?.();
+          const iterations = timing?.iterations ?? 1;
+          if (iterations === Infinity) {
+            const target = (a.effect as KeyframeEffect)?.target;
+            if (target && typeof a.currentTime === "number") {
+              infiniteAnims.push({ el: target, at: a.currentTime });
+            }
+          } else if (a.playState === "running") {
+            a.finish();
+          }
+        } catch {
+          /* 已取消 / 无 effect 的动画 finish 会抛，忽略 */
+        }
+      });
       OverlayScrollbars(
         { target: bodyElement, cancel: { nativeScrollbarsOverlaid: true } },
         {
@@ -526,6 +553,27 @@ function initCustomScrollbar() {
           },
         },
       );
+      // 无限动画回填：DOM 被搬动后动画对象重建、从头开始；用等效 currentTime
+      // 回填，走马灯从原位置继续、旋转/脉冲也保持相位。
+      if (infiniteAnims.length > 0) {
+        requestAnimationFrame(() => {
+          document.getAnimations().forEach((a) => {
+            try {
+              const timing = a.effect?.getComputedTiming?.();
+              if (timing?.iterations !== Infinity) return;
+              const target = (a.effect as KeyframeEffect)?.target;
+              if (!target) return;
+              const rec = infiniteAnims.find((r) => r.el === target);
+              if (!rec) return;
+              const dur =
+                typeof timing.duration === "number" ? timing.duration : 0;
+              if (dur > 0) a.currentTime = rec.at % dur;
+            } catch {
+              /* ignore */
+            }
+          });
+        });
+      }
       if (scrollYBefore !== null) {
         requestAnimationFrame(() => {
           // 捕获 → 恢复之间发生过换页/回顶复位（纪元变化）⇒ 旧位置已无意义，
