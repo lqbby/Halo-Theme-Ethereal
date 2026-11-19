@@ -86,10 +86,11 @@ import { isHomePath } from "../../utils/banner-sync";
         overlay.classList.add("banner-entrance-ready");
       });
     });
-    // 兜底：2.5 秒后全部定格（animationend 万一没触发也不重跑）。
+    // 兜底提前到 1.5s（最长 char-in 700ms + 错峰 delay ≈ 1.3s，留余量）：
+    // 原来 2.5s 窗口太长，期间用户滚动会看到挂起动画在显现时补播。
     window.setTimeout(function () {
       settleEntrance(overlay);
-    }, 2500);
+    }, 1500);
   }
 
   // 用户是否操作过页面（window 级，Swup 重执行脚本时不重置）：
@@ -141,6 +142,14 @@ import { isHomePath } from "../../utils/banner-sync";
         document.dispatchEvent(new CustomEvent("banner:visible"));
       }
     } else {
+      // 🔴 隐藏即定格入场动画（2026-11-19 修「刷新后首次滚动人物贴纸/内容重播」）：
+      // 入场动画靠 animationend 加 is-motion-settled，但移动端部分 .char 是
+      // display:none（按断点只显示少数人物）、动画根本不启动 ⇒ 永远不触发
+      // animationend，settled 加不上、动画挂起在起始帧（opacity 0 / 位移未归位）。
+      // 用户首次滚动把 overlay 隐藏、再滚回顶部显现时，这些挂起动画才继续跑，
+      // 观感就是「标题版内容和人物贴纸又刷新/重播一次」。
+      // 修法：只要开始隐藏就立即 settle，显现时一律终态，动画只跑一次。
+      settleEntrance(overlay);
       if (!userHasInteracted()) {
         // 刷新恢复滚动位置导致的隐藏：直接隐藏（不走淡出）
         setHiddenInstant(overlay, true);
