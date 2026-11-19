@@ -143,11 +143,15 @@ import { isHomePath } from "../../utils/banner-sync";
     var wasHidden = overlay.classList.contains("banner-text-hidden");
     var rect = wrapper.getBoundingClientRect();
     if (rect.bottom >= MIN_BANNER_HEIGHT) {
+      // 状态未变（本来就可见）⇒ 直接返回：否则滚动监听里每帧都会重写
+      // style.transition + void offsetWidth 强制重排（2026-11-19 ocr 指出）。
+      if (!wasHidden && overlay.dataset.visSettled === "v") return;
       // 显现即终态（rainzt 做法）：入场动画只在首次加载开一次，跑完每个元素
       // 都已 is-motion-settled（animation: none !important、opacity: 1）；
       // 刷新时在下方则 initVisibility 已立即定格，显现时直接是终态，
       // 不用再加类禁动画，也不会重跑、不会闪。
       setHiddenInstant(overlay, false);
+      overlay.dataset.visSettled = "v";
       // 从隐藏变为可见时，通知打字机/下坠脚本重新初始化
       if (wasHidden) {
         document.dispatchEvent(new CustomEvent("banner:visible"));
@@ -161,8 +165,13 @@ import { isHomePath } from "../../utils/banner-sync";
       // 一遍」。而 banner 此刻本就已随滚动移出视口，淡出毫无意义。
       // 统一改 setHiddenInstant（瞬间隐藏、不走过渡），显现/隐藏都即时定档，
       // 首次滚动与后续滚动行为一致。
+      // 已隐藏且已定格 ⇒ 状态无变化，跳过：settleEntrance 的 3× querySelectorAll
+      // + setHiddenInstant 的强制重排若每帧都跑，会落在滚动热路径上（ocr 指出）。
+      if (wasHidden && overlay.dataset.entranceSettled === "1") return;
       settleEntrance(overlay);
       setHiddenInstant(overlay, true);
+      overlay.dataset.entranceSettled = "1";
+      delete overlay.dataset.visSettled;
     }
   }
 
