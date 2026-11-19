@@ -51,13 +51,16 @@ pnpm install
 | `settings.yaml`                           | 后台主题设置表单                                                                                                                    |
 | `theme.yaml`                              | 主题元信息，**`version` 字段禁止修改**                                                                                              |
 | `i18n/`                                   | 多语言文案                                                                                                                          |
-| `templates/` / `dist/` / `public/assets/` | 构建产物（勿手改，会被构建覆盖）                                                                                                    |
+| `templates/` / `dist/` / `public/assets/*.js` | 构建产物（勿手改，会被构建覆盖）                                                                                                                 |
+| `public/assets/images/`                   | 手放的静态图片（demo 头图/角色图/图标/纹理），**不是**构建产物，可直接增删                                                                                                               |
 
 ## 代码约定
 
 ### `src/` 是唯一真源
 
-`templates/` 是 `astro build` 的产物，`dist/` 是 `pnpm package` 打出的发布 zip，`public/assets/` 是经典脚本的编译产物，**三者都是构建生成，手动修改无效**。要改就改 `src/` 后重新构建。
+`templates/` 是 `astro build` 的产物，`dist/` 是 `pnpm package` 打出的发布 zip，`public/assets/*.js` 是经典脚本的编译产物，**三者都是构建生成，手动修改无效**。要改就改 `src/` 后重新构建。
+
+⚠️ `public/assets/images/` 是**例外**：它是手放的静态图片（demo 头像/横幅、hero 角色图、图标、纹理 SVG），不经编译、构建时原样拷贝。所以图片请直接放进这个目录、改引用路径即可，不需要经过 `src/`。
 
 同理，根目录 `README-Halo.md` 是 `scripts/convert-readme.mjs` 从 README.md 生成的降级版（Halo 应用市场渲染器不支持 `<picture>` 徽章），已进 `.gitignore` 不提交、勿手改；改徽章只改 README.md 源文件后跑 `pnpm readme:halo` 重新生成。
 
