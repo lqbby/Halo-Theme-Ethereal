@@ -781,5 +781,17 @@
     .chars * {
       animation: none !important;
     }
+    /* 🔴 动画被禁用时必须一并解除「门控前 opacity:0」：reduce 下没有动画、
+       不会产生 animationend 兜底，若 banner-entrance-ready 因脚本异常未加，
+       卡片/人物/贴纸会永久隐形（整块 hero 空白）。reduce 用户本就不要入场
+       动画，直接给终态。 */
+    #banner-overlay:not(.banner-entrance-ready) .home-wallpaper-card,
+    #banner-overlay:not(.banner-entrance-ready)
+      .home-wallpaper-card__content
+      > *,
+    #banner-overlay:not(.banner-entrance-ready) .char,
+    #banner-overlay:not(.banner-entrance-ready) .home-wallpaper-sticker {
+      opacity: 1;
+    }
   }
 }
