@@ -76,7 +76,14 @@
   #banner-overlay:not(.banner-entrance-ready)
     .home-wallpaper-card__content
     > *:not(.is-motion-settled),
-  #banner-overlay:not(.banner-entrance-ready) .char:not(.is-motion-settled) {
+  #banner-overlay:not(.banner-entrance-ready) .char:not(.is-motion-settled),
+  /* 🔴 贴纸也必须门控前隐藏（2026-11-19 修「便利贴比卡片早出现、随后消失重播」）：
+     上一轮把 sticker 的 animation 移进 banner-entrance-ready 后，门控生效前
+     它没有动画、按基础 opacity:1 直接可见（实测 334ms 就可见），等 JS 加类
+     （≈670ms）才激活 note-in → 从 0 开始 → 先闪一下再重播，比原来更糟。
+     与 card/char 同规则：门控前一律 opacity:0，只有动画开始才淡入。 */
+  #banner-overlay:not(.banner-entrance-ready)
+    .home-wallpaper-sticker:not(.is-motion-settled) {
     opacity: 0;
   }
   #banner-overlay.banner-entrance-ready .home-wallpaper-card {
