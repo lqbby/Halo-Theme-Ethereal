@@ -417,36 +417,8 @@ if (!window.__navbarScrollGlassBound) {
 
   updateNavbarScrolled();
 }
-// Banner 胶囊磨砂「滚动让行」：.banner-link 的 backdrop-filter 在滚动期间需
-// 逐帧重采样背衬（整屏壁纸），合成跟不上、表现为滚到按钮时磨砂迟到。滚动
-// 期间给 <html> 挂 .is-scrolling（components.css 据此临时关掉 .banner-link
-// 的 backdrop-filter，半透明底 + 描边保留呈静态胶囊）；停稳 120ms 后摘除
-// 状态类、磨砂恢复，静止观感零改动。与上方导航栏玻璃同为 window scroll
-// 监听，独立守卫、互不干扰；Swup 换页不重载文档、监听无需重绑，换页完成
-// 时兜底清一次状态，避免滚动中途换页把状态类残留在新页面（定时器本也会
-// 在 120ms 后清，此处只是双保险）
-if (!window.__bannerFrostScrollBound) {
-  window.__bannerFrostScrollBound = true;
-
-  var frostScrollStopTimer = 0;
-
-  function clearFrostScrollState() {
-    if (frostScrollStopTimer) {
-      window.clearTimeout(frostScrollStopTimer);
-      frostScrollStopTimer = 0;
-    }
-    document.documentElement.classList.remove("is-scrolling");
-  }
-
-  window.addEventListener(
-    "scroll",
-    function () {
-      document.documentElement.classList.add("is-scrolling");
-      if (frostScrollStopTimer) window.clearTimeout(frostScrollStopTimer);
-      frostScrollStopTimer = window.setTimeout(clearFrostScrollState, 120);
-    },
-    { passive: true },
-  );
-
-  onPageView("banner-frost-scroll", clearFrostScrollState);
-}
+// 2026-11-19：原「Banner 胶囊磨砂滚动让行」段（给 <html> 挂 .is-scrolling、
+// 120ms 后摘除）已整段删除 —— 它唯一服务对象是 .banner-link 的 backdrop-filter，
+// 而 #banner-links / .banner-link 随 HomeHeroCard 重写已整体移除、无任何元素命中。
+// 注意：CategoryBar 的 .category-scroll.is-scrolling 是挂在滚动容器上的同名类、
+// 由组件自己的脚本管理（200ms），与本段无关，不受影响。

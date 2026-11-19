@@ -884,27 +884,8 @@
     animation-timing-function: ease;
     animation-fill-mode: forwards;
   }
-  /* 链接行：容器**只做位移**，淡入交给每个胶囊自己（见 transition.css 的
-     banner-links-rise 注释）。若给本容器 animate opacity，祖先 Backdrop Root 会
-     让胶囊的 backdrop-filter 采样不到壁纸 ⇒ 磨砂迟到到动画结束才出现（用户报）。 */
-  .banner-title-enter #banner-links {
-    animation-name: banner-links-rise;
-    animation-duration: var(--dur-entry, 300ms);
-    animation-timing-function: ease;
-    animation-fill-mode: both;
-  }
-  .banner-title-enter #banner-links > .banner-link {
-    animation-name: banner-link-fade;
-    animation-duration: var(--dur-entry, 300ms);
-    animation-timing-function: ease;
-    animation-fill-mode: backwards;
-  }
   .banner-title-enter #banner-title {
     animation-delay: min(50ms, var(--dur-entry-max, 400ms));
-  }
-  .banner-title-enter #banner-links,
-  .banner-title-enter #banner-links > .banner-link {
-    animation-delay: min(210ms, var(--dur-entry-max, 400ms));
   }
 
   /* 向下滚动箭头仅全屏模式显示（原 th:if fullscreen，改 CSS 门控） */
@@ -971,10 +952,10 @@
     opacity: var(--transparent-wallpaper-opacity, 0.8) !important;
   }
 
-  /* 壁纸层本体点击穿透（见上）；层内真正可点的元素单独恢复：视频暂停按钮与横幅链接。 */
+  /* 壁纸层本体点击穿透（见上）；层内真正可点的元素单独恢复：视频暂停按钮。
+     （原还含 #banner-links a —— 该链接行已随 HomeHeroCard 重写移除，2026-11-19 删） */
   html[data-banner-display="transparent"] #banner-play-btn,
-  html[data-banner-display="transparent"] #banner-play-btn-mobile,
-  html[data-banner-display="transparent"] #banner-links a {
+  html[data-banner-display="transparent"] #banner-play-btn-mobile {
     pointer-events: auto !important;
   }
 
@@ -4026,99 +4007,9 @@ html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
   }
 }
 
-
-/* 首页 Banner 链接行（bannerText.links）：#banner-overlay 整体是 pointer-events:none，
-     本行单独恢复可点击。三种「隐藏态」（访客关闭标题 / 非首页淡出 / hero 滚动淡到半透明
-     以下）必须一并禁用——overlay 隐藏只改 opacity，元素仍占位，否则会出现"看不见却可点"
-     的热区（hero 淡化态由 fullscreen-hero.js 按透明度阈值切换 hero-title-faded 类） */
-#banner-links {
-  pointer-events: auto;
-}
-
-/* 条目全部被过滤（都缺 url 或既无图标又无名称）时容器不占位，避免残留 mt-5 间距 */
-#banner-links:empty {
-  display: none;
-}
-
-body.banner-title-disabled #banner-links,
-#banner-overlay.banner-text-hidden #banner-links,
-#banner-overlay.hero-title-faded #banner-links {
-  pointer-events: none;
-  /* 指针之外一并挡键盘：三态下链接靠父层 opacity 隐形，只挡指针时
-     仍可被 Tab 聚焦并回车触发（模板注释「避免不可见却可点」只兑现了一半） */
-  visibility: hidden;
-}
-
-/* 2026-11-19：此处原有一条 `#banner-overlay.banner-title-enter #banner-links
-   { visibility: visible }`（feab2d0 加的），用于「切标题开关后立刻滚动」窗口
-   避免 visibility 暂停 banner-links-rise。但 #banner-links 已随 HomeHeroCard
-   重写彻底不存在（模板零引用、线上首页 0 个），那条是给幻影元素打的补丁，已删。
-   ⚠️ 上方整块 #banner-links / .banner-link 样式目前均为死码（旧版 banner 遗留），
-   待确认不再回滚旧 hero 后可整段移除。 */
-
-/* 链接按钮：半透明白底 + 毛玻璃圆钮，深色壁纸上自然融合；填了名称时由下方
-     .banner-link-text 改为「图标 + 名称」胶囊。极轻 box-shadow 兜底浅色/白色壁纸下的
-    轮廓辨识（深色壁纸上几乎不可见）。悬浮上浮复用 .social-btn-lift（接入「卡片悬浮
-    效果」开关、桌面端生效），此处只管外观与悬停变色 */
-.banner-link {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 9999px;
-  font-size: 1.25rem;
-  color: rgba(255, 255, 255, 0.92);
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition:
-    background-color 0.25s ease,
-    color 0.25s ease,
-    transform 0.2s ease;
-}
-
-/* 滚动让行（navbar.ts 在滚动期间给 <html> 挂 .is-scrolling，停稳 120ms
-   摘除）：backdrop-filter 需逐帧重采样背衬（整屏壁纸 + 波浪动画），滚动
-   时合成跟不上、表现为磨砂迟到。滚动期间临时关掉磨砂，半透明底 + 描边
-   保留呈静态胶囊；状态类摘除后磨砂恢复，静止观感与无本规则时一致 */
-html.is-scrolling .banner-link {
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-}
-
-/* 🔴 2026-10-11 修复「显示错误」：以下 4 条规则在主线从未写入（v1.7.0 包A 移植时
-   只落了圆钮基样式），而模板在填了名称的条目上会追加 .banner-link-text 类 ⇒
-   胶囊不生效、图标+文字挤在 44px 圆钮里互相重叠（首次配置 banner 链接即暴露）。
-   自上游 v2.0.0（ethereal-up2 components.css §banner-link）逐条移植。 */
-.banner-link:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.26);
-}
-
-.banner-link:active {
-  transform: scale(0.95);
-}
-
-/* 内联 SVG（iconify）跟随按钮文字色：SVG 未声明 fill 时默认黑色，必须显式指定；
-   尺寸固定 1.25rem（20px，同 .banner-link 的字号）——不能写 1em：1em 会跟随
-   .banner-link-text 的 0.9rem 字号缩小，导致「图标 + 名称」胶囊的图标比纯图标
-   按钮小一圈（后台不开放图标尺寸设置） */
-.banner-link svg {
-  width: 1.25rem;
-  height: 1.25rem;
-  fill: currentColor;
-}
-
-/* 带名称时的胶囊形态（图标 + 文字）：名称填了即显示 */
-.banner-link-text {
-  width: auto;
-  padding: 0 1rem;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-}
+/* 2026-11-19：旧版 Banner 链接行（#banner-links / .banner-link / .banner-link-text）
+   已随 HomeHeroCard 重写整体移除 —— 模板零引用、线上首页 0 个，全部为死码。
+   若要恢复旧 hero，请从 git 历史 commit f1780fb 取回。 */
 
 /* 弹层滚动锁：锁 html 不锁 body（原因见 utils/scroll-lock.ts）；!important 用于压过
    自定义滚动条写在 html 上的 overflow-y: var(--os-viewport-overflow-y)。 */
