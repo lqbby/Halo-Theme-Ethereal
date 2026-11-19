@@ -3953,25 +3953,31 @@ html[data-banner-display="fullscreen"]
       var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1)) !important;
 }
 
-html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
-  body.is-home.navbar-blur-enabled
-  .navbar-blur {
-  background-color: transparent !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-  box-shadow: none !important;
-  border-bottom-color: transparent !important;
-}
+/* 🔴 必须包在 @layer components 内（2026-11-19 层叠扫描发现）：
+   磨砂段 `:root.dark body.navbar-blur-enabled .navbar-blur`（本文件 :1200）位于
+   @layer components 内，而 CSS 规范在 !important 时层叠反转 —— layered 的
+   !important 胜 unlayered 的 !important。本段原本 unlayered，特异性 (0,5,2)
+   再高也赢不了 (0,4,1) 的 layered 规则，四条声明全部失效。
+   实测：暗色 + 全屏 + 未滚动时 backdrop-filter 仍是 saturate(1.8) blur(20px)，
+   期望为 none（原注释「其余属性上方规则已胜出」的假设不成立）。 */
+@layer components {
+  html[data-banner-display="fullscreen"]:not(.navbar-scrolled)
+    body.is-home.navbar-blur-enabled
+    .navbar-blur {
+    background-color: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    box-shadow: none !important;
+    border-bottom-color: transparent !important;
+  }
 
-/* 暗色补丁：上方规则的 background-color 特异性 (0,5,2) 低于暗色「卡片磨砂」段的
-     `:root.dark[...][...] body.navbar-blur-enabled .navbar-blur` (0,6,1)，暗色下顶部会被
-     磨砂段涂回半透明底（表现为「顶部仍有背景、但模糊/阴影已清掉」）。本条的 :root.dark
-     前缀把特异性抬到 (0,7,1) 压过磨砂段；仅需声明 background-color（其余属性上方规则
-     已胜出）。滚动后 .navbar-scrolled 使两条都不命中，磨砂段继续提供玻璃底 */
-:root.dark[data-banner-display="fullscreen"]:not(.navbar-scrolled)
-  body.is-home.navbar-blur-enabled
-  .navbar-blur {
-  background-color: transparent !important;
+  /* 暗色补丁：抬特异性压过暗色磨砂段的 background-color。原为 unlayered，
+     同样受上面说的 layer 反转影响而失效，一并纳入本层。 */
+  :root.dark[data-banner-display="fullscreen"]:not(.navbar-scrolled)
+    body.is-home.navbar-blur-enabled
+    .navbar-blur {
+    background-color: transparent !important;
+  }
 }
 
 /* ==========================================================================
