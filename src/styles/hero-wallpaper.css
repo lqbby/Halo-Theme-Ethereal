@@ -38,7 +38,17 @@
    pointer-events: none + visibility: hidden，指针与键盘一起挡。 */
   body.banner-title-disabled .home-wallpaper-card,
   body.banner-title-disabled .chars,
-  body.banner-title-disabled .chars-toggle,
+  body.banner-title-disabled .chars-toggle {
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  /* 滚动隐藏 / 全屏淡出时只禁指针、不设 visibility（2026-11-19 哥哥要完美方案）：
+     visibility: hidden 会暂停 card-in / char-in / content-in，显现时重跑、
+     闪一下；改成只 pointer-events: none 后，动画只在首次加载跑一次、
+     跑完即终态，显现时直接出现，不再重跑、不再闪。视觉隐藏由 overlay
+     自身 opacity: 0 承担；键盘焦点由 JS 的 inert 属性挡（见 banner-responsive
+     的 setHiddenInstant 与 app.ts 的 syncBannerOverlay），不靠 visibility。 */
   #banner-overlay.banner-text-hidden .home-wallpaper-card,
   #banner-overlay.banner-text-hidden .chars,
   #banner-overlay.banner-text-hidden .chars-toggle,
@@ -46,7 +56,38 @@
   #banner-overlay.hero-title-faded .chars,
   #banner-overlay.hero-title-faded .chars-toggle {
     pointer-events: none;
-    visibility: hidden;
+  }
+
+  /* 入场动画只在 overlay 有 banner-entrance-ready 时才跑（2026-11-19 哥哥说
+     还是会闪、问 rainzt 怎么做，照 rainzt 的做法改）：
+     rainzt 的 home-wallpaper-decor 入场动画只挂在 .is-ready 下，JS 只加一次；
+     每个元素动画结束时（animationend）加 is-motion-settled，之后 animation:
+     none !important、opacity: 1 !important，永久定格，滚动显隐再怎么翻都
+     不重跑、不闪。之前 1493–1499 都是“动画默认跑、显现时加类禁”，再怎么调
+     时机都有口子；这次反过来，默认不跑、JS 只开一次、跑完永久禁掉。
+     卡片/人物/内容默认 opacity 0（等 JS 加类才显现），避免首帧先闪一下终态；
+     若刷新时已在下方（overlay 起始隐藏），JS 立即给它们加 is-motion-settled，
+     显现时直接是终态，不跑入场动画。 */
+  #banner-overlay:not(.banner-entrance-ready)
+    .home-wallpaper-card:not(.is-motion-settled),
+  #banner-overlay:not(.banner-entrance-ready)
+    .home-wallpaper-card__content
+    > *:not(.is-motion-settled),
+  #banner-overlay:not(.banner-entrance-ready) .char:not(.is-motion-settled) {
+    opacity: 0;
+  }
+  #banner-overlay.banner-entrance-ready .home-wallpaper-card {
+    animation: card-in 760ms var(--home-wallpaper-motion-ease) 80ms both;
+  }
+  #banner-overlay.banner-entrance-ready .home-wallpaper-card__content > * {
+    animation: content-in 520ms var(--home-wallpaper-motion-ease) both;
+  }
+  #banner-overlay.banner-entrance-ready .char {
+    animation: char-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  #banner-overlay .is-motion-settled {
+    animation: none !important;
+    opacity: 1 !important;
   }
 
   /* ===== rainzt 卡片（平时模式数值） ===== */
@@ -80,7 +121,6 @@
     color: rgba(255, 250, 243, 0.96);
     isolation: isolate;
     pointer-events: auto;
-    animation: card-in 760ms var(--home-wallpaper-motion-ease) 80ms both;
   }
   @keyframes card-in {
     from {
@@ -131,9 +171,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-  }
-  .home-wallpaper-card__content > * {
-    animation: content-in 520ms var(--home-wallpaper-motion-ease) both;
   }
   .home-wallpaper-card__avatar-wrap {
     animation-delay: 210ms;
@@ -430,7 +467,6 @@
     -webkit-user-select: none;
     user-select: none;
     transform: translate(var(--tx, 0px), 0) rotate(var(--rot, 0deg));
-    animation: char-in 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
   @keyframes char-in {
     from {

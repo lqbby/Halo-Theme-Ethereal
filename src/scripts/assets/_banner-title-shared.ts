@@ -40,8 +40,12 @@ export function initBannerSubtitle(instanceKey, createEffect, onElementReady) {
   // 仍会持续占用主线程。断点须与上面的 Tailwind md 断点（768px）保持一致。
   if (window.matchMedia("(max-width: 767.98px)").matches) return;
   if (el[instanceKey]) {
-    el[instanceKey].destroy();
-    delete el[instanceKey];
+    // 实例已存在时不销毁重建（2026-11-19 哥哥报，壁纸界面刷新仍触发）：
+    // banner:visible 每次显现都重建会让副标题重打/重落，标题卡片看起来
+    // 又过渡一次；实例一直在跑、显现时沿用即可，不必重启。
+    // 只有从未建过实例（加载时 overlay 隐藏、初始化被 isBannerTextHidden
+    // 挡回）才继续往下建。
+    return;
   }
   if (onElementReady) onElementReady(el);
   var lines = readBannerSubtitleLines();

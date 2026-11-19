@@ -680,7 +680,14 @@ function syncBannerOverlay() {
     overlay.style.display = "";
   }
   const wasHidden = overlay.classList.contains("banner-text-hidden");
-  overlay.classList.toggle("banner-text-hidden", !isHomePath());
+  const shouldHide = !isHomePath();
+  overlay.classList.toggle("banner-text-hidden", shouldHide);
+  // 键盘焦点用 inert 挡（与 banner-responsive 的 setHiddenInstant 同理）：
+  // 卡片与人物不再用 visibility: hidden（会暂停入场动画、显现时重跑），
+  // 改 pointer-events: none + inert，动画只跑一次、键盘也点不到。
+  // 显现即终态靠 is-motion-settled（rainzt 做法）：入场动画只在首次加载
+  // 开一次、跑完逐项定格，Swup 切回首页显现时不用再加类禁动画。
+  overlay.toggleAttribute("inert", shouldHide);
   if (isHomePath() && wasHidden) {
     document.dispatchEvent(new CustomEvent("banner:visible"));
   }
@@ -1767,11 +1774,14 @@ let scrollStoreTimer = 0;
 function storeScrollY(): void {
   try {
     const y = Math.round(window.scrollY);
-    if (y <= 0) return;
-    sessionStorage.setItem(
-      "ethereal-scroll:" + location.pathname,
-      JSON.stringify({ y, t: Date.now() }),
-    );
+    const key = "ethereal-scroll:" + location.pathname;
+    if (y <= 0) {
+      // 回到顶部时清掉旧值：否则刷新会按旧的下方位置恢复（2026-11-19 哥哥报：
+      // 滚到顶部刷新却定位到下面）。不清则旧值一直残留，刷新永远落在下面。
+      sessionStorage.removeItem(key);
+      return;
+    }
+    sessionStorage.setItem(key, JSON.stringify({ y, t: Date.now() }));
   } catch {
     /* ignore */
   }

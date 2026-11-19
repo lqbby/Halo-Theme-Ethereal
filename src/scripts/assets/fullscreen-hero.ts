@@ -249,10 +249,22 @@ import { readDurBannerMs } from "../../utils/dur-banner";
 
   // 标题由隐藏变可见时（banner:visible：app.ts 的标题显现 / syncBannerOverlay、
   // banner-responsive 的滚动兜底都会派发）立即同步：标题 translateY 须按当前滚动
-  // 位置归位 —— 吃 rAF 节流的 refresh 晚一帧，标题会先出现在上一轮遗留的位置
+  // 位置归位 —— 吃 rAF 节流的 refresh 晚一帧，标题会先出现在上一轮遗留的位置。
+  // 显现时 opacity 须立即归位、不走 700ms 过渡（2026-11-19 哥哥报，1495 未修好）：
+  // 刷新后滚动回顶部，writeTitle 按 scrollY 写内联 opacity，CSS 过渡会让它
+  // 700ms 淡入、卡片与人物跟着再过渡一次；先禁过渡、写完再恢复。
+  // 正常滚动时的 sync 不走这里，斜坡淡入仍保留过渡。
   document.addEventListener("banner:visible", () => {
     cachedMaxBlur = null;
-    sync();
+    var overlay = document.getElementById("banner-overlay");
+    if (overlay) {
+      overlay.style.transition = "none";
+      sync();
+      void overlay.offsetWidth;
+      overlay.style.transition = "";
+    } else {
+      sync();
+    }
   });
 
   sync(); // 初始同步（浏览器可能恢复了上次的滚动位置）

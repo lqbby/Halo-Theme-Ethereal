@@ -28,11 +28,68 @@ import { isHomePath } from "../../utils/banner-sync";
   }
 
   // 不走过渡直接定档显隐：临时关掉 transition、改类、强制重排、恢复。
+  // 同时用 inert 挡键盘焦点（2026-11-19 哥哥要完美方案）：卡片与人物不再用
+  // visibility: hidden（那会暂停 card-in / char-in / content-in，显现时重跑、
+  // 闪一下），改 pointer-events: none + inert，动画只跑一次、键盘也点不到。
   function setHiddenInstant(overlay, hidden) {
     overlay.style.transition = "none";
     overlay.classList.toggle("banner-text-hidden", hidden);
+    overlay.toggleAttribute("inert", hidden);
     void overlay.offsetWidth;
     overlay.style.transition = "";
+  }
+
+  // 入场动画定格（rainzt 做法，2026-11-19 哥哥问 rainzt 怎么做）：
+  // 给卡片、全部人物、卡片内层每一项加 is-motion-settled，CSS 设
+  // animation: none !important、opacity: 1 !important，永久定格；
+  // 之后任何显现路径都不会再重跑入场动画、不再闪。
+  function settleEntrance(overlay) {
+    var card = overlay.querySelector(".home-wallpaper-card");
+    if (card) card.classList.add("is-motion-settled");
+    overlay.querySelectorAll(".char").forEach(function (el) {
+      el.classList.add("is-motion-settled");
+    });
+    overlay
+      .querySelectorAll(".home-wallpaper-card__content > *")
+      .forEach(function (el) {
+        el.classList.add("is-motion-settled");
+      });
+  }
+
+  // 每个元素的入场动画结束时立即定格（rainzt 的 animationend 做法）：
+  // 只绑一次；动画名是 card-in / char-in / content-in 的才定格，
+  // 别的动画（如 hover）不受影响。
+  function bindMotionSettled(overlay) {
+    if (overlay.dataset.motionCleanupBound === "true") return;
+    overlay.dataset.motionCleanupBound = "true";
+    overlay.addEventListener("animationend", function (e) {
+      if (
+        e.target instanceof HTMLElement &&
+        (e.animationName === "card-in" ||
+          e.animationName === "char-in" ||
+          e.animationName === "content-in")
+      ) {
+        e.target.classList.add("is-motion-settled");
+      }
+    });
+  }
+
+  // 只开一次入场动画（rainzt 的 reveal 做法）：双 rAF 后给 overlay 加
+  // banner-entrance-ready，CSS 才挂上 card-in / char-in / content-in；
+  // revealBound 守卫保证只开一次，之后滚动显隐、Swup 切页都不会再开。
+  function revealEntrance(overlay) {
+    if (overlay.dataset.revealBound === "true") return;
+    overlay.dataset.revealBound = "true";
+    bindMotionSettled(overlay);
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        overlay.classList.add("banner-entrance-ready");
+      });
+    });
+    // 兜底：2.5 秒后全部定格（animationend 万一没触发也不重跑）。
+    window.setTimeout(function () {
+      settleEntrance(overlay);
+    }, 2500);
   }
 
   // 用户是否操作过页面（window 级，Swup 重执行脚本时不重置）：
@@ -74,9 +131,10 @@ import { isHomePath } from "../../utils/banner-sync";
     var wasHidden = overlay.classList.contains("banner-text-hidden");
     var rect = wrapper.getBoundingClientRect();
     if (rect.bottom >= MIN_BANNER_HEIGHT) {
-      // 显现一律直接显示，不走 opacity 过渡：祖先 opacity<1 会形成
-      // Backdrop Root，卡片/开关的 backdrop-filter 采不到壁纸，磨砂要等
-      // 700ms 淡入结束才出现（用户报滚回顶部磨砂迟到）。淡出仍走过渡。
+      // 显现即终态（rainzt 做法）：入场动画只在首次加载开一次，跑完每个元素
+      // 都已 is-motion-settled（animation: none !important、opacity: 1）；
+      // 刷新时在下方则 initVisibility 已立即定格，显现时直接是终态，
+      // 不用再加类禁动画，也不会重跑、不会闪。
       setHiddenInstant(overlay, false);
       // 从隐藏变为可见时，通知打字机/下坠脚本重新初始化
       if (wasHidden) {
@@ -113,12 +171,17 @@ import { isHomePath } from "../../utils/banner-sync";
   })();
 
   // 首帧定档：载入时已在下方滚动位置，直接隐藏、不走过渡
+  // （rainzt 做法）：在下方则立即定格入场动画，显现时直接是终态；
+  // 在顶部则只开一次入场动画（revealEntrance），跑完逐项定格。
   (function initVisibility() {
     var overlay = getEl("banner-overlay");
     var wrapper = getEl("banner-wrapper");
     if (!overlay || !wrapper || !isHomePath()) return;
     if (wrapper.getBoundingClientRect().bottom < MIN_BANNER_HEIGHT) {
       setHiddenInstant(overlay, true);
+      settleEntrance(overlay);
+    } else {
+      revealEntrance(overlay);
     }
   })();
 
